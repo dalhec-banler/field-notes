@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'db/database.dart';
+import 'db/seed.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(FieldNotesApp(db: FieldNotesDb()));
+  final db = FieldNotesDb();
+  // First-run species library; never blocks the UI (spec: offline-first, no
+  // startup gates).
+  seedTaxaIfEmpty(db);
+  runApp(FieldNotesApp(db: db));
 }
 
 class FieldNotesApp extends StatelessWidget {
