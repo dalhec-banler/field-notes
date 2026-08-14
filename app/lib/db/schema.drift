@@ -1,0 +1,570 @@
+-- Field Notes schema — docs/SPEC.md §4 is the contract.
+-- Only approved deviation: properties.land_tenure (DECISIONS.md D-004).
+-- Conventions (§4.1): UUIDv7 TEXT PKs, ISO-8601 UTC timestamps + local_tz,
+-- GeoJSON TEXT + denormalized lat/lng, TEXT CHECK enums, deleted_at tombstones.
+
+-- §4.2 Identity and access -------------------------------------------------
+
+CREATE TABLE profiles (
+  id            TEXT PRIMARY KEY NOT NULL,
+  display_name  TEXT NOT NULL,
+  email         TEXT,
+  avatar_media_id TEXT,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+
+CREATE TABLE properties (
+  id            TEXT PRIMARY KEY NOT NULL,
+  name          TEXT NOT NULL,
+  description   TEXT,
+  county        TEXT,
+  state         TEXT,
+  country       TEXT DEFAULT 'US',
+  acreage       REAL,
+  land_tenure   TEXT NOT NULL DEFAULT 'owned'
+                CHECK (land_tenure IN ('owned','leased','public','collection_site','other')),
+  boundary_geojson TEXT,             -- Polygon/MultiPolygon
+  centroid_lat  REAL,
+  centroid_lng  REAL,
+  default_share_mode TEXT NOT NULL DEFAULT 'fuzzed'
+                CHECK (default_share_mode IN ('precise','fuzzed','zone_only')),
+  fuzz_radius_m INTEGER DEFAULT 500,
+  created_by    TEXT NOT NULL,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  deleted_at    TEXT
+);
+
+CREATE TABLE memberships (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL REFERENCES properties(id),
+  profile_id    TEXT NOT NULL REFERENCES profiles(id),
+  role          TEXT NOT NULL
+                CHECK (role IN ('steward','ranger','scout','naturalist','guest')),
+  invited_by    TEXT,
+  accepted_at   TEXT,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  deleted_at    TEXT,
+  UNIQUE (property_id, profile_id)
+);
+
+CREATE TABLE invites (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL REFERENCES properties(id),
+  token         TEXT NOT NULL UNIQUE,
+  role          TEXT NOT NULL,
+  email         TEXT,                -- null = open link
+  share_mode    TEXT,                -- for guest links
+  expires_at    TEXT,
+  max_uses      INTEGER,
+  use_count     INTEGER NOT NULL DEFAULT 0,
+  revoked_at    TEXT,
+  created_by    TEXT NOT NULL,
+  created_at    TEXT NOT NULL
+);
+
+-- §4.3 Spatial framework ---------------------------------------------------
+
+CREATE TABLE zones (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL REFERENCES properties(id),
+  parent_zone_id TEXT REFERENCES zones(id),
+  name          TEXT NOT NULL,
+  code          TEXT,                -- e.g. 'SFS-S3'
+  zone_type     TEXT CHECK (zone_type IN
+                 ('riparian','upland','xeric','wetland','woodland','grassland',
+                  'pasture','wet_depression','developed','other')),
+  geojson       TEXT NOT NULL,       -- Polygon
+  area_acres    REAL,
+  color_hex     TEXT,
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+-- User-extensible registry. Seed with defaults; users add their own.
+CREATE TABLE feature_types (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT,                -- NULL = global seed type
+  key           TEXT NOT NULL,       -- 'spring','guzzler','erosion_zone'...
+  label         TEXT NOT NULL,
+  feature_class TEXT NOT NULL
+                CHECK (feature_class IN ('natural','infrastructure','problem')),
+  icon          TEXT,
+  default_geometry TEXT
+                CHECK (default_geometry IN ('point','line','polygon')),
+  tracks_condition INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL
+);
+
+CREATE TABLE features (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL REFERENCES properties(id),
+  zone_id       TEXT REFERENCES zones(id),
+  feature_type_id TEXT NOT NULL REFERENCES feature_types(id),
+  name          TEXT,
+  geojson       TEXT NOT NULL,       -- Point, LineString, or Polygon
+  lat           REAL, lng REAL,      -- centroid, denormalized
+  installed_on  TEXT,                -- for infrastructure
+  retired_on    TEXT,
+  current_condition TEXT CHECK (current_condition IN
+                 ('good','fair','poor','critical','unknown')),
+  attributes_json TEXT,              -- type-specific: flow_rate_gpm, capacity_gal...
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE feature_condition_logs (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  feature_id    TEXT NOT NULL REFERENCES features(id),
+  observed_at   TEXT NOT NULL,
+  condition     TEXT NOT NULL,
+  measurements_json TEXT,            -- flow, depth, headcut advance in cm...
+  action_taken  TEXT,
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+-- §4.4 Species library -----------------------------------------------------
+
+CREATE TABLE taxa (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT,                -- NULL = global/shared taxon
+  scientific_name TEXT NOT NULL,
+  common_name   TEXT,
+  family        TEXT,
+  rank          TEXT DEFAULT 'species',
+  growth_form   TEXT CHECK (growth_form IN
+                 ('tree','shrub','forb','graminoid','vine','succulent',
+                  'fern','moss','other')),
+  nativity      TEXT CHECK (nativity IN
+                 ('native','introduced','invasive','cultivated','unknown')),
+  gbif_key      TEXT,
+  inat_taxon_id TEXT,
+  usda_plants_symbol TEXT,
+  itis_tsn      TEXT,
+  notes         TEXT,
+  is_favorite   INTEGER NOT NULL DEFAULT 0,   -- surfaces in quick-pick
+  created_by TEXT, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE INDEX idx_taxa_sci ON taxa(scientific_name);
+CREATE INDEX idx_taxa_common ON taxa(common_name);
+
+-- §4.11 Environmental context (before observations: FK target) -------------
+
+CREATE TABLE env_contexts (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  lat REAL NOT NULL, lng REAL NOT NULL,
+  resolved_for  TEXT NOT NULL,       -- date this context describes
+  temp_c        REAL,
+  temp_min_c REAL, temp_max_c REAL,
+  precip_24h_mm REAL,
+  precip_7d_mm  REAL,
+  precip_30d_mm REAL,
+  precip_90d_mm REAL,
+  days_since_rain INTEGER,
+  gdd_base10_ytd REAL,
+  soil_mukey    TEXT,
+  soil_series   TEXT,
+  soil_texture  TEXT,
+  soil_drainage_class TEXT,
+  soil_ph       REAL,
+  source_json   TEXT,
+  fetched_at    TEXT,
+  is_stale      INTEGER NOT NULL DEFAULT 0,   -- created offline, needs backfill
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+
+-- §4.5 Observations ----------------------------------------------------------
+
+CREATE TABLE observations (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL REFERENCES properties(id),
+  zone_id       TEXT REFERENCES zones(id),      -- auto-assigned by point-in-polygon
+  feature_id    TEXT REFERENCES features(id),   -- optional: observed at/about a feature
+  observed_at   TEXT NOT NULL,
+  local_tz      TEXT NOT NULL,
+  lat           REAL NOT NULL,
+  lng           REAL NOT NULL,
+  gps_accuracy_m REAL,
+  altitude_m    REAL,
+  heading_deg   REAL,
+  observation_type TEXT NOT NULL DEFAULT 'general' CHECK (observation_type IN
+                 ('general','plant','wildlife','problem','water','soil',
+                  'phenology','sign','weather','maintenance')),
+  taxon_id      TEXT REFERENCES taxa(id),
+  taxon_confidence TEXT CHECK (taxon_confidence IN
+                 ('certain','probable','uncertain','unidentified')),
+  count_estimate INTEGER,
+  phenology     TEXT CHECK (phenology IN
+                 ('vegetative','budding','flowering','fruiting','seeding',
+                  'senescent','dormant','dead')),
+  is_suggestion INTEGER NOT NULL DEFAULT 0,   -- naturalist-role submissions
+  accepted_at   TEXT,
+  accepted_by   TEXT,
+  notes         TEXT,
+  env_context_id TEXT REFERENCES env_contexts(id),
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE INDEX idx_obs_prop_time ON observations(property_id, observed_at DESC);
+CREATE INDEX idx_obs_bbox ON observations(property_id, lat, lng);
+CREATE INDEX idx_obs_taxon ON observations(taxon_id);
+
+-- §4.6 Identification provenance --------------------------------------------
+
+CREATE TABLE identification_suggestions (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  observation_id TEXT NOT NULL REFERENCES observations(id),
+  source        TEXT NOT NULL CHECK (source IN
+                 ('plantnet','on_device','llm_rerank','human','manual')),
+  source_detail TEXT,                -- model name/version, flora/project used
+  suggested_taxon_id TEXT REFERENCES taxa(id),
+  suggested_name TEXT NOT NULL,      -- raw string as returned
+  score         REAL,                -- 0..1
+  rank_position INTEGER,
+  reasoning     TEXT,                -- LLM re-rank rationale, shown to user
+  raw_response_json TEXT,
+  accepted      INTEGER NOT NULL DEFAULT 0,
+  created_by TEXT, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+-- §4.7 Propagation lineage ---------------------------------------------------
+
+CREATE TABLE source_plants (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  taxon_id      TEXT REFERENCES taxa(id),
+  label         TEXT NOT NULL,       -- 'Riverbank willow #3'
+  lat REAL, lng REAL,
+  zone_id       TEXT REFERENCES zones(id),
+  is_on_property INTEGER NOT NULL DEFAULT 1,
+  origin_notes  TEXT,                -- 'Terlingua, 2019' — offsite provenance
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE collection_events (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  source_plant_id TEXT REFERENCES source_plants(id),
+  collected_on  TEXT NOT NULL,
+  material_type TEXT NOT NULL CHECK (material_type IN
+                 ('hardwood_cutting','softwood_cutting','semi_hardwood_cutting',
+                  'seed','sucker','division','layer','transplant','scion')),
+  quantity      INTEGER,
+  collector     TEXT,
+  lat REAL, lng REAL,
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE propagation_batches (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  collection_event_id TEXT REFERENCES collection_events(id),
+  taxon_id      TEXT REFERENCES taxa(id),
+  batch_code    TEXT,                -- user-facing label, e.g. 'M-07'
+  started_on    TEXT NOT NULL,
+  method        TEXT CHECK (method IN
+                 ('water_rooting','perlite_coir','direct_stick','flood_tray',
+                  'cold_moist_strat','warm_strat','scarification','direct_sow','other')),
+  container     TEXT,                -- 'Stuewe D40 deepot'
+  medium        TEXT,
+  location      TEXT,                -- 'indoor bench, ebb-and-flow'
+  count_started INTEGER,
+  count_current INTEGER,
+  status        TEXT CHECK (status IN
+                 ('active','rooted','hardening','planted_out','failed','archived')),
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE batch_events (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  batch_id      TEXT NOT NULL REFERENCES propagation_batches(id),
+  occurred_at   TEXT NOT NULL,
+  event_type    TEXT NOT NULL CHECK (event_type IN
+                 ('check','water','fertilize','pot_up','treat','mortality',
+                  'root_check','move','harden_off','note')),
+  count_delta   INTEGER,             -- negative for mortality
+  count_after   INTEGER,
+  measurements_json TEXT,
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+-- §4.8 Plantings and survival ------------------------------------------------
+-- Survival rate is derived, never stored (§4.8).
+
+CREATE TABLE planting_events (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  zone_id       TEXT REFERENCES zones(id),
+  taxon_id      TEXT REFERENCES taxa(id),
+  planted_on    TEXT NOT NULL,
+  stock_source  TEXT NOT NULL CHECK (stock_source IN
+                 ('own_propagation','purchased_container','purchased_bareroot',
+                  'direct_seed','volunteer','transplant_onsite')),
+  batch_id      TEXT REFERENCES propagation_batches(id),   -- lineage link
+  vendor        TEXT,
+  lot_code      TEXT,
+  count_planted INTEGER NOT NULL,
+  spacing_m     REAL,
+  protection    TEXT CHECK (protection IN
+                 ('none','welded_wire_cage','tree_tube','fencing','mulch_only','other')),
+  geojson       TEXT,                -- Point or Polygon for the planting area
+  lat REAL, lng REAL,
+  planting_notes TEXT,
+  env_context_id TEXT REFERENCES env_contexts(id),
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE plants (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  planting_event_id TEXT NOT NULL REFERENCES planting_events(id),
+  tag_code      TEXT,                -- physical tag; the real identity
+  lat REAL, lng REAL,
+  gps_accuracy_m REAL,
+  current_status TEXT NOT NULL DEFAULT 'alive' CHECK (current_status IN
+                 ('alive','dead','missing','dormant','browsed','declining','removed')),
+  last_checked_at TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT,
+  UNIQUE (property_id, tag_code)
+);
+
+CREATE TABLE plant_checkins (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  plant_id      TEXT REFERENCES plants(id),
+  planting_event_id TEXT REFERENCES planting_events(id),  -- cohort-level check
+  checked_at    TEXT NOT NULL,
+  status        TEXT NOT NULL,
+  count_alive   INTEGER,             -- for cohort-level checks
+  count_dead    INTEGER,
+  height_cm     REAL,
+  dbh_cm        REAL,
+  canopy_width_cm REAL,
+  vigor         TEXT CHECK (vigor IN ('excellent','good','fair','poor','dead')),
+  browse_pressure TEXT CHECK (browse_pressure IN ('none','light','moderate','severe')),
+  phenology     TEXT,
+  protection_intact INTEGER,
+  notes         TEXT,
+  env_context_id TEXT REFERENCES env_contexts(id),
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT,
+  CHECK (plant_id IS NOT NULL OR planting_event_id IS NOT NULL)
+);
+
+-- §4.9 Photo points ----------------------------------------------------------
+
+CREATE TABLE photo_points (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  zone_id       TEXT REFERENCES zones(id),
+  name          TEXT NOT NULL,
+  lat REAL NOT NULL, lng REAL NOT NULL,
+  bearing_deg   REAL NOT NULL,
+  camera_height_cm REAL,
+  subject       TEXT,                -- 'looking downstream at willow planting'
+  cadence_days  INTEGER,             -- reminder interval
+  next_due_on   TEXT,
+  reference_media_id TEXT,           -- the anchor frame for ghost overlay
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE photo_point_visits (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  photo_point_id TEXT NOT NULL REFERENCES photo_points(id),
+  visited_at    TEXT NOT NULL,
+  actual_lat REAL, actual_lng REAL,
+  actual_bearing_deg REAL,
+  alignment_score REAL,              -- optional, if we compute frame similarity
+  notes         TEXT,
+  env_context_id TEXT REFERENCES env_contexts(id),
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+-- §4.10 Media ----------------------------------------------------------------
+
+CREATE TABLE media (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  media_type    TEXT NOT NULL CHECK (media_type IN ('photo','audio','video')),
+  local_path    TEXT,
+  remote_path   TEXT,
+  thumb_path    TEXT,
+  sha256        TEXT,                -- dedupe
+  bytes         INTEGER,
+  width INTEGER, height INTEGER,
+  duration_ms   INTEGER,
+  captured_at   TEXT,
+  lat REAL, lng REAL,
+  heading_deg   REAL,
+  exif_json     TEXT,
+  transcript    TEXT,                -- voice notes; audio is never discarded
+  upload_state  TEXT NOT NULL DEFAULT 'local'
+                CHECK (upload_state IN ('local','queued','uploaded','failed')),
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE media_links (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  media_id      TEXT NOT NULL REFERENCES media(id),
+  entity_type   TEXT NOT NULL CHECK (entity_type IN
+                 ('observation','plant_checkin','planting_event','feature',
+                  'feature_condition_log','photo_point_visit','propagation_batch',
+                  'batch_event','collection_event','detection','property','zone')),
+  entity_id     TEXT NOT NULL,
+  role          TEXT DEFAULT 'attachment'
+                CHECK (role IN ('attachment','primary','reference','before','after')),
+  sort_order    INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE INDEX idx_media_links_entity ON media_links(entity_type, entity_id);
+
+-- §4.12 Devices and detections (Phase 2 — tables built now) ------------------
+
+CREATE TABLE devices (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  device_type   TEXT NOT NULL CHECK (device_type IN
+                 ('bioacoustic','trail_camera','weather_station','soil_sensor',
+                  'water_level','other')),
+  label         TEXT NOT NULL,
+  make_model    TEXT,
+  serial        TEXT,
+  config_json   TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE deployments (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  device_id     TEXT NOT NULL REFERENCES devices(id),
+  zone_id       TEXT REFERENCES zones(id),
+  feature_id    TEXT REFERENCES features(id),
+  lat REAL NOT NULL, lng REAL NOT NULL,
+  bearing_deg   REAL,
+  height_cm     REAL,
+  started_at    TEXT NOT NULL,
+  ended_at      TEXT,
+  settings_json TEXT,
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE detections (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  deployment_id TEXT NOT NULL REFERENCES deployments(id),
+  detected_at   TEXT NOT NULL,
+  taxon_id      TEXT REFERENCES taxa(id),
+  raw_label     TEXT NOT NULL,
+  confidence    REAL,
+  model_name    TEXT,                -- 'BirdNET-Go 2.x', 'SpeciesNet'
+  model_version TEXT,
+  media_id      TEXT REFERENCES media(id),
+  clip_offset_ms INTEGER,
+  verified_by   TEXT,
+  verified_at   TEXT,
+  verification  TEXT CHECK (verification IN ('confirmed','rejected','uncertain')),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE INDEX idx_det_deploy_time ON detections(deployment_id, detected_at DESC);
+
+-- §4.13 Tracks ---------------------------------------------------------------
+
+CREATE TABLE tracks (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  started_at    TEXT NOT NULL,
+  ended_at      TEXT,
+  distance_m    REAL,
+  purpose       TEXT,
+  geojson       TEXT,                -- LineString, simplified on save
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE track_points (
+  id            TEXT PRIMARY KEY NOT NULL,
+  track_id      TEXT NOT NULL REFERENCES tracks(id),
+  recorded_at   TEXT NOT NULL,
+  lat REAL NOT NULL, lng REAL NOT NULL,
+  accuracy_m REAL, altitude_m REAL, speed_mps REAL
+);
+
+-- §4.14 Cost-share practice tracking -----------------------------------------
+
+CREATE TABLE programs (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  name          TEXT NOT NULL,       -- 'USDA-NRCS EQIP', 'TPWD PUB'
+  agency        TEXT,
+  contract_ref  TEXT,
+  contact_name  TEXT,
+  contact_email TEXT,
+  starts_on TEXT, ends_on TEXT,
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE practices (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  program_id    TEXT REFERENCES programs(id),
+  practice_code TEXT,                -- NRCS code, e.g. '315','338','645'
+  name          TEXT NOT NULL,
+  zone_id       TEXT REFERENCES zones(id),
+  planned_amount REAL,
+  completed_amount REAL,
+  unit          TEXT,                -- 'acres','feet','each'
+  planned_start TEXT, due_on TEXT, completed_on TEXT,
+  status        TEXT CHECK (status IN
+                 ('planned','in_progress','complete','certified','cancelled')),
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+
+CREATE TABLE practice_activities (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  practice_id   TEXT NOT NULL REFERENCES practices(id),
+  occurred_on   TEXT NOT NULL,
+  activity_type TEXT,                -- 'herbicide','seeding','planting','fencing'
+  amount        REAL,
+  unit          TEXT,
+  cost_usd      REAL,
+  contractor    TEXT,
+  linked_entity_type TEXT,           -- optional link to planting_event etc.
+  linked_entity_id   TEXT,
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
