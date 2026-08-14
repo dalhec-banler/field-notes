@@ -74,8 +74,10 @@ void main() {
     );
   });
 
-  test('ids are UUIDv7 and time-ordered', () {
+  test('ids are UUIDv7 and time-ordered across milliseconds', () async {
     final a = newId();
+    // v7 is time-ordered at millisecond granularity; intra-ms order is random.
+    await Future<void>.delayed(const Duration(milliseconds: 2));
     final b = newId();
     expect(a, matches(RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-')));
     expect(a.compareTo(b), lessThan(0));
