@@ -5,3 +5,4 @@ app/.flutter-plugins*
 app/.packages
 *.iml
 .DS_Store
+docs/basemap/

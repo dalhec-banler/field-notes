@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'db/database.dart';
 import 'db/seed.dart';
+import 'map/map_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,7 +44,18 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Field Notes')),
+      appBar: AppBar(
+        title: const Text('Field Notes'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.map_outlined),
+            tooltip: 'Map',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MapScreen()),
+            ),
+          ),
+        ],
+      ),
       body: StreamBuilder<List<Property>>(
         stream: db.select(db.properties).watch(),
         builder: (context, snapshot) {
