@@ -11,6 +11,7 @@ import 'export/exporter.dart';
 import 'map/map_screen.dart';
 import 'screens/capture_screen.dart';
 import 'screens/feed_screen.dart';
+import 'screens/kml_import_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -211,8 +212,28 @@ class PropertyScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.map_outlined),
             title: const Text('Map'),
+            onTap: () async {
+              // Re-read: a KML import may have set the boundary after this
+              // screen captured its property snapshot.
+              final fresh = await (db.select(db.properties)
+                    ..where((p) => p.id.equals(property.id)))
+                  .getSingle();
+              if (!context.mounted) return;
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MapScreen(db: db, property: fresh),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.upload_file_outlined),
+            title: const Text('Import KML/KMZ'),
+            subtitle: const Text('Boundary, zones, pins'),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MapScreen()),
+              MaterialPageRoute(
+                builder: (_) => KmlImportScreen(db: db, property: property),
+              ),
             ),
           ),
           ListTile(

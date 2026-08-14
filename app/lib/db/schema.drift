@@ -88,7 +88,9 @@ CREATE TABLE zones (
 CREATE TABLE feature_types (
   id            TEXT PRIMARY KEY NOT NULL,
   property_id   TEXT,                -- NULL = global seed type
-  key           TEXT NOT NULL,       -- 'spring','guzzler','erosion_zone'...
+  -- SQL name stays `key` per the §4 contract; quoted because it's reserved in
+  -- drift's grammar (unquoted it was silently dropped from codegen).
+  "key"         TEXT NOT NULL AS typeKey,  -- 'spring','guzzler','erosion_zone'...
   label         TEXT NOT NULL,
   feature_class TEXT NOT NULL
                 CHECK (feature_class IN ('natural','infrastructure','problem')),

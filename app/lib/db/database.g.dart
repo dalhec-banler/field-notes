@@ -3532,6 +3532,17 @@ class FeatureTypes extends Table with TableInfo<FeatureTypes, FeatureType> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _typeKeyMeta = const VerificationMeta(
+    'typeKey',
+  );
+  late final GeneratedColumn<String> typeKey = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
   static const VerificationMeta _labelMeta = const VerificationMeta('label');
   late final GeneratedColumn<String> label = GeneratedColumn<String>(
     'label',
@@ -3600,6 +3611,7 @@ class FeatureTypes extends Table with TableInfo<FeatureTypes, FeatureType> {
   List<GeneratedColumn> get $columns => [
     id,
     propertyId,
+    typeKey,
     label,
     featureClass,
     icon,
@@ -3629,6 +3641,14 @@ class FeatureTypes extends Table with TableInfo<FeatureTypes, FeatureType> {
         _propertyIdMeta,
         propertyId.isAcceptableOrUnknown(data['property_id']!, _propertyIdMeta),
       );
+    }
+    if (data.containsKey('key')) {
+      context.handle(
+        _typeKeyMeta,
+        typeKey.isAcceptableOrUnknown(data['key']!, _typeKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeKeyMeta);
     }
     if (data.containsKey('label')) {
       context.handle(
@@ -3698,6 +3718,10 @@ class FeatureTypes extends Table with TableInfo<FeatureTypes, FeatureType> {
         DriftSqlType.string,
         data['${effectivePrefix}property_id'],
       ),
+      typeKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
       label: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}label'],
@@ -3738,6 +3762,11 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
   final String id;
   final String? propertyId;
 
+  /// NULL = global seed type
+  /// SQL name stays `key` per the §4 contract; quoted because it's reserved in
+  /// drift's grammar (unquoted it was silently dropped from codegen).
+  final String typeKey;
+
   /// 'spring','guzzler','erosion_zone'...
   final String label;
   final String featureClass;
@@ -3748,6 +3777,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
   const FeatureType({
     required this.id,
     this.propertyId,
+    required this.typeKey,
     required this.label,
     required this.featureClass,
     this.icon,
@@ -3762,6 +3792,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
     if (!nullToAbsent || propertyId != null) {
       map['property_id'] = Variable<String>(propertyId);
     }
+    map['key'] = Variable<String>(typeKey);
     map['label'] = Variable<String>(label);
     map['feature_class'] = Variable<String>(featureClass);
     if (!nullToAbsent || icon != null) {
@@ -3781,6 +3812,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
       propertyId: propertyId == null && nullToAbsent
           ? const Value.absent()
           : Value(propertyId),
+      typeKey: Value(typeKey),
       label: Value(label),
       featureClass: Value(featureClass),
       icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
@@ -3800,6 +3832,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
     return FeatureType(
       id: serializer.fromJson<String>(json['id']),
       propertyId: serializer.fromJson<String?>(json['property_id']),
+      typeKey: serializer.fromJson<String>(json['key']),
       label: serializer.fromJson<String>(json['label']),
       featureClass: serializer.fromJson<String>(json['feature_class']),
       icon: serializer.fromJson<String?>(json['icon']),
@@ -3814,6 +3847,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'property_id': serializer.toJson<String?>(propertyId),
+      'key': serializer.toJson<String>(typeKey),
       'label': serializer.toJson<String>(label),
       'feature_class': serializer.toJson<String>(featureClass),
       'icon': serializer.toJson<String?>(icon),
@@ -3826,6 +3860,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
   FeatureType copyWith({
     String? id,
     Value<String?> propertyId = const Value.absent(),
+    String? typeKey,
     String? label,
     String? featureClass,
     Value<String?> icon = const Value.absent(),
@@ -3835,6 +3870,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
   }) => FeatureType(
     id: id ?? this.id,
     propertyId: propertyId.present ? propertyId.value : this.propertyId,
+    typeKey: typeKey ?? this.typeKey,
     label: label ?? this.label,
     featureClass: featureClass ?? this.featureClass,
     icon: icon.present ? icon.value : this.icon,
@@ -3850,6 +3886,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
       propertyId: data.propertyId.present
           ? data.propertyId.value
           : this.propertyId,
+      typeKey: data.typeKey.present ? data.typeKey.value : this.typeKey,
       label: data.label.present ? data.label.value : this.label,
       featureClass: data.featureClass.present
           ? data.featureClass.value
@@ -3870,6 +3907,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
     return (StringBuffer('FeatureType(')
           ..write('id: $id, ')
           ..write('propertyId: $propertyId, ')
+          ..write('typeKey: $typeKey, ')
           ..write('label: $label, ')
           ..write('featureClass: $featureClass, ')
           ..write('icon: $icon, ')
@@ -3884,6 +3922,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
   int get hashCode => Object.hash(
     id,
     propertyId,
+    typeKey,
     label,
     featureClass,
     icon,
@@ -3897,6 +3936,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
       (other is FeatureType &&
           other.id == this.id &&
           other.propertyId == this.propertyId &&
+          other.typeKey == this.typeKey &&
           other.label == this.label &&
           other.featureClass == this.featureClass &&
           other.icon == this.icon &&
@@ -3908,6 +3948,7 @@ class FeatureType extends DataClass implements Insertable<FeatureType> {
 class FeatureTypesCompanion extends UpdateCompanion<FeatureType> {
   final Value<String> id;
   final Value<String?> propertyId;
+  final Value<String> typeKey;
   final Value<String> label;
   final Value<String> featureClass;
   final Value<String?> icon;
@@ -3918,6 +3959,7 @@ class FeatureTypesCompanion extends UpdateCompanion<FeatureType> {
   const FeatureTypesCompanion({
     this.id = const Value.absent(),
     this.propertyId = const Value.absent(),
+    this.typeKey = const Value.absent(),
     this.label = const Value.absent(),
     this.featureClass = const Value.absent(),
     this.icon = const Value.absent(),
@@ -3929,6 +3971,7 @@ class FeatureTypesCompanion extends UpdateCompanion<FeatureType> {
   FeatureTypesCompanion.insert({
     required String id,
     this.propertyId = const Value.absent(),
+    required String typeKey,
     required String label,
     required String featureClass,
     this.icon = const Value.absent(),
@@ -3937,12 +3980,14 @@ class FeatureTypesCompanion extends UpdateCompanion<FeatureType> {
     required String createdAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
+       typeKey = Value(typeKey),
        label = Value(label),
        featureClass = Value(featureClass),
        createdAt = Value(createdAt);
   static Insertable<FeatureType> custom({
     Expression<String>? id,
     Expression<String>? propertyId,
+    Expression<String>? typeKey,
     Expression<String>? label,
     Expression<String>? featureClass,
     Expression<String>? icon,
@@ -3954,6 +3999,7 @@ class FeatureTypesCompanion extends UpdateCompanion<FeatureType> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (propertyId != null) 'property_id': propertyId,
+      if (typeKey != null) 'key': typeKey,
       if (label != null) 'label': label,
       if (featureClass != null) 'feature_class': featureClass,
       if (icon != null) 'icon': icon,
@@ -3967,6 +4013,7 @@ class FeatureTypesCompanion extends UpdateCompanion<FeatureType> {
   FeatureTypesCompanion copyWith({
     Value<String>? id,
     Value<String?>? propertyId,
+    Value<String>? typeKey,
     Value<String>? label,
     Value<String>? featureClass,
     Value<String?>? icon,
@@ -3978,6 +4025,7 @@ class FeatureTypesCompanion extends UpdateCompanion<FeatureType> {
     return FeatureTypesCompanion(
       id: id ?? this.id,
       propertyId: propertyId ?? this.propertyId,
+      typeKey: typeKey ?? this.typeKey,
       label: label ?? this.label,
       featureClass: featureClass ?? this.featureClass,
       icon: icon ?? this.icon,
@@ -3996,6 +4044,9 @@ class FeatureTypesCompanion extends UpdateCompanion<FeatureType> {
     }
     if (propertyId.present) {
       map['property_id'] = Variable<String>(propertyId.value);
+    }
+    if (typeKey.present) {
+      map['key'] = Variable<String>(typeKey.value);
     }
     if (label.present) {
       map['label'] = Variable<String>(label.value);
@@ -4026,6 +4077,7 @@ class FeatureTypesCompanion extends UpdateCompanion<FeatureType> {
     return (StringBuffer('FeatureTypesCompanion(')
           ..write('id: $id, ')
           ..write('propertyId: $propertyId, ')
+          ..write('typeKey: $typeKey, ')
           ..write('label: $label, ')
           ..write('featureClass: $featureClass, ')
           ..write('icon: $icon, ')
@@ -30502,6 +30554,7 @@ typedef $ZonesProcessedTableManager =
 typedef $FeatureTypesCreateCompanionBuilder = FeatureTypesCompanion Function({
   required String id,
   Value<String?> propertyId,
+  required String typeKey,
   required String label,
   required String featureClass,
   Value<String?> icon,
@@ -30513,6 +30566,7 @@ typedef $FeatureTypesCreateCompanionBuilder = FeatureTypesCompanion Function({
 typedef $FeatureTypesUpdateCompanionBuilder = FeatureTypesCompanion Function({
   Value<String> id,
   Value<String?> propertyId,
+  Value<String> typeKey,
   Value<String> label,
   Value<String> featureClass,
   Value<String?> icon,
@@ -30562,6 +30616,11 @@ class $FeatureTypesFilterComposer
 
   ColumnFilters<String> get propertyId => $composableBuilder(
     column: $table.propertyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get typeKey => $composableBuilder(
+    column: $table.typeKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -30640,6 +30699,11 @@ class $FeatureTypesOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get typeKey => $composableBuilder(
+    column: $table.typeKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get label => $composableBuilder(
     column: $table.label,
     builder: (column) => ColumnOrderings(column),
@@ -30687,6 +30751,9 @@ class $FeatureTypesAnnotationComposer
     column: $table.propertyId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get typeKey =>
+      $composableBuilder(column: $table.typeKey, builder: (column) => column);
 
   GeneratedColumn<String> get label =>
       $composableBuilder(column: $table.label, builder: (column) => column);
@@ -30768,6 +30835,7 @@ class $FeatureTypesTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String?> propertyId = const Value.absent(),
+                Value<String> typeKey = const Value.absent(),
                 Value<String> label = const Value.absent(),
                 Value<String> featureClass = const Value.absent(),
                 Value<String?> icon = const Value.absent(),
@@ -30778,6 +30846,7 @@ class $FeatureTypesTableManager
               }) => FeatureTypesCompanion(
                 id: id,
                 propertyId: propertyId,
+                typeKey: typeKey,
                 label: label,
                 featureClass: featureClass,
                 icon: icon,
@@ -30790,6 +30859,7 @@ class $FeatureTypesTableManager
               ({
                 required String id,
                 Value<String?> propertyId = const Value.absent(),
+                required String typeKey,
                 required String label,
                 required String featureClass,
                 Value<String?> icon = const Value.absent(),
@@ -30800,6 +30870,7 @@ class $FeatureTypesTableManager
               }) => FeatureTypesCompanion.insert(
                 id: id,
                 propertyId: propertyId,
+                typeKey: typeKey,
                 label: label,
                 featureClass: featureClass,
                 icon: icon,
