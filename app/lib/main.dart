@@ -1,8 +1,11 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import 'db/database.dart';
 import 'db/seed.dart';
 import 'map/map_screen.dart';
+import 'screens/capture_screen.dart';
+import 'screens/feed_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,28 +39,86 @@ class FieldNotesApp extends StatelessWidget {
   }
 }
 
+const _tenureLabels = {
+  'owned': 'Owned',
+  'leased': 'Leased',
+  'public': 'Public land',
+  'collection_site': 'Collection site',
+  'other': 'Other',
+};
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, required this.db});
 
   final FieldNotesDb db;
 
+  Future<void> _addProperty(BuildContext context) async {
+    final nameController = TextEditingController();
+    var tenure = 'owned';
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('New place'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: tenure,
+                decoration: const InputDecoration(labelText: 'Land tenure'),
+                items: [
+                  for (final e in _tenureLabels.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
+                ],
+                onChanged: (v) => setState(() => tenure = v ?? 'owned'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (created != true || nameController.text.trim().isEmpty) return;
+    final now = nowUtcIso();
+    await db.into(db.properties).insert(PropertiesCompanion.insert(
+          id: newId(),
+          name: nameController.text.trim(),
+          landTenure: Value(tenure),
+          createdBy: 'local',
+          createdAt: now,
+          updatedAt: now,
+        ));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final query = (db.select(db.properties)
+      ..where((p) => p.deletedAt.isNull())
+      ..orderBy([(p) => OrderingTerm.asc(p.name)]));
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Field Notes'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.map_outlined),
-            tooltip: 'Map',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MapScreen()),
-            ),
-          ),
-        ],
+      appBar: AppBar(title: const Text('Field Notes')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _addProperty(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Add place'),
       ),
       body: StreamBuilder<List<Property>>(
-        stream: db.select(db.properties).watch(),
+        stream: query.watch(),
         builder: (context, snapshot) {
           final properties = snapshot.data ?? const [];
           if (properties.isEmpty) {
@@ -65,7 +126,7 @@ class HomeScreen extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.all(32),
                 child: Text(
-                  'No properties yet.\nAdd your first property to start recording.',
+                  'No places yet.\nAdd your property, a lease, or a collection site to start recording.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 18),
                 ),
@@ -78,12 +139,78 @@ class HomeScreen extends StatelessWidget {
               final p = properties[i];
               return ListTile(
                 minTileHeight: 56,
+                leading: CircleAvatar(
+                  child: Icon(switch (p.landTenure) {
+                    'public' => Icons.forest_outlined,
+                    'collection_site' => Icons.content_cut,
+                    'leased' => Icons.handshake_outlined,
+                    _ => Icons.home_work_outlined,
+                  }),
+                ),
                 title: Text(p.name),
-                subtitle: Text(p.landTenure),
+                subtitle: Text(_tenureLabels[p.landTenure] ?? p.landTenure),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => PropertyScreen(db: db, property: p),
+                  ),
+                ),
               );
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class PropertyScreen extends StatelessWidget {
+  const PropertyScreen({super.key, required this.db, required this.property});
+
+  final FieldNotesDb db;
+  final Property property;
+
+  @override
+  Widget build(BuildContext context) {
+    final countQuery = (db.selectOnly(db.observations)
+      ..addColumns([db.observations.id.count()])
+      ..where(db.observations.propertyId.equals(property.id) &
+          db.observations.deletedAt.isNull()));
+    return Scaffold(
+      appBar: AppBar(title: Text(property.name)),
+      floatingActionButton: FloatingActionButton.large(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => CaptureScreen(db: db, property: property),
+          ),
+        ),
+        child: const Icon(Icons.add_a_photo, size: 36),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          StreamBuilder<int?>(
+            stream: countQuery
+                .watchSingle()
+                .map((row) => row.read(db.observations.id.count())),
+            builder: (context, snapshot) => ListTile(
+              leading: const Icon(Icons.list_alt),
+              title: const Text('Feed'),
+              subtitle: Text('${snapshot.data ?? 0} records'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FeedScreen(db: db, property: property),
+                ),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.map_outlined),
+            title: const Text('Map'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MapScreen()),
+            ),
+          ),
+        ],
       ),
     );
   }

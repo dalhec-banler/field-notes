@@ -51,6 +51,7 @@ dependencies:
   native_exif: ^0.8.0
   record: ^7.1.1
   speech_to_text: ^7.4.0
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
