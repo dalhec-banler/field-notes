@@ -1,0 +1,7 @@
+# Flutter/Dart
+app/build/
+app/.dart_tool/
+app/.flutter-plugins*
+app/.packages
+*.iml
+.DS_Store
