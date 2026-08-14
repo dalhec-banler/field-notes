@@ -109,14 +109,22 @@ class _CaptureScreenState extends State<CaptureScreen> {
     final fix = _fix;
     final obsId = newId();
 
+    // No fix and no property centroid → hold the save until either arrives is
+    // forbidden (never block on GPS), so fall back to centroid; if even that
+    // is missing, flag the row via gps_accuracy_m = -1 rather than writing a
+    // silent (0,0) that looks like a real coordinate off the coast of Africa.
+    final lat = fix?.latitude ?? widget.property.centroidLat;
+    final lng = fix?.longitude ?? widget.property.centroidLng;
+    final unlocated = lat == null || lng == null;
+
     await db.into(db.observations).insert(ObservationsCompanion.insert(
           id: obsId,
           propertyId: widget.property.id,
           observedAt: now,
           localTz: localTzName(),
-          lat: fix?.latitude ?? widget.property.centroidLat ?? 0,
-          lng: fix?.longitude ?? widget.property.centroidLng ?? 0,
-          gpsAccuracyM: Value(fix?.accuracy),
+          lat: lat ?? 0,
+          lng: lng ?? 0,
+          gpsAccuracyM: Value(unlocated ? -1 : fix?.accuracy),
           altitudeM: Value(fix?.altitude),
           headingDeg: Value(fix?.heading),
           observationType: Value(_taxon != null ? 'plant' : 'general'),

@@ -1,8 +1,13 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
+import 'package:path_provider/path_provider.dart';
+
 import 'db/database.dart';
 import 'db/seed.dart';
+import 'export/exporter.dart';
 import 'map/map_screen.dart';
 import 'screens/capture_screen.dart';
 import 'screens/feed_screen.dart';
@@ -210,8 +215,33 @@ class PropertyScreen extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const MapScreen()),
             ),
           ),
+          ListTile(
+            leading: const Icon(Icons.ios_share),
+            title: const Text('Export all data'),
+            subtitle: const Text('SQLite, CSV, GeoJSON, KML, photos'),
+            onTap: () => _export(context),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _export(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Exporting…')));
+    try {
+      // TODO(shared-storage): move to MediaStore/SAF so the folder shows over
+      // USB (spec §6); app documents dir until then.
+      final docs = await getApplicationDocumentsDirectory();
+      final dir = await Exporter(db)
+          .exportProperty(property, Directory('${docs.path}/exports'));
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Exported to ${dir.path}')),
+      );
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
+    }
   }
 }

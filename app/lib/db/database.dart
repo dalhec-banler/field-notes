@@ -16,6 +16,9 @@ class FieldNotesDb extends _$FieldNotesDb {
   /// In-memory database for tests.
   FieldNotesDb.forTesting() : super(NativeDatabase.memory());
 
+  /// Opens an existing database file (restore/verification flows).
+  FieldNotesDb.fromFile(File file) : super(NativeDatabase(file));
+
   @override
   int get schemaVersion => 1;
 
