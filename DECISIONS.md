@@ -56,6 +56,24 @@ Spec §4.13 says retain raw points "only for the active track" — implemented
 literally: on stop, the simplified LineString (Douglas-Peucker 5 m) plus total
 distance is stored and `track_points` rows for that track are deleted.
 
+### D-010 · Convenience backup is a first-class option (Austin, 2026-08-17)
+Spec §11.6 offered "convenience mode" defaulted off and heavily caveated.
+Austin explicitly wants a minimal-security Google Drive backup as a fine
+default for people who don't care: same backup structure, no passphrase, no
+encryption. The encrypted path remains available and the mode is clearly
+labeled at setup. This overrides the spec's "default off, state plainly what
+this trades away" framing only in emphasis, not in mechanics — the choice is
+still explicit.
+
+### D-011 · Crypto stack: `cryptography` (pure Dart) instead of libsodium
+Spec §11.4 named libsodium. The `cryptography` package provides the same
+primitives (Argon2id, XChaCha20-Poly1305 AEAD, HMAC-SHA256) as a maintained
+library — not hand-rolled — while being host-testable (no native lib to load
+in `flutter test`) . Files are encrypted whole-file AEAD rather than
+secretstream-chunked: media working copies are ~400 KB and originals a few
+MB, so chunking buys nothing yet; revisit for video. Blob names are
+HMAC-SHA256(master key, sha256) per spec.
+
 ### D-009 · Release keystore location
 `~/.keystores/fieldnotes-release.jks`, password in
 `~/.keystores/fieldnotes-release.pass` (plaintext on this machine, outside the

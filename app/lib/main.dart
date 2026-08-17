@@ -13,6 +13,7 @@ import 'screens/capture_screen.dart';
 import 'screens/feed_screen.dart';
 import 'screens/kml_import_screen.dart';
 import 'screens/offline_maps_screen.dart';
+import 'screens/backup_screen.dart';
 import 'screens/features_screen.dart';
 import 'screens/photo_points/photo_points_screen.dart';
 import 'screens/plantings/plantings_screen.dart';
@@ -132,6 +133,13 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Field Notes'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.backup_outlined),
+            tooltip: 'Backup',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => BackupScreen(db: db)),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.layers_outlined),
             tooltip: 'Offline maps',
