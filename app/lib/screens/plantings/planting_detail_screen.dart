@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../db/database.dart';
 import '../../services/survival.dart';
 import '../../services/tag_codes.dart';
+import '../../theme/tokens.dart';
+import '../../widgets/press.dart';
 
 /// Cohort detail (spec §7.5): survival, tagged individuals, check-ins.
 class PlantingDetailScreen extends StatefulWidget {
@@ -278,54 +280,86 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     if (event == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final species = _taxon?.commonName ?? _taxon?.scientificName ?? 'Unknown';
+    final species = _taxon?.scientificName ?? 'Unknown';
     final survival = _survival;
+    final band =
+        survival == null ? Press.inkSoft : survivalBandColor(survival.rate);
     return Scaffold(
-      appBar: AppBar(title: Text('$species × ${event.countPlanted}')),
+      appBar: AppBar(
+        title: Text(
+          (_taxon?.commonName ?? species).toUpperCase(),
+          style: const TextStyle(
+              fontFamily: Type.slab,
+              fontWeight: FontWeight.w900,
+              fontSize: 20),
+        ),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Metrics.gutter),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    survival == null
-                        ? 'No survival data yet'
-                        : '${(survival.rate * 100).toStringAsFixed(0)}% surviving '
-                            '(${survival.alive}/${survival.total})',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(survival == null
-                      ? 'Add a check-in below.'
-                      : survival.source == 'individuals'
-                          ? 'From tagged individuals'
-                          : 'From latest cohort check-in'),
-                  const SizedBox(height: 8),
-                  Text('Planted ${event.plantedOn} · '
-                      '${event.stockSource.replaceAll('_', ' ')}'
-                      '${event.protection != null ? ' · ${event.protection!.replaceAll('_', ' ')}' : ''}'),
-                  if (event.plantingNotes != null) ...[
-                    const SizedBox(height: 8),
-                    Text(event.plantingNotes!),
+          // Cohort header on paper-raised (README §3.4).
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Press.paperRaised,
+              border: Border.all(color: Press.ink, width: 1.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: TaxonName(species, size: 24)),
+                    if (survival != null)
+                      Text(
+                        '${(survival.rate * 100).toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontFamily: Type.slab,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 26,
+                          height: 1,
+                          color: band,
+                        ),
+                      ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                MonoLabel(
+                    'planted ${event.plantedOn} · ${event.countPlanted} '
+                    '${event.stockSource.replaceAll('_', ' ')}',
+                    size: 9.5,
+                    opacity: 0.8),
+                if (event.protection != null)
+                  MonoLabel(event.protection!.replaceAll('_', ' '),
+                      size: 9.5, opacity: 0.8),
+                if (survival != null) ...[
+                  const SizedBox(height: 6),
+                  MonoLabel(
+                      '${survival.alive} / ${survival.total} · from '
+                      '${survival.source == 'individuals' ? 'tagged individuals' : 'latest cohort check-in'}',
+                      size: 9.5,
+                      color: band),
                 ],
-              ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          const RailNote(
+            color: Press.sage,
+            body:
+                'Survival is derived on every read — latest status per tag, '
+                'or the most recent cohort count. Never stored.',
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: SizedBox(
                   height: 56,
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.fact_check_outlined),
-                    label: const Text('Cohort check-in'),
+                  child: FilledButton(
                     onPressed: _cohortCheckin,
+                    child: const Text('COHORT CHECK-IN'),
                   ),
                 ),
               ),
@@ -333,53 +367,103 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
               Expanded(
                 child: SizedBox(
                   height: 56,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.sell_outlined),
-                    label: const Text('Tag individual'),
+                  child: OutlinedButton(
                     onPressed: _addIndividual,
+                    child: const Text('TAG INDIVIDUAL'),
                   ),
                 ),
               ),
             ],
           ),
           if (_individuals.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text('Tagged individuals (${_individuals.length})',
-                style: Theme.of(context).textTheme.titleMedium),
-            for (final p in _individuals)
-              ListTile(
-                minTileHeight: 56,
-                leading: Icon(
-                  p.currentStatus == 'dead'
-                      ? Icons.close
-                      : Icons.local_florist,
-                  color: p.currentStatus == 'dead'
-                      ? Colors.red.shade700
-                      : Colors.green.shade700,
-                ),
-                title: Text(p.tagCode ?? 'untagged'),
-                subtitle: Text(p.lastCheckedAt == null
-                    ? p.currentStatus
-                    : '${p.currentStatus} · checked '
-                        '${p.lastCheckedAt!.substring(0, 10)}'),
-                trailing: const Icon(Icons.add_task),
-                onTap: () => _checkinIndividual(p),
+            const SizedBox(height: 18),
+            MonoLabel(
+                'Tagged individuals · identity is the tag, not the pin',
+                size: 9,
+                spacing: 1.6),
+            const SizedBox(height: 6),
+            Container(
+              decoration:
+                  BoxDecoration(border: Border.all(color: Press.ink, width: 1.5)),
+              child: Column(
+                children: [
+                  for (var i = 0; i < _individuals.length; i++)
+                    InkWell(
+                      onTap: () => _checkinIndividual(_individuals[i]),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 11, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Press.paperRaised,
+                          border: i < _individuals.length - 1
+                              ? const Border(
+                                  bottom: BorderSide(
+                                      color: Press.divider, width: 1))
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Diamond(
+                                size: 15,
+                                color: plantStatusColor(
+                                    _individuals[i].currentStatus)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  MonoLabel(
+                                      _individuals[i].tagCode ?? 'untagged',
+                                      size: 11.5,
+                                      spacing: 1.2,
+                                      color: Press.ink,
+                                      weight: FontWeight.w500),
+                                  if (_individuals[i].lastCheckedAt != null)
+                                    MonoLabel(
+                                        'checked ${_individuals[i].lastCheckedAt!.substring(0, 10)}',
+                                        size: 8.5,
+                                        opacity: 0.65),
+                                ],
+                              ),
+                            ),
+                            StatusPill(
+                              _individuals[i].currentStatus,
+                              color: plantStatusColor(
+                                  _individuals[i].currentStatus),
+                              filled:
+                                  _individuals[i].currentStatus == 'dead',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
           if (_cohortCheckins.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text('Check-in history',
-                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 18),
+            MonoLabel('Check-in history', size: 9, spacing: 1.6),
+            const SizedBox(height: 6),
             for (final c in _cohortCheckins.where((c) => c.countAlive != null))
-              ListTile(
-                minTileHeight: 48,
-                dense: true,
-                leading: const Icon(Icons.history),
-                title: Text('${c.countAlive} alive'
-                    '${c.countDead != null ? ', ${c.countDead} dead' : ''}'),
-                subtitle: Text(c.checkedAt.substring(0, 10)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    MonoLabel(c.checkedAt.substring(0, 10),
+                        size: 9.5, color: Press.oxblood),
+                    const SizedBox(width: 10),
+                    MonoLabel(
+                        '${c.countAlive} alive'
+                        '${c.countDead != null ? ' · ${c.countDead} dead' : ''}',
+                        size: 9.5,
+                        opacity: 0.85),
+                  ],
+                ),
               ),
           ],
+          const SizedBox(height: 30),
         ],
       ),
     );

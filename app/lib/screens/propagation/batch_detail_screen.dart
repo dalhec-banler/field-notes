@@ -2,6 +2,8 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
+import '../../theme/tokens.dart';
+import '../../widgets/press.dart';
 
 /// Batch detail (spec §7.6): event log, status, counts, and the lineage view
 /// from mother plant → collection → batch → plantings.
@@ -280,37 +282,50 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Lineage view: the differentiator (spec §4.7).
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Lineage',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  _lineageRow(
-                      Icons.nature,
-                      _sourcePlant?.label ?? 'No mother plant recorded',
-                      _sourcePlant != null),
-                  _lineageRow(
-                      Icons.content_cut,
-                      _collection != null
-                          ? '${_collection!.materialType.replaceAll('_', ' ')} '
-                              '× ${_collection!.quantity ?? '?'} on ${_collection!.collectedOn}'
-                          : 'No collection event',
-                      _collection != null),
-                  _lineageRow(
-                      Icons.science_outlined,
-                      '$species — ${batch.method?.replaceAll('_', ' ') ?? 'unknown method'}, '
-                      'started ${batch.startedOn}',
-                      true),
-                  for (final p in _plantings)
-                    _lineageRow(Icons.park_outlined,
-                        'Planted ${p.countPlanted} on ${p.plantedOn}', true),
-                ],
-              ),
+          // Lineage rail (README §3.4): stage diamonds + connectors. The
+          // chain must tolerate a break at either end.
+          Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: Press.paperRaised,
+              border: Border.all(color: Press.ink, width: 1.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _stageRow('source_plants',
+                    _sourcePlant?.label ?? 'No mother plant recorded',
+                    _sourcePlant != null
+                        ? (_sourcePlant!.isOnProperty == 1
+                            ? 'on property'
+                            : _sourcePlant!.originNotes ?? 'offsite')
+                        : 'chain starts at collection',
+                    _sourcePlant != null,
+                    first: true),
+                _stageRow(
+                    'collection_events',
+                    _collection != null
+                        ? '${_collection!.materialType.replaceAll('_', ' ')} × ${_collection!.quantity ?? '?'}'
+                        : 'No collection event',
+                    _collection?.collectedOn ?? 'purchased or unknown lot',
+                    _collection != null),
+                _stageRow(
+                    'propagation_batches',
+                    species,
+                    '${batch.method?.replaceAll('_', ' ') ?? 'method unknown'} · started ${batch.startedOn}',
+                    true),
+                for (var i = 0; i < _plantings.length; i++)
+                  _stageRow(
+                      'planting_events',
+                      'Planted ${_plantings[i].countPlanted}',
+                      _plantings[i].plantedOn,
+                      true,
+                      last: i == _plantings.length - 1),
+                if (_plantings.isEmpty)
+                  _stageRow('planting_events', 'Not planted out yet', '—',
+                      false,
+                      last: true),
+              ],
             ),
           ),
           const SizedBox(height: 8),
@@ -370,18 +385,52 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     );
   }
 
-  Widget _lineageRow(IconData icon, String text, bool present) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+  Widget _stageRow(String stage, String title, String detail, bool present,
+      {bool first = false, bool last = false}) {
+    final color = present ? Press.sage : Press.inkSoft.withValues(alpha: 0.4);
+    return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon,
-              size: 20, color: present ? Colors.green.shade700 : Colors.grey),
-          const SizedBox(width: 12),
+          SizedBox(
+            width: 24,
+            child: Column(
+              children: [
+                if (!first)
+                  Container(width: 1, height: 6, color: Press.divider),
+                Diamond(size: 13, color: color, filled: present),
+                if (!last)
+                  Expanded(
+                      child:
+                          Container(width: 1, color: Press.divider)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text(text,
-                style:
-                    TextStyle(color: present ? null : Colors.grey.shade600)),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12, top: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MonoLabel(stage, size: 8.5, spacing: 1.8, opacity: 0.6),
+                  const SizedBox(height: 2),
+                  Text(
+                    title.toUpperCase(),
+                    style: TextStyle(
+                      fontFamily: Type.slab,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15.5,
+                      color: present
+                          ? Press.ink
+                          : Press.inkSoft.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  MonoLabel(detail, size: 9.5, opacity: 0.72),
+                ],
+              ),
+            ),
           ),
         ],
       ),

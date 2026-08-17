@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'backup/restore.dart';
 import 'db/database.dart';
+import 'desktop/desktop_shell.dart';
 import 'db/seed.dart';
 import 'export/exporter.dart';
 import 'services/app_prefs.dart';
@@ -229,6 +230,11 @@ class _RootScreenState extends State<RootScreen> {
           ),
         ),
       );
+    }
+    // Desk companion (design README §4) on desktop platforms; the five-tab
+    // handheld shell everywhere else.
+    if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
+      return DesktopShell(db: widget.db, property: active);
     }
     return AppShell(
       db: widget.db,
