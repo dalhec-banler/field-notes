@@ -22,7 +22,9 @@ import 'screens/restore_screen.dart';
 import 'screens/features_screen.dart';
 import 'screens/photo_points/photo_points_screen.dart';
 import 'screens/plantings/plantings_screen.dart';
+import 'screens/programs_screen.dart';
 import 'screens/propagation/propagation_screen.dart';
+import 'services/env_context.dart';
 import 'services/track_recorder.dart';
 
 /// App-wide track recorder: recording must survive navigation and screen
@@ -52,6 +54,8 @@ Future<void> main() async {
   // startup gates).
   seedTaxaIfEmpty(db);
   seedFeatureTypesIfEmpty(db);
+  // Retry pass for env contexts created offline (spec §4.11).
+  EnvContextService(db).backfillStale();
   trackRecorder = TrackRecorder(db);
   runApp(FieldNotesApp(db: db));
 }
@@ -350,6 +354,16 @@ class PropertyScreen extends StatelessWidget {
                 },
               );
             },
+          ),
+          ListTile(
+            leading: const Icon(Icons.assignment_outlined),
+            title: const Text('Programs'),
+            subtitle: const Text('EQIP, TPWD PUB — practices and deadlines'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ProgramsScreen(db: db, property: property),
+              ),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.upload_file_outlined),

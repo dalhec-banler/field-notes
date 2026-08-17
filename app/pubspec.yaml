@@ -58,6 +58,7 @@ dependencies:
   cryptography: ^2.9.0
   bip39: ^1.0.6
   share_plus: ^13.3.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

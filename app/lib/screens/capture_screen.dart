@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../db/database.dart';
 import '../geo/zone_assignment.dart';
+import '../services/env_context.dart';
 import '../services/media_store.dart';
 import '../widgets/species_field.dart';
 
@@ -129,6 +130,21 @@ class _CaptureScreenState extends State<CaptureScreen> {
     final lng = fix?.longitude ?? widget.property.centroidLng;
     final unlocated = lat == null || lng == null;
 
+    // Environmental context: created stale now, backfilled when online
+    // (spec §4.11). Never blocks the save.
+    String? envContextId;
+    if (!unlocated) {
+      final envService = EnvContextService(db);
+      envContextId = await envService.createStale(
+        propertyId: widget.property.id,
+        lat: lat,
+        lng: lng,
+        resolvedFor: now.substring(0, 10),
+      );
+      // Fire and forget; failures leave rows stale for a later pass.
+      unawaited(envService.backfillStale());
+    }
+
     await db.into(db.observations).insert(ObservationsCompanion.insert(
           id: obsId,
           propertyId: widget.property.id,
@@ -144,6 +160,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
           taxonConfidence: Value(_taxon != null ? 'certain' : null),
           notes: Value(
               _notesController.text.trim().isEmpty ? null : _notesController.text.trim()),
+          envContextId: Value(envContextId),
           createdBy: 'local',
           createdAt: now,
           updatedAt: now,
