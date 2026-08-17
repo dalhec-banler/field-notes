@@ -5,8 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'package:archive/archive_io.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../backup/backup_crypto.dart';
 import '../backup/backup_engine.dart';
+import '../backup/keyring.dart';
 import '../backup/target.dart';
 import '../db/database.dart';
 
@@ -55,7 +59,7 @@ class _BackupScreenState extends State<BackupScreen> {
     final config = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
     if (mounted) {
       setState(() {
-        _encrypted = config['scheme'] == 'argon2id-xchacha20';
+        _encrypted = config['scheme'] == 'keyring-v1';
         _lastBackup = config['last_backup'] as String?;
         _lastVerify = config['last_verify'] as String?;
       });
@@ -79,23 +83,100 @@ class _BackupScreenState extends State<BackupScreen> {
       return BackupEngine(widget.db, target, const PlainCipher());
     }
 
-    // Encrypted: salt persists in config; passphrase asked per operation.
+    // Encrypted (keyring-v1): wrapped data key persists in config;
+    // passphrase asked per operation. Setup also mints the recovery phrase.
     final f = await _configFile();
     final config = f.existsSync()
         ? jsonDecode(f.readAsStringSync()) as Map<String, dynamic>
         : <String, dynamic>{};
-    var saltB64 = config['salt'] as String?;
-    if (saltB64 == null) {
-      if (!forSetupIfNeeded) return null;
-      saltB64 = base64Encode(BackupEngine.newSalt());
-      await _saveConfig({'scheme': 'argon2id-xchacha20', 'salt': saltB64});
-    }
     final passphrase = await _askPassphrase();
     if (passphrase == null || passphrase.isEmpty) return null;
-    setState(() => _status = 'Deriving key… (~1 s)');
-    final cipher =
-        await PassphraseCipher.fromPassphrase(passphrase, base64Decode(saltB64));
-    return BackupEngine(widget.db, target, cipher, saltB64: saltB64);
+
+    if (config['scheme'] != 'keyring-v1') {
+      if (!forSetupIfNeeded) return null;
+      setState(() => _status = 'Creating keys… (a few seconds)');
+      final keyring = await BackupKeyring.create(passphrase);
+      await _saveConfig(keyring.envelopeFields..['scheme'] = 'keyring-v1');
+      if (mounted) await _showRecoveryKit(keyring.recoveryPhrase!);
+      return BackupEngine(widget.db, target, keyring.cipher,
+          envelopeExtra: keyring.envelopeFields);
+    }
+
+    setState(() => _status = 'Unlocking… (~1 s)');
+    try {
+      final keyring =
+          await BackupKeyring.unlockWithPassphrase(config, passphrase);
+      return BackupEngine(widget.db, target, keyring.cipher,
+          envelopeExtra: keyring.envelopeFields);
+    } catch (_) {
+      setState(() => _status = 'Wrong passphrase.');
+      return null;
+    }
+  }
+
+  Future<void> _showRecoveryKit(String phrase) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Your recovery kit'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                'These 12 words can unlock your backup if you forget the '
+                'passphrase. Write them down or save them in a password '
+                'manager. They are shown exactly once.'),
+            const SizedBox(height: 12),
+            SelectableText(
+              phrase,
+              style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("I've saved these words"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Zips the whole backup store and hands it to the share sheet — one tap to
+  /// get the backup off the phone (Drive, email, a computer).
+  Future<void> _shareZip() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _status = 'Zipping backup…';
+    });
+    try {
+      final dir = await _backupDir();
+      if (!Directory('${dir.path}/fieldnotes').existsSync()) {
+        setState(() => _status = 'Run a backup first.');
+        return;
+      }
+      final docs = await getApplicationDocumentsDirectory();
+      final date = nowUtcIso().substring(0, 10);
+      final zipPath = p.join(docs.path, 'fieldnotes-backup-$date.zip');
+      final encoder = ZipFileEncoder();
+      encoder.create(zipPath);
+      await encoder.addDirectory(Directory('${dir.path}/fieldnotes'));
+      await encoder.close();
+      await SharePlus.instance.share(
+          ShareParams(files: [XFile(zipPath)], text: 'Field Notes backup'));
+      setState(() => _status = 'Backup shared.');
+    } catch (e) {
+      setState(() => _status = 'Share failed: $e');
+    } finally {
+      setState(() => _busy = false);
+    }
   }
 
   Future<String?> _askPassphrase() {
@@ -242,6 +323,15 @@ class _BackupScreenState extends State<BackupScreen> {
               icon: const Icon(Icons.verified_outlined),
               label: const Text('Verify backup'),
               onPressed: _busy ? null : _verifyNow,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 56,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.ios_share),
+              label: const Text('Share backup (zip)'),
+              onPressed: _busy ? null : _shareZip,
             ),
           ),
           if (_status != null)

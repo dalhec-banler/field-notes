@@ -3,17 +3,22 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
+import 'package:archive/archive_io.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
+import 'backup/restore.dart';
 import 'db/database.dart';
 import 'db/seed.dart';
 import 'export/exporter.dart';
 import 'map/map_screen.dart';
+import 'screens/backup_screen.dart';
 import 'screens/capture_screen.dart';
 import 'screens/feed_screen.dart';
 import 'screens/kml_import_screen.dart';
 import 'screens/offline_maps_screen.dart';
-import 'screens/backup_screen.dart';
+import 'screens/restore_screen.dart';
 import 'screens/features_screen.dart';
 import 'screens/photo_points/photo_points_screen.dart';
 import 'screens/plantings/plantings_screen.dart';
@@ -24,9 +29,25 @@ import 'services/track_recorder.dart';
 /// sleep (spec §4.13).
 late final TrackRecorder trackRecorder;
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Apply a staged restore before the database opens (spec §11.9).
+  RestorePipeline? pendingRestore;
+  try {
+    final docs = await getApplicationDocumentsDirectory();
+    final pipeline = RestorePipeline(docs);
+    if (pipeline.hasStagedRestore) {
+      pipeline.applyStagedDb(p.join(docs.path, 'field_notes.sqlite'));
+      pendingRestore = pipeline;
+    }
+  } catch (_) {
+    // A failed restore attempt must never brick startup.
+  }
   final db = FieldNotesDb();
+  if (pendingRestore != null) {
+    // Media repoints in the background; the DB is already live.
+    pendingRestore.remapRestoredMedia(db);
+  }
   // First-run species library; never blocks the UI (spec: offline-first, no
   // startup gates).
   seedTaxaIfEmpty(db);
@@ -138,6 +159,13 @@ class HomeScreen extends StatelessWidget {
             tooltip: 'Backup',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => BackupScreen(db: db)),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.restore),
+            tooltip: 'Restore from backup',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const RestoreScreen()),
             ),
           ),
           IconButton(
@@ -353,10 +381,16 @@ class PropertyScreen extends StatelessWidget {
       final docs = await getApplicationDocumentsDirectory();
       final dir = await Exporter(db)
           .exportProperty(property, Directory('${docs.path}/exports'));
+      // Zip + share sheet: one tap to a computer, Drive, or email — no
+      // cable required (spec §6).
+      final zipPath = '${dir.path}.zip';
+      final encoder = ZipFileEncoder()..create(zipPath);
+      await encoder.addDirectory(dir);
+      await encoder.close();
       messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(content: Text('Exported to ${dir.path}')),
-      );
+      await SharePlus.instance.share(ShareParams(
+          files: [XFile(zipPath)],
+          text: 'Field Notes export — ${property.name}'));
     } catch (e) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));

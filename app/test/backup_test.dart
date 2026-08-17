@@ -75,7 +75,7 @@ void main() {
             : const PlainCipher();
         final engine = BackupEngine(
             db, DirectoryTarget(targetDir), cipher,
-            saltB64: encrypted ? base64Encode(salt) : null);
+            envelopeExtra: encrypted ? {'salt': base64Encode(salt)} : null);
 
         final summary = await engine.backup();
         expect(summary, contains('2 new photos'));
@@ -110,7 +110,7 @@ void main() {
             ? await testCipher('correct horse', salt)
             : const PlainCipher();
         final engine = BackupEngine(db, DirectoryTarget(targetDir), cipher,
-            saltB64: encrypted ? base64Encode(salt) : null);
+            envelopeExtra: encrypted ? {'salt': base64Encode(salt)} : null);
         await engine.backup();
         final second = await engine.backup();
         expect(second, contains('Generation 2'));
@@ -125,7 +125,7 @@ void main() {
             ? await testCipher('correct horse', salt)
             : const PlainCipher();
         final engine = BackupEngine(db, DirectoryTarget(targetDir), cipher,
-            saltB64: encrypted ? base64Encode(salt) : null);
+            envelopeExtra: encrypted ? {'salt': base64Encode(salt)} : null);
         await engine.backup();
         expect(await engine.verify(), isNull);
       });
@@ -138,12 +138,12 @@ void main() {
     final salt = BackupEngine.newSalt();
     final good = await testCipher('correct horse', salt);
     final engine = BackupEngine(db, DirectoryTarget(targetDir), good,
-        saltB64: base64Encode(salt));
+        envelopeExtra: {'salt': base64Encode(salt)});
     await engine.backup();
 
     final bad = await testCipher('battery staple', salt);
     final badEngine = BackupEngine(db, DirectoryTarget(targetDir), bad,
-        saltB64: base64Encode(salt));
+        envelopeExtra: {'salt': base64Encode(salt)});
     expect(() => badEngine.readManifestBody(), throwsA(anything));
 
     // The stored backup is untouched and still restores with the right key.
@@ -159,7 +159,7 @@ void main() {
     final salt = BackupEngine.newSalt();
     final cipher = await testCipher('correct horse', salt);
     final engine = BackupEngine(db, DirectoryTarget(targetDir), cipher,
-        saltB64: base64Encode(salt));
+        envelopeExtra: {'salt': base64Encode(salt)});
     await engine.backup();
 
     // Flip bytes in every stored blob.
@@ -177,7 +177,7 @@ void main() {
     final salt = BackupEngine.newSalt();
     final cipher = await testCipher('correct horse', salt);
     final engine = BackupEngine(db, DirectoryTarget(targetDir), cipher,
-        saltB64: base64Encode(salt));
+        envelopeExtra: {'salt': base64Encode(salt)});
     await engine.backup();
 
     final media = await db.select(db.media).get();

@@ -21,14 +21,15 @@ import 'target.dart';
 /// derive the key); the sensitive inner manifest (blob inventory, property
 /// names) is sealed with the same cipher as everything else.
 class BackupEngine {
-  BackupEngine(this.db, this.target, this.cipher, {this.saltB64});
+  BackupEngine(this.db, this.target, this.cipher, {this.envelopeExtra});
 
   final FieldNotesDb db;
   final BackupTarget target;
   final BackupCipher cipher;
 
-  /// Base64 KDF salt (present for encrypted backups; stored in the envelope).
-  final String? saltB64;
+  /// Extra plaintext envelope fields — KDF salts and wrapped keys for
+  /// keyring-v1, or a bare salt for direct passphrase mode. Never secret.
+  final Map<String, Object?>? envelopeExtra;
 
   static const root = 'fieldnotes';
   static const generationsToKeep = 5;
@@ -99,7 +100,7 @@ class BackupEngine {
       'app': 'field_notes',
       'format': 1,
       'scheme': cipher.scheme,
-      if (saltB64 != null) 'salt': saltB64,
+      ...?envelopeExtra,
       'generation': generation,
       'created_at': body['created_at'],
       'body': base64Encode(
