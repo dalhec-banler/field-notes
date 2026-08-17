@@ -36,3 +36,28 @@ unchanged either way, so scanning can be added later.
 ### Deferred (decide at Milestone 4)
 - §9.3 Naturalist suggestion notifications vs. silent review queue.
 - §9.4 Guest-link default (spec default stands for now: fuzzed, 30-day expiry).
+
+## 2026-08-17 — Build-out decisions (made autonomously, flag if wrong)
+
+### D-006 · Offline basemap distribution: user-supplied URL for v1
+The in-app downloader accepts any direct `.pmtiles` URL (resumable). On-device
+bbox extraction from build.protomaps.com was considered and deferred — it means
+implementing a PMTiles v3 archive *writer* in Dart. Revisit if the URL flow
+proves too technical for non-Austin users.
+
+### D-007 · Photo point anchoring: first visit sets position/bearing/reference
+Rather than asking the user to type a bearing, the first captured frame anchors
+the point: GPS position, compass bearing, and the reference image are taken
+from that visit. Compass is tilt-compensated accelerometer+magnetometer
+(sensors_plus), smoothed; no rotation-vector dependency.
+
+### D-008 · Track raw points are discarded after save
+Spec §4.13 says retain raw points "only for the active track" — implemented
+literally: on stop, the simplified LineString (Douglas-Peucker 5 m) plus total
+distance is stored and `track_points` rows for that track are deleted.
+
+### D-009 · Release keystore location
+`~/.keystores/fieldnotes-release.jks`, password in
+`~/.keystores/fieldnotes-release.pass` (plaintext on this machine, outside the
+repo). `android/key.properties` is gitignored. LOSING THE KEYSTORE MEANS
+FUTURE APKS CANNOT UPDATE IN PLACE — back these two files up.

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ variant of backup_rules.xml — same exclusions. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="field_notes.sqlite" />
+        <exclude domain="file" path="media" />
+        <exclude domain="file" path="basemap" />
+        <exclude domain="file" path="exports" />
+        <exclude domain="database" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="basemap" />
+    </device-transfer>
+</data-extraction-rules>

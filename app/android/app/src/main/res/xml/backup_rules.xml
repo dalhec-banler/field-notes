@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto Backup caps at 25 MB and must never ship partial data
+     (spec §11.5): exclude the database and all media. Real backup is the
+     app's own encrypted pipeline (Milestone 3.5). -->
+<full-backup-content>
+    <exclude domain="file" path="field_notes.sqlite" />
+    <exclude domain="file" path="media" />
+    <exclude domain="file" path="basemap" />
+    <exclude domain="file" path="exports" />
+    <exclude domain="database" path="." />
+</full-backup-content>

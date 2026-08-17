@@ -6,3 +6,4 @@ app/.packages
 *.iml
 .DS_Store
 docs/basemap/
+android/key.properties
