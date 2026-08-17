@@ -8,10 +8,14 @@ import 'ghost_capture_screen.dart';
 /// Photo points (spec §7.8): due list; capture with ghost overlay.
 class PhotoPointsScreen extends StatelessWidget {
   const PhotoPointsScreen(
-      {super.key, required this.db, required this.property});
+      {super.key,
+      required this.db,
+      required this.property,
+      this.embedded = false});
 
   final FieldNotesDb db;
   final Property property;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +24,7 @@ class PhotoPointsScreen extends StatelessWidget {
       ..where((p) => p.deletedAt.isNull())
       ..orderBy([(p) => OrderingTerm.asc(p.name)]));
     return Scaffold(
-      appBar: AppBar(title: const Text('Photo points')),
+      appBar: embedded ? null : AppBar(title: const Text('Photo points')),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add_a_photo_outlined),
         label: const Text('New photo point'),

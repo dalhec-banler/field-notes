@@ -1,0 +1,195 @@
+import 'package:drift/drift.dart' hide Column;
+import 'package:flutter/material.dart';
+
+import '../db/database.dart';
+import '../screens/capture_screen.dart';
+import '../services/app_prefs.dart';
+import '../tabs/grow_tab.dart';
+import '../tabs/ledger_tab.dart';
+import '../tabs/map_tab.dart';
+import '../tabs/settings_tab.dart';
+import '../tabs/species_tab.dart';
+import '../theme/tokens.dart';
+import '../widgets/press.dart';
+
+/// Five-tab shell (design README §3): Map · Ledger · Grow · Species ·
+/// Settings, diamond tab marks, capture FAB floating over the bar's right
+/// side on every tab.
+class AppShell extends StatefulWidget {
+  const AppShell({
+    super.key,
+    required this.db,
+    required this.prefs,
+    required this.property,
+    required this.onSwitchProperty,
+  });
+
+  final FieldNotesDb db;
+  final AppPrefs prefs;
+  final Property property;
+  final ValueChanged<Property> onSwitchProperty;
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  int _tab = 0;
+
+  static const _tabs = ['Map', 'Ledger', 'Grow', 'Species', 'Settings'];
+
+  Future<void> _openCapture() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) =>
+            CaptureScreen(db: widget.db, property: widget.property),
+      ),
+    );
+    // Land on the Ledger with the new row on top (README §5).
+    if (mounted) setState(() => _tab = 1);
+  }
+
+  Future<void> _switchProperty() async {
+    final properties = await (widget.db.select(widget.db.properties)
+          ..where((x) => x.deletedAt.isNull())
+          ..orderBy([(x) => OrderingTerm.asc(x.name)]))
+        .get();
+    if (!mounted) return;
+    final picked = await showModalBottomSheet<Property>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(13, 14, 13, 6),
+              child: MonoLabel('Places', size: 9, spacing: 2),
+            ),
+            for (final property in properties)
+              ListTile(
+                minTileHeight: 56,
+                leading: Diamond(
+                  size: 13,
+                  color: property.id == widget.property.id
+                      ? Press.oxblood
+                      : Press.inkSoft,
+                  filled: property.id == widget.property.id,
+                ),
+                title: Text(
+                  property.name.toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: Type.slab,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                subtitle: MonoLabel(property.landTenure.replaceAll('_', ' '),
+                    size: 8.5, opacity: 0.7),
+                onTap: () => Navigator.pop(context, property),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null && picked.id != widget.property.id) {
+      widget.onSwitchProperty(picked);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = IndexedStack(
+      index: _tab,
+      children: [
+        MapTab(
+          db: widget.db,
+          property: widget.property,
+          onPropertyCardTap: _switchProperty,
+        ),
+        LedgerTab(db: widget.db, property: widget.property,
+            prefs: widget.prefs),
+        GrowTab(db: widget.db, property: widget.property),
+        SpeciesTab(db: widget.db, property: widget.property),
+        SettingsTab(db: widget.db, property: widget.property),
+      ],
+    );
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(child: body),
+          // Capture FAB: offset above the tab bar, right gutter 13.
+          Positioned(
+            right: Metrics.gutter,
+            bottom: 68 - 36 + MediaQuery.of(context).padding.bottom + 36,
+            child: CaptureFab(onPressed: _openCapture),
+          ),
+        ],
+      ),
+      bottomNavigationBar: _TabBar(
+        tabs: _tabs,
+        current: _tab,
+        onTap: (i) => setState(() => _tab = i),
+      ),
+    );
+  }
+}
+
+class _TabBar extends StatelessWidget {
+  const _TabBar(
+      {required this.tabs, required this.current, required this.onTap});
+
+  final List<String> tabs;
+  final int current;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Press.paperEdge,
+        border: Border(
+            top: BorderSide(color: Press.ink, width: Metrics.borderStructural)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 68, // glove-mode height
+          child: Row(
+            children: [
+              for (var i = 0; i < tabs.length; i++)
+                Expanded(
+                  child: InkWell(
+                    onTap: () => onTap(i),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Diamond(
+                          size: 12,
+                          color: i == current ? Press.oxblood : Press.inkSoft,
+                          filled: i == current,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          tabs[i].toUpperCase(),
+                          style: TextStyle(
+                            fontFamily: Type.mono,
+                            fontSize: 8.5,
+                            letterSpacing: 1.2,
+                            color: i == current
+                                ? Press.ink
+                                : Press.inkSoft.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -1,9 +1,8 @@
 import 'dart:io';
 
+import 'package:archive/archive_io.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
-
-import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -12,20 +11,13 @@ import 'backup/restore.dart';
 import 'db/database.dart';
 import 'db/seed.dart';
 import 'export/exporter.dart';
-import 'map/map_screen.dart';
-import 'screens/backup_screen.dart';
-import 'screens/capture_screen.dart';
-import 'screens/feed_screen.dart';
-import 'screens/kml_import_screen.dart';
-import 'screens/offline_maps_screen.dart';
-import 'screens/restore_screen.dart';
-import 'screens/features_screen.dart';
-import 'screens/photo_points/photo_points_screen.dart';
-import 'screens/plantings/plantings_screen.dart';
-import 'screens/programs_screen.dart';
-import 'screens/propagation/propagation_screen.dart';
+import 'services/app_prefs.dart';
 import 'services/env_context.dart';
 import 'services/track_recorder.dart';
+import 'shell/app_shell.dart';
+import 'theme/theme.dart';
+import 'theme/tokens.dart';
+import 'widgets/press.dart';
 
 /// App-wide track recorder: recording must survive navigation and screen
 /// sleep (spec §4.13).
@@ -57,357 +49,215 @@ Future<void> main() async {
   // Retry pass for env contexts created offline (spec §4.11).
   EnvContextService(db).backfillStale();
   trackRecorder = TrackRecorder(db);
-  runApp(FieldNotesApp(db: db));
+  final prefs = await AppPrefs.load();
+  runApp(FieldNotesApp(db: db, prefs: prefs));
 }
 
 class FieldNotesApp extends StatelessWidget {
-  const FieldNotesApp({super.key, required this.db});
+  const FieldNotesApp({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
+  final AppPrefs prefs;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Field Notes',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3E5F44),
-          brightness: Brightness.light,
-        ),
-        // Spec §7: touch targets ≥ 56 dp — gloves.
-        materialTapTargetSize: MaterialTapTargetSize.padded,
-        visualDensity: VisualDensity.standard,
-      ),
-      home: HomeScreen(db: db),
+      title: 'Field Station',
+      theme: fieldStationTheme(),
+      home: RootScreen(db: db, prefs: prefs),
     );
   }
 }
 
-const _tenureLabels = {
-  'owned': 'Owned',
-  'leased': 'Leased',
-  'public': 'Public land',
-  'collection_site': 'Collection site',
-  'other': 'Other',
-};
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, required this.db});
+/// Boots into the five-tab shell on the active property; falls back to
+/// first-run place creation when the database has no properties.
+class RootScreen extends StatefulWidget {
+  const RootScreen({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
+  final AppPrefs prefs;
 
-  Future<void> _addProperty(BuildContext context) async {
+  @override
+  State<RootScreen> createState() => _RootScreenState();
+}
+
+class _RootScreenState extends State<RootScreen> {
+  Property? _active;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveActive();
+  }
+
+  Future<void> _resolveActive() async {
+    final properties = await (widget.db.select(widget.db.properties)
+          ..where((x) => x.deletedAt.isNull())
+          ..orderBy([(x) => OrderingTerm.asc(x.name)]))
+        .get();
+    Property? active;
+    final savedId = widget.prefs.activePropertyId;
+    if (savedId != null) {
+      active = properties.where((x) => x.id == savedId).firstOrNull;
+    }
+    active ??= properties.firstOrNull;
+    if (mounted) {
+      setState(() {
+        _active = active;
+        _loaded = true;
+      });
+    }
+  }
+
+  void _switchTo(Property property) {
+    widget.prefs.activePropertyId = property.id;
+    setState(() => _active = property);
+  }
+
+  Future<void> _createFirstPlace() async {
     final nameController = TextEditingController();
     var tenure = 'owned';
+    const tenureLabels = {
+      'owned': 'Owned',
+      'leased': 'Leased',
+      'public': 'Public land',
+      'collection_site': 'Collection site',
+      'other': 'Other',
+    };
     final created = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('New place'),
+        builder: (context, setDialog) => AlertDialog(
+          title: const Text('NEW PLACE'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: const InputDecoration(labelText: 'NAME'),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: tenure,
-                decoration: const InputDecoration(labelText: 'Land tenure'),
+                decoration: const InputDecoration(labelText: 'LAND TENURE'),
                 items: [
-                  for (final e in _tenureLabels.entries)
+                  for (final e in tenureLabels.entries)
                     DropdownMenuItem(value: e.key, child: Text(e.value)),
                 ],
-                onChanged: (v) => setState(() => tenure = v ?? 'owned'),
+                onChanged: (v) => setDialog(() => tenure = v ?? 'owned'),
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('CANCEL')),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Create'),
-            ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('CREATE')),
           ],
         ),
       ),
     );
     if (created != true || nameController.text.trim().isEmpty) return;
     final now = nowUtcIso();
-    await db.into(db.properties).insert(PropertiesCompanion.insert(
-          id: newId(),
-          name: nameController.text.trim(),
-          landTenure: Value(tenure),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    final id = newId();
+    await widget.db.into(widget.db.properties).insert(
+          PropertiesCompanion.insert(
+            id: id,
+            name: nameController.text.trim(),
+            landTenure: Value(tenure),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    widget.prefs.activePropertyId = id;
+    _resolveActive();
   }
 
   @override
   Widget build(BuildContext context) {
-    final query = (db.select(db.properties)
-      ..where((p) => p.deletedAt.isNull())
-      ..orderBy([(p) => OrderingTerm.asc(p.name)]));
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Field Notes'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.backup_outlined),
-            tooltip: 'Backup',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => BackupScreen(db: db)),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.restore),
-            tooltip: 'Restore from backup',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const RestoreScreen()),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.layers_outlined),
-            tooltip: 'Offline maps',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const OfflineMapsScreen()),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addProperty(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Add place'),
-      ),
-      body: StreamBuilder<List<Property>>(
-        stream: query.watch(),
-        builder: (context, snapshot) {
-          final properties = snapshot.data ?? const [];
-          if (properties.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'No places yet.\nAdd your property, a lease, or a collection site to start recording.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18),
-                ),
-              ),
-            );
-          }
-          return ListView.builder(
-            itemCount: properties.length,
-            itemBuilder: (context, i) {
-              final p = properties[i];
-              return ListTile(
-                minTileHeight: 56,
-                leading: CircleAvatar(
-                  child: Icon(switch (p.landTenure) {
-                    'public' => Icons.forest_outlined,
-                    'collection_site' => Icons.content_cut,
-                    'leased' => Icons.handshake_outlined,
-                    _ => Icons.home_work_outlined,
-                  }),
-                ),
-                title: Text(p.name),
-                subtitle: Text(_tenureLabels[p.landTenure] ?? p.landTenure),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => PropertyScreen(db: db, property: p),
+    if (!_loaded) {
+      return const Scaffold(body: SizedBox.shrink());
+    }
+    final active = _active;
+    if (active == null) {
+      // First run — no places yet.
+      return Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(26),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Spacer(),
+                const Kicker('Local-first field journal'),
+                const SizedBox(height: 8),
+                const Text(
+                  'FIELD\nSTATION',
+                  style: TextStyle(
+                    fontFamily: Type.slab,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 52,
+                    height: 0.9,
+                    color: Press.ink,
                   ),
                 ),
-              );
-            },
-          );
-        },
-      ),
+                const SizedBox(height: 14),
+                const Text(
+                  'The record lives on this phone. It works with the radio '
+                  'off. Add the land you walk — owned, leased, public, or a '
+                  'collection site.',
+                  style: TextStyle(
+                      fontFamily: Type.serif, fontSize: 16.5, height: 1.5),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  height: 58,
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _createFirstPlace,
+                    child: const Text('ADD A PLACE'),
+                  ),
+                ),
+                const Spacer(flex: 2),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return AppShell(
+      db: widget.db,
+      prefs: widget.prefs,
+      property: active,
+      onSwitchProperty: _switchTo,
     );
   }
 }
 
-class PropertyScreen extends StatelessWidget {
-  const PropertyScreen({super.key, required this.db, required this.property});
-
-  final FieldNotesDb db;
-  final Property property;
-
-  @override
-  Widget build(BuildContext context) {
-    final countQuery = (db.selectOnly(db.observations)
-      ..addColumns([db.observations.id.count()])
-      ..where(db.observations.propertyId.equals(property.id) &
-          db.observations.deletedAt.isNull()));
-    return Scaffold(
-      appBar: AppBar(title: Text(property.name)),
-      floatingActionButton: FloatingActionButton.large(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => CaptureScreen(db: db, property: property),
-          ),
-        ),
-        child: const Icon(Icons.add_a_photo, size: 36),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          StreamBuilder<int?>(
-            stream: countQuery
-                .watchSingle()
-                .map((row) => row.read(db.observations.id.count())),
-            builder: (context, snapshot) => ListTile(
-              leading: const Icon(Icons.list_alt),
-              title: const Text('Feed'),
-              subtitle: Text('${snapshot.data ?? 0} records'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => FeedScreen(db: db, property: property),
-                ),
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.map_outlined),
-            title: const Text('Map'),
-            onTap: () async {
-              // Re-read: a KML import may have set the boundary after this
-              // screen captured its property snapshot.
-              final fresh = await (db.select(db.properties)
-                    ..where((p) => p.id.equals(property.id)))
-                  .getSingle();
-              if (!context.mounted) return;
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MapScreen(db: db, property: fresh),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.park_outlined),
-            title: const Text('Plantings'),
-            subtitle: const Text('Cohorts, individuals, survival'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => PlantingsScreen(db: db, property: property),
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.science_outlined),
-            title: const Text('Propagation'),
-            subtitle: const Text('Batches, lineage, bench log'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => PropagationScreen(db: db, property: property),
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.place_outlined),
-            title: const Text('Features'),
-            subtitle: const Text('Springs, guzzlers, headcuts, condition'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => FeaturesScreen(db: db, property: property),
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_camera_outlined),
-            title: const Text('Photo points'),
-            subtitle: const Text('Repeat photography with ghost overlay'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    PhotoPointsScreen(db: db, property: property),
-              ),
-            ),
-          ),
-          ListenableBuilder(
-            listenable: trackRecorder,
-            builder: (context, _) {
-              final recording = trackRecorder.recording &&
-                  trackRecorder.activePropertyId == property.id;
-              return ListTile(
-                leading: Icon(
-                  recording ? Icons.stop_circle : Icons.route_outlined,
-                  color: recording ? Colors.red.shade700 : null,
-                ),
-                title: Text(recording ? 'Stop track' : 'Start track'),
-                subtitle: Text(recording
-                    ? '${trackRecorder.pointCount} points · '
-                        '${trackRecorder.distanceSoFarM.toStringAsFixed(0)} m'
-                    : 'Record where you walk'),
-                onTap: () async {
-                  if (recording) {
-                    await trackRecorder.stop();
-                  } else if (!trackRecorder.recording) {
-                    await trackRecorder.start(property.id);
-                  }
-                },
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.assignment_outlined),
-            title: const Text('Programs'),
-            subtitle: const Text('EQIP, TPWD PUB — practices and deadlines'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ProgramsScreen(db: db, property: property),
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.upload_file_outlined),
-            title: const Text('Import KML/KMZ'),
-            subtitle: const Text('Boundary, zones, pins'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => KmlImportScreen(db: db, property: property),
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.ios_share),
-            title: const Text('Export all data'),
-            subtitle: const Text('SQLite, CSV, GeoJSON, KML, photos'),
-            onTap: () => _export(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _export(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('Exporting…')));
-    try {
-      // TODO(shared-storage): move to MediaStore/SAF so the folder shows over
-      // USB (spec §6); app documents dir until then.
-      final docs = await getApplicationDocumentsDirectory();
-      final dir = await Exporter(db)
-          .exportProperty(property, Directory('${docs.path}/exports'));
-      // Zip + share sheet: one tap to a computer, Drive, or email — no
-      // cable required (spec §6).
-      final zipPath = '${dir.path}.zip';
-      final encoder = ZipFileEncoder()..create(zipPath);
-      await encoder.addDirectory(dir);
-      await encoder.close();
-      messenger.hideCurrentSnackBar();
-      await SharePlus.instance.share(ShareParams(
-          files: [XFile(zipPath)],
-          text: 'Field Notes export — ${property.name}'));
-    } catch (e) {
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
-    }
+/// Full export → zip → share sheet (spec §6). Shared by Settings.
+Future<void> exportAndShare(
+    BuildContext context, FieldNotesDb db, Property property) async {
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.showSnackBar(const SnackBar(content: Text('WRITING EXPORT…')));
+  try {
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = await Exporter(db)
+        .exportProperty(property, Directory('${docs.path}/exports'));
+    final zipPath = '${dir.path}.zip';
+    final encoder = ZipFileEncoder()..create(zipPath);
+    await encoder.addDirectory(dir);
+    await encoder.close();
+    messenger.hideCurrentSnackBar();
+    await SharePlus.instance.share(ShareParams(
+        files: [XFile(zipPath)],
+        text: 'Field Station export — ${property.name}'));
+  } catch (e) {
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text('EXPORT FAILED: $e')));
   }
 }

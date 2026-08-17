@@ -17,10 +17,11 @@ const _basemapFile = 'basemap.pmtiles';
 /// `<documents>/basemap/` and are served over loopback; nothing here touches
 /// the network.
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key, this.db, this.property});
+  const MapScreen({super.key, this.db, this.property, this.embedded = false});
 
   final FieldNotesDb? db;
   final Property? property;
+  final bool embedded;
 
   @override
   State<MapScreen> createState() => _MapScreenState();

@@ -8,10 +8,14 @@ import 'batch_detail_screen.dart';
 /// Propagation (spec §7.6): batches with counts and status.
 class PropagationScreen extends StatelessWidget {
   const PropagationScreen(
-      {super.key, required this.db, required this.property});
+      {super.key,
+      required this.db,
+      required this.property,
+      this.embedded = false});
 
   final FieldNotesDb db;
   final Property property;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +24,7 @@ class PropagationScreen extends StatelessWidget {
       ..where((b) => b.deletedAt.isNull())
       ..orderBy([(b) => OrderingTerm.desc(b.startedOn)]));
     return Scaffold(
-      appBar: AppBar(title: const Text('Propagation')),
+      appBar: embedded ? null : AppBar(title: const Text('Propagation')),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('New batch'),

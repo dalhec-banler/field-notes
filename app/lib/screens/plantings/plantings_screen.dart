@@ -9,10 +9,14 @@ import 'planting_detail_screen.dart';
 /// Plantings (spec §7.5): events with survival %, drill into cohorts.
 class PlantingsScreen extends StatelessWidget {
   const PlantingsScreen(
-      {super.key, required this.db, required this.property});
+      {super.key,
+      required this.db,
+      required this.property,
+      this.embedded = false});
 
   final FieldNotesDb db;
   final Property property;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +25,7 @@ class PlantingsScreen extends StatelessWidget {
       ..where((e) => e.deletedAt.isNull())
       ..orderBy([(e) => OrderingTerm.desc(e.plantedOn)]));
     return Scaffold(
-      appBar: AppBar(title: const Text('Plantings')),
+      appBar: embedded ? null : AppBar(title: const Text('Plantings')),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('New planting'),

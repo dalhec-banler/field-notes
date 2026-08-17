@@ -87,6 +87,32 @@ flutter:
   assets:
     - assets/seed/taxa_seed.csv
 
+  fonts:
+    - family: ZillaSlab
+      fonts:
+        - asset: assets/fonts/ZillaSlab-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/ZillaSlab-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/ZillaSlab-Bold.ttf
+          weight: 700
+        # No 900 cut exists; Flutter resolves w900 to the boldest available.
+    - family: Newsreader
+      fonts:
+        - asset: assets/fonts/Newsreader-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Newsreader-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Newsreader-Italic.ttf
+          weight: 400
+          style: italic
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/JetBrainsMono-Medium.ttf
+          weight: 500
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

@@ -1,0 +1,339 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart' hide Column;
+import 'package:flutter/material.dart';
+
+import '../db/database.dart';
+import '../screens/record_detail_screen.dart';
+import '../services/app_prefs.dart';
+import '../theme/tokens.dart';
+import '../widgets/press.dart';
+
+/// Ledger (design README §3.2): the feed as a record of entries. Rows scale
+/// off one density root — 16 px glove, 13.5 px dense.
+class LedgerTab extends StatefulWidget {
+  const LedgerTab(
+      {super.key,
+      required this.db,
+      required this.property,
+      required this.prefs});
+
+  final FieldNotesDb db;
+  final Property property;
+  final AppPrefs prefs;
+
+  @override
+  State<LedgerTab> createState() => _LedgerTabState();
+}
+
+class _LedgerTabState extends State<LedgerTab> {
+  String? _zoneFilter;
+  String? _typeFilter;
+  List<Zone> _zones = const [];
+
+  double get _em => widget.prefs.density == 'dense' ? 13.5 : 16.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadZones();
+  }
+
+  Future<void> _loadZones() async {
+    final zones = await (widget.db.select(widget.db.zones)
+          ..where((z) => z.propertyId.equals(widget.property.id))
+          ..where((z) => z.deletedAt.isNull())
+          ..orderBy([(z) => OrderingTerm.asc(z.name)]))
+        .get();
+    if (mounted) setState(() => _zones = zones);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = (widget.db.select(widget.db.observations)
+      ..where((o) => o.propertyId.equals(widget.property.id))
+      ..where((o) => o.deletedAt.isNull())
+      ..orderBy([(o) => OrderingTerm.desc(o.observedAt)]));
+    if (_zoneFilter != null) query.where((o) => o.zoneId.equals(_zoneFilter!));
+    if (_typeFilter != null) {
+      query.where((o) => o.observationType.equals(_typeFilter!));
+    }
+
+    return SafeArea(
+      bottom: false,
+      child: StreamBuilder<List<Observation>>(
+        stream: query.watch(),
+        builder: (context, snapshot) {
+          final obs = snapshot.data ?? const [];
+          return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ScreenHeader(
+                    kicker: 'Record of entries',
+                    title: 'Ledger',
+                    trailing: MonoLabel('${obs.length} entries',
+                        size: 9.5, opacity: 0.7),
+                  ),
+                  SizedBox(
+                    height: 44,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: Metrics.gutter, vertical: 7),
+                      children: [
+                        _chip(
+                          _zoneFilter == null
+                              ? 'All zones'
+                              : _zones
+                                  .firstWhere((z) => z.id == _zoneFilter)
+                                  .name,
+                          active: _zoneFilter != null,
+                          onTap: _pickZone,
+                        ),
+                        const SizedBox(width: 7),
+                        _chip(
+                          _typeFilter ?? 'Type',
+                          active: _typeFilter != null,
+                          onTap: _pickType,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: obs.isEmpty
+                        ? const Center(
+                            child: MonoLabel('— no entries yet —',
+                                size: 9, spacing: 2, opacity: 0.5))
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(bottom: 110),
+                            itemCount: obs.length + 1,
+                            itemBuilder: (context, i) {
+                              if (i == obs.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 22),
+                                  child: Center(
+                                    child: MonoLabel('— end of local store —',
+                                        size: 9, spacing: 2, opacity: 0.5),
+                                  ),
+                                );
+                              }
+                              return _LedgerRow(
+                                  db: widget.db, obs: obs[i], em: _em);
+                            },
+                          ),
+                  ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _chip(String label, {required bool active, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          color: active ? Press.ink : null,
+          border: Border.all(color: Press.ink, width: 1),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontFamily: Type.mono,
+            fontSize: 9.5,
+            letterSpacing: 1.6,
+            color: active ? Press.paper : Press.ink,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickZone() async {
+    final picked = await _pickSheet<Zone?>(
+      title: 'Zone',
+      items: [(null, 'All zones'), for (final z in _zones) (z, z.name)],
+    );
+    if (picked == null) return;
+    setState(() => _zoneFilter = picked.$1?.id);
+  }
+
+  Future<void> _pickType() async {
+    const types = [
+      'general', 'plant', 'wildlife', 'problem', 'water', 'soil',
+      'phenology', 'sign', 'weather', 'maintenance'
+    ];
+    final picked = await _pickSheet<String?>(
+      title: 'Type',
+      items: [(null, 'All types'), for (final t in types) (t, t)],
+    );
+    if (picked == null) return;
+    setState(() => _typeFilter = picked.$1);
+  }
+
+  Future<(T, String)?> _pickSheet<T>({
+    required String title,
+    required List<(T, String)> items,
+  }) {
+    return showModalBottomSheet<(T, String)>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(13, 14, 13, 6),
+              child: MonoLabel(title, size: 9, spacing: 2),
+            ),
+            for (final item in items)
+              ListTile(
+                minTileHeight: 56,
+                title: Text(item.$2.toUpperCase(),
+                    style: const TextStyle(
+                        fontFamily: Type.mono,
+                        fontSize: 11,
+                        letterSpacing: 1.4)),
+                onTap: () => Navigator.pop(context, item),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LedgerRow extends StatelessWidget {
+  const _LedgerRow({required this.db, required this.obs, required this.em});
+
+  final FieldNotesDb db;
+  final Observation obs;
+  final double em;
+
+  Future<(String?, String?)> _details() async {
+    String? species;
+    if (obs.taxonId != null) {
+      final t = await (db.select(db.taxa)
+            ..where((x) => x.id.equals(obs.taxonId!)))
+          .getSingleOrNull();
+      species = t?.scientificName;
+    }
+    String? thumb;
+    final link = await (db.select(db.mediaLinks)
+          ..where((l) =>
+              l.entityType.equals('observation') & l.entityId.equals(obs.id))
+          ..limit(1))
+        .getSingleOrNull();
+    if (link != null) {
+      final m = await (db.select(db.media)
+            ..where((x) => x.id.equals(link.mediaId)))
+          .getSingleOrNull();
+      thumb = m?.thumbPath;
+    }
+    return (species, thumb);
+  }
+
+  String _relativeTime() {
+    final then = DateTime.tryParse(obs.observedAt);
+    if (then == null) return '';
+    final d = DateTime.now().toUtc().difference(then);
+    if (d.inMinutes < 60) return '${d.inMinutes} min';
+    if (d.inHours < 24) return '${d.inHours} h';
+    return '${d.inDays} d';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final typeColor = recordTypeColor(obs.observationType);
+    return FutureBuilder<(String?, String?)>(
+      future: _details(),
+      builder: (context, snapshot) {
+        final (species, thumb) = snapshot.data ?? (null, null);
+        return InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => RecordDetailScreen(db: db, obsId: obs.id),
+            ),
+          ),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: Metrics.gutter, vertical: em * 0.75),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Press.divider, width: 1)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: em * 3.6,
+                  height: em * 4.2,
+                  decoration: BoxDecoration(
+                    color: Press.photoPlaceholder,
+                    border: Border.all(color: Press.ink, width: 1),
+                    image: thumb != null && File(thumb).existsSync()
+                        ? DecorationImage(
+                            image: FileImage(File(thumb)), fit: BoxFit.cover)
+                        : null,
+                  ),
+                ),
+                SizedBox(width: em * 0.7),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Diamond(size: 7, color: typeColor),
+                        const SizedBox(width: 5),
+                        MonoLabel(obs.observationType,
+                            size: em * 0.66, spacing: 1.6, color: typeColor),
+                      ]),
+                      SizedBox(height: em * 0.25),
+                      species != null
+                          ? TaxonName(species, size: em * 1.28, maxLines: 1)
+                          : Text(
+                              obs.observationType.toUpperCase(),
+                              style: TextStyle(
+                                fontFamily: Type.slab,
+                                fontWeight: FontWeight.w900,
+                                fontSize: em * 1.1,
+                                color: Press.ink,
+                              ),
+                            ),
+                      SizedBox(height: em * 0.2),
+                      MonoLabel(
+                        obs.gpsAccuracyM == -1
+                            ? 'no fix · saved anyway'
+                            : '${obs.lat.toStringAsFixed(5)}, ${obs.lng.toStringAsFixed(5)}',
+                        size: em * 0.62,
+                        opacity: 0.72,
+                      ),
+                      if (obs.notes != null) ...[
+                        SizedBox(height: em * 0.25),
+                        Text(
+                          obs.notes!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: Type.serif,
+                            fontSize: em * 0.88,
+                            height: 1.4,
+                            color: Press.ink,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(width: em * 0.5),
+                MonoLabel(_relativeTime(),
+                    size: em * 0.64, opacity: 0.6),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

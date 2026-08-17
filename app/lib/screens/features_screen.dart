@@ -9,10 +9,15 @@ import '../db/database.dart';
 /// Features & infrastructure (spec §7.9): map-worthy things with condition
 /// history — springs, guzzlers, headcuts, gates.
 class FeaturesScreen extends StatefulWidget {
-  const FeaturesScreen({super.key, required this.db, required this.property});
+  const FeaturesScreen(
+      {super.key,
+      required this.db,
+      required this.property,
+      this.embedded = false});
 
   final FieldNotesDb db;
   final Property property;
+  final bool embedded;
 
   @override
   State<FeaturesScreen> createState() => _FeaturesScreenState();
@@ -226,7 +231,7 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
       ..where((f) => f.deletedAt.isNull())
       ..orderBy([(f) => OrderingTerm.asc(f.name)]));
     return Scaffold(
-      appBar: AppBar(title: const Text('Features')),
+      appBar: widget.embedded ? null : AppBar(title: const Text('Features')),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add_location_alt_outlined),
         label: const Text('Add feature'),
