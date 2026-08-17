@@ -10,11 +10,20 @@ import '../db/database.dart';
 import '../geo/zone_assignment.dart';
 import '../services/env_context.dart';
 import '../services/media_store.dart';
+import '../theme/tokens.dart';
+import '../widgets/press.dart';
 import '../widgets/species_field.dart';
 
-/// Capture flow (spec §7.2): camera → auto GPS/time/zone → species → notes →
-/// save. Everything after the photo is optional, and a save never blocks on
-/// network, GPS lock, or species ID.
+/// Result handed back to the shell for the save toast.
+class CaptureResult {
+  CaptureResult(this.observationId, this.elapsed);
+  final String observationId;
+  final Duration elapsed;
+}
+
+/// Capture (design README §3.8): the flow the whole app is built around.
+/// Camera-dark full-screen modal; save is never blocked on GPS, network, or
+/// identification; a record without a photograph is a legitimate record.
 class CaptureScreen extends StatefulWidget {
   const CaptureScreen({super.key, required this.db, required this.property});
 
@@ -28,14 +37,22 @@ class CaptureScreen extends StatefulWidget {
 class _CaptureScreenState extends State<CaptureScreen> {
   CameraController? _camera;
   String? _cameraError;
+  bool _cameraPermanentlyDenied = false;
   XFile? _shot;
+  int _step = 0; // 0 shutter · 1 form · 2 notes
 
   Position? _fix;
   StreamSubscription<Position>? _fixSub;
 
   TaxaData? _taxon;
+  String _observationType = 'general';
   final _notesController = TextEditingController();
   bool _saving = false;
+
+  static const _types = [
+    'general', 'plant', 'wildlife', 'problem', 'water', 'soil',
+    'phenology', 'sign', 'weather', 'maintenance'
+  ];
 
   @override
   void initState() {
@@ -44,12 +61,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
     _initLocation();
   }
 
-  bool _cameraPermanentlyDenied = false;
-
   Future<void> _initCamera() async {
     try {
-      // The camera plugin does not reliably prompt on all devices — request
-      // explicitly before touching the controller.
       final status = await Permission.camera.request();
       if (!status.isGranted) {
         setState(() {
@@ -111,21 +124,23 @@ class _CaptureScreenState extends State<CaptureScreen> {
     final camera = _camera;
     if (camera == null || !camera.value.isInitialized) return;
     final shot = await camera.takePicture();
-    setState(() => _shot = shot);
+    setState(() {
+      _shot = shot;
+      _step = 1;
+    });
   }
+
+  void _noPhoto() => setState(() => _step = 1);
 
   Future<void> _save() async {
     if (_saving) return;
     setState(() => _saving = true);
+    final started = DateTime.now();
     final db = widget.db;
     final now = nowUtcIso();
     final fix = _fix;
     final obsId = newId();
 
-    // No fix and no property centroid → hold the save until either arrives is
-    // forbidden (never block on GPS), so fall back to centroid; if even that
-    // is missing, flag the row via gps_accuracy_m = -1 rather than writing a
-    // silent (0,0) that looks like a real coordinate off the coast of Africa.
     final lat = fix?.latitude ?? widget.property.centroidLat;
     final lng = fix?.longitude ?? widget.property.centroidLng;
     final unlocated = lat == null || lng == null;
@@ -141,7 +156,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
         lng: lng,
         resolvedFor: now.substring(0, 10),
       );
-      // Fire and forget; failures leave rows stale for a later pass.
       unawaited(envService.backfillStale());
     }
 
@@ -155,11 +169,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
           gpsAccuracyM: Value(unlocated ? -1 : fix?.accuracy),
           altitudeM: Value(fix?.altitude),
           headingDeg: Value(fix?.heading),
-          observationType: Value(_taxon != null ? 'plant' : 'general'),
+          observationType: Value(
+              _taxon != null && _observationType == 'general'
+                  ? 'plant'
+                  : _observationType),
           taxonId: Value(_taxon?.id),
           taxonConfidence: Value(_taxon != null ? 'certain' : null),
-          notes: Value(
-              _notesController.text.trim().isEmpty ? null : _notesController.text.trim()),
+          notes: Value(_notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim()),
           envContextId: Value(envContextId),
           createdBy: 'local',
           createdAt: now,
@@ -175,7 +193,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
     }
 
     final shot = _shot;
-    if (shot != null) {
+    if (shot != null && shot.path.isNotEmpty) {
       final media = await MediaStore(db).savePhoto(
         await shot.readAsBytes(),
         propertyId: widget.property.id,
@@ -194,70 +212,357 @@ class _CaptureScreenState extends State<CaptureScreen> {
       );
     }
 
-    if (mounted) Navigator.of(context).pop(obsId);
+    if (mounted) {
+      Navigator.of(context)
+          .pop(CaptureResult(obsId, DateTime.now().difference(started)));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return _shot == null ? _buildCamera() : _buildForm();
+    return Scaffold(
+      backgroundColor: Press.cameraDark,
+      body: SafeArea(
+        child: switch (_step) {
+          0 => _buildShutter(),
+          1 => _buildForm(),
+          _ => _buildNotes(),
+        },
+      ),
+    );
   }
 
-  Widget _buildCamera() {
+  // Step 0 — shutter.
+  Widget _buildShutter() {
     final camera = _camera;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('New record'),
-        actions: [
-          TextButton(
-            onPressed: () => setState(() => _shot = XFile('')),
-            child: const Text('Skip photo',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _cameraError != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_cameraError!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white70)),
-                        const SizedBox(height: 16),
-                        FilledButton(
-                          onPressed: () async {
-                            if (_cameraPermanentlyDenied) {
-                              await openAppSettings();
-                            } else {
-                              setState(() => _cameraError = null);
-                              await _initCamera();
-                            }
-                          },
-                          child: Text(_cameraPermanentlyDenied
-                              ? 'Open settings'
-                              : 'Grant camera access'),
+    final fix = _fix;
+    return Column(
+      children: [
+        Expanded(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_cameraError != null)
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_cameraError!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontFamily: Type.serif,
+                              color: Color(0xB3F4ECD8))),
+                      const SizedBox(height: 14),
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Press.paperRaised,
+                          side: const BorderSide(
+                              color: Press.paperRaised, width: 1.5),
                         ),
-                      ],
-                    ),
-                  )
-                : camera == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : CameraPreview(camera),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: FloatingActionButton.large(
-                onPressed: _takePhoto,
-                child: const Icon(Icons.camera_alt, size: 36),
+                        onPressed: () async {
+                          if (_cameraPermanentlyDenied) {
+                            await openAppSettings();
+                          } else {
+                            setState(() => _cameraError = null);
+                            await _initCamera();
+                          }
+                        },
+                        child: Text(_cameraPermanentlyDenied
+                            ? 'OPEN SETTINGS'
+                            : 'GRANT CAMERA ACCESS'),
+                      ),
+                    ],
+                  ),
+                )
+              else if (camera == null)
+                const Center(
+                    child: CircularProgressIndicator(
+                        color: Press.paperRaised))
+              else
+                CameraPreview(camera),
+              // Scrim.
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x421E2C25), Color(0x801E2C25)],
+                  ),
+                ),
               ),
+              // Inset frame line.
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                          color: const Color(0x66F4ECD8), width: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+              // Corner diamonds.
+              const Positioned(
+                  top: 30,
+                  left: 30,
+                  child: Diamond(size: 9, color: Press.sage)),
+              const Positioned(
+                  top: 30,
+                  right: 30,
+                  child: Diamond(size: 9, color: Press.sage)),
+              // Focus square.
+              Center(
+                child: Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                        color: const Color(0x99F4ECD8), width: 1.5),
+                  ),
+                ),
+              ),
+              // Top readout.
+              Positioned(
+                top: 34,
+                left: 44,
+                right: 44,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const MonoLabel('◆ Ready',
+                        size: 9.5, spacing: 1.8, color: Press.paperRaised),
+                    MonoLabel(
+                      fix == null
+                          ? 'no fix — save works anyway'
+                          : '±${fix.accuracy.toStringAsFixed(1)} m',
+                      size: 9.5,
+                      spacing: 1.4,
+                      color: Press.paperRaised,
+                    ),
+                  ],
+                ),
+              ),
+              // Bottom-left coordinates.
+              if (fix != null)
+                Positioned(
+                  left: 34,
+                  bottom: 34,
+                  child: MonoLabel(
+                    '${fix.latitude.toStringAsFixed(5)}\n${fix.longitude.toStringAsFixed(5)}',
+                    size: 9.5,
+                    spacing: 1.2,
+                    color: Press.paperRaised,
+                    opacity: 0.9,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        // Shutter bar: Cancel · shutter · No photo — which advances exactly
+        // like the shutter does.
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              SizedBox(
+                width: 90,
+                height: 58,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('CANCEL',
+                      style: TextStyle(color: Color(0x99F4ECD8))),
+                ),
+              ),
+              GestureDetector(
+                onTap: _takePhoto,
+                child: Container(
+                  width: Metrics.shutterSize,
+                  height: Metrics.shutterSize,
+                  decoration: BoxDecoration(
+                    color: Press.oxblood,
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: Press.paperRaised, width: 4),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 90,
+                height: 58,
+                child: TextButton(
+                  onPressed: _noPhoto,
+                  child: const Text('NO PHOTO',
+                      style: TextStyle(color: Color(0x99F4ECD8))),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Step 1 — the form.
+  Widget _buildForm() {
+    final fix = _fix;
+    return Container(
+      color: Press.paper,
+      child: Column(
+        children: [
+          // Header strip.
+          Container(
+            padding: const EdgeInsets.fromLTRB(13, 10, 6, 10),
+            decoration: const BoxDecoration(
+              border: Border(
+                  bottom: BorderSide(
+                      color: Press.ink, width: Metrics.borderStructural)),
+            ),
+            child: Row(
+              children: [
+                const Diamond(size: 9, color: Press.sage),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      MonoLabel(
+                        'Captured'
+                        '${fix != null ? ' · ±${fix.accuracy.toStringAsFixed(1)} m' : ' · no fix — saving anyway'}',
+                        size: 9.5,
+                        spacing: 1.6,
+                        color: Press.sage,
+                      ),
+                      const SizedBox(height: 2),
+                      const MonoLabel('zone · point-in-polygon · turf_dart',
+                          size: 8.5, opacity: 0.65),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: 46,
+                  height: 46,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('✕'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(Metrics.gutter),
+              children: [
+                const MonoLabel('identification · nothing written yet',
+                    size: 9, spacing: 1.8),
+                const SizedBox(height: 8),
+                SpeciesField(
+                  db: widget.db,
+                  onSelected: (t) => setState(() => _taxon = t),
+                ),
+                const SizedBox(height: 10),
+                const RailNote(
+                  color: Press.oxblood,
+                  body:
+                      'A machine ID is never written to taxon_id without your '
+                      'acceptance. Leave it blank and confidence saves as '
+                      'unidentified.',
+                ),
+                const SizedBox(height: 16),
+                const MonoLabel('observation_type', size: 9, spacing: 1.8),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: [
+                    for (final t in _types)
+                      GestureDetector(
+                        onTap: () => setState(() => _observationType = t),
+                        child: Container(
+                          height: 46,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 13),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color:
+                                _observationType == t ? Press.ink : null,
+                            border: Border.all(color: Press.ink, width: 1),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            t.toUpperCase(),
+                            style: TextStyle(
+                              fontFamily: Type.mono,
+                              fontSize: 9.5,
+                              letterSpacing: 1.4,
+                              color: _observationType == t
+                                  ? Press.paper
+                                  : Press.ink,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const MonoLabel('env_context · attached, is_stale = 1',
+                    size: 9, spacing: 1.8),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                      color: Press.paperRaised,
+                      border: Border.all(color: Press.ink, width: 1.5)),
+                  child: Column(
+                    children: [
+                      FactRow(
+                          'observed_at',
+                          nowUtcIso()
+                              .replaceFirst('T', ' ')
+                              .substring(0, 16)),
+                      FactRow(
+                          'lat / lng',
+                          fix != null
+                              ? '${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)}'
+                              : 'none — flagged, not faked'),
+                      const FactRow(
+                          'is_stale', '1 · backfills from Open-Meteo + NRCS',
+                          last: true),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Footer.
+          Container(
+            padding: const EdgeInsets.all(Metrics.gutter),
+            decoration: const BoxDecoration(
+              border:
+                  Border(top: BorderSide(color: Press.divider, width: 1)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 58,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child:
+                          Text(_saving ? 'WRITING…' : 'SAVE OBSERVATION'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 58,
+                  child: OutlinedButton(
+                    onPressed: () => setState(() => _step = 2),
+                    child: const Text('+ NOTES'),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -265,51 +570,64 @@ class _CaptureScreenState extends State<CaptureScreen> {
     );
   }
 
-  Widget _buildForm() {
-    final fix = _fix;
-    final hasPhoto = _shot != null && _shot!.path.isNotEmpty;
-    return Scaffold(
-      appBar: AppBar(title: const Text('New record')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+  // Step 2 — notes.
+  Widget _buildNotes() {
+    return Container(
+      color: Press.paper,
+      child: Column(
         children: [
-          Row(
-            children: [
-              Chip(
-                avatar: Icon(
-                  fix == null ? Icons.gps_off : Icons.gps_fixed,
-                  size: 18,
+          Container(
+            padding: const EdgeInsets.fromLTRB(6, 10, 13, 10),
+            decoration: const BoxDecoration(
+              border: Border(
+                  bottom: BorderSide(
+                      color: Press.ink, width: Metrics.borderStructural)),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  height: 46,
+                  child: TextButton(
+                    onPressed: () => setState(() => _step = 1),
+                    child: const Text('‹ BACK'),
+                  ),
                 ),
-                label: Text(fix == null
-                    ? 'No GPS fix — saving anyway'
-                    : '±${fix.accuracy.toStringAsFixed(0)} m'),
-              ),
-              const SizedBox(width: 8),
-              if (hasPhoto) const Chip(label: Text('Photo attached')),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SpeciesField(
-            db: widget.db,
-            onSelected: (t) => setState(() => _taxon = t),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _notesController,
-            minLines: 3,
-            maxLines: 6,
-            decoration: const InputDecoration(
-              labelText: 'Notes',
-              border: OutlineInputBorder(),
+                const SizedBox(width: 6),
+                const MonoLabel('Notes & voice', size: 10, spacing: 1.8),
+              ],
             ),
           ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 56,
-            child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
-              icon: const Icon(Icons.check),
-              label: Text(_saving ? 'Saving…' : 'Save record'),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(Metrics.gutter),
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 124),
+                  child: TextField(
+                    controller: _notesController,
+                    minLines: 5,
+                    maxLines: 12,
+                    cursorColor: Press.oxblood,
+                    style: const TextStyle(
+                        fontFamily: Type.serif,
+                        fontSize: 16.5,
+                        height: 1.6),
+                    decoration:
+                        const InputDecoration(hintText: 'What did you see?'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(Metrics.gutter),
+            child: SizedBox(
+              height: 58,
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                child: Text(_saving ? 'WRITING…' : 'SAVE OBSERVATION'),
+              ),
             ),
           ),
         ],

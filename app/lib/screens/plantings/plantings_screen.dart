@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
 import '../../services/survival.dart';
+import '../../theme/tokens.dart';
+import '../../widgets/press.dart';
 import '../../widgets/species_field.dart';
 import 'planting_detail_screen.dart';
 
@@ -197,7 +199,7 @@ class _PlantingTile extends StatelessWidget {
       final t = await (db.select(db.taxa)
             ..where((x) => x.id.equals(event.taxonId!)))
           .getSingleOrNull();
-      species = t?.commonName ?? t?.scientificName ?? species;
+      species = t?.scientificName ?? t?.commonName ?? species;
     }
     return (species, await survivalFor(db, event));
   }
@@ -208,28 +210,75 @@ class _PlantingTile extends StatelessWidget {
       future: _load(),
       builder: (context, snapshot) {
         final (species, survival) = snapshot.data ?? ('…', null);
-        return ListTile(
-          minTileHeight: 64,
-          leading: const CircleAvatar(child: Icon(Icons.park_outlined)),
-          title: Text('$species × ${event.countPlanted}'),
-          subtitle: Text('Planted ${event.plantedOn}'),
-          trailing: survival == null
-              ? const Text('no check-ins')
-              : Text(
-                  '${(survival.rate * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: survival.rate >= 0.7
-                        ? Colors.green.shade700
-                        : survival.rate >= 0.4
-                            ? Colors.orange.shade800
-                            : Colors.red.shade700,
-                  ),
-                ),
+        final band =
+            survival == null ? Press.inkSoft : survivalBandColor(survival.rate);
+        return InkWell(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => PlantingDetailScreen(db: db, eventId: event.id),
+            ),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: Metrics.gutter, vertical: 13),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Press.divider, width: 1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: TaxonName(species, size: 20, maxLines: 1)),
+                    const SizedBox(width: 10),
+                    survival == null
+                        ? const MonoLabel('no check-ins',
+                            size: 9, opacity: 0.6)
+                        : Text(
+                            '${(survival.rate * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              fontFamily: Type.slab,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 20,
+                              height: 1,
+                              color: band,
+                            ),
+                          ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                MonoLabel(
+                  '${event.plantedOn} · ${event.stockSource.replaceAll('_', ' ')}'
+                  '${event.protection != null ? ' · ${event.protection!.replaceAll('_', ' ')}' : ''}',
+                  size: 9,
+                  opacity: 0.72,
+                ),
+                if (survival != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 9,
+                          decoration: BoxDecoration(
+                            color: const Color(0x121B1813),
+                            border: Border.all(color: Press.ink, width: 1),
+                          ),
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: survival.rate.clamp(0.0, 1.0),
+                            child: Container(color: band),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      MonoLabel('${survival.alive} / ${survival.total}',
+                          size: 9, opacity: 0.8),
+                    ],
+                  ),
+                ],
+              ],
             ),
           ),
         );

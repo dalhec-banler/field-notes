@@ -115,9 +115,11 @@ class _SettingsTabState extends State<SettingsTab> {
                         const Diamond(size: 9, color: Press.paper),
                         const SizedBox(width: 7),
                         MonoLabel(
-                          backupHealthy
-                              ? 'Backup verified'
-                              : 'Backup needed',
+                          !backupHealthy
+                              ? 'Backup needed'
+                              : _lastVerify != null
+                                  ? 'Backup verified'
+                                  : 'Backup current — unverified',
                           size: 10,
                           spacing: 1.6,
                           color: Press.paper,

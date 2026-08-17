@@ -1,4 +1,9 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../map/basemap_manager.dart';
 
@@ -32,6 +37,25 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     _manager.removeListener(_refresh);
     _urlController.dispose();
     super.dispose();
+  }
+
+  /// Copy a .pmtiles picked via the system file picker into the basemap
+  /// slot — works on release builds and needs no cable or server.
+  Future<void> _importFile() async {
+    final file = await openFile(acceptedTypeGroups: [
+      const XTypeGroup(label: 'PMTiles', extensions: ['pmtiles']),
+    ]);
+    if (file == null) return;
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = Directory(p.join(docs.path, 'basemap'))
+      ..createSync(recursive: true);
+    final dest = File(p.join(dir.path, BasemapManager.fileName));
+    await File(file.path).copy(dest.path);
+    _refresh();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('BASEMAP INSTALLED')));
+    }
   }
 
   String _fmtBytes(int b) => b > 1 << 20
@@ -84,6 +108,16 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
             decoration: const InputDecoration(
               labelText: 'https://…/area.pmtiles',
               border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 56,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.folder_open),
+              label: const Text('IMPORT .PMTILES FILE'),
+              onPressed: _manager.downloading ? null : _importFile,
             ),
           ),
           const SizedBox(height: 12),

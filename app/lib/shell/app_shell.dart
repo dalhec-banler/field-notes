@@ -39,15 +39,39 @@ class _AppShellState extends State<AppShell> {
   static const _tabs = ['Map', 'Ledger', 'Grow', 'Species', 'Settings'];
 
   Future<void> _openCapture() async {
-    await Navigator.of(context).push(
+    final result = await Navigator.of(context).push<CaptureResult>(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) =>
             CaptureScreen(db: widget.db, property: widget.property),
       ),
     );
-    // Land on the Ledger with the new row on top (README §5).
-    if (mounted) setState(() => _tab = 1);
+    if (!mounted || result == null) return;
+    // Land on the Ledger with the new row on top (README §5), then the
+    // toast — the privacy promise restated at every write.
+    setState(() => _tab = 1);
+    final seconds = (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(milliseconds: 3600),
+        content: Text(
+          'OBSERVATION WRITTEN IN $seconds S\n'
+          'UPLOAD_STATE = LOCAL · NOTHING HAS LEFT THE PHONE',
+        ),
+        action: SnackBarAction(
+          label: 'UNDO',
+          onPressed: () async {
+            final now = nowUtcIso();
+            await (widget.db.update(widget.db.observations)
+                  ..where((o) => o.id.equals(result.observationId)))
+                .write(ObservationsCompanion(
+              deletedAt: Value(now),
+              updatedAt: Value(now),
+            ));
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _switchProperty() async {
