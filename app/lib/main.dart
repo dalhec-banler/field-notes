@@ -13,6 +13,8 @@ import 'screens/capture_screen.dart';
 import 'screens/feed_screen.dart';
 import 'screens/kml_import_screen.dart';
 import 'screens/offline_maps_screen.dart';
+import 'screens/plantings/plantings_screen.dart';
+import 'screens/propagation/propagation_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +22,7 @@ void main() {
   // First-run species library; never blocks the UI (spec: offline-first, no
   // startup gates).
   seedTaxaIfEmpty(db);
+  seedFeatureTypesIfEmpty(db);
   runApp(FieldNotesApp(db: db));
 }
 
@@ -237,6 +240,26 @@ class PropertyScreen extends StatelessWidget {
                 ),
               );
             },
+          ),
+          ListTile(
+            leading: const Icon(Icons.park_outlined),
+            title: const Text('Plantings'),
+            subtitle: const Text('Cohorts, individuals, survival'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => PlantingsScreen(db: db, property: property),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.science_outlined),
+            title: const Text('Propagation'),
+            subtitle: const Text('Batches, lineage, bench log'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => PropagationScreen(db: db, property: property),
+              ),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.upload_file_outlined),

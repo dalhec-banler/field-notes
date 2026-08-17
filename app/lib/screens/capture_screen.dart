@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../db/database.dart';
 import '../geo/zone_assignment.dart';
 import '../services/media_store.dart';
+import '../widgets/species_field.dart';
 
 /// Capture flow (spec §7.2): camera → auto GPS/time/zone → species → notes →
 /// save. Everything after the photo is optional, and a save never blocks on
@@ -32,7 +33,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
   StreamSubscription<Position>? _fixSub;
 
   TaxaData? _taxon;
-  final _speciesController = TextEditingController();
   final _notesController = TextEditingController();
   bool _saving = false;
 
@@ -102,7 +102,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
   void dispose() {
     _camera?.dispose();
     _fixSub?.cancel();
-    _speciesController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -273,9 +272,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          _SpeciesField(
+          SpeciesField(
             db: widget.db,
-            controller: _speciesController,
             onSelected: (t) => setState(() => _taxon = t),
           ),
           const SizedBox(height: 12),
@@ -299,80 +297,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SpeciesField extends StatefulWidget {
-  const _SpeciesField({
-    required this.db,
-    required this.controller,
-    required this.onSelected,
-  });
-
-  final FieldNotesDb db;
-  final TextEditingController controller;
-  final ValueChanged<TaxaData?> onSelected;
-
-  @override
-  State<_SpeciesField> createState() => _SpeciesFieldState();
-}
-
-class _SpeciesFieldState extends State<_SpeciesField> {
-  List<TaxaData> _suggestions = const [];
-
-  Future<void> _search(String query) async {
-    if (query.trim().isEmpty) {
-      setState(() => _suggestions = const []);
-      widget.onSelected(null);
-      return;
-    }
-    final q = '%${query.trim()}%';
-    final rows = await (widget.db.select(widget.db.taxa)
-          ..where((t) =>
-              t.deletedAt.isNull() &
-              (t.commonName.like(q) |
-                  t.scientificName.like(q) |
-                  t.family.like(q)))
-          ..orderBy([
-            (t) => OrderingTerm.desc(t.isFavorite),
-            (t) => OrderingTerm.asc(t.scientificName),
-          ])
-          ..limit(10))
-        .get();
-    if (mounted) setState(() => _suggestions = rows);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: widget.controller,
-          onChanged: _search,
-          decoration: const InputDecoration(
-            labelText: 'Species (optional)',
-            prefixIcon: Icon(Icons.local_florist_outlined),
-            border: OutlineInputBorder(),
-          ),
-        ),
-        for (final t in _suggestions)
-          ListTile(
-            minTileHeight: 48,
-            dense: true,
-            leading: t.isFavorite == 1
-                ? const Icon(Icons.star, size: 18)
-                : const SizedBox(width: 18),
-            title: Text(t.commonName ?? t.scientificName),
-            subtitle: Text(t.scientificName),
-            onTap: () {
-              widget.controller.text = t.commonName ?? t.scientificName;
-              widget.onSelected(t);
-              setState(() => _suggestions = const []);
-            },
-          ),
-      ],
     );
   }
 }

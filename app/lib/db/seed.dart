@@ -5,6 +5,65 @@ import 'database.dart';
 
 const _seedAsset = 'assets/seed/taxa_seed.csv';
 
+/// Default feature-type registry (spec §4.3). (key, label, class, geometry,
+/// tracksCondition)
+const _featureTypeSeed = [
+  ('spring', 'Spring', 'natural', 'point', 1),
+  ('seep', 'Seep', 'natural', 'point', 1),
+  ('stock_tank', 'Stock tank', 'infrastructure', 'polygon', 1),
+  ('wetland', 'Wetland', 'natural', 'polygon', 1),
+  ('wet_depression', 'Wet depression', 'natural', 'polygon', 1),
+  ('drainage', 'Drainage', 'natural', 'line', 1),
+  ('erosion_zone', 'Erosion zone / headcut', 'problem', 'point', 1),
+  ('gully', 'Gully', 'problem', 'line', 1),
+  ('guzzler', 'Water guzzler', 'infrastructure', 'point', 1),
+  ('trough', 'Trough', 'infrastructure', 'point', 1),
+  ('well', 'Well', 'infrastructure', 'point', 1),
+  ('gate', 'Gate', 'infrastructure', 'point', 1),
+  ('fence_line', 'Fence line', 'infrastructure', 'line', 1),
+  ('exclosure', 'Exclosure', 'infrastructure', 'polygon', 1),
+  ('cage', 'Cage', 'infrastructure', 'point', 1),
+  ('road', 'Road', 'infrastructure', 'line', 0),
+  ('trail', 'Trail', 'infrastructure', 'line', 0),
+  ('culvert', 'Culvert', 'infrastructure', 'point', 1),
+  ('crossing', 'Crossing', 'infrastructure', 'point', 1),
+  ('brush_pile', 'Brush pile', 'natural', 'point', 0),
+  ('snag', 'Snag', 'natural', 'point', 0),
+  ('den_site', 'Den site', 'natural', 'point', 0),
+  ('burn_unit', 'Burn unit', 'natural', 'polygon', 0),
+  ('food_plot', 'Food plot', 'natural', 'polygon', 1),
+  ('structure', 'Structure', 'infrastructure', 'polygon', 1),
+];
+
+/// Seeds the global feature-type registry. Idempotent by key.
+Future<int> seedFeatureTypesIfEmpty(FieldNotesDb db) async {
+  final existing = await (db.select(db.featureTypes)
+        ..where((t) => t.propertyId.isNull())
+        ..limit(1))
+      .get();
+  if (existing.isNotEmpty) return 0;
+  final now = nowUtcIso();
+  var inserted = 0;
+  await db.batch((batch) {
+    for (final (key, label, cls, geometry, tracks) in _featureTypeSeed) {
+      batch.insert(
+        db.featureTypes,
+        FeatureTypesCompanion.insert(
+          id: newId(),
+          typeKey: key,
+          label: label,
+          featureClass: cls,
+          defaultGeometry: Value(geometry),
+          tracksCondition: Value(tracks),
+          createdAt: now,
+        ),
+      );
+      inserted++;
+    }
+  });
+  return inserted;
+}
+
 /// Loads the bundled regional species library into `taxa` on first run.
 /// Seed rows are global (property_id NULL, spec §4.4). No-op if any global
 /// taxa already exist, so user edits are never clobbered.

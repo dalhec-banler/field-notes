@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "io.nativeplanet.field_notes"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
