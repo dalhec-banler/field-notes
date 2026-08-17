@@ -54,6 +54,7 @@ dependencies:
   crypto: ^3.0.7
   file_selector: ^1.1.0
   permission_handler: ^13.0.1
+  sensors_plus: ^7.1.0
 
 dev_dependencies:
   flutter_test:

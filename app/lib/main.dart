@@ -13,8 +13,15 @@ import 'screens/capture_screen.dart';
 import 'screens/feed_screen.dart';
 import 'screens/kml_import_screen.dart';
 import 'screens/offline_maps_screen.dart';
+import 'screens/features_screen.dart';
+import 'screens/photo_points/photo_points_screen.dart';
 import 'screens/plantings/plantings_screen.dart';
 import 'screens/propagation/propagation_screen.dart';
+import 'services/track_recorder.dart';
+
+/// App-wide track recorder: recording must survive navigation and screen
+/// sleep (spec §4.13).
+late final TrackRecorder trackRecorder;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +30,7 @@ void main() {
   // startup gates).
   seedTaxaIfEmpty(db);
   seedFeatureTypesIfEmpty(db);
+  trackRecorder = TrackRecorder(db);
   runApp(FieldNotesApp(db: db));
 }
 
@@ -260,6 +268,52 @@ class PropertyScreen extends StatelessWidget {
                 builder: (_) => PropagationScreen(db: db, property: property),
               ),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.place_outlined),
+            title: const Text('Features'),
+            subtitle: const Text('Springs, guzzlers, headcuts, condition'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => FeaturesScreen(db: db, property: property),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: const Text('Photo points'),
+            subtitle: const Text('Repeat photography with ghost overlay'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    PhotoPointsScreen(db: db, property: property),
+              ),
+            ),
+          ),
+          ListenableBuilder(
+            listenable: trackRecorder,
+            builder: (context, _) {
+              final recording = trackRecorder.recording &&
+                  trackRecorder.activePropertyId == property.id;
+              return ListTile(
+                leading: Icon(
+                  recording ? Icons.stop_circle : Icons.route_outlined,
+                  color: recording ? Colors.red.shade700 : null,
+                ),
+                title: Text(recording ? 'Stop track' : 'Start track'),
+                subtitle: Text(recording
+                    ? '${trackRecorder.pointCount} points · '
+                        '${trackRecorder.distanceSoFarM.toStringAsFixed(0)} m'
+                    : 'Record where you walk'),
+                onTap: () async {
+                  if (recording) {
+                    await trackRecorder.stop();
+                  } else if (!trackRecorder.recording) {
+                    await trackRecorder.start(property.id);
+                  }
+                },
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.upload_file_outlined),

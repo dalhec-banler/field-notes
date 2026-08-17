@@ -2,6 +2,12 @@
     <!-- whileInUse only; 'always' waits for track logging (spec §3.5) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Track logging runs as a location foreground service (spec §4.13) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Track logging holds a wake lock so GPS survives screen sleep -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <application
         android:label="Field Notes"
         android:name="${applicationName}"
