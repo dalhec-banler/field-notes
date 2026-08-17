@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../db/database.dart';
 import '../geo/zone_assignment.dart';
@@ -42,8 +43,20 @@ class _CaptureScreenState extends State<CaptureScreen> {
     _initLocation();
   }
 
+  bool _cameraPermanentlyDenied = false;
+
   Future<void> _initCamera() async {
     try {
+      // The camera plugin does not reliably prompt on all devices — request
+      // explicitly before touching the controller.
+      final status = await Permission.camera.request();
+      if (!status.isGranted) {
+        setState(() {
+          _cameraPermanentlyDenied = status.isPermanentlyDenied;
+          _cameraError = 'Camera permission needed to attach photos';
+        });
+        return;
+      }
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
         setState(() => _cameraError = 'No camera available');
@@ -194,9 +207,29 @@ class _CaptureScreenState extends State<CaptureScreen> {
           Expanded(
             child: _cameraError != null
                 ? Center(
-                    child: Text('Camera unavailable\n$_cameraError',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70)))
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_cameraError!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white70)),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: () async {
+                            if (_cameraPermanentlyDenied) {
+                              await openAppSettings();
+                            } else {
+                              setState(() => _cameraError = null);
+                              await _initCamera();
+                            }
+                          },
+                          child: Text(_cameraPermanentlyDenied
+                              ? 'Open settings'
+                              : 'Grant camera access'),
+                        ),
+                      ],
+                    ),
+                  )
                 : camera == null
                     ? const Center(child: CircularProgressIndicator())
                     : CameraPreview(camera),

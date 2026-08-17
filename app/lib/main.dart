@@ -12,6 +12,7 @@ import 'map/map_screen.dart';
 import 'screens/capture_screen.dart';
 import 'screens/feed_screen.dart';
 import 'screens/kml_import_screen.dart';
+import 'screens/offline_maps_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -117,7 +118,18 @@ class HomeScreen extends StatelessWidget {
       ..where((p) => p.deletedAt.isNull())
       ..orderBy([(p) => OrderingTerm.asc(p.name)]));
     return Scaffold(
-      appBar: AppBar(title: const Text('Field Notes')),
+      appBar: AppBar(
+        title: const Text('Field Notes'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.layers_outlined),
+            tooltip: 'Offline maps',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const OfflineMapsScreen()),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _addProperty(context),
         icon: const Icon(Icons.add),
