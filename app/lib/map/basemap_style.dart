@@ -4,15 +4,20 @@ import 'dart:convert';
 /// loopback tile server. No glyphs or sprites — every layer here renders
 /// without font/icon assets, so the style is fully offline from day one.
 /// Labels come later with bundled glyphs.
-String basemapStyle({required String pmtilesUrl}) {
+String basemapStyle({String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
+  assert((pmtilesUrl == null) != (tilesUrl == null));
   final style = {
     'version': 8,
     'name': 'Field Notes offline',
     'sources': {
-      'basemap': {
-        'type': 'vector',
-        'url': pmtilesUrl,
-      },
+      'basemap': pmtilesUrl != null
+          ? {'type': 'vector', 'url': pmtilesUrl}
+          : {
+              'type': 'vector',
+              'tiles': [tilesUrl],
+              'minzoom': 0,
+              'maxzoom': maxZoom,
+            },
     },
     'layers': [
       {

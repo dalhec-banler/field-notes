@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
+import 'area_downloader.dart';
 import 'basemap_style.dart';
+import 'mbtiles_store.dart';
 import 'tile_server.dart';
 
 const _basemapFile = 'basemap.pmtiles';
@@ -17,11 +21,20 @@ const _basemapFile = 'basemap.pmtiles';
 /// `<documents>/basemap/` and are served over loopback; nothing here touches
 /// the network.
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key, this.db, this.property, this.embedded = false});
+  const MapScreen(
+      {super.key,
+      this.db,
+      this.property,
+      this.embedded = false,
+      this.onController});
 
   final FieldNotesDb? db;
   final Property? property;
   final bool embedded;
+
+  /// Hands the map controller up so chrome (capture-area mode) can read the
+  /// visible region.
+  final ValueChanged<MapLibreMapController>? onController;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -29,39 +42,104 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   TileServer? _server;
+  MbTilesStore? _mbtiles;
   String? _styleJson;
   String? _error;
+  StreamSubscription<Position>? _fixSub;
+  Position? _fix;
+  bool _positionLayerReady = false;
 
   @override
   void initState() {
     super.initState();
     _start();
+    _watchPosition();
   }
 
   Future<void> _start() async {
     try {
       final docs = await getApplicationDocumentsDirectory();
-      final basemapDir = Directory(p.join(docs.path, 'basemap'));
-      final archive = File(p.join(basemapDir.path, _basemapFile));
-      if (!archive.existsSync()) {
+      final basemapDir = Directory(p.join(docs.path, 'basemap'))
+        ..createSync(recursive: true);
+      // Captured areas (MBTiles) take precedence over a sideloaded PMTiles
+      // archive; both serve through the same loopback server.
+      final mbFile = File(p.join(basemapDir.path, AreaDownloader.mbtilesName));
+      final pmFile = File(p.join(basemapDir.path, _basemapFile));
+      if (mbFile.existsSync()) {
+        _mbtiles = MbTilesStore.open(mbFile);
+        final server =
+            await TileServer.start(basemapDir, mbtiles: _mbtiles);
+        final maxZoom =
+            int.tryParse(_mbtiles!.metadata['maxzoom'] ?? '') ?? 15;
+        setState(() {
+          _server = server;
+          _styleJson = basemapStyle(
+              tilesUrl:
+                  'http://127.0.0.1:${server.port}/mbtiles/{z}/{x}/{y}.pbf',
+              maxZoom: maxZoom);
+        });
+      } else if (pmFile.existsSync()) {
+        final server = await TileServer.start(basemapDir);
+        setState(() {
+          _server = server;
+          _styleJson =
+              basemapStyle(pmtilesUrl: server.pmtilesUrlFor(_basemapFile));
+        });
+      } else {
         setState(() => _error =
-            'No offline basemap installed.\nExpected ${archive.path}');
-        return;
+            'No offline basemap yet.\nUse capture-area on the map, or '
+            'Settings → Offline maps.');
       }
-      final server = await TileServer.start(basemapDir);
-      setState(() {
-        _server = server;
-        _styleJson =
-            basemapStyle(pmtilesUrl: server.pmtilesUrlFor(_basemapFile));
-      });
     } catch (e) {
       setState(() => _error = 'Tile server failed to start: $e');
     }
   }
 
+  void _watchPosition() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+      _fixSub = Geolocator.getPositionStream(
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.best),
+      ).listen(_onFix);
+    } catch (_) {}
+  }
+
+  Future<void> _onFix(Position pos) async {
+    _fix = pos;
+    final controller = _controller;
+    if (controller == null || !_positionLayerReady) return;
+    try {
+      await controller.setGeoJsonSource('me', _positionGeoJson(pos));
+    } catch (_) {}
+  }
+
+  Map<String, dynamic> _positionGeoJson(Position pos) => {
+        'type': 'FeatureCollection',
+        'features': [
+          {
+            'type': 'Feature',
+            'geometry': {
+              'type': 'Point',
+              'coordinates': [pos.longitude, pos.latitude],
+            },
+            'properties': {'acc': pos.accuracy},
+          }
+        ],
+      };
+
   @override
   void dispose() {
+    _fixSub?.cancel();
     _server?.close();
+    _mbtiles?.close();
     super.dispose();
   }
 
@@ -95,7 +173,10 @@ class _MapScreenState extends State<MapScreen> {
         myLocationEnabled: false,
         attributionButtonPosition: AttributionButtonPosition.bottomLeft,
         onMapCreated: _onMapCreated,
-        onStyleLoadedCallback: () => _addOverlays(),
+        onStyleLoadedCallback: () async {
+          await _addOverlays();
+          await _addPositionLayer();
+        },
       ),
     );
   }
@@ -104,6 +185,40 @@ class _MapScreenState extends State<MapScreen> {
 
   void _onMapCreated(MapLibreMapController controller) {
     _controller = controller;
+    widget.onController?.call(controller);
+  }
+
+  /// Current position: river-fill circle with a paper border and a soft
+  /// ring (design §3.1 item 7) — drawn last so it sits above everything.
+  Future<void> _addPositionLayer() async {
+    final controller = _controller;
+    if (controller == null) return;
+    final seed = _fix;
+    await controller.addGeoJsonSource(
+        'me',
+        seed != null
+            ? _positionGeoJson(seed)
+            : {'type': 'FeatureCollection', 'features': []});
+    await controller.addCircleLayer(
+      'me',
+      'me-ring',
+      const CircleLayerProperties(
+        circleRadius: 14,
+        circleColor: '#3F5957',
+        circleOpacity: 0.28,
+      ),
+    );
+    await controller.addCircleLayer(
+      'me',
+      'me-dot',
+      const CircleLayerProperties(
+        circleRadius: 7.5,
+        circleColor: '#3F5957',
+        circleStrokeColor: '#ECE3CE',
+        circleStrokeWidth: 2.5,
+      ),
+    );
+    _positionLayerReady = true;
   }
 
   /// Property boundary, zone fills, and observation pins from the local DB.
