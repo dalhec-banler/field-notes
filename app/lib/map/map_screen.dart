@@ -29,7 +29,8 @@ class MapScreen extends StatefulWidget {
       this.property,
       this.embedded = false,
       this.onController,
-      this.onCoverage});
+      this.onCoverage,
+      this.onLongPress});
 
   final FieldNotesDb? db;
   final Property? property;
@@ -42,6 +43,9 @@ class MapScreen extends StatefulWidget {
   /// Reports the offline basemap's bounds `[minLon, minLat, maxLon, maxLat]`
   /// so chrome can say "no map here yet" instead of showing blank paper.
   final ValueChanged<List<double>?>? onCoverage;
+
+  /// Long-press on the map (spec §7.1: drop a record at an arbitrary point).
+  final ValueChanged<LatLng>? onLongPress;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -241,6 +245,7 @@ class _MapScreenState extends State<MapScreen> {
         myLocationEnabled: false,
         attributionButtonPosition: AttributionButtonPosition.bottomLeft,
         onMapCreated: _onMapCreated,
+        onMapLongClick: (_, latLng) => widget.onLongPress?.call(latLng),
         onStyleLoadedCallback: () async {
           await _addOverlays();
           await _addPositionLayer();

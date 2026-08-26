@@ -29,7 +29,16 @@ class LedgerTab extends StatefulWidget {
 class _LedgerTabState extends State<LedgerTab> {
   String? _zoneFilter;
   String? _typeFilter;
+  String? _speciesFilter; // taxon id
+  String? _speciesLabel;
+  DateTimeRange? _dateFilter;
   List<Zone> _zones = const [];
+
+  bool get _anyFilter =>
+      _zoneFilter != null ||
+      _typeFilter != null ||
+      _speciesFilter != null ||
+      _dateFilter != null;
 
   double get _em => widget.prefs.density == 'dense' ? 13.5 : 16.0;
 
@@ -58,6 +67,24 @@ class _LedgerTabState extends State<LedgerTab> {
     if (_typeFilter != null) {
       query.where((o) => o.observationType.equals(_typeFilter!));
     }
+    if (_speciesFilter != null) {
+      query.where((o) => o.taxonId.equals(_speciesFilter!));
+    }
+    final range = _dateFilter;
+    if (range != null) {
+      // observed_at is ISO-8601 UTC; day bounds in local time → UTC.
+      final from = DateTime(range.start.year, range.start.month,
+              range.start.day)
+          .toUtc()
+          .toIso8601String();
+      final to = DateTime(range.end.year, range.end.month, range.end.day)
+          .add(const Duration(days: 1))
+          .toUtc()
+          .toIso8601String();
+      query.where((o) =>
+          o.observedAt.isBiggerOrEqual(Constant(from)) &
+          o.observedAt.isSmallerThan(Constant(to)));
+    }
 
     return SafeArea(
       bottom: false,
@@ -77,11 +104,11 @@ class _LedgerTabState extends State<LedgerTab> {
                         opacity: 0.7),
                   ),
                   SizedBox(
-                    height: 44,
+                    height: 60, // 44 dp chips + padding (glove target)
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: Metrics.gutter, vertical: 7),
+                          horizontal: Metrics.gutter, vertical: 8),
                       children: [
                         _chip(
                           _zoneFilter == null
@@ -98,6 +125,32 @@ class _LedgerTabState extends State<LedgerTab> {
                           active: _typeFilter != null,
                           onTap: _pickType,
                         ),
+                        const SizedBox(width: 7),
+                        _chip(
+                          _speciesLabel ?? 'Species',
+                          active: _speciesFilter != null,
+                          onTap: _pickSpecies,
+                        ),
+                        const SizedBox(width: 7),
+                        _chip(
+                          _dateFilter == null
+                              ? 'Dates'
+                              : _fmtRange(_dateFilter!),
+                          active: _dateFilter != null,
+                          onTap: _pickDates,
+                        ),
+                        if (_anyFilter) ...[
+                          const SizedBox(width: 7),
+                          _chip('× Clear',
+                              active: false,
+                              onTap: () => setState(() {
+                                    _zoneFilter = null;
+                                    _typeFilter = null;
+                                    _speciesFilter = null;
+                                    _speciesLabel = null;
+                                    _dateFilter = null;
+                                  })),
+                        ],
                       ],
                     ),
                   ),
@@ -105,7 +158,7 @@ class _LedgerTabState extends State<LedgerTab> {
                     child: obs.isEmpty
                         ? Center(
                             child: MonoLabel(
-                                _zoneFilter != null || _typeFilter != null
+                                _anyFilter
                                     ? '— nothing matches this filter —'
                                     : '— no entries yet · tap the camera —',
                                 size: 9,
@@ -140,7 +193,7 @@ class _LedgerTabState extends State<LedgerTab> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: active ? Press.ink : null,
           border: Border.all(color: Press.ink, width: 1),
@@ -179,6 +232,55 @@ class _LedgerTabState extends State<LedgerTab> {
     );
     if (picked == null) return;
     setState(() => _typeFilter = picked.$1);
+  }
+
+  /// Species that actually have records on this place — not the whole
+  /// library.
+  Future<void> _pickSpecies() async {
+    final rows = await widget.db.customSelect(
+      'SELECT t.id AS id, t.common_name AS common, t.scientific_name AS sci, '
+      'COUNT(o.id) AS n FROM taxa t '
+      'JOIN observations o ON o.taxon_id = t.id '
+      'WHERE o.property_id = ? AND o.deleted_at IS NULL '
+      'GROUP BY t.id ORDER BY n DESC, common',
+      variables: [Variable.withString(widget.property.id)],
+      readsFrom: {widget.db.taxa, widget.db.observations},
+    ).get();
+    if (!mounted) return;
+    final picked = await _pickSheet<String?>(
+      title: 'Species',
+      items: [
+        (null, 'All species'),
+        for (final r in rows)
+          (
+            r.data['id'] as String,
+            '${(r.data['common'] as String?) ?? (r.data['sci'] as String)} · ${r.data['n']}'
+          ),
+      ],
+    );
+    if (picked == null) return;
+    setState(() {
+      _speciesFilter = picked.$1;
+      _speciesLabel = picked.$1 == null ? null : picked.$2.split(' · ').first;
+    });
+  }
+
+  Future<void> _pickDates() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: _dateFilter,
+      helpText: 'SHOW RECORDS BETWEEN',
+    );
+    if (picked == null) return;
+    setState(() => _dateFilter = picked);
+  }
+
+  String _fmtRange(DateTimeRange r) {
+    String d(DateTime t) => '${t.month}/${t.day}';
+    return '${d(r.start)} – ${d(r.end)}';
   }
 
   Future<(T, String)?> _pickSheet<T>({

@@ -12,6 +12,7 @@ import '../screens/kml_import_screen.dart';
 import '../screens/offline_maps_screen.dart';
 import '../screens/programs_screen.dart';
 import '../screens/restore_screen.dart';
+import '../services/app_prefs.dart';
 import '../theme/tokens.dart';
 import '../main.dart' show exportAndShare;
 import '../widgets/press.dart';
@@ -19,10 +20,15 @@ import '../widgets/press.dart';
 /// Settings & backup (design README §3.6). Order is the argument:
 /// verification first, storage second, then the grouped tables, then export.
 class SettingsTab extends StatefulWidget {
-  const SettingsTab({super.key, required this.db, required this.property});
+  const SettingsTab(
+      {super.key,
+      required this.db,
+      required this.property,
+      required this.prefs});
 
   final FieldNotesDb db;
   final Property property;
+  final AppPrefs prefs;
 
   @override
   State<SettingsTab> createState() => _SettingsTabState();
@@ -174,8 +180,9 @@ class _SettingsTabState extends State<SettingsTab> {
                               child: FilledButton(
                                 onPressed: () => Navigator.of(context)
                                     .push(MaterialPageRoute(
-                                        builder: (_) =>
-                                            BackupScreen(db: widget.db)))
+                                        builder: (_) => BackupScreen(
+                                            db: widget.db,
+                                            prefs: widget.prefs)))
                                     .then((_) => _load()),
                                 child: const Text('BACK UP NOW'),
                               ),
@@ -241,6 +248,27 @@ class _SettingsTabState extends State<SettingsTab> {
               'coming later · you name the plant, the app never guesses for you',
               'Off',
               null,
+            ),
+          ]),
+          // D-016: off-grid users, metered LTE. Tapping a row toggles it.
+          _group('Network', [
+            (
+              'Cellular downloads',
+              widget.prefs.allowCellular
+                  ? 'maps and backups may use mobile data'
+                  : 'maps and backups wait for Wi-Fi · tap to allow cellular',
+              widget.prefs.allowCellular ? 'On' : 'Off',
+              () => setState(
+                  () => widget.prefs.allowCellular = !widget.prefs.allowCellular),
+            ),
+            (
+              'Automatic backup',
+              widget.prefs.autoBackup
+                  ? 'once a day while you use the app · weekly check'
+                  : 'off · only when you tap Back up now',
+              widget.prefs.autoBackup ? 'On' : 'Off',
+              () => setState(
+                  () => widget.prefs.autoBackup = !widget.prefs.autoBackup),
             ),
           ]),
           _group('Privacy', [

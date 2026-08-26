@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:native_exif/native_exif.dart';
 import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
@@ -110,10 +111,14 @@ class Exporter {
           "WHERE o.property_id = '$propertyId' AND o.deleted_at IS NULL",
       (row) => {
         'type': 'Feature',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [row.data['lng'], row.data['lat']],
-        },
+        // gps_accuracy_m = -1 means "not located": the stored lat/lng is a
+        // stand-in (centroid). A null geometry is honest; a point is not.
+        'geometry': row.data['gps_accuracy_m'] == -1
+            ? null
+            : {
+                'type': 'Point',
+                'coordinates': [row.data['lng'], row.data['lat']],
+              },
         'properties': {
           'id': row.data['id'],
           'observed_at': row.data['observed_at'],
@@ -122,6 +127,7 @@ class Exporter {
           'common_name': row.data['common_name'],
           'notes': row.data['notes'],
           'gps_accuracy_m': row.data['gps_accuracy_m'],
+          'located': row.data['gps_accuracy_m'] != -1,
         },
       },
     );
@@ -260,7 +266,41 @@ $placemark
       final ym = when.substring(0, 7).split('-');
       final destDir = Directory(p.join(mediaDir.path, ym[0], ym[1]))
         ..createSync(recursive: true);
-      File(src).copySync(p.join(destDir.path, '${m.id}${p.extension(src)}'));
+      final dest = p.join(destDir.path, '${m.id}${p.extension(src)}');
+      File(src).copySync(dest);
+      // Spec §6: GPS written into the exported JPEG so the photo carries its
+      // location into any other tool. Only the export copy is touched; the
+      // original in the media store stays byte-identical (its sha256 is the
+      // backup's identity). Skipped where the platform can't (host tests).
+      if (m.lat != null && m.lng != null) {
+        await _writeExifGps(dest, m.lat!, m.lng!, m.capturedAt ?? m.createdAt);
+      }
+    }
+  }
+
+  static Future<void> _writeExifGps(
+      String path, double lat, double lng, String capturedAtIso) async {
+    try {
+      final exif = await Exif.fromPath(path);
+      try {
+        final when = DateTime.tryParse(capturedAtIso)?.toUtc();
+        String two(int v) => v.toString().padLeft(2, '0');
+        await exif.writeAttributes({
+          'GPSLatitude': lat.abs().toString(),
+          'GPSLatitudeRef': lat >= 0 ? 'N' : 'S',
+          'GPSLongitude': lng.abs().toString(),
+          'GPSLongitudeRef': lng >= 0 ? 'E' : 'W',
+          if (when != null)
+            'DateTimeOriginal':
+                '${when.year}:${two(when.month)}:${two(when.day)} '
+                    '${two(when.hour)}:${two(when.minute)}:${two(when.second)}',
+        });
+      } finally {
+        await exif.close();
+      }
+    } catch (_) {
+      // No native EXIF on this platform (or a non-JPEG): the CSV/GeoJSON
+      // still carry the coordinates.
     }
   }
 

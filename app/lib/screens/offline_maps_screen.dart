@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../map/area_downloader.dart';
 import '../map/basemap_manager.dart';
+import '../services/app_prefs.dart';
+import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 
@@ -229,9 +231,25 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               child: FilledButton.icon(
                 icon: const Icon(Icons.download),
                 label: const Text('DOWNLOAD FROM LINK'),
-                onPressed: () {
+                onPressed: () async {
                   final url = _urlController.text.trim();
                   if (url.isEmpty) return;
+                  // D-016: a whole-county archive is hundreds of MB.
+                  final prefs = await AppPrefs.load();
+                  final verdict = await NetworkPolicy().bulkVerdict(prefs);
+                  if (!context.mounted) return;
+                  if (verdict == BulkVerdict.offline) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('NO SIGNAL — TRY AGAIN ON WI-FI')));
+                    return;
+                  }
+                  if (verdict == BulkVerdict.cellularBlocked) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text(
+                            'WAITING FOR WI-FI · allow cellular downloads in '
+                            'Settings → Network to use mobile data')));
+                    return;
+                  }
                   _manager.download(url);
                 },
               ),

@@ -227,8 +227,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        height: 56, // glove target (spec §7)
+        padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
           color: on ? Press.ink : null,
           border: Border.all(color: Press.ink, width: 1),

@@ -6,6 +6,8 @@ import '../db/database.dart';
 import '../main.dart' show locationHub, trackRecorder;
 import '../map/area_downloader.dart';
 import '../map/map_screen.dart';
+import '../services/app_prefs.dart';
+import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 
@@ -17,11 +19,17 @@ class MapTab extends StatefulWidget {
     required this.db,
     required this.property,
     required this.onPropertyCardTap,
+    required this.prefs,
+    this.onDropRecord,
   });
 
   final FieldNotesDb db;
   final Property property;
+  final AppPrefs prefs;
   final VoidCallback onPropertyCardTap;
+
+  /// Long-press on the map → capture a record placed at that point.
+  final ValueChanged<LatLng>? onDropRecord;
 
   @override
   State<MapTab> createState() => _MapTabState();
@@ -104,6 +112,36 @@ class _MapTabState extends State<MapTab> {
       ),
     );
     if (go != true) return;
+    // D-016: bulk download waits for Wi-Fi unless the user allows cellular.
+    final verdict = await NetworkPolicy().bulkVerdict(widget.prefs);
+    if (!mounted) return;
+    if (verdict == BulkVerdict.offline) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('NO SIGNAL — CAPTURE THIS AREA WHEN YOU HAVE ONE')));
+      return;
+    }
+    if (verdict == BulkVerdict.cellularBlocked) {
+      final allow = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('YOU\'RE ON CELLULAR'),
+          content: const Text(
+            'This download uses mobile data. Allow it this once, or turn on '
+            'cellular downloads in Settings → Network to stop asking.',
+            style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.45),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('WAIT FOR WI-FI')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('USE DATA THIS ONCE')),
+          ],
+        ),
+      );
+      if (allow != true || !mounted) return;
+    }
     setState(() => _captureMode = false);
     await _downloader.download(
         sw.longitude, sw.latitude, ne.longitude, ne.latitude);
@@ -154,6 +192,7 @@ class _MapTabState extends State<MapTab> {
               embedded: true,
               onController: (c) => _controller = c,
               onCoverage: (b) => _coverage = b,
+              onLongPress: _captureMode ? null : widget.onDropRecord,
             ),
           ),
         ),

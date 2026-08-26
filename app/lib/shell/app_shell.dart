@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
+import '../backup/backup_service.dart';
 import '../db/database.dart';
 import '../screens/capture_screen.dart';
 import '../services/app_prefs.dart';
@@ -36,17 +38,45 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Spec §11.7: automatic backup runs opportunistically — here, whenever
+  /// the app comes back to the foreground. The service decides whether it's
+  /// due; this just gives it the chance.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      BackupService(widget.db)
+          .maybeRunAutomatic(widget.prefs)
+          .catchError((_) => null);
+    }
+  }
 
   static const _tabs = ['Map', 'Ledger', 'Grow', 'Species', 'Settings'];
 
-  Future<void> _openCapture() async {
+  Future<void> _openCapture({LatLng? placedAt}) async {
     final result = await Navigator.of(context).push<CaptureResult>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) =>
-            CaptureScreen(db: widget.db, property: widget.property),
+        builder: (_) => CaptureScreen(
+          db: widget.db,
+          property: widget.property,
+          placedLat: placedAt?.latitude,
+          placedLng: placedAt?.longitude,
+        ),
       ),
     );
     if (!mounted || result == null) return;
@@ -146,13 +176,16 @@ class _AppShellState extends State<AppShell> {
         MapTab(
           db: widget.db,
           property: widget.property,
+          prefs: widget.prefs,
           onPropertyCardTap: _switchProperty,
+          onDropRecord: (latLng) => _openCapture(placedAt: latLng),
         ),
         LedgerTab(db: widget.db, property: widget.property,
             prefs: widget.prefs),
         GrowTab(db: widget.db, property: widget.property),
         SpeciesTab(db: widget.db, property: widget.property),
-        SettingsTab(db: widget.db, property: widget.property),
+        SettingsTab(
+            db: widget.db, property: widget.property, prefs: widget.prefs),
       ],
     );
 

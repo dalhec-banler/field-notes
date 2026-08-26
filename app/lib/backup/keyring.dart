@@ -29,6 +29,18 @@ class BackupKeyring {
   /// Present only at creation time — shown once for the recovery kit.
   final String? recoveryPhrase;
 
+  /// The raw data key, for the platform secure-storage cache (spec §11.4).
+  Future<List<int>> dataKeyBytes() => cipher.keyBytes();
+
+  /// Rebuild a working keyring from a cached data key — no passphrase.
+  static BackupKeyring fromCachedKey(
+      List<int> dataKey, Map<String, dynamic> fields) {
+    return BackupKeyring._(
+      cipher: DataKeyCipher(SecretKey(dataKey)),
+      envelopeFields: Map<String, Object?>.from(fields),
+    );
+  }
+
   static final _aead = Xchacha20.poly1305Aead();
 
   static List<int> _randomBytes(int n) =>
@@ -132,6 +144,8 @@ class DataKeyCipher implements BackupCipher {
 
   final SecretKey _key;
   static final _aead = Xchacha20.poly1305Aead();
+
+  Future<List<int>> keyBytes() => _key.extractBytes();
 
   @override
   String get scheme => 'keyring-v1';

@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'backup/backup_service.dart';
 import 'backup/restore.dart';
 import 'db/database.dart';
 import 'desktop/desktop_shell.dart';
@@ -62,6 +63,9 @@ Future<void> main() async {
   // Startup never fails over it.
   trackRecorder.recoverOpenTracks().catchError((_) => 0);
   final prefs = await AppPrefs.load();
+  // Daily automatic backup + weekly verify, when due (spec §11.7–11.8).
+  // Never gates startup.
+  BackupService(db).maybeRunAutomatic(prefs).catchError((_) => null);
   runApp(FieldNotesApp(db: db, prefs: prefs));
 }
 

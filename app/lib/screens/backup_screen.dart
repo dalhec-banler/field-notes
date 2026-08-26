@@ -1,18 +1,14 @@
-import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive_io.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-
-import 'package:archive/archive_io.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../backup/backup_crypto.dart';
-import '../backup/backup_engine.dart';
-import '../backup/keyring.dart';
-import '../backup/target.dart';
+import '../backup/backup_service.dart';
 import '../db/database.dart';
+import '../services/app_prefs.dart';
 
 /// Backup (spec §11 + D-010).
 ///
@@ -20,32 +16,26 @@ import '../db/database.dart';
 /// folder synced by the Drive/Syncthing app). The engine is target-pluggable;
 /// native Google Drive upload lands once OAuth credentials exist.
 class BackupScreen extends StatefulWidget {
-  const BackupScreen({super.key, required this.db});
+  const BackupScreen({super.key, required this.db, this.prefs});
 
   final FieldNotesDb db;
+
+  /// Optional: the desktop shell opens this without a prefs handle.
+  final AppPrefs? prefs;
 
   @override
   State<BackupScreen> createState() => _BackupScreenState();
 }
 
 class _BackupScreenState extends State<BackupScreen> {
+  late final _service = BackupService(widget.db);
+  AppPrefs? _prefs;
   bool _encrypted = false; // D-010: convenience is a fine default
   bool _busy = false;
+  bool _keyCached = false;
   String? _status;
   String? _lastBackup;
   String? _lastVerify;
-
-  static const _configName = 'backup_config.json';
-
-  Future<Directory> _backupDir() async {
-    final docs = await getApplicationDocumentsDirectory();
-    return Directory(p.join(docs.path, 'backups'))..createSync(recursive: true);
-  }
-
-  Future<File> _configFile() async {
-    final docs = await getApplicationDocumentsDirectory();
-    return File(p.join(docs.path, _configName));
-  }
 
   @override
   void initState() {
@@ -54,63 +44,16 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   Future<void> _loadConfig() async {
-    final f = await _configFile();
-    if (!f.existsSync()) return;
-    final config = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+    final config = await _service.loadConfig();
+    final cached = await _service.hasCachedKey;
+    _prefs ??= widget.prefs ?? await AppPrefs.load();
     if (mounted) {
       setState(() {
         _encrypted = config['scheme'] == 'keyring-v1';
         _lastBackup = config['last_backup'] as String?;
         _lastVerify = config['last_verify'] as String?;
+        _keyCached = cached;
       });
-    }
-  }
-
-  Future<void> _saveConfig(Map<String, Object?> updates) async {
-    final f = await _configFile();
-    final config = f.existsSync()
-        ? jsonDecode(f.readAsStringSync()) as Map<String, dynamic>
-        : <String, dynamic>{};
-    config.addAll(updates);
-    f.writeAsStringSync(jsonEncode(config));
-  }
-
-  Future<BackupEngine?> _engine({required bool forSetupIfNeeded}) async {
-    final dir = await _backupDir();
-    final target = DirectoryTarget(dir);
-    if (!_encrypted) {
-      await _saveConfig({'scheme': 'plain'});
-      return BackupEngine(widget.db, target, const PlainCipher());
-    }
-
-    // Encrypted (keyring-v1): wrapped data key persists in config;
-    // passphrase asked per operation. Setup also mints the recovery phrase.
-    final f = await _configFile();
-    final config = f.existsSync()
-        ? jsonDecode(f.readAsStringSync()) as Map<String, dynamic>
-        : <String, dynamic>{};
-    final passphrase = await _askPassphrase();
-    if (passphrase == null || passphrase.isEmpty) return null;
-
-    if (config['scheme'] != 'keyring-v1') {
-      if (!forSetupIfNeeded) return null;
-      setState(() => _status = 'Creating keys… (a few seconds)');
-      final keyring = await BackupKeyring.create(passphrase);
-      await _saveConfig(keyring.envelopeFields..['scheme'] = 'keyring-v1');
-      if (mounted) await _showRecoveryKit(keyring.recoveryPhrase!);
-      return BackupEngine(widget.db, target, keyring.cipher,
-          envelopeExtra: keyring.envelopeFields);
-    }
-
-    setState(() => _status = 'Unlocking… (~1 s)');
-    try {
-      final keyring =
-          await BackupKeyring.unlockWithPassphrase(config, passphrase);
-      return BackupEngine(widget.db, target, keyring.cipher,
-          envelopeExtra: keyring.envelopeFields);
-    } catch (_) {
-      setState(() => _status = 'Wrong passphrase.');
-      return null;
     }
   }
 
@@ -119,7 +62,7 @@ class _BackupScreenState extends State<BackupScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Your recovery kit'),
+        title: const Text('YOUR RECOVERY KIT'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,130 +84,136 @@ class _BackupScreenState extends State<BackupScreen> {
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("I've saved these words"),
+            child: const Text("I'VE SAVED THESE WORDS"),
           ),
         ],
       ),
     );
   }
 
-  /// Zips the whole backup store and hands it to the share sheet — one tap to
-  /// get the backup off the phone (Drive, email, a computer).
-  Future<void> _shareZip() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _status = 'Zipping backup…';
-    });
-    try {
-      final dir = await _backupDir();
-      if (!Directory('${dir.path}/fieldnotes').existsSync()) {
-        setState(() => _status = 'Run a backup first.');
-        return;
-      }
-      final docs = await getApplicationDocumentsDirectory();
-      final date = nowUtcIso().substring(0, 10);
-      final zipPath = p.join(docs.path, 'fieldnotes-backup-$date.zip');
-      final encoder = ZipFileEncoder();
-      encoder.create(zipPath);
-      await encoder.addDirectory(Directory('${dir.path}/fieldnotes'));
-      await encoder.close();
-      await SharePlus.instance.share(
-          ShareParams(files: [XFile(zipPath)], text: 'Field Notes backup'));
-      setState(() => _status = 'Backup shared.');
-    } catch (e) {
-      setState(() => _status = 'Share failed: $e');
-    } finally {
-      setState(() => _busy = false);
-    }
-  }
-
-  Future<String?> _askPassphrase() {
+  Future<String?> _askPassphrase({bool confirm = false}) async {
     final controller = TextEditingController();
-    return showDialog<String>(
+    final confirmController = TextEditingController();
+    final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Backup passphrase'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              autofocus: true,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Passphrase'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialog) {
+          final mismatch = confirm &&
+              confirmController.text.isNotEmpty &&
+              confirmController.text != controller.text;
+          return AlertDialog(
+            title: const Text('BACKUP PASSPHRASE'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  obscureText: true,
+                  onChanged: (_) => setDialog(() {}),
+                  decoration: const InputDecoration(labelText: 'Passphrase'),
+                ),
+                if (confirm) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: confirmController,
+                    obscureText: true,
+                    onChanged: (_) => setDialog(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Type it again',
+                      errorText: mismatch ? 'Doesn\'t match' : null,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                const Text(
+                  'If you lose this passphrase, the backup cannot be opened by '
+                  'anyone — including you. The recovery kit is the only other '
+                  'way in.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'If you lose this passphrase, the backup cannot be opened by '
-              'anyone — including you.',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              child: const Text('Continue')),
-        ],
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('CANCEL')),
+              FilledButton(
+                  onPressed: controller.text.isEmpty ||
+                          (confirm && confirmController.text != controller.text)
+                      ? null
+                      : () => Navigator.pop(context, controller.text),
+                  child: const Text('CONTINUE')),
+            ],
+          );
+        },
       ),
     );
+    return result;
   }
 
-  Future<void> _backupNow() async {
+  Future<void> _run(String label, Future<String?> Function() body) async {
     if (_busy) return;
     setState(() {
       _busy = true;
-      _status = 'Backing up…';
+      _status = label;
     });
     try {
-      final engine = await _engine(forSetupIfNeeded: true);
-      if (engine == null) {
-        setState(() => _status = null);
-        return;
-      }
-      final summary = await engine.backup();
-      final now = nowUtcIso();
-      await _saveConfig({'last_backup': now});
-      setState(() {
-        _status = summary;
-        _lastBackup = now;
-      });
+      final result = await body();
+      if (mounted) setState(() => _status = result);
     } catch (e) {
-      setState(() => _status = 'Backup failed: $e');
+      if (mounted) setState(() => _status = '$label failed: $e');
     } finally {
-      setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+        _loadConfig();
+      }
     }
   }
 
-  Future<void> _verifyNow() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _status = 'Verifying…';
-    });
-    try {
-      final engine = await _engine(forSetupIfNeeded: false);
-      if (engine == null) {
-        setState(() => _status = 'Run a backup first.');
-        return;
-      }
-      final problem = await engine.verify();
-      final now = nowUtcIso();
-      if (problem == null) await _saveConfig({'last_verify': now});
-      setState(() {
-        _status = problem == null ? 'Backup verified ✓' : 'Problem: $problem';
-        if (problem == null) _lastVerify = now;
+  Future<void> _backupNow() => _run('Backing up…', () async {
+        final config = await _service.loadConfig();
+        final firstSetup = _encrypted && config['wrap_pass'] == null;
+        final engine = await _service.engine(
+          encrypted: _encrypted,
+          setupIfNeeded: true,
+          askPassphrase: () => _askPassphrase(confirm: firstSetup),
+          onRecoveryPhrase: _showRecoveryKit,
+          onStatus: (s) => setState(() => _status = s),
+        );
+        if (engine == null) return _status == 'Wrong passphrase.' ? _status : null;
+        return _service.backupNow(engine);
       });
-    } catch (e) {
-      setState(() => _status = 'Verify failed: $e');
-    } finally {
-      setState(() => _busy = false);
-    }
-  }
+
+  Future<void> _verifyNow() => _run('Verifying…', () async {
+        final engine = await _service.engine(
+          encrypted: _encrypted,
+          askPassphrase: _askPassphrase,
+          onStatus: (s) => setState(() => _status = s),
+        );
+        if (engine == null) return 'Run a backup first.';
+        final problem = await _service.verifyNow(engine);
+        return problem == null ? 'Backup verified ✓' : 'Problem: $problem';
+      });
+
+  /// Zips the whole backup store and hands it to the share sheet — one tap to
+  /// get the backup off the phone (Drive, email, a computer).
+  Future<void> _shareZip() => _run('Zipping backup…', () async {
+        final dir = await _service.backupDir();
+        if (!Directory('${dir.path}/fieldnotes').existsSync()) {
+          return 'Run a backup first.';
+        }
+        final docs = await getApplicationDocumentsDirectory();
+        final date = nowUtcIso().substring(0, 10);
+        final zipPath = p.join(docs.path, 'fieldnotes-backup-$date.zip');
+        final encoder = ZipFileEncoder();
+        encoder.create(zipPath);
+        await encoder.addDirectory(Directory('${dir.path}/fieldnotes'));
+        await encoder.close();
+        await SharePlus.instance.share(
+            ShareParams(files: [XFile(zipPath)], text: 'Field Notes backup'));
+        return 'Backup shared.';
+      });
 
   String _ago(String? iso) {
     if (iso == null) return 'never';
@@ -307,12 +256,24 @@ class _BackupScreenState extends State<BackupScreen> {
             value: _encrypted,
             onChanged: _busy ? null : (v) => setState(() => _encrypted = v),
           ),
+          SwitchListTile(
+            title: const Text('Back up automatically'),
+            subtitle: Text(_encrypted && !_keyCached
+                ? 'Once a day. Needs the passphrase once on this phone — '
+                    'run "Back up now" to unlock it.'
+                : 'Once a day while you use the app, plus a weekly check '
+                    'that the backup still opens.'),
+            value: _prefs?.autoBackup ?? true,
+            onChanged: _busy || _prefs == null
+                ? null
+                : (v) => setState(() => _prefs!.autoBackup = v),
+          ),
           const SizedBox(height: 16),
           SizedBox(
             height: 56,
             child: FilledButton.icon(
               icon: const Icon(Icons.backup_outlined),
-              label: Text(_busy ? 'Working…' : 'Back up now'),
+              label: Text(_busy ? 'Working…' : 'BACK UP NOW'),
               onPressed: _busy ? null : _backupNow,
             ),
           ),
@@ -321,7 +282,7 @@ class _BackupScreenState extends State<BackupScreen> {
             height: 56,
             child: OutlinedButton.icon(
               icon: const Icon(Icons.verified_outlined),
-              label: const Text('Verify backup'),
+              label: const Text('VERIFY BACKUP'),
               onPressed: _busy ? null : _verifyNow,
             ),
           ),
@@ -330,10 +291,27 @@ class _BackupScreenState extends State<BackupScreen> {
             height: 56,
             child: OutlinedButton.icon(
               icon: const Icon(Icons.ios_share),
-              label: const Text('Share backup (zip)'),
+              label: const Text('SHARE BACKUP (ZIP)'),
               onPressed: _busy ? null : _shareZip,
             ),
           ),
+          if (_encrypted && _keyCached) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () async {
+                      await _service.forgetKey();
+                      _loadConfig();
+                      if (mounted) {
+                        setState(() => _status =
+                            'Passphrase forgotten on this phone. The next '
+                            'backup will ask for it.');
+                      }
+                    },
+              child: const Text('FORGET PASSPHRASE ON THIS PHONE'),
+            ),
+          ],
           if (_status != null)
             Padding(
               padding: const EdgeInsets.only(top: 16),
@@ -343,9 +321,8 @@ class _BackupScreenState extends State<BackupScreen> {
           const SizedBox(height: 24),
           Text(
             'Backups are written to the app\'s backups folder on this phone. '
-            'Copy that folder to a computer, drive, or synced folder to '
-            'protect against losing the phone. Direct Google Drive upload is '
-            'coming.',
+            'Share the zip to a computer, drive, or cloud folder to protect '
+            'against losing the phone. Direct Google Drive upload is coming.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

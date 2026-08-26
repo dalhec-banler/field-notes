@@ -10,6 +10,10 @@ abstract class BackupTarget {
   Future<Uint8List> read(String path);
   Future<void> write(String path, Uint8List bytes);
   Future<List<String>> list(String prefix);
+
+  /// Remove one object. Used only for DB-generation pruning (spec §11.7);
+  /// blobs are never deleted by the backup process.
+  Future<void> delete(String path);
   String get description;
 }
 
@@ -50,5 +54,11 @@ class DirectoryTarget implements BackupTarget {
         if (e is File && !e.path.endsWith('.tmp'))
           p.relative(e.path, from: root.path)
     ];
+  }
+
+  @override
+  Future<void> delete(String path) async {
+    final f = _file(path);
+    if (f.existsSync()) f.deleteSync();
   }
 }

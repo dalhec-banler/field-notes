@@ -28,10 +28,23 @@ class CaptureResult {
 /// Camera-dark full-screen modal; save is never blocked on GPS, network, or
 /// identification; a record without a photograph is a legitimate record.
 class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({super.key, required this.db, required this.property});
+  const CaptureScreen({
+    super.key,
+    required this.db,
+    required this.property,
+    this.placedLat,
+    this.placedLng,
+  });
 
   final FieldNotesDb db;
   final Property property;
+
+  /// Set when the record was dropped by long-pressing the map (spec §7.1):
+  /// the location is the pressed point, not the phone's fix.
+  final double? placedLat;
+  final double? placedLng;
+
+  bool get isPlaced => placedLat != null && placedLng != null;
 
   @override
   State<CaptureScreen> createState() => _CaptureScreenState();
@@ -256,12 +269,18 @@ class _CaptureScreenState extends State<CaptureScreen> {
         savedMediaId = media.id;
       }
 
-      // No LIVE fix → the property centroid (or the last-known hint) stands
-      // in so the record still lands on the map, but gps_accuracy_m = -1
-      // flags it. Never a silent fake.
-      final located = fix != null && _fixIsLive;
-      final lat = fix?.latitude ?? widget.property.centroidLat;
-      final lng = fix?.longitude ?? widget.property.centroidLng;
+      // Placed on the map: the pressed point IS the location (accuracy
+      // unknown → null). Otherwise, no LIVE fix → the property centroid (or
+      // the last-known hint) stands in so the record still lands on the
+      // map, but gps_accuracy_m = -1 flags it. Never a silent fake.
+      final placed = widget.isPlaced;
+      final located = placed || (fix != null && _fixIsLive);
+      final lat = placed
+          ? widget.placedLat
+          : fix?.latitude ?? widget.property.centroidLat;
+      final lng = placed
+          ? widget.placedLng
+          : fix?.longitude ?? widget.property.centroidLng;
       final envService = EnvContextService(db);
 
       await db.transaction(() async {
@@ -284,7 +303,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
               localTz: localTzName(),
               lat: lat ?? 0,
               lng: lng ?? 0,
-              gpsAccuracyM: Value(located ? fix.accuracy : -1),
+              // Placed: accuracy unknown (null). Live fix: the GPS figure.
+              // Otherwise -1 = "not located", never a fake.
+              gpsAccuracyM: Value(placed
+                  ? null
+                  : located
+                      ? fix!.accuracy
+                      : -1),
               altitudeM: Value(fix?.altitude),
               headingDeg: Value(fix?.heading),
               observationType: Value(
@@ -302,12 +327,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
               updatedAt: now,
             ));
 
-        if (located) {
+        if (located && lat != null && lng != null) {
           await assignZone(db,
               observationId: obsId,
               propertyId: widget.property.id,
-              lat: fix.latitude,
-              lng: fix.longitude);
+              lat: lat,
+              lng: lng);
         }
 
         if (media != null) {
@@ -611,7 +636,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       ),
                       const SizedBox(height: 2),
                       MonoLabel(
-                          fix == null
+                          widget.isPlaced
+                              ? 'Placed on the map · ${widget.placedLat!.toStringAsFixed(5)}, ${widget.placedLng!.toStringAsFixed(5)}'
+                              : fix == null
                               ? 'No GPS fix — saved without a location'
                               : !_zoneResolved
                                   ? 'GPS ±${fix.accuracy.toStringAsFixed(0)} m'
@@ -668,9 +695,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       GestureDetector(
                         onTap: () => setState(() => _observationType = t),
                         child: Container(
-                          height: 46,
+                          height: 56, // glove target (spec §7)
                           padding:
-                              const EdgeInsets.symmetric(horizontal: 16),
+                              const EdgeInsets.symmetric(horizontal: 18),
                           decoration: BoxDecoration(
                             color:
                                 _observationType == t ? Press.ink : null,

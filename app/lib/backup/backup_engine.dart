@@ -109,9 +109,31 @@ class BackupEngine {
     await target.write('$root/manifest.json',
         Uint8List.fromList(utf8.encode(jsonEncode(envelope))));
 
+    // 6. Keep the last N DB generations (spec §11.7). Blobs are never
+    //    touched here — a separate, user-initiated prune handles those.
+    await _pruneGenerations(keep: generationsToKeep);
+
     return 'Generation $generation: DB ${_fmt(dbBytes.length)}, '
         '$uploaded new photo${uploaded == 1 ? '' : 's'}, $skipped unchanged'
         '${missing > 0 ? ', $missing missing locally' : ''}';
+  }
+
+  Future<void> _pruneGenerations({required int keep}) async {
+    final dumps = await target.list('$root/db');
+    final byGen = <int, String>{};
+    for (final path in dumps) {
+      final name = path.split('/').last;
+      final gen = int.tryParse(name.split('.').first);
+      if (gen != null) byGen[gen] = path;
+    }
+    final gens = byGen.keys.toList()..sort();
+    for (final gen in gens.take(gens.length > keep ? gens.length - keep : 0)) {
+      try {
+        await target.delete(byGen[gen]!);
+      } catch (_) {
+        // A stubborn old dump costs disk, not safety.
+      }
+    }
   }
 
   Future<Map<String, Object?>?> _readManifest() async {
