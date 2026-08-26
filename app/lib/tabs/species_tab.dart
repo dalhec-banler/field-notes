@@ -2,8 +2,17 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../screens/species_detail_sheet.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+
+/// Per-taxon presence on this place: count, first and last observed.
+class _Seen {
+  const _Seen(this.count, this.first, this.last);
+  final int count;
+  final String? first;
+  final String? last;
+}
 
 /// Species library (design README §3.5): the property's taxa with search,
 /// nativity diamonds, and occurrence counts.
@@ -23,7 +32,7 @@ class _SpeciesTabState extends State<SpeciesTab> {
   int _favoriteCount = 0;
   int _totalCount = 0;
 
-  late Stream<Map<String, int>> _occurrences = _occurrenceStream();
+  late Stream<Map<String, _Seen>> _occurrences = _occurrenceStream();
 
   @override
   void initState() {
@@ -64,12 +73,13 @@ class _SpeciesTabState extends State<SpeciesTab> {
     }
   }
 
-  /// Occurrence counts per taxon on this property, live — a species you
-  /// just recorded shows its count without a restart.
-  Stream<Map<String, int>> _occurrenceStream() {
+  /// Occurrence counts + first/last observed per taxon on this property,
+  /// live — a species you just recorded shows up without a restart.
+  Stream<Map<String, _Seen>> _occurrenceStream() {
     return widget.db
         .customSelect(
-          'SELECT taxon_id, COUNT(*) AS n FROM observations '
+          'SELECT taxon_id, COUNT(*) AS n, MIN(observed_at) AS first_at, '
+          'MAX(observed_at) AS last_at FROM observations '
           'WHERE property_id = ? AND taxon_id IS NOT NULL '
           'AND deleted_at IS NULL GROUP BY taxon_id',
           variables: [Variable.withString(widget.property.id)],
@@ -78,8 +88,22 @@ class _SpeciesTabState extends State<SpeciesTab> {
         .watch()
         .map((rows) => {
               for (final r in rows)
-                r.data['taxon_id'] as String: r.data['n'] as int
+                r.data['taxon_id'] as String: _Seen(
+                  r.data['n'] as int,
+                  r.data['first_at'] as String?,
+                  r.data['last_at'] as String?,
+                )
             });
+  }
+
+  String _short(String? iso) {
+    final d = iso == null ? null : DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return '';
+    const m = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${m[d.month - 1]} ${d.day}';
   }
 
   /// Tap a row to star it: favourites lead the capture picker.
@@ -142,10 +166,10 @@ class _SpeciesTabState extends State<SpeciesTab> {
             ),
           ),
           Expanded(
-            child: StreamBuilder<Map<String, int>>(
+            child: StreamBuilder<Map<String, _Seen>>(
               stream: _occurrences,
               builder: (context, occSnap) {
-                final occurrences = occSnap.data ?? const <String, int>{};
+                final occurrences = occSnap.data ?? const <String, _Seen>{};
                 return StreamBuilder<List<TaxaData>>(
                   stream: query.watch(),
                   builder: (context, snapshot) {
@@ -162,12 +186,18 @@ class _SpeciesTabState extends State<SpeciesTab> {
                         final t = taxa[i];
                         final invasive = t.nativity == 'invasive';
                         final starred = t.isFavorite == 1;
-                        final count = occurrences[t.id] ?? 0;
+                        final seen = occurrences[t.id];
+                        final count = seen?.count ?? 0;
                         return InkWell(
-                          onTap: () => _toggleFavorite(t),
+                          // Row → the species itself (sightings, photos);
+                          // the star is its own target.
+                          onTap: () => showSpeciesDetailSheet(context,
+                              db: widget.db,
+                              property: widget.property,
+                              taxon: t),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: Metrics.gutter, vertical: 11),
+                            padding: const EdgeInsets.fromLTRB(
+                                4, 4, Metrics.gutter, 4),
                             decoration: const BoxDecoration(
                               border: Border(
                                   bottom: BorderSide(
@@ -175,14 +205,18 @@ class _SpeciesTabState extends State<SpeciesTab> {
                             ),
                             child: Row(
                               children: [
-                                Icon(
-                                  starred ? Icons.star : Icons.star_border,
-                                  size: 18,
-                                  color: starred
-                                      ? Press.gold
-                                      : Press.inkSoft.withValues(alpha: 0.35),
+                                IconButton(
+                                  iconSize: 22,
+                                  tooltip: starred ? 'Un-star' : 'Star',
+                                  icon: Icon(
+                                    starred ? Icons.star : Icons.star_border,
+                                    color: starred
+                                        ? Press.gold
+                                        : Press.inkSoft.withValues(alpha: 0.35),
+                                  ),
+                                  onPressed: () => _toggleFavorite(t),
                                 ),
-                                const SizedBox(width: 11),
+                                const SizedBox(width: 2),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -217,7 +251,19 @@ class _SpeciesTabState extends State<SpeciesTab> {
                                   ),
                                 ),
                                 if (count > 0) ...[
-                                  BigNumber('$count', size: 17),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      BigNumber('$count', size: 17),
+                                      MonoLabel(
+                                        seen!.first == seen.last
+                                            ? _short(seen.last)
+                                            : '${_short(seen.first)} – ${_short(seen.last)}',
+                                        size: 8,
+                                        opacity: 0.65,
+                                      ),
+                                    ],
+                                  ),
                                   const SizedBox(width: 10),
                                 ],
                                 // Native is the default here; only the

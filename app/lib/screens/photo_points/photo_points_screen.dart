@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../db/database.dart';
+import '../../main.dart' show locationHub;
 import 'ghost_capture_screen.dart';
+import 'photo_point_history_screen.dart';
 
 /// Photo points (spec §7.8): due list; capture with ghost overlay.
 class PhotoPointsScreen extends StatelessWidget {
@@ -48,12 +50,19 @@ class PhotoPointsScreen extends StatelessWidget {
             );
           }
           final today = nowUtcIso().substring(0, 10);
+          bool isDue(PhotoPoint p) =>
+              p.nextDueOn != null && p.nextDueOn!.compareTo(today) <= 0;
+          // Due list first (spec §7.8), then the rest by name.
+          final sorted = [...points]..sort((a, b) {
+              final d = (isDue(b) ? 1 : 0) - (isDue(a) ? 1 : 0);
+              return d != 0 ? d : a.name.compareTo(b.name);
+            });
           return ListView.builder(
-            itemCount: points.length,
+            padding: const EdgeInsets.only(bottom: 140),
+            itemCount: sorted.length,
             itemBuilder: (context, i) {
-              final p = points[i];
-              final due = p.nextDueOn != null &&
-                  p.nextDueOn!.compareTo(today) <= 0;
+              final p = sorted[i];
+              final due = isDue(p);
               return ListTile(
                 minTileHeight: 64,
                 leading: CircleAvatar(
@@ -69,10 +78,20 @@ class PhotoPointsScreen extends StatelessWidget {
                   if (p.nextDueOn != null)
                     due ? 'DUE' : 'next ${p.nextDueOn}',
                 ].join(' · ')),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: IconButton(
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  tooltip: 'Capture a visit',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => GhostCaptureScreen(db: db, point: p),
+                    ),
+                  ),
+                ),
+                // Row → history (every frame, scrubbable); camera → capture.
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => GhostCaptureScreen(db: db, point: p),
+                    builder: (_) =>
+                        PhotoPointHistoryScreen(db: db, point: p),
                   ),
                 ),
               );
@@ -130,16 +149,24 @@ class PhotoPointsScreen extends StatelessWidget {
     );
     if (created != true || nameController.text.trim().isEmpty) return;
 
+    // Position is a placeholder until the first frame anchors the point
+    // (D-007); a fresh fix is nicer than the centroid, but never wait on it.
     double lat = property.centroidLat ?? 0;
     double lng = property.centroidLng ?? 0;
-    try {
-      final fix = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.best,
-              timeLimit: Duration(seconds: 10)));
+    final fix = locationHub.fresh();
+    if (fix != null) {
       lat = fix.latitude;
       lng = fix.longitude;
-    } catch (_) {}
+    } else {
+      try {
+        final f = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.best,
+                timeLimit: Duration(seconds: 5)));
+        lat = f.latitude;
+        lng = f.longitude;
+      } catch (_) {}
+    }
 
     final now = nowUtcIso();
     final cadence = int.tryParse(cadenceController.text.trim());
