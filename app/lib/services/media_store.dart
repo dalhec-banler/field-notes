@@ -87,6 +87,50 @@ class MediaStore {
   }
 }
 
+/// Voice notes (spec §3.5): the audio file is kept as-is under
+/// `<documents>/media/audio/YYYY/MM/<id>.m4a`, hashed for the backup's
+/// content addressing. Never discarded in favour of the transcript.
+extension MediaStoreAudio on MediaStore {
+  Future<MediaData> saveAudio(
+    File source, {
+    required String propertyId,
+    required String createdBy,
+    double? lat,
+    double? lng,
+    String? capturedAt,
+    int? durationMs,
+  }) async {
+    final id = newId();
+    final now = nowUtcIso();
+    final when = capturedAt ?? now;
+    final docs = await getApplicationDocumentsDirectory();
+    final ym = when.substring(0, 7).split('-');
+    final dir = Directory(p.join(docs.path, 'media', 'audio', ym[0], ym[1]));
+    dir.createSync(recursive: true);
+    final ext = p.extension(source.path).isEmpty ? '.m4a' : p.extension(source.path);
+    final dest = p.join(dir.path, '$id$ext');
+    final bytes = source.readAsBytesSync();
+    File(dest).writeAsBytesSync(bytes);
+    await db.into(db.media).insert(MediaCompanion.insert(
+          id: id,
+          propertyId: propertyId,
+          mediaType: 'audio',
+          localPath: Value(dest),
+          sha256: Value(sha256.convert(bytes).toString()),
+          bytes: Value(bytes.length),
+          durationMs: Value(durationMs),
+          capturedAt: Value(when),
+          lat: Value(lat),
+          lng: Value(lng),
+          createdBy: createdBy,
+          createdAt: now,
+          updatedAt: now,
+        ));
+    return (await (db.select(db.media)..where((m) => m.id.equals(id)))
+        .getSingle());
+  }
+}
+
 class _Derived {
   _Derived(this.working, this.thumb, this.width, this.height);
   final Uint8List working;

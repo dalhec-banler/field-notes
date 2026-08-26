@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
@@ -38,7 +39,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   Zone? _zone;
   EnvContext? _env;
   List<MediaData> _photos = const [];
+  List<MediaData> _audio = const [];
   int _photoIndex = 0;
+  final _player = AudioPlayer();
+  String? _playingId;
 
   @override
   void initState() {
@@ -77,11 +81,17 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           ..orderBy([(l) => OrderingTerm.asc(l.sortOrder)]))
         .get();
     final photos = <MediaData>[];
+    final audio = <MediaData>[];
     for (final link in links) {
       final m = await (db.select(db.media)
             ..where((x) => x.id.equals(link.mediaId)))
           .getSingleOrNull();
-      if (m != null && m.localPath != null && File(m.localPath!).existsSync()) {
+      if (m == null || m.localPath == null || !File(m.localPath!).existsSync()) {
+        continue;
+      }
+      if (m.mediaType == 'audio') {
+        audio.add(m);
+      } else {
         photos.add(m);
       }
     }
@@ -92,7 +102,41 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         _zone = zone;
         _env = env;
         _photos = photos;
+        _audio = audio;
       });
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  String _fmtMs(int? ms) {
+    if (ms == null) return 'play';
+    final s = ms ~/ 1000;
+    return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _play(MediaData a) async {
+    if (_playingId == a.id) {
+      await _player.stop();
+      if (mounted) setState(() => _playingId = null);
+      return;
+    }
+    try {
+      await _player.stop();
+      _player.onPlayerComplete.first.then((_) {
+        if (mounted) setState(() => _playingId = null);
+      });
+      await _player.play(DeviceFileSource(a.localPath!));
+      if (mounted) setState(() => _playingId = a.id);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not play: $e')));
+      }
     }
   }
 
@@ -506,6 +550,26 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 obs.notes!,
                 style: const TextStyle(
                     fontFamily: Type.serif, fontSize: 16, height: 1.5),
+              ),
+            ),
+
+          // 5. Voice notes — the audio is the record; the transcript is
+          // already in the notes above.
+          for (final a in _audio)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  Metrics.gutter, 0, Metrics.gutter, 12),
+              child: SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  icon: Icon(_playingId == a.id
+                      ? Icons.stop
+                      : Icons.play_arrow),
+                  label: Text(_playingId == a.id
+                      ? 'STOP'
+                      : 'VOICE NOTE · ${_fmtMs(a.durationMs)}'),
+                  onPressed: () => _play(a),
+                ),
               ),
             ),
 

@@ -13,6 +13,7 @@ import '../main.dart' show locationHub;
 import '../services/env_context.dart';
 import '../services/media_store.dart';
 import '../services/observation_ops.dart';
+import '../services/voice_note.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 import '../widgets/species_field.dart';
@@ -67,6 +68,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
   String _observationType = 'general';
   final _notesController = TextEditingController();
   bool _saving = false;
+
+  /// Voice note (spec §7.2): audio kept, transcript appended to notes.
+  final _voice = VoiceNoteRecorder();
+  String? _voicePath;
+  int? _voiceMs;
 
   static const _types = [
     'general', 'plant', 'wildlife', 'problem', 'water', 'soil',
@@ -194,7 +200,45 @@ class _CaptureScreenState extends State<CaptureScreen> {
     _fixSub?.cancel();
     _notesController.dispose();
     _discardShotFile();
+    // An unsaved voice recording is litter in the cache dir.
+    if (!_voiceSaved) _voice.discard(_voicePath);
+    _voice.dispose();
     super.dispose();
+  }
+
+  bool _voiceSaved = false;
+
+  /// Mic button: tap to start, tap to stop. The transcript lands in the
+  /// notes field as it's recognised; the audio is kept regardless.
+  Future<void> _toggleVoice() async {
+    if (_voice.recording) {
+      final path = await _voice.stop();
+      if (!mounted) return;
+      setState(() {
+        _voicePath = path;
+        _voiceMs = path == null ? null : _voice.elapsed.inMilliseconds;
+      });
+      final text = _voice.transcript.trim();
+      if (text.isNotEmpty) {
+        final existing = _notesController.text.trimRight();
+        _notesController.text =
+            existing.isEmpty ? text : '$existing\n$text';
+        _notesController.selection = TextSelection.collapsed(
+            offset: _notesController.text.length);
+      }
+      return;
+    }
+    // A second recording replaces the first (one voice note per record).
+    if (_voicePath != null) {
+      await _voice.discard(_voicePath);
+      _voicePath = null;
+    }
+    final ok = await _voice.start();
+    if (!ok && mounted && _voice.error != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_voice.error!)));
+    }
+    if (mounted) setState(() {});
   }
 
   /// The camera plugin writes every shot to the cache dir; once the bytes are
@@ -251,6 +295,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
     final obsId = newId();
 
     String? savedMediaId;
+    String? savedVoiceId;
     try {
       // Photo first: if the image can't be written we'd rather have no
       // record than a record that claims a photograph it doesn't have.
@@ -267,6 +312,27 @@ class _CaptureScreenState extends State<CaptureScreen> {
           capturedAt: now,
         );
         savedMediaId = media.id;
+      }
+
+      // Voice note: audio kept as media (spec §3.5 — never discard the
+      // audio); the transcript is already in the notes text.
+      MediaData? voice;
+      final voicePath = _voicePath;
+      if (voicePath != null && File(voicePath).existsSync()) {
+        voice = await MediaStore(db).saveAudio(
+          File(voicePath),
+          propertyId: widget.property.id,
+          createdBy: 'local',
+          lat: fix?.latitude,
+          lng: fix?.longitude,
+          capturedAt: now,
+          durationMs: _voiceMs,
+        );
+        savedVoiceId = voice.id;
+        _voiceSaved = true;
+        try {
+          File(voicePath).deleteSync();
+        } catch (_) {}
       }
 
       // Placed on the map: the pressed point IS the location (accuracy
@@ -344,6 +410,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
             role: 'primary',
           );
         }
+        if (voice != null) {
+          await MediaStore(db).linkTo(
+            voice.id,
+            propertyId: widget.property.id,
+            entityType: 'observation',
+            entityId: obsId,
+            role: 'voice',
+          );
+        }
       });
       unawaited(envService.backfillStale());
 
@@ -358,6 +433,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
         try {
           await eraseMedia(db, savedMediaId);
         } catch (_) {}
+      }
+      if (savedVoiceId != null) {
+        try {
+          await eraseMedia(db, savedVoiceId);
+        } catch (_) {}
+        _voiceSaved = false;
+        _voicePath = null;
       }
       if (!mounted) return;
       setState(() => _saving = false);
@@ -815,11 +897,55 @@ class _CaptureScreenState extends State<CaptureScreen> {
             child: ListView(
               padding: const EdgeInsets.all(Metrics.gutter),
               children: [
+                // Voice note: one big mic target, live transcript beneath.
+                ListenableBuilder(
+                  listenable: _voice,
+                  builder: (context, _) {
+                    final rec = _voice.recording;
+                    final secs = _voice.elapsed.inSeconds;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: 58,
+                          child: rec
+                              ? FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                      backgroundColor: Press.oxblood),
+                                  icon: const Icon(Icons.stop),
+                                  label: Text(
+                                      'STOP · ${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}'),
+                                  onPressed: _toggleVoice,
+                                )
+                              : OutlinedButton.icon(
+                                  icon: const Icon(Icons.mic),
+                                  label: Text(_voicePath == null
+                                      ? 'RECORD A VOICE NOTE'
+                                      : 'VOICE NOTE SAVED · RECORD AGAIN'),
+                                  onPressed: _toggleVoice,
+                                ),
+                        ),
+                        if (rec) ...[
+                          const SizedBox(height: 8),
+                          MonoLabel(
+                              _voice.speechAvailable
+                                  ? (_voice.transcript.isEmpty
+                                      ? 'Listening…'
+                                      : _voice.transcript)
+                                  : 'Recording · no speech recognition on this phone',
+                              size: 10,
+                              opacity: 0.8),
+                        ],
+                        const SizedBox(height: 12),
+                      ],
+                    );
+                  },
+                ),
                 ConstrainedBox(
                   constraints: const BoxConstraints(minHeight: 124),
                   child: TextField(
                     controller: _notesController,
-                    autofocus: true,
+                    autofocus: false,
                     textCapitalization: TextCapitalization.sentences,
                     minLines: 5,
                     maxLines: 12,

@@ -28,12 +28,14 @@ class Exporter {
     final geoDir = Directory(p.join(dir.path, 'geo'))..createSync();
     final mediaDir = Directory(p.join(dir.path, 'media', 'photos'))
       ..createSync(recursive: true);
+    final audioDir = Directory(p.join(dir.path, 'media', 'audio'))
+      ..createSync(recursive: true);
 
     await _dumpDatabase(File(p.join(dir.path, 'database.sqlite')));
     await _writeCsvs(property.id, dataDir);
     await _writeGeojson(property.id, geoDir);
     _writeKml(property, File(p.join(geoDir.path, 'property.kml')));
-    await _copyMedia(property.id, mediaDir);
+    await _copyMedia(property.id, mediaDir, audioDir);
     _writeReadme(property, File(p.join(dir.path, 'README.md')));
     return dir;
   }
@@ -254,7 +256,8 @@ $placemark
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;');
 
-  Future<void> _copyMedia(String propertyId, Directory mediaDir) async {
+  Future<void> _copyMedia(
+      String propertyId, Directory mediaDir, Directory audioDir) async {
     final rows = await (db.select(db.media)
           ..where((m) => m.propertyId.equals(propertyId))
           ..where((m) => m.deletedAt.isNull()))
@@ -264,10 +267,12 @@ $placemark
       if (src == null || !File(src).existsSync()) continue;
       final when = m.capturedAt ?? m.createdAt;
       final ym = when.substring(0, 7).split('-');
-      final destDir = Directory(p.join(mediaDir.path, ym[0], ym[1]))
+      final root = m.mediaType == 'audio' ? audioDir : mediaDir;
+      final destDir = Directory(p.join(root.path, ym[0], ym[1]))
         ..createSync(recursive: true);
       final dest = p.join(destDir.path, '${m.id}${p.extension(src)}');
       File(src).copySync(dest);
+      if (m.mediaType != 'photo') continue;
       // Spec §6: GPS written into the exported JPEG so the photo carries its
       // location into any other tool. Only the export copy is touched; the
       // original in the media store stays byte-identical (its sha256 is the
@@ -315,7 +320,8 @@ Everything your field journal knows about this place, in open formats.
 - `geo/*.geojson` — observations, zones, features, plantings, tracks.
   Open in QGIS, or drag onto geojson.io.
 - `geo/property.kml` — opens in Google Earth.
-- `media/photos/YYYY/MM/` — original photos.
+- `media/photos/YYYY/MM/` — original photos, GPS in EXIF.
+- `media/audio/YYYY/MM/` — voice notes (m4a); transcripts are in the notes.
 
 Exported ${nowUtcIso()} by Field Notes. This export has no vendor
 dependency; the data is yours.
