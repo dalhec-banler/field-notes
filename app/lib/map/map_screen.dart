@@ -9,9 +9,11 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
+import '../main.dart' show locationHub;
 import 'area_downloader.dart';
 import 'basemap_style.dart';
 import 'mbtiles_store.dart';
+import 'pmtiles_reader.dart';
 import 'tile_server.dart';
 
 const _basemapFile = 'basemap.pmtiles';
@@ -26,7 +28,8 @@ class MapScreen extends StatefulWidget {
       this.db,
       this.property,
       this.embedded = false,
-      this.onController});
+      this.onController,
+      this.onCoverage});
 
   final FieldNotesDb? db;
   final Property? property;
@@ -35,6 +38,10 @@ class MapScreen extends StatefulWidget {
   /// Hands the map controller up so chrome (capture-area mode) can read the
   /// visible region.
   final ValueChanged<MapLibreMapController>? onController;
+
+  /// Reports the offline basemap's bounds `[minLon, minLat, maxLon, maxLat]`
+  /// so chrome can say "no map here yet" instead of showing blank paper.
+  final ValueChanged<List<double>?>? onCoverage;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -61,54 +68,115 @@ class _MapScreenState extends State<MapScreen> {
       final docs = await getApplicationDocumentsDirectory();
       final basemapDir = Directory(p.join(docs.path, 'basemap'))
         ..createSync(recursive: true);
-      // Captured areas (MBTiles) take precedence over a sideloaded PMTiles
-      // archive; both serve through the same loopback server.
+      // Captured areas (MBTiles) draw first, but only when they actually
+      // hold tiles — an empty store from a failed capture must not blank
+      // the map. A sideloaded PMTiles archive fills in underneath through
+      // the same merged endpoint.
       final mbFile = File(p.join(basemapDir.path, AreaDownloader.mbtilesName));
       final pmFile = File(p.join(basemapDir.path, _basemapFile));
+      MbTilesStore? mbtiles;
       if (mbFile.existsSync()) {
-        _mbtiles = MbTilesStore.open(mbFile);
-        final server =
-            await TileServer.start(basemapDir, mbtiles: _mbtiles);
-        final maxZoom =
-            int.tryParse(_mbtiles!.metadata['maxzoom'] ?? '') ?? 15;
+        mbtiles = MbTilesStore.open(mbFile);
+        if (mbtiles.tileCount == 0) {
+          mbtiles.close();
+          mbtiles = null;
+        }
+      }
+      if (mbtiles != null) {
+        final TileServer server;
+        try {
+          server = await TileServer.start(basemapDir,
+              mbtiles: mbtiles,
+              pmtilesFallback: pmFile.existsSync() ? pmFile : null);
+        } catch (_) {
+          mbtiles.close();
+          rethrow;
+        }
+        if (!mounted) {
+          // Rebuilt under a new key mid-await (property switch / capture):
+          // release what we just opened instead of leaking it.
+          await server.close();
+          mbtiles.close();
+          return;
+        }
+        _mbtiles = mbtiles;
+        final mbMax = int.tryParse(mbtiles.metadata['maxzoom'] ?? '') ?? 15;
+        final fbMax = server.fallbackMaxZoom ?? 0;
+        final maxZoom = mbMax > fbMax ? mbMax : fbMax;
+        // Coverage for the "no map here" hint: the regional file is the
+        // wider of the two when present.
+        List<double>? coverage;
+        if (pmFile.existsSync()) {
+          try {
+            final src = FileRangeSource(pmFile);
+            try {
+              coverage = (await PmTilesReader.open(src)).header.bounds;
+            } finally {
+              src.close();
+            }
+          } catch (_) {}
+        }
+        if (coverage == null) {
+          final boundsStr = mbtiles.metadata['bounds'];
+          if (boundsStr != null) {
+            final b = boundsStr
+                .split(',')
+                .map((s) => double.tryParse(s.trim()))
+                .toList();
+            if (b.length == 4 && !b.contains(null)) coverage = b.cast<double>();
+          }
+        }
+        widget.onCoverage?.call(coverage);
         setState(() {
           _server = server;
           _styleJson = basemapStyle(
-              tilesUrl:
-                  'http://127.0.0.1:${server.port}/mbtiles/{z}/{x}/{y}.pbf',
-              maxZoom: maxZoom);
+              tilesUrl: server.mbtilesUrlTemplate, maxZoom: maxZoom);
         });
       } else if (pmFile.existsSync()) {
         final server = await TileServer.start(basemapDir);
+        if (!mounted) {
+          await server.close();
+          return;
+        }
+        // Header bounds tell the chrome where this archive actually has
+        // tiles; a county extract on a phone in the city is blank paper.
+        try {
+          final src = FileRangeSource(pmFile);
+          try {
+            final reader = await PmTilesReader.open(src);
+            widget.onCoverage?.call(reader.header.bounds);
+          } finally {
+            src.close();
+          }
+        } catch (_) {}
+        if (!mounted) {
+          await server.close();
+          return;
+        }
         setState(() {
           _server = server;
           _styleJson =
               basemapStyle(pmtilesUrl: server.pmtilesUrlFor(_basemapFile));
         });
       } else {
+        if (!mounted) return;
         setState(() => _error =
             'No offline basemap yet.\nUse capture-area on the map, or '
             'Settings → Offline maps.');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = 'Tile server failed to start: $e');
     }
   }
 
   void _watchPosition() async {
     try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-      _fixSub = Geolocator.getPositionStream(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.best),
-      ).listen(_onFix);
+      if (!await locationHub.ensurePermission()) return;
+      if (!mounted) return;
+      final last = locationHub.last;
+      if (last != null) _onFix(last);
+      _fixSub = locationHub.positions.listen(_onFix);
     } catch (_) {}
   }
 

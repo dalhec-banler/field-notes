@@ -5,9 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../map/area_downloader.dart';
 import '../map/basemap_manager.dart';
+import '../theme/tokens.dart';
+import '../widgets/press.dart';
 
-/// Offline maps management (spec §7.11): download/replace/remove the basemap.
+/// Offline maps management (spec §7.11): what's on the phone, and the three
+/// ways to get more — capture an area from the map, import a file, or
+/// download from a link.
 class OfflineMapsScreen extends StatefulWidget {
   const OfflineMapsScreen({super.key});
 
@@ -19,6 +24,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
   final _manager = BasemapManager();
   final _urlController = TextEditingController();
   int? _installedBytes;
+  int? _capturedBytes;
 
   @override
   void initState() {
@@ -29,7 +35,15 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
 
   Future<void> _refresh() async {
     final bytes = await _manager.installedBytes();
-    if (mounted) setState(() => _installedBytes = bytes);
+    final captured = await AreaDownloader.target();
+    final capturedBytes =
+        captured.existsSync() ? captured.lengthSync() : null;
+    if (mounted) {
+      setState(() {
+        _installedBytes = bytes;
+        _capturedBytes = capturedBytes;
+      });
+    }
   }
 
   @override
@@ -58,50 +72,138 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     }
   }
 
+  Future<void> _removeCaptured() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('REMOVE CAPTURED AREAS?'),
+        content: const Text(
+            'Every area you captured from the map goes. Your records stay. '
+            'You can capture again any time you have signal.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('KEEP')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('REMOVE')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final f = await AreaDownloader.target();
+    for (final suffix in const ['', '-wal', '-shm', '-journal']) {
+      final s = File('${f.path}$suffix');
+      if (s.existsSync()) s.deleteSync();
+    }
+    _refresh();
+  }
+
   String _fmtBytes(int b) => b > 1 << 20
       ? '${(b / (1 << 20)).toStringAsFixed(1)} MB'
       : '${(b / 1024).toStringAsFixed(0)} KB';
 
+  Widget _card({
+    required String title,
+    required String detail,
+    required bool present,
+    VoidCallback? onRemove,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      decoration: BoxDecoration(
+        color: Press.paperRaised,
+        border: Border.all(color: Press.ink, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Diamond(
+              size: 12,
+              color: present ? Press.sage : Press.inkSoft,
+              filled: present),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontFamily: Type.slab,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: Press.ink)),
+                const SizedBox(height: 3),
+                MonoLabel(detail, size: 9, spacing: 1.2, opacity: 0.75),
+              ],
+            ),
+          ),
+          if (present && onRemove != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Press.oxblood),
+              tooltip: 'Remove',
+              onPressed: onRemove,
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final installed = _installedBytes != null;
+    final captured = _capturedBytes != null;
     return Scaffold(
       appBar: AppBar(title: const Text('Offline maps')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Metrics.gutter),
         children: [
-          Card(
-            child: ListTile(
-              leading: Icon(
-                installed ? Icons.check_circle : Icons.map_outlined,
-                color: installed ? Colors.green.shade700 : null,
-              ),
-              title: Text(installed ? 'Basemap installed' : 'No basemap'),
-              subtitle: Text(installed
-                  ? _fmtBytes(_installedBytes!)
-                  : 'The map works without one, but shows no background.'),
-              trailing: installed
-                  ? IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Remove basemap',
-                      onPressed: () async {
-                        await _manager.remove();
-                        _refresh();
-                      },
-                    )
-                  : null,
-            ),
+          const MonoLabel('On this phone', size: 9, spacing: 1.8),
+          const SizedBox(height: 8),
+          _card(
+            title: 'Captured areas',
+            detail: captured
+                ? '${_fmtBytes(_capturedBytes!)} · from ⌗ Capture area on the map'
+                : 'none yet · frame a spot on the map and tap ⌗ Capture area',
+            present: captured,
+            onRemove: _removeCaptured,
           ),
-          const SizedBox(height: 24),
-          Text('Download a basemap',
-              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          _card(
+            title: 'Regional basemap file',
+            detail: installed
+                ? '${_fmtBytes(_installedBytes!)} · covers the whole area it was made for'
+                : 'none · optional — capture areas work on their own',
+            present: installed,
+            onRemove: () async {
+              await _manager.remove();
+              _refresh();
+            },
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Captured areas draw first; the regional file fills in around '
+            'them. Both live only on this phone and never need signal to use.',
+            style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.45),
+          ),
+          const SizedBox(height: 26),
+          const MonoLabel('Add a regional basemap file', size: 9, spacing: 1.8),
           const SizedBox(height: 8),
           const Text(
-            'Paste a direct link to a .pmtiles file. Make one for any area '
-            'with the pmtiles tool (pmtiles extract) and host it anywhere — '
-            'Dropbox, S3, or a home server.',
+            'Easiest: tap ⌗ Capture area on the map while you have signal. '
+            'For a whole county in one go, import a .pmtiles file someone '
+            'made for you, or paste a link to one.',
+            style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.45),
           ),
           const SizedBox(height: 12),
+          SizedBox(
+            height: 56,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.folder_open),
+              label: const Text('IMPORT A .PMTILES FILE'),
+              onPressed: _manager.downloading ? null : _importFile,
+            ),
+          ),
+          const SizedBox(height: 14),
           TextField(
             controller: _urlController,
             keyboardType: TextInputType.url,
@@ -110,17 +212,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 12),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 56,
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.folder_open),
-              label: const Text('IMPORT .PMTILES FILE'),
-              onPressed: _manager.downloading ? null : _importFile,
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (_manager.downloading)
             Column(
               children: [
@@ -136,7 +228,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               height: 56,
               child: FilledButton.icon(
                 icon: const Icon(Icons.download),
-                label: const Text('Download'),
+                label: const Text('DOWNLOAD FROM LINK'),
                 onPressed: () {
                   final url = _urlController.text.trim();
                   if (url.isEmpty) return;

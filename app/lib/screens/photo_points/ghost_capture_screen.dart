@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../db/database.dart';
 import '../../geo/simplify.dart' show distanceM;
+import '../../main.dart' show locationHub;
 import '../../services/compass.dart';
 import '../../services/media_store.dart';
 
@@ -74,19 +75,24 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
         enableAudio: false,
       );
       await controller.initialize();
-      if (!mounted) return;
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
       setState(() => _camera = controller);
     } catch (e) {
-      setState(() => _error = '$e');
+      if (mounted) setState(() => _error = '$e');
       return;
     }
 
-    _fixSub = Geolocator.getPositionStream(
-      locationSettings:
-          const LocationSettings(accuracy: LocationAccuracy.best),
-    ).listen((pos) {
-      if (mounted) setState(() => _fix = pos);
-    });
+    if (await locationHub.ensurePermission()) {
+      if (!mounted) return;
+      final last = locationHub.fresh();
+      if (last != null) setState(() => _fix = last);
+      _fixSub = locationHub.positions.listen((pos) {
+        if (mounted) setState(() => _fix = pos);
+      });
+    }
     _compass = CompassStream();
     _headingSub = _compass!.headingDeg.listen((h) {
       if (mounted) setState(() => _heading = h);
@@ -127,14 +133,29 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
     final camera = _camera;
     if (camera == null || !camera.value.isInitialized || _saving) return;
     setState(() => _saving = true);
+    try {
+      await _captureInner(camera);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Capture failed: $e')));
+    }
+  }
+
+  Future<void> _captureInner(CameraController camera) async {
     final shot = await camera.takePicture();
     final now = nowUtcIso();
     final fix = _fix;
     final db = widget.db;
     final point = widget.point;
 
+    final bytes = await shot.readAsBytes();
+    try {
+      File(shot.path).deleteSync();
+    } catch (_) {}
     final media = await MediaStore(db).savePhoto(
-      await shot.readAsBytes(),
+      bytes,
       propertyId: point.propertyId,
       createdBy: 'local',
       lat: fix?.latitude,

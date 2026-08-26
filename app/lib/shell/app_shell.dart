@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import '../db/database.dart';
 import '../screens/capture_screen.dart';
 import '../services/app_prefs.dart';
+import '../services/observation_ops.dart';
+import '../widgets/new_place_dialog.dart';
+import '../widgets/save_toast.dart';
 import '../tabs/grow_tab.dart';
 import '../tabs/ledger_tab.dart';
 import '../tabs/map_tab.dart';
@@ -51,26 +54,13 @@ class _AppShellState extends State<AppShell> {
     // toast — the privacy promise restated at every write.
     setState(() => _tab = 1);
     final seconds = (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        duration: const Duration(milliseconds: 3600),
-        content: Text(
-          'OBSERVATION WRITTEN IN $seconds S\n'
-          'UPLOAD_STATE = LOCAL · NOTHING HAS LEFT THE PHONE',
-        ),
-        action: SnackBarAction(
-          label: 'UNDO',
-          onPressed: () async {
-            final now = nowUtcIso();
-            await (widget.db.update(widget.db.observations)
-                  ..where((o) => o.id.equals(result.observationId)))
-                .write(ObservationsCompanion(
-              deletedAt: Value(now),
-              updatedAt: Value(now),
-            ));
-          },
-        ),
-      ),
+    SaveToast.show(
+      context,
+      title: 'OBSERVATION WRITTEN IN $seconds S',
+      detail: 'SAVED ON THIS PHONE · NOTHING HAS LEFT IT',
+      // Undo erases the record outright — row, photo, links, context — so
+      // nothing of it reaches the next backup or export.
+      onUndo: () => eraseObservation(widget.db, result.observationId),
     );
   }
 
@@ -80,7 +70,7 @@ class _AppShellState extends State<AppShell> {
           ..orderBy([(x) => OrderingTerm.asc(x.name)]))
         .get();
     if (!mounted) return;
-    final picked = await showModalBottomSheet<Property>(
+    final picked = await showModalBottomSheet<Object>(
       context: context,
       builder: (context) => SafeArea(
         child: ListView(
@@ -112,14 +102,41 @@ class _AppShellState extends State<AppShell> {
                     size: 8.5, opacity: 0.7),
                 onTap: () => Navigator.pop(context, property),
               ),
+            // D-003: more than one place from day one — owned, leased,
+            // public land, a collection site. This is the only way in after
+            // first run.
+            ListTile(
+              minTileHeight: 56,
+              leading: const Icon(Icons.add, size: 18, color: Press.ink),
+              title: const Text(
+                'ADD A PLACE',
+                style: TextStyle(
+                  fontFamily: Type.mono,
+                  fontSize: 11,
+                  letterSpacing: 1.6,
+                  color: Press.ink,
+                ),
+              ),
+              onTap: () => Navigator.pop(context, _addPlace),
+            ),
           ],
         ),
       ),
     );
-    if (picked != null && picked.id != widget.property.id) {
+    if (picked == null) return;
+    if (picked == _addPlace) {
+      if (!mounted) return;
+      final created = await showNewPlaceDialog(context, widget.db);
+      if (created != null) widget.onSwitchProperty(created);
+      return;
+    }
+    if (picked is Property && picked.id != widget.property.id) {
       widget.onSwitchProperty(picked);
     }
   }
+
+  /// Sentinel row value for "add a place" in the switcher sheet.
+  static const _addPlace = '__add_place__';
 
   @override
   Widget build(BuildContext context) {

@@ -166,7 +166,12 @@ void main() {
     final liveDb = p.join(docs.path, 'field_notes.sqlite');
     File(liveDb).writeAsStringSync('precious existing data');
     pipeline.applyStagedDb(liveDb);
-    expect(File('$liveDb.pre-restore').readAsStringSync(),
+    final preRestore = Directory(p.dirname(liveDb))
+        .listSync()
+        .whereType<File>()
+        .firstWhere((f) => p.basename(f.path).startsWith(
+            '${p.basename(liveDb)}.pre-restore'));
+    expect(preRestore.readAsStringSync(),
         'precious existing data');
   });
 

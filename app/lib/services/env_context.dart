@@ -110,9 +110,16 @@ class EnvContextService {
     }
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final daily = data['daily'] as Map<String, dynamic>;
-    final precip = (daily['precipitation_sum'] as List)
-        .map((v) => (v as num?)?.toDouble() ?? 0.0)
+    final rawPrecip = (daily['precipitation_sum'] as List)
+        .map((v) => (v as num?)?.toDouble())
         .toList();
+    // The archive lags real time by a few days; trailing nulls mean "not
+    // yet", not "dry". Committing them as 0 mm would write a false "N days
+    // since rain" and clear the stale flag for good. Stay stale, retry later.
+    if (rawPrecip.isEmpty || rawPrecip.last == null) {
+      throw StateError('Open-Meteo archive not caught up to $date');
+    }
+    final precip = rawPrecip.map((v) => v ?? 0.0).toList();
     final tmin = (daily['temperature_2m_min'] as List)
         .map((v) => (v as num?)?.toDouble())
         .toList();
@@ -161,7 +168,10 @@ ORDER BY c.comppct_r DESC""";
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'query': query, 'format': 'JSON'}),
     );
-    if (res.statusCode != 200) return null;
+    if (res.statusCode != 200) {
+      // A down SDA is a retry, not "no soil here".
+      throw http.ClientException('SDA ${res.statusCode}');
+    }
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final table = data['Table'] as List?;
     if (table == null || table.isEmpty) return null;

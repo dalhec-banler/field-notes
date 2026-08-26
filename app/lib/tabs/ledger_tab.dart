@@ -71,8 +71,10 @@ class _LedgerTabState extends State<LedgerTab> {
                   ScreenHeader(
                     kicker: 'Record of entries',
                     title: 'Ledger',
-                    trailing: MonoLabel('${obs.length} entries',
-                        size: 9.5, opacity: 0.7),
+                    trailing: MonoLabel(
+                        '${obs.length} ${obs.length == 1 ? 'entry' : 'entries'}',
+                        size: 9.5,
+                        opacity: 0.7),
                   ),
                   SizedBox(
                     height: 44,
@@ -101,9 +103,14 @@ class _LedgerTabState extends State<LedgerTab> {
                   ),
                   Expanded(
                     child: obs.isEmpty
-                        ? const Center(
-                            child: MonoLabel('— no entries yet —',
-                                size: 9, spacing: 2, opacity: 0.5))
+                        ? Center(
+                            child: MonoLabel(
+                                _zoneFilter != null || _typeFilter != null
+                                    ? '— nothing matches this filter —'
+                                    : '— no entries yet · tap the camera —',
+                                size: 9,
+                                spacing: 2,
+                                opacity: 0.5))
                         : ListView.builder(
                             padding: const EdgeInsets.only(bottom: 110),
                             itemCount: obs.length + 1,
@@ -112,7 +119,7 @@ class _LedgerTabState extends State<LedgerTab> {
                                 return const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 22),
                                   child: Center(
-                                    child: MonoLabel('— end of local store —',
+                                    child: MonoLabel('— that\'s everything —',
                                         size: 9, spacing: 2, opacity: 0.5),
                                   ),
                                 );
@@ -212,13 +219,12 @@ class _LedgerRow extends StatelessWidget {
   final Observation obs;
   final double em;
 
-  Future<(String?, String?)> _details() async {
-    String? species;
+  Future<(TaxaData?, String?)> _details() async {
+    TaxaData? species;
     if (obs.taxonId != null) {
-      final t = await (db.select(db.taxa)
+      species = await (db.select(db.taxa)
             ..where((x) => x.id.equals(obs.taxonId!)))
           .getSingleOrNull();
-      species = t?.scientificName;
     }
     String? thumb;
     final link = await (db.select(db.mediaLinks)
@@ -239,6 +245,7 @@ class _LedgerRow extends StatelessWidget {
     final then = DateTime.tryParse(obs.observedAt);
     if (then == null) return '';
     final d = DateTime.now().toUtc().difference(then);
+    if (d.inMinutes < 1) return 'just now';
     if (d.inMinutes < 60) return '${d.inMinutes} min';
     if (d.inHours < 24) return '${d.inHours} h';
     return '${d.inDays} d';
@@ -247,7 +254,7 @@ class _LedgerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typeColor = recordTypeColor(obs.observationType);
-    return FutureBuilder<(String?, String?)>(
+    return FutureBuilder<(TaxaData?, String?)>(
       future: _details(),
       builder: (context, snapshot) {
         final (species, thumb) = snapshot.data ?? (null, null);
@@ -290,17 +297,37 @@ class _LedgerRow extends StatelessWidget {
                             size: em * 0.66, spacing: 1.6, color: typeColor),
                       ]),
                       SizedBox(height: em * 0.25),
-                      species != null
-                          ? TaxonName(species, size: em * 1.28, maxLines: 1)
-                          : Text(
-                              obs.observationType.toUpperCase(),
-                              style: TextStyle(
-                                fontFamily: Type.slab,
-                                fontWeight: FontWeight.w900,
-                                fontSize: em * 1.1,
-                                color: Press.ink,
-                              ),
-                            ),
+                      // Common name leads — it's what was typed and what
+                      // gets said out loud; the Latin sits under it.
+                      if (species != null && species.commonName != null) ...[
+                        Text(
+                          species.commonName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: Type.slab,
+                            fontWeight: FontWeight.w700,
+                            fontSize: em * 1.15,
+                            color: Press.ink,
+                          ),
+                        ),
+                        TaxonName(species.scientificName,
+                            size: em * 0.85, maxLines: 1),
+                      ] else if (species != null)
+                        TaxonName(species.scientificName,
+                            size: em * 1.28, maxLines: 1)
+                      else
+                        Text(
+                          obs.notes != null
+                              ? 'Note'
+                              : '${obs.observationType} record',
+                          style: TextStyle(
+                            fontFamily: Type.slab,
+                            fontWeight: FontWeight.w700,
+                            fontSize: em * 1.1,
+                            color: Press.ink,
+                          ),
+                        ),
                       SizedBox(height: em * 0.2),
                       MonoLabel(
                         obs.gpsAccuracyM == -1

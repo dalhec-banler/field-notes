@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -8,8 +9,10 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../db/database.dart';
 import '../geo/zone_assignment.dart';
+import '../main.dart' show locationHub;
 import '../services/env_context.dart';
 import '../services/media_store.dart';
+import '../services/observation_ops.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 import '../widgets/species_field.dart';
@@ -42,6 +45,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
   int _step = 0; // 0 shutter · 1 form · 2 notes
 
   Position? _fix;
+  /// True only once a fix has arrived from the live stream this session.
+  /// A last-known hint is displayed but never written as a location.
+  bool _fixIsLive = false;
   StreamSubscription<Position>? _fixSub;
 
   TaxaData? _taxon;
@@ -82,7 +88,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
         enableAudio: false,
       );
       await controller.initialize();
-      if (!mounted) return;
+      if (!mounted) {
+        // Cancelled while the camera was spinning up: release it, or the
+        // next capture opens to "camera in use".
+        await controller.dispose();
+        return;
+      }
       setState(() => _camera = controller);
     } catch (e) {
       if (mounted) setState(() => _cameraError = '$e');
@@ -91,24 +102,76 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
   Future<void> _initLocation() async {
     try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+      if (!await locationHub.ensurePermission()) {
         return; // record saves without coordinates rather than blocking
       }
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null && mounted) setState(() => _fix = last);
-      _fixSub = Geolocator.getPositionStream(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.best),
-      ).listen((pos) {
-        if (mounted) setState(() => _fix = pos);
+      if (!mounted) return;
+      // A fix from before the app idled is not a fix. The OS's last-known
+      // position is shown as a hint until the live stream delivers, but
+      // only a LIVE fix is ever written — see _fixIsLive in _save.
+      final fresh = locationHub.fresh();
+      if (fresh != null) {
+        if (mounted) {
+          setState(() {
+            _fix = fresh;
+            _fixIsLive = true;
+          });
+        }
+      } else {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null &&
+            DateTime.now().difference(last.timestamp) <
+                const Duration(minutes: 2) &&
+            mounted) {
+          setState(() => _fix = last);
+        }
+      }
+      _fixSub = locationHub.positions.listen((pos) {
+        if (mounted) {
+          setState(() {
+            _fix = pos;
+            _fixIsLive = true;
+          });
+        }
       });
     } catch (_) {
       // GPS problems never block capture
+    }
+  }
+
+  /// Name of the zone under the current fix, resolved when the form opens
+  /// so the header can say where you are in words.
+  String? _zoneName;
+  bool _zoneResolved = false;
+
+  Future<void> _resolveZone() async {
+    final fix = _fix;
+    if (fix == null) {
+      setState(() {
+        _zoneName = null;
+        _zoneResolved = true;
+      });
+      return;
+    }
+    try {
+      final zoneId = await ZoneAssigner(widget.db).zoneIdFor(
+          propertyId: widget.property.id,
+          lat: fix.latitude,
+          lng: fix.longitude);
+      Zone? zone;
+      if (zoneId != null) {
+        zone = await (widget.db.select(widget.db.zones)
+              ..where((z) => z.id.equals(zoneId)))
+            .getSingleOrNull();
+      }
+      if (mounted) {
+        setState(() {
+          _zoneName = zone?.name;
+          _zoneResolved = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _zoneResolved = true);
     }
   }
 
@@ -117,20 +180,53 @@ class _CaptureScreenState extends State<CaptureScreen> {
     _camera?.dispose();
     _fixSub?.cancel();
     _notesController.dispose();
+    _discardShotFile();
     super.dispose();
   }
 
-  Future<void> _takePhoto() async {
-    final camera = _camera;
-    if (camera == null || !camera.value.isInitialized) return;
-    final shot = await camera.takePicture();
-    setState(() {
-      _shot = shot;
-      _step = 1;
-    });
+  /// The camera plugin writes every shot to the cache dir; once the bytes are
+  /// in the media store (or the capture is abandoned) that copy is litter.
+  void _discardShotFile() {
+    final path = _shot?.path;
+    if (path == null || path.isEmpty) return;
+    try {
+      final f = File(path);
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {}
   }
 
-  void _noPhoto() => setState(() => _step = 1);
+  bool _shooting = false;
+
+  Future<void> _takePhoto() async {
+    final camera = _camera;
+    if (camera == null || !camera.value.isInitialized || _shooting) return;
+    _shooting = true;
+    try {
+      final shot = await camera.takePicture();
+      if (!mounted) {
+        // Popped mid-shutter: dispose already ran with no _shot, so this
+        // cache file is ours to clean up.
+        try {
+          File(shot.path).deleteSync();
+        } catch (_) {}
+        return;
+      }
+      setState(() {
+        _shot = shot;
+        _step = 1;
+      });
+      _resolveZone();
+    } catch (e) {
+      if (mounted) setState(() => _cameraError = 'Shutter failed: $e');
+    } finally {
+      _shooting = false;
+    }
+  }
+
+  void _noPhoto() {
+    setState(() => _step = 1);
+    _resolveZone();
+  }
 
   Future<void> _save() async {
     if (_saving) return;
@@ -141,93 +237,170 @@ class _CaptureScreenState extends State<CaptureScreen> {
     final fix = _fix;
     final obsId = newId();
 
-    final lat = fix?.latitude ?? widget.property.centroidLat;
-    final lng = fix?.longitude ?? widget.property.centroidLng;
-    final unlocated = lat == null || lng == null;
-
-    // Environmental context: created stale now, backfilled when online
-    // (spec §4.11). Never blocks the save.
-    String? envContextId;
-    if (!unlocated) {
-      final envService = EnvContextService(db);
-      envContextId = await envService.createStale(
-        propertyId: widget.property.id,
-        lat: lat,
-        lng: lng,
-        resolvedFor: now.substring(0, 10),
-      );
-      unawaited(envService.backfillStale());
-    }
-
-    await db.into(db.observations).insert(ObservationsCompanion.insert(
-          id: obsId,
+    String? savedMediaId;
+    try {
+      // Photo first: if the image can't be written we'd rather have no
+      // record than a record that claims a photograph it doesn't have.
+      MediaData? media;
+      final shot = _shot;
+      if (shot != null && shot.path.isNotEmpty) {
+        media = await MediaStore(db).savePhoto(
+          await shot.readAsBytes(),
           propertyId: widget.property.id,
-          observedAt: now,
-          localTz: localTzName(),
-          lat: lat ?? 0,
-          lng: lng ?? 0,
-          gpsAccuracyM: Value(unlocated ? -1 : fix?.accuracy),
-          altitudeM: Value(fix?.altitude),
-          headingDeg: Value(fix?.heading),
-          observationType: Value(
-              _taxon != null && _observationType == 'general'
-                  ? 'plant'
-                  : _observationType),
-          taxonId: Value(_taxon?.id),
-          taxonConfidence: Value(_taxon != null ? 'certain' : null),
-          notes: Value(_notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim()),
-          envContextId: Value(envContextId),
           createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+          lat: fix?.latitude,
+          lng: fix?.longitude,
+          headingDeg: fix?.heading,
+          capturedAt: now,
+        );
+        savedMediaId = media.id;
+      }
 
-    if (fix != null) {
-      await assignZone(db,
-          observationId: obsId,
-          propertyId: widget.property.id,
-          lat: fix.latitude,
-          lng: fix.longitude);
-    }
+      // No LIVE fix → the property centroid (or the last-known hint) stands
+      // in so the record still lands on the map, but gps_accuracy_m = -1
+      // flags it. Never a silent fake.
+      final located = fix != null && _fixIsLive;
+      final lat = fix?.latitude ?? widget.property.centroidLat;
+      final lng = fix?.longitude ?? widget.property.centroidLng;
+      final envService = EnvContextService(db);
 
-    final shot = _shot;
-    if (shot != null && shot.path.isNotEmpty) {
-      final media = await MediaStore(db).savePhoto(
-        await shot.readAsBytes(),
-        propertyId: widget.property.id,
-        createdBy: 'local',
-        lat: fix?.latitude,
-        lng: fix?.longitude,
-        headingDeg: fix?.heading,
-        capturedAt: now,
+      await db.transaction(() async {
+        // Environmental context: created stale now, backfilled when online
+        // (spec §4.11). Centroid weather is still the property's weather.
+        String? envContextId;
+        if (lat != null && lng != null) {
+          envContextId = await envService.createStale(
+            propertyId: widget.property.id,
+            lat: lat,
+            lng: lng,
+            resolvedFor: now.substring(0, 10),
+          );
+        }
+
+        await db.into(db.observations).insert(ObservationsCompanion.insert(
+              id: obsId,
+              propertyId: widget.property.id,
+              observedAt: now,
+              localTz: localTzName(),
+              lat: lat ?? 0,
+              lng: lng ?? 0,
+              gpsAccuracyM: Value(located ? fix.accuracy : -1),
+              altitudeM: Value(fix?.altitude),
+              headingDeg: Value(fix?.heading),
+              observationType: Value(
+                  _taxon != null && _observationType == 'general'
+                      ? 'plant'
+                      : _observationType),
+              taxonId: Value(_taxon?.id),
+              taxonConfidence: Value(_taxon != null ? 'certain' : null),
+              notes: Value(_notesController.text.trim().isEmpty
+                  ? null
+                  : _notesController.text.trim()),
+              envContextId: Value(envContextId),
+              createdBy: 'local',
+              createdAt: now,
+              updatedAt: now,
+            ));
+
+        if (located) {
+          await assignZone(db,
+              observationId: obsId,
+              propertyId: widget.property.id,
+              lat: fix.latitude,
+              lng: fix.longitude);
+        }
+
+        if (media != null) {
+          await MediaStore(db).linkTo(
+            media.id,
+            propertyId: widget.property.id,
+            entityType: 'observation',
+            entityId: obsId,
+            role: 'primary',
+          );
+        }
+      });
+      unawaited(envService.backfillStale());
+
+      if (mounted) {
+        Navigator.of(context)
+            .pop(CaptureResult(obsId, DateTime.now().difference(started)));
+      }
+    } catch (e) {
+      // The photo may already be in the media store with no record to own
+      // it; take it back out so backups and exports don't carry an orphan.
+      if (savedMediaId != null) {
+        try {
+          await eraseMedia(db, savedMediaId);
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Save failed — nothing written. $e')),
       );
-      await MediaStore(db).linkTo(
-        media.id,
-        propertyId: widget.property.id,
-        entityType: 'observation',
-        entityId: obsId,
-        role: 'primary',
-      );
     }
+  }
 
-    if (mounted) {
-      Navigator.of(context)
-          .pop(CaptureResult(obsId, DateTime.now().difference(started)));
+  String _localNow() {
+    final n = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${n.year}-${two(n.month)}-${two(n.day)} ${two(n.hour)}:${two(n.minute)} '
+        '${localTzName()}';
+  }
+
+  /// Back / ✕ on the form steps: a photo and a half-filled form are worth a
+  /// question before they vanish.
+  Future<void> _confirmDiscard() async {
+    if (_saving) return; // the write is in flight; let it land
+    final dirty = _shot != null ||
+        _taxon != null ||
+        _notesController.text.trim().isNotEmpty;
+    if (!dirty) {
+      Navigator.of(context).pop();
+      return;
     }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('DISCARD THIS RECORD?'),
+        content: const Text(
+            'The photo and anything you filled in will be dropped.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('KEEP')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('DISCARD')),
+        ],
+      ),
+    );
+    if (discard == true && mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Press.cameraDark,
-      body: SafeArea(
-        child: switch (_step) {
-          0 => _buildShutter(),
-          1 => _buildForm(),
-          _ => _buildNotes(),
-        },
+    return PopScope(
+      // Android back: notes → form, form → confirm, shutter → leave.
+      canPop: _step == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || _saving) return;
+        if (_step == 2) {
+          setState(() => _step = 1);
+        } else {
+          _confirmDiscard();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Press.cameraDark,
+        body: SafeArea(
+          child: switch (_step) {
+            0 => _buildShutter(),
+            1 => _buildForm(),
+            _ => _buildNotes(),
+          },
+        ),
       ),
     );
   }
@@ -330,12 +503,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const MonoLabel('◆ Ready',
-                        size: 9.5, spacing: 1.8, color: Press.paperRaised),
+                    MonoLabel(
+                        camera == null ? '◆ Starting camera…' : '◆ Tap to shoot',
+                        size: 9.5,
+                        spacing: 1.8,
+                        color: Press.paperRaised),
                     MonoLabel(
                       fix == null
-                          ? 'no fix — save works anyway'
-                          : '±${fix.accuracy.toStringAsFixed(1)} m',
+                          ? 'GPS searching — save works anyway'
+                          : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m',
                       size: 9.5,
                       spacing: 1.4,
                       color: Press.paperRaised,
@@ -428,15 +604,22 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       MonoLabel(
-                        'Captured'
-                        '${fix != null ? ' · ±${fix.accuracy.toStringAsFixed(1)} m' : ' · no fix — saving anyway'}',
+                        _shot != null ? 'Photo taken' : 'No photo',
                         size: 9.5,
                         spacing: 1.6,
                         color: Press.sage,
                       ),
                       const SizedBox(height: 2),
-                      const MonoLabel('zone · point-in-polygon · turf_dart',
-                          size: 8.5, opacity: 0.65),
+                      MonoLabel(
+                          fix == null
+                              ? 'No GPS fix — saved without a location'
+                              : !_zoneResolved
+                                  ? 'GPS ±${fix.accuracy.toStringAsFixed(0)} m'
+                                  : _zoneName != null
+                                      ? 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · $_zoneName'
+                                      : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · outside any zone',
+                          size: 8.5,
+                          opacity: 0.65),
                     ],
                   ),
                 ),
@@ -444,7 +627,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   width: 46,
                   height: 46,
                   child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: _confirmDiscard,
                     child: const Text('✕'),
                   ),
                 ),
@@ -455,23 +638,27 @@ class _CaptureScreenState extends State<CaptureScreen> {
             child: ListView(
               padding: const EdgeInsets.all(Metrics.gutter),
               children: [
-                const MonoLabel('identification · nothing written yet',
-                    size: 9, spacing: 1.8),
+                MonoLabel(
+                    _taxon == null
+                        ? 'What is it? · optional — favourites first'
+                        : 'What is it? · ${_taxon!.scientificName}',
+                    size: 9,
+                    spacing: 1.8),
                 const SizedBox(height: 8),
                 SpeciesField(
                   db: widget.db,
-                  onSelected: (t) => setState(() => _taxon = t),
-                ),
-                const SizedBox(height: 10),
-                const RailNote(
-                  color: Press.oxblood,
-                  body:
-                      'A machine ID is never written to taxon_id without your '
-                      'acceptance. Leave it blank and confidence saves as '
-                      'unidentified.',
+                  label: 'Species — common or Latin name',
+                  onSelected: (t) => setState(() {
+                    _taxon = t;
+                    // Naming a plant makes this a plant record unless the
+                    // user already chose something more specific.
+                    if (t != null && _observationType == 'general') {
+                      _observationType = 'plant';
+                    }
+                  }),
                 ),
                 const SizedBox(height: 16),
-                const MonoLabel('observation_type', size: 9, spacing: 1.8),
+                const MonoLabel('What kind of record', size: 9, spacing: 1.8),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 7,
@@ -483,15 +670,19 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         child: Container(
                           height: 46,
                           padding:
-                              const EdgeInsets.symmetric(horizontal: 13),
-                          alignment: Alignment.center,
+                              const EdgeInsets.symmetric(horizontal: 16),
                           decoration: BoxDecoration(
                             color:
                                 _observationType == t ? Press.ink : null,
                             border: Border.all(color: Press.ink, width: 1),
                             borderRadius: BorderRadius.circular(999),
                           ),
-                          child: Text(
+                          // Center(widthFactor) keeps the pill hugging its
+                          // label; a Container with `alignment` would grow
+                          // to the Wrap's full width.
+                          child: Center(
+                            widthFactor: 1,
+                            child: Text(
                             t.toUpperCase(),
                             style: TextStyle(
                               fontFamily: Type.mono,
@@ -502,13 +693,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
                                   : Press.ink,
                             ),
                           ),
+                          ),
                         ),
                       ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                const MonoLabel('env_context · attached, is_stale = 1',
-                    size: 9, spacing: 1.8),
+                const MonoLabel('Saved with this record', size: 9, spacing: 1.8),
                 const SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
@@ -516,18 +707,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       border: Border.all(color: Press.ink, width: 1.5)),
                   child: Column(
                     children: [
+                      FactRow('when', _localNow()),
                       FactRow(
-                          'observed_at',
-                          nowUtcIso()
-                              .replaceFirst('T', ' ')
-                              .substring(0, 16)),
-                      FactRow(
-                          'lat / lng',
+                          'where',
                           fix != null
-                              ? '${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)}'
-                              : 'none — flagged, not faked'),
-                      const FactRow(
-                          'is_stale', '1 · backfills from Open-Meteo + NRCS',
+                              ? '${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)}  ±${fix.accuracy.toStringAsFixed(0)} m'
+                              : 'no fix — flagged, never faked'),
+                      const FactRow('weather · soil',
+                          'looked up when you\'re back online',
                           last: true),
                     ],
                   ),
@@ -593,7 +780,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const MonoLabel('Notes & voice', size: 10, spacing: 1.8),
+                const MonoLabel('Notes', size: 10, spacing: 1.8),
               ],
             ),
           ),
@@ -605,6 +792,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   constraints: const BoxConstraints(minHeight: 124),
                   child: TextField(
                     controller: _notesController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
                     minLines: 5,
                     maxLines: 12,
                     cursorColor: Press.oxblood,

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -53,15 +54,26 @@ class _SettingsTabState extends State<SettingsTab> {
       } catch (_) {}
     }
     final basemap = File(p.join(docs.path, 'basemap', 'basemap.pmtiles'));
+    // "Current" means nothing has changed since — not merely "recent".
+    var unbacked = 0;
+    if (lastBackup != null) {
+      final changed = await (widget.db.select(widget.db.observations)
+            ..where((o) => o.updatedAt.isBiggerThan(Constant(lastBackup!))))
+          .get();
+      unbacked = changed.length;
+    }
     if (mounted) {
       setState(() {
         _lastBackup = lastBackup;
         _lastVerify = lastVerify;
+        _unbacked = unbacked;
         _basemapInstalled = basemap.existsSync();
         _basemapBytes = basemap.existsSync() ? basemap.lengthSync() : 0;
       });
     }
   }
+
+  int _unbacked = 0;
 
   String _ago(String? iso) {
     if (iso == null) return 'never';
@@ -83,7 +95,13 @@ class _SettingsTabState extends State<SettingsTab> {
 
   @override
   Widget build(BuildContext context) {
+    // Sage = nothing to do. Ochre = changes waiting. Oxblood = overdue.
     final backupHealthy = !_backupOverdue;
+    final cardColor = !backupHealthy
+        ? Press.oxblood
+        : _unbacked > 0
+            ? Press.ochre
+            : Press.sage;
     return SafeArea(
       bottom: false,
       child: ListView(
@@ -100,14 +118,14 @@ class _SettingsTabState extends State<SettingsTab> {
             child: Container(
               decoration: BoxDecoration(
                 border: Border.all(
-                    color: backupHealthy ? Press.sage : Press.oxblood,
+                    color: cardColor,
                     width: 1.5),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    color: backupHealthy ? Press.sage : Press.oxblood,
+                    color: cardColor,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 8),
                     child: Row(
@@ -117,9 +135,11 @@ class _SettingsTabState extends State<SettingsTab> {
                         MonoLabel(
                           !backupHealthy
                               ? 'Backup needed'
-                              : _lastVerify != null
-                                  ? 'Backup verified'
-                                  : 'Backup current — unverified',
+                              : _unbacked > 0
+                                  ? '$_unbacked ${_unbacked == 1 ? 'change' : 'changes'} since backup'
+                                  : _lastVerify != null
+                                      ? 'Backup verified'
+                                      : 'Backup current — unverified',
                           size: 10,
                           spacing: 1.6,
                           color: Press.paper,
@@ -139,9 +159,9 @@ class _SettingsTabState extends State<SettingsTab> {
                           _lastBackup == null
                               ? 'Nothing is backed up yet. A phone in the '
                                   'creek is a total loss until this runs.'
-                              : 'Incremental, content-addressed. Last '
-                                  'verified ${_ago(_lastVerify)} — an '
-                                  'untested backup is not a backup.',
+                              : 'Only what changed gets copied, so it\'s '
+                                  'quick. Last verified ${_ago(_lastVerify)} '
+                                  '— an untested backup is not a backup.',
                           style: const TextStyle(
                               fontFamily: Type.serif,
                               fontSize: 15.5,
@@ -184,8 +204,10 @@ class _SettingsTabState extends State<SettingsTab> {
           // 2. Grouped tables.
           _group('Offline maps', [
             (
-              'PMTiles archive',
-              'served from 127.0.0.1 · range requests',
+              'Offline basemap',
+              _basemapInstalled
+                  ? 'stored on this phone · works with no signal'
+                  : 'none yet · use ⌗ Capture area on the map',
               _basemapInstalled
                   ? '${(_basemapBytes / (1 << 20)).toStringAsFixed(0)} MB'
                   : 'None',
@@ -197,8 +219,8 @@ class _SettingsTabState extends State<SettingsTab> {
           ]),
           _group('Data', [
             (
-              'Import KML / KMZ',
-              'boundary, zones, pins · review before commit',
+              'Import boundary & zones',
+              'KML / KMZ from Google Earth, onX, or your county GIS',
               '',
               () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => KmlImportScreen(
@@ -206,23 +228,17 @@ class _SettingsTabState extends State<SettingsTab> {
             ),
             (
               'Programs',
-              'EQIP · TPWD PUB · practices and deadlines',
+              'EQIP · TPWD · cost-share practices and deadlines',
               '',
               () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => ProgramsScreen(
                       db: widget.db, property: widget.property))),
             ),
           ]),
-          _group('Identification', [
+          _group('Species ID', [
             (
-              'LLM re-rank key',
-              'a Claude Pro plan is not API access',
-              'None',
-              null,
-            ),
-            (
-              'Pl@ntNet',
-              'project-scoped, not all — licensing pending',
+              'Photo identification',
+              'coming later · you name the plant, the app never guesses for you',
               'Off',
               null,
             ),
@@ -230,7 +246,7 @@ class _SettingsTabState extends State<SettingsTab> {
           _group('Privacy', [
             (
               'Account',
-              'sync off — everything stays on this phone',
+              'none — everything stays on this phone',
               'None',
               null,
             ),

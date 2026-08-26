@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 import '../db/database.dart';
 import 'backup_crypto.dart';
@@ -18,12 +19,22 @@ import 'target.dart';
 /// staged DB replaces the live one; after it opens, media paths are remapped
 /// onto the restored blobs. DB-first, media-after — the app is usable the
 /// moment it restarts.
+///
+/// Two markers keep the two phases honest:
+///  * `READY`   — staging is complete and verified; apply the DB on next launch.
+///                Consumed the moment the swap succeeds, so a crash or error
+///                during media remap can never re-apply the snapshot over
+///                records written since.
+///  * `APPLIED` — DB swapped; media remap still owed. Remap is idempotent and
+///                keeps retrying on later launches until every blob is placed.
 class RestorePipeline {
   RestorePipeline(this.docsDir);
 
   final Directory docsDir;
 
   Directory get _staging => Directory(p.join(docsDir.path, 'restore_staged'));
+  File get _ready => File(p.join(_staging.path, 'READY'));
+  File get _applied => File(p.join(_staging.path, 'APPLIED'));
 
   /// Unzips a shared backup archive and stages a restore from it.
   /// [secret] is tried as passphrase first, then as recovery phrase.
@@ -91,39 +102,94 @@ class RestorePipeline {
     }
 
     // A dummy engine bound to the source target does the decrypt work.
-    final engine = BackupEngine(
-        FieldNotesDb.forTesting(), target, cipher); // db unused by restore
+    final dummy = FieldNotesDb.forTesting(); // db unused by restore
+    final engine = BackupEngine(dummy, target, cipher);
     if (_staging.existsSync()) _staging.deleteSync(recursive: true);
     _staging.createSync(recursive: true);
-    final result = await engine.restore(
-      dbOut: File(p.join(_staging.path, 'db.sqlite')),
-      mediaRestoreDir: Directory(p.join(_staging.path, 'media')),
-    );
-    File(p.join(_staging.path, 'READY')).writeAsStringSync(nowUtcIso());
+    final stagedDb = File(p.join(_staging.path, 'db.sqlite'));
+    final String result;
+    try {
+      result = await engine.restore(
+        dbOut: stagedDb,
+        mediaRestoreDir: Directory(p.join(_staging.path, 'media')),
+      );
+    } finally {
+      await dummy.close();
+    }
+
+    // Never promise a database we haven't opened. A corrupt dump is refused
+    // here, where the live data is still untouched.
+    final verdict = _integrityCheck(stagedDb);
+    if (verdict != 'ok') {
+      _staging.deleteSync(recursive: true);
+      throw StateError('The backup\'s database failed its integrity check '
+          '($verdict). Nothing was changed.');
+    }
+
+    _ready.writeAsStringSync(nowUtcIso());
     return '$result. Restart the app to finish.';
   }
 
-  bool get hasStagedRestore =>
-      File(p.join(_staging.path, 'READY')).existsSync();
+  static String _integrityCheck(File dbFile) {
+    try {
+      final db = sqlite.sqlite3.open(dbFile.path,
+          mode: sqlite.OpenMode.readOnly);
+      try {
+        final rows = db.select('PRAGMA integrity_check');
+        if (rows.isEmpty) return 'no result';
+        return '${rows.first.values.first}';
+      } finally {
+        db.close();
+      }
+    } catch (e) {
+      return '$e';
+    }
+  }
+
+  bool get hasStagedRestore => _ready.existsSync();
+
+  /// True after the DB swap until every restored blob has been placed.
+  bool get hasPendingMediaRemap => _applied.existsSync();
 
   /// Pre-DB-open: swap the staged database into place. Returns true if a
-  /// restore was applied.
+  /// restore was applied. Consumes `READY` immediately on success.
   bool applyStagedDb(String liveDbPath) {
     if (!hasStagedRestore) return false;
     final staged = File(p.join(_staging.path, 'db.sqlite'));
     if (!staged.existsSync()) return false;
-    final live = File(liveDbPath);
-    if (live.existsSync()) {
-      live.renameSync('$liveDbPath.pre-restore');
+
+    // Move the live DB AND its sidecars aside together. A hot -journal or
+    // -wal left behind would be "rolled back" into the restored file the
+    // moment SQLite opens it.
+    final stamp = DateTime.now()
+        .toUtc()
+        .toIso8601String()
+        .replaceAll(RegExp('[:.]'), '-');
+    for (final suffix in const ['', '-journal', '-wal', '-shm']) {
+      final f = File('$liveDbPath$suffix');
+      if (f.existsSync()) {
+        f.renameSync('$liveDbPath.pre-restore-$stamp$suffix');
+      }
     }
     staged.copySync(liveDbPath);
+
+    // Swap done: from here on the snapshot must never be applied again.
+    _ready.deleteSync();
+    _applied.writeAsStringSync(nowUtcIso());
     return true;
   }
 
-  /// Post-DB-open: point media rows at the restored blobs.
+  /// Post-DB-open: point media rows at the restored blobs. Idempotent and
+  /// error-tolerant — a blob that can't be placed now is retried on the next
+  /// launch; the ones that worked stay worked. Returns how many were placed
+  /// in this pass.
   Future<int> remapRestoredMedia(FieldNotesDb db) async {
+    if (!hasPendingMediaRemap && !hasStagedRestore) return 0;
     final blobDir = Directory(p.join(_staging.path, 'media'));
-    if (!blobDir.existsSync()) return 0;
+    if (!blobDir.existsSync()) {
+      _finishRemap();
+      return 0;
+    }
     final destDir = Directory(p.join(docsDir.path, 'media', 'restored'))
       ..createSync(recursive: true);
 
@@ -131,23 +197,36 @@ class RestorePipeline {
           ..where((m) => m.sha256.isNotNull()))
         .get();
     var remapped = 0;
+    var failed = 0;
     for (final m in rows) {
-      if (m.localPath != null && File(m.localPath!).existsSync()) continue;
-      final blob = File(p.join(blobDir.path, '${m.sha256}.bin'));
-      if (!blob.existsSync()) continue;
-      final dest = p.join(destDir.path, '${m.id}.jpg');
-      blob.copySync(dest);
-      await (db.update(db.media)..where((x) => x.id.equals(m.id))).write(
-        MediaCompanion(
-          localPath: Value(dest),
-          thumbPath: Value(dest),
-          updatedAt: Value(nowUtcIso()),
-        ),
-      );
-      remapped++;
+      try {
+        if (m.localPath != null && File(m.localPath!).existsSync()) continue;
+        final blob = File(p.join(blobDir.path, '${m.sha256}.bin'));
+        if (!blob.existsSync()) continue;
+        final dest = p.join(destDir.path, '${m.id}.jpg');
+        if (!File(dest).existsSync()) blob.copySync(dest);
+        await (db.update(db.media)..where((x) => x.id.equals(m.id))).write(
+          MediaCompanion(
+            localPath: Value(dest),
+            thumbPath: Value(dest),
+            updatedAt: Value(nowUtcIso()),
+          ),
+        );
+        remapped++;
+      } catch (_) {
+        failed++;
+      }
     }
-    // Staging served its purpose.
-    _staging.deleteSync(recursive: true);
+    if (failed == 0) _finishRemap();
     return remapped;
+  }
+
+  void _finishRemap() {
+    // Staging served its purpose.
+    if (_staging.existsSync()) {
+      try {
+        _staging.deleteSync(recursive: true);
+      } catch (_) {}
+    }
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -34,16 +35,70 @@ class HttpRangeSource implements RangeSource {
   final String url;
   final http.Client _client;
 
+  /// Per-read deadline. Rural LTE stalls; a hung socket must not hang a
+  /// capture forever.
+  static const timeout = Duration(seconds: 20);
+
   @override
   Future<Uint8List> read(int offset, int length) async {
-    final res = await _client.get(
-      Uri.parse(url),
-      headers: {'Range': 'bytes=$offset-${offset + length - 1}'},
-    );
-    if (res.statusCode != 206 && res.statusCode != 200) {
-      throw http.ClientException('range read failed: HTTP ${res.statusCode}');
+    final req = http.Request('GET', Uri.parse(url))
+      ..headers['Range'] = 'bytes=$offset-${offset + length - 1}';
+    final res = await _client.send(req).timeout(timeout);
+    if (res.statusCode == 206) {
+      final bytes = await _collect(res.stream, length);
+      if (bytes.length != length) {
+        throw http.ClientException(
+            'short range read: ${bytes.length} of $length bytes');
+      }
+      return bytes;
     }
-    return res.bodyBytes;
+    if (res.statusCode == 200) {
+      // The server ignored the Range header. Against the planet archive a
+      // 200 is the whole file (100+ GB); never buffer it — take only what
+      // was asked for and drop the connection. A captive portal's HTML
+      // lands here too and fails the PMTiles magic check upstream.
+      final total = res.contentLength;
+      if (total != null && total < offset + length) {
+        throw http.ClientException(
+            'server ignored Range and the body is too short ($total bytes)');
+      }
+      final bytes = await _collect(res.stream, offset + length);
+      if (bytes.length < offset + length) {
+        throw http.ClientException('short read on a non-range response');
+      }
+      return Uint8List.sublistView(bytes, offset, offset + length);
+    }
+    throw http.ClientException('range read failed: HTTP ${res.statusCode}');
+  }
+
+  /// Read at most [want] bytes from [stream], then cancel it.
+  static Future<Uint8List> _collect(
+      http.ByteStream stream, int want) async {
+    final out = BytesBuilder(copy: false);
+    late StreamSubscription<List<int>> sub;
+    final done = Completer<void>();
+    sub = stream.listen(
+      (chunk) {
+        out.add(chunk);
+        if (out.length >= want) {
+          sub.cancel();
+          if (!done.isCompleted) done.complete();
+        }
+      },
+      onError: (Object e) {
+        if (!done.isCompleted) done.completeError(e);
+      },
+      onDone: () {
+        if (!done.isCompleted) done.complete();
+      },
+      cancelOnError: true,
+    );
+    await done.future.timeout(timeout, onTimeout: () {
+      sub.cancel();
+      throw TimeoutException('range read stalled');
+    });
+    final bytes = out.takeBytes();
+    return bytes.length > want ? Uint8List.sublistView(bytes, 0, want) : bytes;
   }
 
   @override

@@ -116,7 +116,7 @@ class _DesktopShellState extends State<DesktopShell> {
                   child: Diamond(size: 7, color: Press.paper)),
             ),
           const SizedBox(width: 8),
-          MonoLabel('Field Station · ${widget.property.name}',
+          MonoLabel('Field Notes · ${widget.property.name}',
               size: 10.5, spacing: 1.6, color: Press.paper),
           const SizedBox(width: 16),
           MonoLabel(

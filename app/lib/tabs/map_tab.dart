@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart' show Position;
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../db/database.dart';
-import '../main.dart' show trackRecorder;
+import '../main.dart' show locationHub, trackRecorder;
 import '../map/area_downloader.dart';
 import '../map/map_screen.dart';
 import '../theme/tokens.dart';
@@ -37,6 +38,38 @@ class _MapTabState extends State<MapTab> {
   void dispose() {
     _downloader.dispose();
     super.dispose();
+  }
+
+  /// Offline basemap bounds `[minLon, minLat, maxLon, maxLat]`, or null if
+  /// unknown.
+  List<double>? _coverage;
+
+  bool _covered(Position fix) {
+    final b = _coverage;
+    if (b == null) return true; // unknown → don't nag
+    return fix.longitude >= b[0] &&
+        fix.longitude <= b[2] &&
+        fix.latitude >= b[1] &&
+        fix.latitude <= b[3];
+  }
+
+  /// Locate-me: fly the camera to the current fix, close enough to see the
+  /// plant you're standing next to. Blank paper there gets an explanation.
+  Future<void> _flyTo(Position fix) async {
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      await controller.animateCamera(CameraUpdate.newLatLngZoom(
+          LatLng(fix.latitude, fix.longitude), 17.5));
+    } catch (_) {}
+    if (!_covered(fix) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            'No offline map for this spot yet — ⌗ Capture area downloads it '
+            'while you have signal.'),
+        duration: Duration(seconds: 5),
+      ));
+    }
   }
 
   Future<void> _captureArea() async {
@@ -120,6 +153,7 @@ class _MapTabState extends State<MapTab> {
               property: widget.property,
               embedded: true,
               onController: (c) => _controller = c,
+              onCoverage: (b) => _coverage = b,
             ),
           ),
         ),
@@ -268,25 +302,56 @@ class _MapTabState extends State<MapTab> {
                           ),
                         ),
                         const SizedBox(height: 7),
-                        // GPS badge with the blinking diamond.
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 9, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Press.paper,
-                            border:
-                                Border.all(color: Press.sage, width: 1.5),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Diamond(
-                                  size: 9, color: Press.sage, blink: true),
-                              SizedBox(width: 6),
-                              MonoLabel('GPS',
-                                  size: 9, spacing: 1.4, color: Press.sage),
-                            ],
-                          ),
+                        // GPS: status readout AND the locate-me control.
+                        // Tap → fly to the current fix.
+                        ListenableBuilder(
+                          listenable: locationHub,
+                          builder: (context, _) {
+                            // While a track runs the stream is distance-
+                            // filtered, so standing still is silence, not
+                            // a lost fix — trust the last one then.
+                            final fix = locationHub.fresh() ??
+                                (locationHub.foreground
+                                    ? locationHub.last
+                                    : null);
+                            final label = fix == null
+                                ? 'GPS · searching'
+                                : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · find me';
+                            return GestureDetector(
+                              onTap: fix == null ? null : () => _flyTo(fix),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Press.paper,
+                                  border: Border.all(
+                                      color: fix == null
+                                          ? Press.sage
+                                          : Press.ink,
+                                      width: 1.5),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Diamond(
+                                        size: 9,
+                                        color: fix == null
+                                            ? Press.sage
+                                            : Press.river,
+                                        filled: fix != null,
+                                        blink: fix == null),
+                                    const SizedBox(width: 6),
+                                    MonoLabel(label,
+                                        size: 9.5,
+                                        spacing: 1.4,
+                                        color: fix == null
+                                            ? Press.sage
+                                            : Press.ink),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -318,6 +383,13 @@ class _TrackToggle extends StatelessWidget {
               await trackRecorder.stop();
             } else if (!trackRecorder.recording) {
               await trackRecorder.start(propertyId);
+              // A recorder that can't hear the GPS must say so, not sit
+              // at 0.0 km looking busy.
+              final err = trackRecorder.lastError;
+              if (err != null && context.mounted) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(err)));
+              }
             }
           },
           child: Container(
@@ -329,7 +401,9 @@ class _TrackToggle extends StatelessWidget {
             ),
             child: MonoLabel(
               on
-                  ? '◼ Track ${(trackRecorder.distanceSoFarM / 1000).toStringAsFixed(1)} km'
+                  ? trackRecorder.lastError != null
+                      ? '◼ Track · GPS lost'
+                      : '◼ Track ${(trackRecorder.distanceSoFarM / 1000).toStringAsFixed(1)} km'
                   : '▶ Log track',
               size: 9.5,
               spacing: 1.4,

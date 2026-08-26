@@ -30,15 +30,47 @@ class _SpeciesFieldState extends State<SpeciesField> {
   @override
   void dispose() {
     _controller.dispose();
+    _focus.dispose();
     super.dispose();
+  }
+
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // Empty field + focus → show the favourites so a first-timer sees that
+    // tapping is enough; typing narrows from there.
+    _focus.addListener(() {
+      if (_focus.hasFocus && _controller.text.trim().isEmpty) {
+        _showFavourites();
+      }
+    });
+  }
+
+  /// Monotonic query id: a slow older lookup must not overwrite the list
+  /// for what's typed now.
+  int _seq = 0;
+
+  Future<void> _showFavourites() async {
+    final mine = ++_seq;
+    final rows = await (widget.db.select(widget.db.taxa)
+          ..where((t) => t.deletedAt.isNull() & t.isFavorite.equals(1))
+          ..orderBy([(t) => OrderingTerm.asc(t.commonName)])
+          ..limit(8))
+        .get();
+    if (mounted && mine == _seq && _controller.text.trim().isEmpty) {
+      setState(() => _suggestions = rows);
+    }
   }
 
   Future<void> _search(String query) async {
     if (query.trim().isEmpty) {
-      setState(() => _suggestions = const []);
       widget.onSelected(null);
+      await _showFavourites();
       return;
     }
+    final mine = ++_seq;
     final q = '%${query.trim()}%';
     final rows = await (widget.db.select(widget.db.taxa)
           ..where((t) =>
@@ -52,7 +84,7 @@ class _SpeciesFieldState extends State<SpeciesField> {
           ])
           ..limit(10))
         .get();
-    if (mounted) setState(() => _suggestions = rows);
+    if (mounted && mine == _seq) setState(() => _suggestions = rows);
   }
 
   @override
@@ -62,6 +94,7 @@ class _SpeciesFieldState extends State<SpeciesField> {
       children: [
         TextField(
           controller: _controller,
+          focusNode: _focus,
           onChanged: _search,
           decoration: InputDecoration(
             labelText: widget.label,
@@ -82,6 +115,9 @@ class _SpeciesFieldState extends State<SpeciesField> {
               _controller.text = t.commonName ?? t.scientificName;
               widget.onSelected(t);
               setState(() => _suggestions = const []);
+              // Picked: the keyboard has nothing more to offer, and it was
+              // hiding the rest of the form.
+              _focus.unfocus();
             },
           ),
       ],

@@ -22,12 +22,22 @@ class _SpeciesTabState extends State<SpeciesTab> {
   String _query = '';
   int _favoriteCount = 0;
   int _totalCount = 0;
-  Map<String, int> _occurrences = const {};
+
+  late Stream<Map<String, int>> _occurrences = _occurrenceStream();
 
   @override
   void initState() {
     super.initState();
     _loadMeta();
+  }
+
+  @override
+  void didUpdateWidget(SpeciesTab old) {
+    super.didUpdateWidget(old);
+    if (old.property.id != widget.property.id) {
+      _occurrences = _occurrenceStream();
+      _loadMeta();
+    }
   }
 
   @override
@@ -46,30 +56,51 @@ class _SpeciesTabState extends State<SpeciesTab> {
           ..addColumns([widget.db.taxa.id.count()])
           ..where(widget.db.taxa.deletedAt.isNull()))
         .getSingle();
-    // Occurrence counts per taxon on this property.
-    final rows = await widget.db.customSelect(
-      'SELECT taxon_id, COUNT(*) AS n FROM observations '
-      "WHERE property_id = '${widget.property.id}' AND taxon_id IS NOT NULL "
-      'AND deleted_at IS NULL GROUP BY taxon_id',
-    ).get();
     if (mounted) {
       setState(() {
         _favoriteCount = favorites.read(widget.db.taxa.id.count()) ?? 0;
         _totalCount = total.read(widget.db.taxa.id.count()) ?? 0;
-        _occurrences = {
-          for (final r in rows)
-            r.data['taxon_id'] as String: r.data['n'] as int
-        };
       });
     }
+  }
+
+  /// Occurrence counts per taxon on this property, live — a species you
+  /// just recorded shows its count without a restart.
+  Stream<Map<String, int>> _occurrenceStream() {
+    return widget.db
+        .customSelect(
+          'SELECT taxon_id, COUNT(*) AS n FROM observations '
+          'WHERE property_id = ? AND taxon_id IS NOT NULL '
+          'AND deleted_at IS NULL GROUP BY taxon_id',
+          variables: [Variable.withString(widget.property.id)],
+          readsFrom: {widget.db.observations},
+        )
+        .watch()
+        .map((rows) => {
+              for (final r in rows)
+                r.data['taxon_id'] as String: r.data['n'] as int
+            });
+  }
+
+  /// Tap a row to star it: favourites lead the capture picker.
+  Future<void> _toggleFavorite(TaxaData t) async {
+    await (widget.db.update(widget.db.taxa)..where((x) => x.id.equals(t.id)))
+        .write(TaxaCompanion(
+      isFavorite: Value(t.isFavorite == 1 ? 0 : 1),
+      updatedAt: Value(nowUtcIso()),
+    ));
+    _loadMeta();
   }
 
   @override
   Widget build(BuildContext context) {
     final query = (widget.db.select(widget.db.taxa)
       ..where((t) => t.deletedAt.isNull())
+      // Common name leads the row, so it leads the sort; Latin-only taxa
+      // fall in by their scientific name.
       ..orderBy([
         (t) => OrderingTerm.desc(t.isFavorite),
+        (t) => OrderingTerm.asc(t.commonName.lower()),
         (t) => OrderingTerm.asc(t.scientificName),
       ]));
     if (_query.isNotEmpty) {
@@ -103,73 +134,107 @@ class _SpeciesTabState extends State<SpeciesTab> {
             padding: const EdgeInsets.fromLTRB(
                 Metrics.gutter, 8, Metrics.gutter, 8),
             child: MonoLabel(
-              '$_favoriteCount favourited palette · '
-              '${_totalCount - _favoriteCount} regional seed · typo-tolerant',
+              '$_favoriteCount starred · '
+              '${_totalCount - _favoriteCount} more regional · '
+              'tap a row to star it',
               size: 9,
               opacity: 0.7,
             ),
           ),
           Expanded(
-            child: StreamBuilder<List<TaxaData>>(
-              stream: query.watch(),
-              builder: (context, snapshot) {
-                final taxa = snapshot.data ?? const [];
-                if (taxa.isEmpty) {
-                  return const Center(
-                      child: MonoLabel('— no matches —',
-                          size: 9, spacing: 2, opacity: 0.5));
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 110),
-                  itemCount: taxa.length,
-                  itemBuilder: (context, i) {
-                    final t = taxa[i];
-                    final invasive = t.nativity == 'invasive';
-                    final diamondColor =
-                        invasive ? Press.oxblood : Press.sageLight;
-                    final count = _occurrences[t.id] ?? 0;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: Metrics.gutter, vertical: 11),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                            bottom:
-                                BorderSide(color: Press.divider, width: 1)),
-                      ),
-                      child: Row(
-                        children: [
-                          Diamond(size: 15, color: diamondColor),
-                          const SizedBox(width: 11),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+            child: StreamBuilder<Map<String, int>>(
+              stream: _occurrences,
+              builder: (context, occSnap) {
+                final occurrences = occSnap.data ?? const <String, int>{};
+                return StreamBuilder<List<TaxaData>>(
+                  stream: query.watch(),
+                  builder: (context, snapshot) {
+                    final taxa = snapshot.data ?? const [];
+                    if (taxa.isEmpty) {
+                      return const Center(
+                          child: MonoLabel('— no matches —',
+                              size: 9, spacing: 2, opacity: 0.5));
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 110),
+                      itemCount: taxa.length,
+                      itemBuilder: (context, i) {
+                        final t = taxa[i];
+                        final invasive = t.nativity == 'invasive';
+                        final starred = t.isFavorite == 1;
+                        final count = occurrences[t.id] ?? 0;
+                        return InkWell(
+                          onTap: () => _toggleFavorite(t),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: Metrics.gutter, vertical: 11),
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                  bottom: BorderSide(
+                                      color: Press.divider, width: 1)),
+                            ),
+                            child: Row(
                               children: [
-                                TaxonName(t.scientificName,
-                                    size: 17, maxLines: 1),
-                                const SizedBox(height: 3),
-                                MonoLabel(
-                                  [
-                                    if (t.commonName != null) t.commonName!,
-                                    if (t.growthForm != null) t.growthForm!,
-                                  ].join(' · '),
-                                  size: 9,
-                                  opacity: 0.72,
+                                Icon(
+                                  starred ? Icons.star : Icons.star_border,
+                                  size: 18,
+                                  color: starred
+                                      ? Press.gold
+                                      : Press.inkSoft.withValues(alpha: 0.35),
                                 ),
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Common name leads; the Latin name
+                                      // is the second line, like the ledger.
+                                      if (t.commonName != null) ...[
+                                        Text(
+                                          t.commonName!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontFamily: Type.slab,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15.5,
+                                            color: Press.ink,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        TaxonName(t.scientificName,
+                                            size: 13, maxLines: 1),
+                                      ] else
+                                        TaxonName(t.scientificName,
+                                            size: 17, maxLines: 1),
+                                      if (t.growthForm != null) ...[
+                                        const SizedBox(height: 3),
+                                        MonoLabel(t.growthForm!,
+                                            size: 9, opacity: 0.72),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                if (count > 0) ...[
+                                  BigNumber('$count', size: 17),
+                                  const SizedBox(width: 10),
+                                ],
+                                // Native is the default here; only the
+                                // exceptions earn a pill.
+                                if (t.nativity != null &&
+                                    t.nativity != 'native')
+                                  StatusPill(
+                                    t.nativity!,
+                                    color: invasive
+                                        ? Press.oxblood
+                                        : Press.ochre,
+                                  ),
                               ],
                             ),
                           ),
-                          if (count > 0) ...[
-                            BigNumber('$count', size: 17),
-                            const SizedBox(width: 10),
-                          ],
-                          if (t.nativity != null)
-                            StatusPill(
-                              t.nativity!,
-                              color:
-                                  invasive ? Press.oxblood : Press.sage,
-                            ),
-                        ],
-                      ),
+                        );
+                      },
                     );
                   },
                 );

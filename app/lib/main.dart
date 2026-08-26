@@ -14,11 +14,16 @@ import 'db/seed.dart';
 import 'export/exporter.dart';
 import 'services/app_prefs.dart';
 import 'services/env_context.dart';
+import 'services/location_hub.dart';
 import 'services/track_recorder.dart';
 import 'shell/app_shell.dart';
 import 'theme/theme.dart';
 import 'theme/tokens.dart';
+import 'widgets/new_place_dialog.dart';
 import 'widgets/press.dart';
+
+/// Single owner of the platform GPS stream; every screen listens here.
+late final LocationHub locationHub;
 
 /// App-wide track recorder: recording must survive navigation and screen
 /// sleep (spec §4.13).
@@ -33,15 +38,17 @@ Future<void> main() async {
     final pipeline = RestorePipeline(docs);
     if (pipeline.hasStagedRestore) {
       pipeline.applyStagedDb(p.join(docs.path, 'field_notes.sqlite'));
-      pendingRestore = pipeline;
     }
+    // The DB swap consumes READY; APPLIED stays until every blob is placed,
+    // so an interrupted remap resumes here without touching the DB again.
+    if (pipeline.hasPendingMediaRemap) pendingRestore = pipeline;
   } catch (_) {
     // A failed restore attempt must never brick startup.
   }
   final db = FieldNotesDb();
   if (pendingRestore != null) {
     // Media repoints in the background; the DB is already live.
-    pendingRestore.remapRestoredMedia(db);
+    pendingRestore.remapRestoredMedia(db).catchError((_) => 0);
   }
   // First-run species library; never blocks the UI (spec: offline-first, no
   // startup gates).
@@ -49,7 +56,11 @@ Future<void> main() async {
   seedFeatureTypesIfEmpty(db);
   // Retry pass for env contexts created offline (spec §4.11).
   EnvContextService(db).backfillStale();
-  trackRecorder = TrackRecorder(db);
+  locationHub = LocationHub();
+  trackRecorder = TrackRecorder(db, locationHub);
+  // A track left open by a killed process is closed out from its raw points.
+  // Startup never fails over it.
+  trackRecorder.recoverOpenTracks().catchError((_) => 0);
   final prefs = await AppPrefs.load();
   runApp(FieldNotesApp(db: db, prefs: prefs));
 }
@@ -63,7 +74,7 @@ class FieldNotesApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Field Station',
+      title: 'Field Notes',
       theme: fieldStationTheme(),
       home: RootScreen(db: db, prefs: prefs),
     );
@@ -117,65 +128,9 @@ class _RootScreenState extends State<RootScreen> {
   }
 
   Future<void> _createFirstPlace() async {
-    final nameController = TextEditingController();
-    var tenure = 'owned';
-    const tenureLabels = {
-      'owned': 'Owned',
-      'leased': 'Leased',
-      'public': 'Public land',
-      'collection_site': 'Collection site',
-      'other': 'Other',
-    };
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialog) => AlertDialog(
-          title: const Text('NEW PLACE'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'NAME'),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: tenure,
-                decoration: const InputDecoration(labelText: 'LAND TENURE'),
-                items: [
-                  for (final e in tenureLabels.entries)
-                    DropdownMenuItem(value: e.key, child: Text(e.value)),
-                ],
-                onChanged: (v) => setDialog(() => tenure = v ?? 'owned'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('CANCEL')),
-            FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('CREATE')),
-          ],
-        ),
-      ),
-    );
-    if (created != true || nameController.text.trim().isEmpty) return;
-    final now = nowUtcIso();
-    final id = newId();
-    await widget.db.into(widget.db.properties).insert(
-          PropertiesCompanion.insert(
-            id: id,
-            name: nameController.text.trim(),
-            landTenure: Value(tenure),
-            createdBy: 'local',
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-    widget.prefs.activePropertyId = id;
+    final created = await showNewPlaceDialog(context, widget.db);
+    if (created == null) return;
+    widget.prefs.activePropertyId = created.id;
     _resolveActive();
   }
 
@@ -198,7 +153,7 @@ class _RootScreenState extends State<RootScreen> {
                 const Kicker('Local-first field journal'),
                 const SizedBox(height: 8),
                 const Text(
-                  'FIELD\nSTATION',
+                  'FIELD\nNOTES',
                   style: TextStyle(
                     fontFamily: Type.slab,
                     fontWeight: FontWeight.w900,
@@ -261,7 +216,7 @@ Future<void> exportAndShare(
     messenger.hideCurrentSnackBar();
     await SharePlus.instance.share(ShareParams(
         files: [XFile(zipPath)],
-        text: 'Field Station export — ${property.name}'));
+        text: 'Field Notes export — ${property.name}'));
   } catch (e) {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(SnackBar(content: Text('EXPORT FAILED: $e')));

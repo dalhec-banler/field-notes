@@ -103,36 +103,81 @@ class AreaDownloader extends ChangeNotifier {
       final tiles = TileMath.cover(minLon, minLat, maxLon, maxLat,
           minZ: 0, maxZ: wantedMaxZ);
 
-      store = MbTilesStore.open(await target(), create: true);
+      final file = await target();
+      final createdNew = !file.existsSync();
+      store = MbTilesStore.open(file, create: true);
       var done = 0;
       var written = 0;
-      for (final (z, x, y) in tiles) {
-        if (store.getTile(z, x, y) == null) {
-          final data = await reader.getTile(z, x, y);
-          if (data != null) {
-            store.putTile(z, x, y, data);
-            written++;
+      var inBatch = 0;
+      _cancelled = false;
+      store.begin();
+      try {
+        for (final (z, x, y) in tiles) {
+          if (_cancelled) break;
+          if (store.getTile(z, x, y) == null) {
+            final data = await reader.getTile(z, x, y);
+            if (data != null) {
+              store.putTile(z, x, y, data);
+              written++;
+              // One fsync per batch, not per tile — and a readable store
+              // for the map every few hundred tiles.
+              if (++inBatch >= 200) {
+                store.commit();
+                store.begin();
+                inBatch = 0;
+              }
+            }
+          }
+          done++;
+          if (done % 20 == 0 || done == tiles.length) {
+            progress = done / tiles.length;
+            status = '$done of ${tiles.length} tiles';
+            notifyListeners();
           }
         }
-        done++;
-        if (done % 20 == 0 || done == tiles.length) {
-          progress = done / tiles.length;
-          status = '$done of ${tiles.length} tiles';
-          notifyListeners();
-        }
+      } finally {
+        store.commit();
       }
+      final prior = store.metadata;
+      final priorMax = int.tryParse(prior['maxzoom'] ?? '') ?? 0;
       store.setMetadata({
-        'name': 'Field Station capture',
+        'name': 'Field Notes capture',
         'format': 'pbf',
         'minzoom': '0',
-        'maxzoom': '$wantedMaxZ',
+        'maxzoom': '${wantedMaxZ > priorMax ? wantedMaxZ : priorMax}',
         'bounds': '$minLon,$minLat,$maxLon,$maxLat',
         'attribution': '© OpenStreetMap contributors · Protomaps',
       });
-      status = 'Captured $written new tiles · offline';
+      if (_cancelled) {
+        status = 'Stopped · kept $written tiles';
+      } else {
+        status = 'Captured $written new tiles · offline';
+      }
+      // A capture that got nothing must not leave an empty store behind —
+      // the map would prefer it over the regional file and go blank.
+      if (createdNew && store.tileCount == 0) {
+        store.close();
+        store = null;
+        for (final suffix in const ['', '-wal', '-shm', '-journal']) {
+          final s = File('${file.path}$suffix');
+          if (s.existsSync()) s.deleteSync();
+        }
+      }
     } catch (e) {
       error = '$e';
       status = null;
+      // Same rule on failure.
+      try {
+        final s = store;
+        if (s != null && s.tileCount == 0) {
+          s.close();
+          store = null;
+          for (final suffix in const ['', '-wal', '-shm', '-journal']) {
+            final f = File('${s.file.path}$suffix');
+            if (f.existsSync()) f.deleteSync();
+          }
+        }
+      } catch (_) {}
     } finally {
       reader?.close();
       store?.close();
@@ -140,4 +185,9 @@ class AreaDownloader extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  bool _cancelled = false;
+
+  /// Stop after the current tile; what's already stored stays.
+  void cancel() => _cancelled = true;
 }

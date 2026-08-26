@@ -6,6 +6,18 @@ import 'package:flutter/material.dart';
 import '../db/database.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../widgets/species_field.dart';
+
+const _kTypes = [
+  'general', 'plant', 'wildlife', 'problem', 'water', 'soil',
+  'phenology', 'sign', 'weather', 'maintenance'
+];
+
+const _kConfidence = {
+  'certain': 'Certain',
+  'probable': 'Probably',
+  'uncertain': 'Not sure',
+};
 
 /// Record detail (design README §3.3): photo header, title block, fact card
 /// keyed by the actual schema field names — the app and the schema stay
@@ -84,42 +96,159 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
   }
 
-  Future<void> _editNotes() async {
+  /// Edit what a field ID most often gets wrong: the species, the kind of
+  /// record, how sure you were, and the notes. Location and time are the
+  /// record's evidence and stay as captured.
+  Future<void> _editRecord() async {
     final obs = _obs;
     if (obs == null) return;
-    final controller = TextEditingController(text: obs.notes ?? '');
-    final saved = await showDialog<bool>(
+    final notes = TextEditingController(text: obs.notes ?? '');
+    TaxaData? taxon = _taxon;
+    var type = obs.observationType;
+    String? confidence = obs.taxonConfidence;
+    if (confidence == 'unidentified') confidence = null;
+
+    final saved = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('NOTES'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 3,
-          maxLines: 8,
-          cursorColor: Press.oxblood,
-          style: const TextStyle(
-              fontFamily: Type.serif, fontSize: 16, height: 1.5),
+      isScrollControlled: true,
+      backgroundColor: Press.paper,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.only(
+              // Keep the keyboard clear, and stay out from under the clock.
+              top: MediaQuery.of(ctx).padding.top + 8,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: SafeArea(
+            top: false,
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(Metrics.gutter),
+              children: [
+                const MonoLabel('Edit record', size: 10, spacing: 2),
+                const SizedBox(height: 12),
+                SpeciesField(
+                  db: widget.db,
+                  label: 'Species — common or Latin name',
+                  initial: taxon,
+                  onSelected: (t) => setSheet(() {
+                    taxon = t;
+                    if (t == null) confidence = null;
+                    // Same default the capture flow writes: naming it from
+                    // the list counts as certain until you say otherwise.
+                    if (t != null && confidence == null) confidence = 'certain';
+                    if (t != null && type == 'general') type = 'plant';
+                  }),
+                ),
+                if (taxon != null) ...[
+                  const SizedBox(height: 12),
+                  const MonoLabel('How sure?', size: 9, spacing: 1.8),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: [
+                      for (final e in _kConfidence.entries)
+                        _pill(e.value, confidence == e.key,
+                            () => setSheet(() => confidence = e.key)),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 14),
+                const MonoLabel('What kind of record', size: 9, spacing: 1.8),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: [
+                    for (final t in _kTypes)
+                      _pill(t.toUpperCase(), type == t,
+                          () => setSheet(() => type = t)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const MonoLabel('Notes', size: 9, spacing: 1.8),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: notes,
+                  minLines: 3,
+                  maxLines: 8,
+                  textCapitalization: TextCapitalization.sentences,
+                  cursorColor: Press.oxblood,
+                  style: const TextStyle(
+                      fontFamily: Type.serif, fontSize: 16, height: 1.5),
+                  decoration:
+                      const InputDecoration(hintText: 'What did you see?'),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('SAVE CHANGES'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      height: 52,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('CANCEL'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('CANCEL')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('SAVE')),
-        ],
       ),
     );
+    final text = notes.text.trim();
+    notes.dispose();
     if (saved != true) return;
     await (widget.db.update(widget.db.observations)
           ..where((o) => o.id.equals(obs.id)))
         .write(ObservationsCompanion(
-      notes: Value(
-          controller.text.trim().isEmpty ? null : controller.text.trim()),
+      taxonId: Value(taxon?.id),
+      taxonConfidence:
+          Value(taxon == null ? 'unidentified' : confidence),
+      observationType: Value(type),
+      notes: Value(text.isEmpty ? null : text),
       updatedAt: Value(nowUtcIso()),
     ));
     _load();
+  }
+
+  Widget _pill(String label, bool on, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: on ? Press.ink : null,
+          border: Border.all(color: Press.ink, width: 1),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        // Center(widthFactor) keeps the pill hugging its label inside a Wrap.
+        child: Center(
+          widthFactor: 1,
+          child: Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontFamily: Type.mono,
+              fontSize: 9.5,
+              letterSpacing: 1.4,
+              color: on ? Press.paper : Press.ink,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _delete() async {
@@ -159,7 +288,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final typeColor = recordTypeColor(obs.observationType);
-    final when = obs.observedAt.replaceFirst('T', ' ').substring(0, 16);
+    // observed_at is stored UTC (spec §4); show it in the phone's local time
+    // so the label (local_tz) and the digits agree.
+    final parsed = DateTime.tryParse(obs.observedAt)?.toLocal();
+    final when = parsed == null
+        ? obs.observedAt
+        : '${parsed.year.toString().padLeft(4, '0')}-'
+            '${parsed.month.toString().padLeft(2, '0')}-'
+            '${parsed.day.toString().padLeft(2, '0')} '
+            '${parsed.hour.toString().padLeft(2, '0')}:'
+            '${parsed.minute.toString().padLeft(2, '0')}';
 
     return Scaffold(
       body: ListView(
@@ -278,7 +416,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                   const SizedBox(width: 7),
                   MonoLabel(
                     '${obs.observationType}'
-                    '${obs.taxonConfidence != null ? ' · confidence ${obs.taxonConfidence}' : ''}',
+                    '${_taxon != null && _kConfidence.containsKey(obs.taxonConfidence) ? ' · ${_kConfidence[obs.taxonConfidence]}' : ''}',
                     size: 9,
                     spacing: 1.8,
                     color: typeColor,
@@ -326,28 +464,33 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               ),
               child: Column(
                 children: [
-                  FactRow('observed_at', '$when ${obs.localTz}'),
+                  FactRow('when', '$when ${obs.localTz}'),
                   FactRow(
-                      'lat / lng',
+                      'where',
                       obs.gpsAccuracyM == -1
-                          ? 'none — flagged, not faked'
+                          ? 'no GPS fix — flagged, never faked'
                           : '${obs.lat.toStringAsFixed(5)}, ${obs.lng.toStringAsFixed(5)}'
                               '${obs.gpsAccuracyM != null ? '  ±${obs.gpsAccuracyM!.toStringAsFixed(0)} m' : ''}'),
-                  FactRow('zone_id',
-                      _zone != null ? '${_zone!.name} · point-in-polygon' : '—'),
+                  FactRow('zone',
+                      _zone != null ? _zone!.name : 'outside any zone'),
                   if (_env != null) ...[
                     FactRow(
-                        'precip_30d',
+                        'rain, 30 d',
                         _env!.isStale == 1
-                            ? 'is_stale = 1 · backfills when online'
+                            ? 'looked up when back online'
                             : '${_env!.precip30dMm?.toStringAsFixed(1) ?? '—'} mm · '
                                 '${_env!.daysSinceRain ?? '—'} d since rain'),
                     if (_env!.soilSeries != null)
-                      FactRow('soil',
-                          '${_env!.soilSeries} · ${_env!.soilDrainageClass ?? ''}'),
+                      FactRow(
+                          'soil',
+                          [
+                            _env!.soilSeries!,
+                            if (_env!.soilDrainageClass != null)
+                              _env!.soilDrainageClass!,
+                          ].join(' · ')),
                   ],
-                  FactRow('media',
-                      '${_photos.length} photo${_photos.length == 1 ? '' : 's'} · upload_state = local',
+                  FactRow('photos',
+                      '${_photos.length} · on this phone only',
                       last: true),
                 ],
               ),
@@ -376,8 +519,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                   child: SizedBox(
                     height: 56,
                     child: FilledButton(
-                      onPressed: _editNotes,
-                      child: const Text('EDIT NOTES'),
+                      onPressed: _editRecord,
+                      child: const Text('EDIT'),
                     ),
                   ),
                 ),
