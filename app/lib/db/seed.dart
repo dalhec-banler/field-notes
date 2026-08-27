@@ -75,7 +75,7 @@ Future<int> seedTaxaIfEmpty(FieldNotesDb db, {String? csvText}) async {
   if (existing.isNotEmpty) return 0;
 
   csvText ??= await rootBundle.loadString(_seedAsset);
-  final rows = _parseCsv(csvText);
+  final rows = parseCsv(csvText);
   if (rows.isEmpty) return 0;
 
   final header = rows.first;
@@ -116,7 +116,7 @@ Future<int> seedTaxaIfEmpty(FieldNotesDb db, {String? csvText}) async {
 }
 
 /// Minimal RFC-4180 CSV parser (quoted fields, escaped quotes, CRLF).
-List<List<String>> _parseCsv(String text) {
+List<List<String>> parseCsv(String text) {
   final rows = <List<String>>[];
   var row = <String>[];
   final cell = StringBuffer();

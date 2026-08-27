@@ -37,8 +37,8 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
     setState(() => _error = null);
     final file = await openFile(acceptedTypeGroups: [
       const XTypeGroup(
-          label: 'KML / KMZ / GeoJSON',
-          extensions: ['kml', 'kmz', 'geojson', 'json']),
+          label: 'KML / KMZ / GeoJSON / GPX',
+          extensions: ['kml', 'kmz', 'geojson', 'json', 'gpx']),
     ]);
     if (file == null) return;
     try {
@@ -47,7 +47,9 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
           ? parseKmz(await file.readAsBytes())
           : lower.endsWith('.geojson') || lower.endsWith('.json')
               ? parseGeoJson(await file.readAsString())
-              : parseKml(await file.readAsString());
+              : lower.endsWith('.gpx')
+                  ? parseGpx(await file.readAsString())
+                  : parseKml(await file.readAsString());
       if (!mounted) return;
       if (placemarks.isEmpty) {
         setState(() => _error = 'No placemarks found in ${file.name}');

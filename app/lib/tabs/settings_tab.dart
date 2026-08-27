@@ -12,6 +12,7 @@ import '../screens/kml_import_screen.dart';
 import '../screens/offline_maps_screen.dart';
 import '../screens/photo_import_screen.dart';
 import '../screens/programs_screen.dart';
+import '../screens/species_import_screen.dart';
 import '../screens/restore_screen.dart';
 import '../services/app_prefs.dart';
 import '../theme/tokens.dart';
@@ -240,6 +241,14 @@ class _SettingsTabState extends State<SettingsTab> {
               '',
               () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => PhotoImportScreen(
+                      db: widget.db, property: widget.property))),
+            ),
+            (
+              'Import species list',
+              'optional · a CSV of your own species, starred for quick pick',
+              '',
+              () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => SpeciesImportScreen(
                       db: widget.db, property: widget.property))),
             ),
             (

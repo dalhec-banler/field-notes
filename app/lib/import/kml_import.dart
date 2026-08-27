@@ -252,3 +252,54 @@ List<KmlPlacemark> parseGeoJson(String text) {
   }
   return out;
 }
+
+/// GPX import (spec §6): waypoints become Points, tracks and routes become
+/// LineStrings — all on the shared placemark model for the review step.
+List<KmlPlacemark> parseGpx(String xmlText) {
+  final doc = XmlDocument.parse(xmlText);
+  final out = <KmlPlacemark>[];
+
+  double? num(XmlElement e, String attr) =>
+      double.tryParse(e.getAttribute(attr) ?? '');
+
+  for (final wpt in doc.findAllElements('wpt')) {
+    final lat = num(wpt, 'lat');
+    final lon = num(wpt, 'lon');
+    if (lat == null || lon == null) continue;
+    out.add(KmlPlacemark(
+      name: _childText(wpt, 'name') ?? 'Waypoint ${out.length + 1}',
+      description: _childText(wpt, 'desc') ?? _childText(wpt, 'cmt'),
+      geometryType: 'Point',
+      geojson: jsonEncode({'type': 'Point', 'coordinates': [lon, lat]}),
+      folder: _childText(wpt, 'type') ?? 'Waypoints',
+    ));
+  }
+
+  void lines(String container, String segment, String pointTag, String folder) {
+    for (final trk in doc.findAllElements(container)) {
+      final coords = <List<double>>[];
+      final segs = segment.isEmpty
+          ? [trk]
+          : trk.findAllElements(segment).toList();
+      for (final seg in segs) {
+        for (final pt in seg.findAllElements(pointTag)) {
+          final lat = num(pt, 'lat');
+          final lon = num(pt, 'lon');
+          if (lat != null && lon != null) coords.add([lon, lat]);
+        }
+      }
+      if (coords.length < 2) continue;
+      out.add(KmlPlacemark(
+        name: _childText(trk, 'name') ?? '$folder ${out.length + 1}',
+        description: _childText(trk, 'desc'),
+        geometryType: 'LineString',
+        geojson: jsonEncode({'type': 'LineString', 'coordinates': coords}),
+        folder: folder,
+      ));
+    }
+  }
+
+  lines('trk', 'trkseg', 'trkpt', 'Tracks');
+  lines('rte', '', 'rtept', 'Routes');
+  return out;
+}
