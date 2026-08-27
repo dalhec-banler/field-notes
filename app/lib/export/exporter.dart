@@ -6,6 +6,7 @@ import 'package:native_exif/native_exif.dart';
 import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
+import 'survival_report.dart';
 
 /// "Take my data" export (spec §6): one folder, open formats, no vendor
 /// dependency. Layout mirrors the spec: database.sqlite + data/*.csv +
@@ -36,6 +37,14 @@ class Exporter {
     await _writeGeojson(property.id, geoDir);
     _writeKml(property, File(p.join(geoDir.path, 'property.kml')));
     await _copyMedia(property.id, mediaDir, audioDir);
+    // reports/survival-summary.pdf (spec §6).
+    try {
+      final reports = Directory(p.join(dir.path, 'reports'))..createSync();
+      File(p.join(reports.path, 'survival-summary.pdf'))
+          .writeAsBytesSync(await SurvivalReport(db).build(property));
+    } catch (_) {
+      // The PDF is a convenience; the CSVs carry the same data.
+    }
     _writeReadme(property, File(p.join(dir.path, 'README.md')));
     return dir;
   }
@@ -322,6 +331,7 @@ Everything your field journal knows about this place, in open formats.
 - `geo/property.kml` — opens in Google Earth.
 - `media/photos/YYYY/MM/` — original photos, GPS in EXIF.
 - `media/audio/YYYY/MM/` — voice notes (m4a); transcripts are in the notes.
+- `reports/survival-summary.pdf` — every planting event with its latest survival.
 
 Exported ${nowUtcIso()} by Field Notes. This export has no vendor
 dependency; the data is yours.
