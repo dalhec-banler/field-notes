@@ -78,8 +78,11 @@ class _MapTabState extends State<MapTab> {
   final Set<String> _hiddenTypes = {};
   bool _showZones = true;
   bool _showTracks = true;
+  /// Satellite imagery draws over the offline vector map. Online-only, so
+  /// it starts off and the sheet says as much.
+  bool _showSatellite = false;
   bool get _layersTouched =>
-      _hiddenTypes.isNotEmpty || !_showZones || !_showTracks;
+      _hiddenTypes.isNotEmpty || !_showZones || !_showTracks || _showSatellite;
 
   Future<void> _applyLayers() async {
     final c = _controller;
@@ -101,6 +104,9 @@ class _MapTabState extends State<MapTab> {
     }
     try {
       await c.setLayerVisibility('tracks-line', _showTracks);
+    } catch (_) {}
+    try {
+      await c.setLayerVisibility('satellite', _showSatellite);
     } catch (_) {}
   }
 
@@ -144,12 +150,18 @@ class _MapTabState extends State<MapTab> {
                     setState(() {});
                     _applyLayers();
                   }),
+                  _pill('satellite', _showSatellite, () {
+                    setSheet(() => _showSatellite = !_showSatellite);
+                    setState(() {});
+                    _applyLayers();
+                  }),
                   if (_layersTouched)
-                    _pill('show everything', false, () {
+                    _pill('reset', false, () {
                       setSheet(() {
                         _hiddenTypes.clear();
                         _showZones = true;
                         _showTracks = true;
+                        _showSatellite = false;
                       });
                       setState(() {});
                       _applyLayers();
@@ -320,13 +332,10 @@ class _MapTabState extends State<MapTab> {
               db: widget.db,
               property: widget.property,
               embedded: true,
-              onController: (c) {
-                _controller = c;
-                // Re-keyed after a capture: put the toggles back.
-                if (_layersTouched) {
-                  Future.delayed(const Duration(seconds: 2), _applyLayers);
-                }
-              },
+              onController: (c) => _controller = c,
+              // Fires when the style and every overlay layer exist — the
+              // only safe moment to re-apply toggles after a re-key.
+              onLayersReady: _applyLayers,
               onCoverage: (b) => _coverage = b,
               onLongPress: _captureMode ? null : widget.onDropRecord,
               visible: widget.active,

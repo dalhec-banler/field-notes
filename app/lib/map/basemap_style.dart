@@ -4,12 +4,29 @@ import 'dart:convert';
 /// loopback tile server. No glyphs or sprites — every layer here renders
 /// without font/icon assets, so the style is fully offline from day one.
 /// Labels come later with bundled glyphs.
-String basemapStyle({String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
+String basemapStyle(
+    {String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
+  // No offline archive yet: imagery alone still gives a usable map wherever
+  // there's signal, and every overlay (boundary, zones, pins) still draws.
+  final satelliteOnly = pmtilesUrl == null && tilesUrl == null;
+  if (satelliteOnly) return _satelliteOnlyStyle();
   assert((pmtilesUrl == null) != (tilesUrl == null));
   final style = {
     'version': 8,
     'name': 'Field Notes offline',
     'sources': {
+      // Online-only imagery layer, toggled from the map's Layers sheet.
+      // USGS National Map imagery: public domain, no key. Offline capture
+      // of imagery tiles is a later step.
+      'satellite': {
+        'type': 'raster',
+        'tiles': [
+          'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}'
+        ],
+        'tileSize': 256,
+        'maxzoom': 16,
+        'attribution': 'USGS The National Map',
+      },
       'basemap': pmtilesUrl != null
           ? {'type': 'vector', 'url': pmtilesUrl}
           : {
@@ -24,6 +41,13 @@ String basemapStyle({String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
         'id': 'background',
         'type': 'background',
         'paint': {'background-color': '#ede8e0'},
+      },
+      {
+        'id': 'satellite',
+        'type': 'raster',
+        'source': 'satellite',
+        'layout': {'visibility': 'none'},
+        'paint': {'raster-opacity': 1.0},
       },
       {
         'id': 'earth',
@@ -107,3 +131,35 @@ String basemapStyle({String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
   };
   return jsonEncode(style);
 }
+
+/// Imagery-only style for a phone with no offline basemap installed.
+/// Same source id and layer id as the full style, so the Layers toggle
+/// works identically.
+String _satelliteOnlyStyle() => jsonEncode({
+      'version': 8,
+      'name': 'Field Notes imagery',
+      'sources': {
+        'satellite': {
+          'type': 'raster',
+          'tiles': [
+            'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}'
+          ],
+          'tileSize': 256,
+          'maxzoom': 16,
+          'attribution': 'USGS The National Map',
+        },
+      },
+      'layers': [
+        {
+          'id': 'background',
+          'type': 'background',
+          'paint': {'background-color': '#ede8e0'},
+        },
+        {
+          'id': 'satellite',
+          'type': 'raster',
+          'source': 'satellite',
+          'layout': {'visibility': 'visible'},
+        },
+      ],
+    });

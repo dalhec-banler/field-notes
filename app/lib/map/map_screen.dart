@@ -33,7 +33,8 @@ class MapScreen extends StatefulWidget {
       this.onCoverage,
       this.onLongPress,
       this.visible = true,
-      this.onRecordTap});
+      this.onRecordTap,
+      this.onLayersReady});
 
   final FieldNotesDb? db;
   final Property? property;
@@ -56,6 +57,10 @@ class MapScreen extends StatefulWidget {
   /// Tap on a record pin → its id.
   final ValueChanged<String>? onRecordTap;
 
+  /// Fired once the style and every overlay layer exist — the moment chrome
+  /// can safely apply filters/visibility.
+  final VoidCallback? onLayersReady;
+
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
@@ -69,6 +74,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   Position? _fix;
   bool _positionLayerReady = false;
   bool _inForeground = true;
+
+  /// True when there is no offline basemap and we're drawing imagery only.
+  bool _satelliteOnlyFallback = false;
+  bool get satelliteOnlyFallback => _satelliteOnlyFallback;
 
   @override
   void initState() {
@@ -199,10 +208,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               basemapStyle(pmtilesUrl: server.pmtilesUrlFor(_basemapFile));
         });
       } else {
+        // No archive on the phone: imagery-only, which needs signal but
+        // beats a blank error screen. Capture an area to work offline.
         if (!mounted) return;
-        setState(() => _error =
-            'No offline basemap yet.\nUse capture-area on the map, or '
-            'Settings → Offline maps.');
+        setState(() {
+          _styleJson = basemapStyle();
+          _satelliteOnlyFallback = true;
+        });
       }
     } catch (e) {
       if (!mounted) return;
@@ -227,10 +239,23 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// True once the camera has been centred on the user (at open, or on the
+  /// first fix after opening without one). Never re-centres after that —
+  /// the map is the user's to pan.
+  bool _openedOnFix = false;
+
   Future<void> _onFix(Position pos) async {
     _fix = pos;
     final controller = _controller;
-    if (controller == null || !_positionLayerReady) return;
+    if (controller == null) return;
+    if (!_openedOnFix && widget.visible) {
+      _openedOnFix = true;
+      try {
+        await controller.animateCamera(
+            CameraUpdate.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 16));
+      } catch (_) {}
+    }
+    if (!_positionLayerReady) return;
     try {
       await controller.setGeoJsonSource('me', _positionGeoJson(pos));
     } catch (_) {}
@@ -275,17 +300,27 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (_styleJson == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final centroid = widget.property?.centroidLat != null
-        ? LatLng(widget.property!.centroidLat!, widget.property!.centroidLng!)
-        // Lampasas River country until a boundary is imported.
-        : const LatLng(31.06, -98.18);
+    // Open where you're standing (a fresh fix), else on the property, else
+    // Lampasas River country until a boundary is imported.
+    final fresh = locationHub.fresh() ?? _fix;
+    final LatLng start;
+    final double zoom;
+    if (fresh != null) {
+      start = LatLng(fresh.latitude, fresh.longitude);
+      zoom = 16;
+      _openedOnFix = true;
+    } else if (widget.property?.centroidLat != null) {
+      start = LatLng(
+          widget.property!.centroidLat!, widget.property!.centroidLng!);
+      zoom = widget.property?.boundaryGeojson != null ? 14 : 11;
+    } else {
+      start = const LatLng(31.06, -98.18);
+      zoom = 11;
+    }
     return Scaffold(
       body: MapLibreMap(
         styleString: _styleJson!,
-        initialCameraPosition: CameraPosition(
-          target: centroid,
-          zoom: widget.property?.boundaryGeojson != null ? 14 : 11,
-        ),
+        initialCameraPosition: CameraPosition(target: start, zoom: zoom),
         myLocationEnabled: false,
         attributionButtonPosition: AttributionButtonPosition.bottomLeft,
         onMapCreated: _onMapCreated,
@@ -293,6 +328,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         onStyleLoadedCallback: () async {
           await _addOverlays();
           await _addPositionLayer();
+          // Every layer now exists: chrome can apply its toggles.
+          widget.onLayersReady?.call();
         },
       ),
     );

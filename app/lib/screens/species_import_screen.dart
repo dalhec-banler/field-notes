@@ -158,10 +158,15 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
               .getSingleOrNull();
           final common = _cell(row, 'common');
           if (existing != null) {
+            // Star it; only fill a common name where the library has none,
+            // and never rename a shared (global) taxon from one place's list.
+            final fillName = common != null &&
+                existing.commonName == null &&
+                existing.propertyId == widget.property.id;
             await (db.update(db.taxa)..where((t) => t.id.equals(existing.id)))
                 .write(TaxaCompanion(
               isFavorite: const Value(1),
-              commonName: common != null ? Value(common) : const Value.absent(),
+              commonName: fillName ? Value(common) : const Value.absent(),
               updatedAt: Value(now),
             ));
             updated++;

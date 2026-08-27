@@ -98,8 +98,9 @@ class _LedgerTabState extends State<LedgerTab> {
               range.start.day)
           .toUtc()
           .toIso8601String();
-      final to = DateTime(range.end.year, range.end.month, range.end.day)
-          .add(const Duration(days: 1))
+      // day + 1 (not +24h): Dart normalizes the overflow and keeps local
+      // midnight across a DST change.
+      final to = DateTime(range.end.year, range.end.month, range.end.day + 1)
           .toUtc()
           .toIso8601String();
       query.where((o) =>

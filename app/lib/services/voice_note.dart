@@ -18,28 +18,40 @@ class VoiceNoteRecorder extends ChangeNotifier {
   bool _recording = false;
   bool get recording => _recording;
 
-  String _transcript = '';
+  /// Finalised recogniser sessions so far (Android dictation can end a
+  /// session on a pause and start another; each returns its own words).
+  final List<String> _segments = [];
+  String _partial = '';
+
   /// Live transcript while recording; final after [stop].
-  String get transcript => _transcript;
+  String get transcript =>
+      [..._segments, if (_partial.isNotEmpty) _partial].join(' ').trim();
 
   String? _path;
   String? error;
   bool _speechReady = false;
   bool get speechAvailable => _speechReady;
+  bool get listening => _speech.isListening;
   DateTime? _startedAt;
   Duration get elapsed => _startedAt == null
       ? Duration.zero
       : DateTime.now().difference(_startedAt!);
+
+  /// Length of the last finished recording (elapsed is zero once stopped).
+  Duration lastDuration = Duration.zero;
   Timer? _tick;
+  bool _disposed = false;
 
   Future<bool> start() async {
-    if (_recording) return true;
+    if (_recording || _disposed) return _recording;
     error = null;
-    _transcript = '';
+    _segments.clear();
+    _partial = '';
+    lastDuration = Duration.zero;
     try {
       if (!await _recorder.hasPermission()) {
         error = 'Microphone permission needed';
-        notifyListeners();
+        _notify();
         return false;
       }
       final tmp = await getTemporaryDirectory();
@@ -56,11 +68,11 @@ class VoiceNoteRecorder extends ChangeNotifier {
       );
       _recording = true;
       _startedAt = DateTime.now();
-      _tick = Timer.periodic(const Duration(seconds: 1), (_) => notifyListeners());
-      notifyListeners();
+      _tick = Timer.periodic(const Duration(seconds: 1), (_) => _notify());
+      _notify();
     } catch (e) {
       error = 'Could not start recording: $e';
-      notifyListeners();
+      _notify();
       return false;
     }
 
@@ -68,22 +80,20 @@ class VoiceNoteRecorder extends ChangeNotifier {
     try {
       _speechReady = await _speech.initialize(
         onError: (e) => debugPrint('[voice] speech error ${e.errorMsg}'),
+        onStatus: (s) {
+          // A session ended on its own (pause/limit): keep its words and
+          // start another while the recording is still going.
+          if (s == 'done' && _recording && !_disposed) {
+            if (_partial.isNotEmpty) {
+              _segments.add(_partial);
+              _partial = '';
+            }
+            _listen();
+          }
+          _notify();
+        },
       );
-      if (_speechReady) {
-        await _speech.listen(
-          onResult: (r) {
-            _transcript = r.recognizedWords;
-            notifyListeners();
-          },
-          listenOptions: SpeechListenOptions(
-            partialResults: true,
-            listenMode: ListenMode.dictation,
-            listenFor: const Duration(minutes: 3),
-            pauseFor: const Duration(seconds: 10),
-            cancelOnError: false,
-          ),
-        );
-      }
+      if (_speechReady) await _listen();
     } catch (e) {
       debugPrint('[voice] speech unavailable: $e');
       _speechReady = false;
@@ -91,14 +101,44 @@ class VoiceNoteRecorder extends ChangeNotifier {
     return true;
   }
 
+  Future<void> _listen() async {
+    if (!_recording || _disposed || _speech.isListening) return;
+    try {
+      await _speech.listen(
+        onResult: (r) {
+          _partial = r.recognizedWords;
+          if (r.finalResult) {
+            if (_partial.isNotEmpty) _segments.add(_partial);
+            _partial = '';
+          }
+          _notify();
+        },
+        listenOptions: SpeechListenOptions(
+          partialResults: true,
+          listenMode: ListenMode.dictation,
+          listenFor: const Duration(minutes: 3),
+          pauseFor: const Duration(seconds: 10),
+          cancelOnError: false,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[voice] listen failed: $e');
+    }
+  }
+
   /// Stops both. Returns the audio file path (null if nothing was recorded).
   Future<String?> stop() async {
     if (!_recording) return null;
     _tick?.cancel();
     _tick = null;
+    lastDuration = elapsed;
     try {
       if (_speech.isListening) await _speech.stop();
     } catch (_) {}
+    if (_partial.isNotEmpty) {
+      _segments.add(_partial);
+      _partial = '';
+    }
     String? path;
     try {
       path = await _recorder.stop();
@@ -107,7 +147,7 @@ class VoiceNoteRecorder extends ChangeNotifier {
     }
     _recording = false;
     _startedAt = null;
-    notifyListeners();
+    _notify();
     if (path != null && File(path).existsSync() && File(path).lengthSync() > 0) {
       return path;
     }
@@ -123,16 +163,36 @@ class VoiceNoteRecorder extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Orderly teardown: finish any in-flight stop before the recorder goes
+  /// away, so a half-written container is never left behind. Safe to call
+  /// fire-and-forget from the owning screen's dispose.
+  Future<void> shutdown({bool discardRecording = true}) async {
+    if (_torndown) return;
+    _torndown = true;
+    _tick?.cancel();
+    _tick = null;
+    if (_recording) {
+      final path = await stop();
+      if (discardRecording) await discard(path);
+    }
+    try {
+      await _speech.cancel();
+    } catch (_) {}
+    try {
+      await _recorder.dispose();
+    } catch (_) {}
+  }
+
+  bool _torndown = false;
+
   @override
   void dispose() {
-    _tick?.cancel();
-    if (_recording) {
-      _recorder.stop().then((path) => discard(path)).catchError((_) => null);
-    }
-    _recorder.dispose();
-    try {
-      _speech.cancel();
-    } catch (_) {}
+    _disposed = true; // no more notifications from the async teardown
+    shutdown();
     super.dispose();
+  }
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
   }
 }

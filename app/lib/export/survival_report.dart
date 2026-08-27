@@ -45,14 +45,14 @@ class SurvivalReport {
       rows.add([
         e.plantedOn,
         t == null
-            ? '—'
+            ? '-'
             : (t.commonName != null
                 ? '${t.commonName} (${t.scientificName})'
                 : t.scientificName),
-        e.zoneId == null ? '—' : (zones[e.zoneId] ?? '—'),
+        e.zoneId == null ? '-' : (zones[e.zoneId] ?? '-'),
         '${e.countPlanted}',
         e.stockSource.replaceAll('_', ' '),
-        s == null ? 'no check-in yet' : s.summary,
+        s == null ? 'no check-in yet' : s.summary.replaceAll('·', '|'),
       ]);
     }
 
@@ -67,6 +67,7 @@ class SurvivalReport {
     );
     doc.addPage(
       pw.MultiPage(
+        maxPages: 200,
         pageFormat: PdfPageFormat.letter,
         margin: const pw.EdgeInsets.all(40),
         build: (ctx) => [
@@ -74,7 +75,7 @@ class SurvivalReport {
               style: pw.TextStyle(
                   fontSize: 22, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 4),
-          pw.Text('Planting survival summary · generated $stamp',
+          pw.Text('Planting survival summary - generated $stamp',
               style: const pw.TextStyle(fontSize: 10)),
           pw.SizedBox(height: 16),
           pw.Row(
@@ -85,7 +86,7 @@ class SurvivalReport {
               _stat(
                   'Cohort survival',
                   plantedKnown == 0
-                      ? '—'
+                      ? '-'
                       : '${(aliveKnown / plantedKnown * 100).toStringAsFixed(0)}%'),
               _stat('Checked', '$aliveKnown of $plantedKnown'),
             ],

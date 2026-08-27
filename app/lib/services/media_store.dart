@@ -99,6 +99,7 @@ extension MediaStoreAudio on MediaStore {
     double? lng,
     String? capturedAt,
     int? durationMs,
+    String? transcript,
   }) async {
     final id = newId();
     final now = nowUtcIso();
@@ -119,6 +120,7 @@ extension MediaStoreAudio on MediaStore {
           sha256: Value(sha256.convert(bytes).toString()),
           bytes: Value(bytes.length),
           durationMs: Value(durationMs),
+          transcript: Value(transcript),
           capturedAt: Value(when),
           lat: Value(lat),
           lng: Value(lng),

@@ -36,6 +36,7 @@ class _BackupScreenState extends State<BackupScreen> {
   String? _status;
   String? _lastBackup;
   String? _lastVerify;
+  String? _autoNote;
 
   @override
   void initState() {
@@ -52,6 +53,7 @@ class _BackupScreenState extends State<BackupScreen> {
         _encrypted = config['scheme'] == 'keyring-v1';
         _lastBackup = config['last_backup'] as String?;
         _lastVerify = config['last_verify'] as String?;
+        _autoNote = config['last_auto_note'] as String?;
         _keyCached = cached;
       });
     }
@@ -241,6 +243,11 @@ class _BackupScreenState extends State<BackupScreen> {
                   Text('Last backup: ${_ago(_lastBackup)}',
                       style: Theme.of(context).textTheme.titleMedium),
                   Text('Last verified: ${_ago(_lastVerify)}'),
+                  if (_autoNote != null) ...[
+                    const SizedBox(height: 6),
+                    Text('Automatic: $_autoNote',
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
                 ],
               ),
             ),

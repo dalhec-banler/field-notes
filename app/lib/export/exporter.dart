@@ -297,13 +297,14 @@ $placemark
     try {
       final exif = await Exif.fromPath(path);
       try {
-        final when = DateTime.tryParse(capturedAtIso)?.toUtc();
+        // EXIF DateTimeOriginal is local time with no zone (our own photo
+        // import parses it as local, so this round-trips).
+        final when = DateTime.tryParse(capturedAtIso)?.toLocal();
         String two(int v) => v.toString().padLeft(2, '0');
+        // native_exif takes signed decimal degrees and derives the refs.
         await exif.writeAttributes({
-          'GPSLatitude': lat.abs().toString(),
-          'GPSLatitudeRef': lat >= 0 ? 'N' : 'S',
-          'GPSLongitude': lng.abs().toString(),
-          'GPSLongitudeRef': lng >= 0 ? 'E' : 'W',
+          'GPSLatitude': lat.toString(),
+          'GPSLongitude': lng.toString(),
           if (when != null)
             'DateTimeOriginal':
                 '${when.year}:${two(when.month)}:${two(when.day)} '

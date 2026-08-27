@@ -85,14 +85,17 @@ class FieldNotesApp extends StatelessWidget {
         theme: fieldStationTheme(),
         // Outdoor mode (spec §7): scale every text style up ~18 %. Layouts
         // are built to tolerate it; touch targets are already ≥ 56 dp.
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: prefs.outdoorMode
-                ? const TextScaler.linear(1.18)
-                : TextScaler.noScaling,
-          ),
-          child: child ?? const SizedBox.shrink(),
-        ),
+        builder: (context, child) {
+          final mq = MediaQuery.of(context);
+          // Compose with the OS font-size setting; never override it.
+          final scaled = prefs.outdoorMode
+              ? TextScaler.linear(mq.textScaler.scale(1.0) * 1.18)
+              : mq.textScaler;
+          return MediaQuery(
+            data: mq.copyWith(textScaler: scaled),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: RootScreen(db: db, prefs: prefs),
       ),
     );

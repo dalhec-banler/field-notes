@@ -9,6 +9,7 @@ import '../db/database.dart';
 import '../geo/zone_assignment.dart';
 import '../services/env_context.dart';
 import '../services/media_store.dart';
+import '../services/observation_ops.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 
@@ -116,6 +117,7 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
     var done = 0;
     var failed = 0;
     for (final c in chosen) {
+      String? savedMediaId;
       try {
         final bytes = await c.file.readAsBytes();
         final when = (c.takenAt ?? DateTime.now().toUtc()).toIso8601String();
@@ -127,6 +129,7 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
           lng: c.lng,
           capturedAt: when,
         );
+        savedMediaId = media.id;
         final obsId = newId();
         final now = nowUtcIso();
         final lat = c.lat ?? widget.property.centroidLat;
@@ -175,6 +178,13 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
         });
         done++;
       } catch (_) {
+        // The photo is already in the media store; take it back out so a
+        // failed row leaves no orphan for the next backup to upload.
+        if (savedMediaId != null) {
+          try {
+            await eraseMedia(db, savedMediaId);
+          } catch (_) {}
+        }
         failed++;
       }
       if (mounted) {

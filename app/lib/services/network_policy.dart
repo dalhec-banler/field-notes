@@ -21,10 +21,10 @@ class NetworkPolicy {
         return NetKind.unmetered;
       }
       if (kinds.contains(ConnectivityResult.mobile)) return NetKind.cellular;
-      if (kinds.contains(ConnectivityResult.vpn) ||
-          kinds.contains(ConnectivityResult.other)) {
-        return NetKind.unmetered;
-      }
+      // A VPN masks the underlying transport; on a phone that's as likely
+      // LTE as Wi-Fi. Treat it as cellular so the user is asked (D-016).
+      if (kinds.contains(ConnectivityResult.vpn)) return NetKind.cellular;
+      if (kinds.contains(ConnectivityResult.other)) return NetKind.unmetered;
       return NetKind.none;
     } catch (_) {
       // Unknown platform: don't block the user on a guess.

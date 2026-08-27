@@ -200,9 +200,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
     _fixSub?.cancel();
     _notesController.dispose();
     _discardShotFile();
-    // An unsaved voice recording is litter in the cache dir.
+    // Orderly stop → dispose so a half-written recording is never left in
+    // the cache; an unsaved one is discarded.
     if (!_voiceSaved) _voice.discard(_voicePath);
-    _voice.dispose();
+    _voice.shutdown(discardRecording: !_voiceSaved);
     super.dispose();
   }
 
@@ -216,7 +217,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       if (!mounted) return;
       setState(() {
         _voicePath = path;
-        _voiceMs = path == null ? null : _voice.elapsed.inMilliseconds;
+        _voiceMs = path == null ? null : _voice.lastDuration.inMilliseconds;
       });
       final text = _voice.transcript.trim();
       if (text.isNotEmpty) {
@@ -302,13 +303,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
       MediaData? media;
       final shot = _shot;
       if (shot != null && shot.path.isNotEmpty) {
+        // Placed records: the photo's own GPS is the placed point too, so
+        // an exported JPEG never leaks where the phone actually was.
         media = await MediaStore(db).savePhoto(
           await shot.readAsBytes(),
           propertyId: widget.property.id,
           createdBy: 'local',
-          lat: fix?.latitude,
-          lng: fix?.longitude,
-          headingDeg: fix?.heading,
+          lat: widget.isPlaced ? widget.placedLat : fix?.latitude,
+          lng: widget.isPlaced ? widget.placedLng : fix?.longitude,
+          headingDeg: widget.isPlaced ? null : fix?.heading,
           capturedAt: now,
         );
         savedMediaId = media.id;
@@ -323,10 +326,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
           File(voicePath),
           propertyId: widget.property.id,
           createdBy: 'local',
-          lat: fix?.latitude,
-          lng: fix?.longitude,
+          lat: widget.isPlaced ? widget.placedLat : fix?.latitude,
+          lng: widget.isPlaced ? widget.placedLng : fix?.longitude,
           capturedAt: now,
           durationMs: _voiceMs,
+          transcript: _voice.transcript.trim().isEmpty
+              ? null
+              : _voice.transcript.trim(),
         );
         savedVoiceId = voice.id;
         _voiceSaved = true;
@@ -416,7 +422,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
             propertyId: widget.property.id,
             entityType: 'observation',
             entityId: obsId,
-            role: 'voice',
+            role: 'attachment', // schema CHECK; media_type = 'audio' marks it
           );
         }
       });
