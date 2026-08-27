@@ -5,6 +5,7 @@ import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 import '../backup/backup_service.dart';
 import '../db/database.dart';
 import '../screens/capture_screen.dart';
+import '../screens/record_detail_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/observation_ops.dart';
 import '../widgets/new_place_dialog.dart';
@@ -180,6 +181,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           active: _tab == 0,
           onPropertyCardTap: _switchProperty,
           onDropRecord: (latLng) => _openCapture(placedAt: latLng),
+          onRecordTap: (id) => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => RecordDetailScreen(db: widget.db, obsId: id))),
         ),
         LedgerTab(db: widget.db, property: widget.property,
             prefs: widget.prefs),

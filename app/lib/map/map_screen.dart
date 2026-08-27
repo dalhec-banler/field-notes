@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -31,7 +32,8 @@ class MapScreen extends StatefulWidget {
       this.onController,
       this.onCoverage,
       this.onLongPress,
-      this.visible = true});
+      this.visible = true,
+      this.onRecordTap});
 
   final FieldNotesDb? db;
   final Property? property;
@@ -50,6 +52,9 @@ class MapScreen extends StatefulWidget {
 
   /// False while another tab is showing: the live-position stream pauses.
   final bool visible;
+
+  /// Tap on a record pin → its id.
+  final ValueChanged<String>? onRecordTap;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -297,6 +302,23 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   void _onMapCreated(MapLibreMapController controller) {
     _controller = controller;
+    // Pin tap → the record. The plugin hands us the screen point; ask the
+    // renderer what's under it so we get the feature's properties back.
+    controller.onFeatureTapped.add((point, latLng, id, layerId, _) async {
+      if (widget.onRecordTap == null) return;
+      try {
+        final hits = await controller
+            .queryRenderedFeatures(point, ['observations-circles'], null);
+        for (final h in hits) {
+          final props = (h as Map)['properties'] as Map?;
+          final obsId = props?['id'] as String?;
+          if (obsId != null) {
+            widget.onRecordTap!(obsId);
+            return;
+          }
+        }
+      } catch (_) {}
+    });
     widget.onController?.call(controller);
   }
 
@@ -390,9 +412,42 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       );
     }
 
+    // Tracks (spec §4.13) as thin ink lines under the pins.
+    final tracks = await (db.select(db.tracks)
+          ..where((t) => t.propertyId.equals(property.id))
+          ..where((t) => t.deletedAt.isNull())
+          ..where((t) => t.geojson.isNotNull()))
+        .get();
+    if (tracks.isNotEmpty) {
+      await controller.addGeoJsonSource('tracks', {
+        'type': 'FeatureCollection',
+        'features': [
+          for (final t in tracks)
+            {
+              'type': 'Feature',
+              'geometry': jsonDecode(t.geojson!),
+              'properties': {'id': t.id},
+            }
+        ],
+      });
+      await controller.addLineLayer(
+        'tracks',
+        'tracks-line',
+        const LineLayerProperties(
+          lineColor: '#2C2620',
+          lineWidth: 2,
+          lineOpacity: 0.55,
+        ),
+      );
+    }
+
+    // Record pins: coloured by type, only records with a real location
+    // (gps_accuracy_m = -1 is a stand-in coordinate, not a place).
     final obs = await (db.select(db.observations)
           ..where((o) => o.propertyId.equals(property.id))
-          ..where((o) => o.deletedAt.isNull()))
+          ..where((o) => o.deletedAt.isNull())
+          ..where((o) =>
+              o.gpsAccuracyM.isNull() | o.gpsAccuracyM.equals(-1).not()))
         .get();
     if (obs.isNotEmpty) {
       await controller.addGeoJsonSource('observations', {
@@ -405,7 +460,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 'type': 'Point',
                 'coordinates': [o.lng, o.lat],
               },
-              'properties': {'type': o.observationType},
+              'properties': {'id': o.id, 'type': o.observationType},
             }
         ],
       });
@@ -413,11 +468,25 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         'observations',
         'observations-circles',
         const CircleLayerProperties(
-          circleRadius: 7,
-          circleColor: '#2f5233',
-          circleStrokeColor: '#ffffff',
+          circleRadius: 7.5,
+          circleColor: [
+            'match',
+            ['get', 'type'],
+            'plant', '#5F6B58',
+            'wildlife', '#8E6A28',
+            'problem', '#7A2E1E',
+            'water', '#3F5957',
+            'soil', '#6B4F2A',
+            'phenology', '#5C7A78',
+            'sign', '#8E6A28',
+            'weather', '#5E6E8C',
+            'maintenance', '#2C2620',
+            '#2f5233',
+          ],
+          circleStrokeColor: '#ECE3CE',
           circleStrokeWidth: 1.5,
         ),
+        enableInteraction: true,
       );
     }
   }

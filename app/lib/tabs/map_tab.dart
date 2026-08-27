@@ -21,6 +21,7 @@ class MapTab extends StatefulWidget {
     required this.onPropertyCardTap,
     required this.prefs,
     this.onDropRecord,
+    this.onRecordTap,
     this.active = true,
   });
 
@@ -30,6 +31,9 @@ class MapTab extends StatefulWidget {
 
   /// Is this tab the one showing? Off-screen, the live GPS dot pauses.
   final bool active;
+
+  /// Tap on a record pin → open it.
+  final ValueChanged<String>? onRecordTap;
   final VoidCallback onPropertyCardTap;
 
   /// Long-press on the map → capture a record placed at that point.
@@ -63,6 +67,128 @@ class _MapTabState extends State<MapTab> {
         fix.longitude <= b[2] &&
         fix.latitude >= b[1] &&
         fix.latitude <= b[3];
+  }
+
+  // Layer toggles (spec §7.1): record types, zones, tracks. Kept on the tab
+  // so they survive the map being re-keyed after a capture.
+  static const _types = [
+    'general', 'plant', 'wildlife', 'problem', 'water', 'soil',
+    'phenology', 'sign', 'weather', 'maintenance'
+  ];
+  final Set<String> _hiddenTypes = {};
+  bool _showZones = true;
+  bool _showTracks = true;
+  bool get _layersTouched =>
+      _hiddenTypes.isNotEmpty || !_showZones || !_showTracks;
+
+  Future<void> _applyLayers() async {
+    final c = _controller;
+    if (c == null) return;
+    try {
+      final visible = _types.where((t) => !_hiddenTypes.contains(t)).toList();
+      await c.setFilter('observations-circles', [
+        'match',
+        ['get', 'type'],
+        visible.isEmpty ? ['__none__'] : visible,
+        true,
+        false,
+      ]);
+    } catch (_) {}
+    for (final id in const ['zones-fill', 'zones-line']) {
+      try {
+        await c.setLayerVisibility(id, _showZones);
+      } catch (_) {}
+    }
+    try {
+      await c.setLayerVisibility('tracks-line', _showTracks);
+    } catch (_) {}
+  }
+
+  Future<void> _showLayersSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(13, 14, 13, 8),
+            children: [
+              const MonoLabel('Show on the map', size: 9, spacing: 2),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  for (final t in _types)
+                    _pill(t, !_hiddenTypes.contains(t), () {
+                      setSheet(() {
+                        if (!_hiddenTypes.remove(t)) _hiddenTypes.add(t);
+                      });
+                      setState(() {});
+                      _applyLayers();
+                    }),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  _pill('zones', _showZones, () {
+                    setSheet(() => _showZones = !_showZones);
+                    setState(() {});
+                    _applyLayers();
+                  }),
+                  _pill('tracks', _showTracks, () {
+                    setSheet(() => _showTracks = !_showTracks);
+                    setState(() {});
+                    _applyLayers();
+                  }),
+                  if (_layersTouched)
+                    _pill('show everything', false, () {
+                      setSheet(() {
+                        _hiddenTypes.clear();
+                        _showZones = true;
+                        _showTracks = true;
+                      });
+                      setState(() {});
+                      _applyLayers();
+                    }),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pill(String label, bool on, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        decoration: BoxDecoration(
+          color: on ? Press.ink : null,
+          border: Border.all(color: Press.ink, width: 1),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Center(
+          widthFactor: 1,
+          child: Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontFamily: Type.mono,
+              fontSize: 9.5,
+              letterSpacing: 1.4,
+              color: on ? Press.paper : Press.ink,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Locate-me: fly the camera to the current fix, close enough to see the
@@ -194,10 +320,17 @@ class _MapTabState extends State<MapTab> {
               db: widget.db,
               property: widget.property,
               embedded: true,
-              onController: (c) => _controller = c,
+              onController: (c) {
+                _controller = c;
+                // Re-keyed after a capture: put the toggles back.
+                if (_layersTouched) {
+                  Future.delayed(const Duration(seconds: 2), _applyLayers);
+                }
+              },
               onCoverage: (b) => _coverage = b,
               onLongPress: _captureMode ? null : widget.onDropRecord,
               visible: widget.active,
+              onRecordTap: widget.onRecordTap,
             ),
           ),
         ),
@@ -340,6 +473,30 @@ class _MapTabState extends State<MapTab> {
                               size: 9.5,
                               spacing: 1.4,
                               color: _captureMode
+                                  ? Press.paper
+                                  : Press.ink,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        // Layers: record types, zones, tracks.
+                        GestureDetector(
+                          onTap: _showLayersSheet,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _layersTouched
+                                  ? Press.ink
+                                  : Press.paper,
+                              border:
+                                  Border.all(color: Press.ink, width: 1.5),
+                            ),
+                            child: MonoLabel(
+                              _layersTouched ? '◈ Layers · filtered' : '◈ Layers',
+                              size: 9.5,
+                              spacing: 1.4,
+                              color: _layersTouched
                                   ? Press.paper
                                   : Press.ink,
                             ),
