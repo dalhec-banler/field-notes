@@ -43,13 +43,6 @@ String basemapStyle(
         'paint': {'background-color': '#ede8e0'},
       },
       {
-        'id': 'satellite',
-        'type': 'raster',
-        'source': 'satellite',
-        'layout': {'visibility': 'none'},
-        'paint': {'raster-opacity': 1.0},
-      },
-      {
         'id': 'earth',
         'type': 'fill',
         'source': 'basemap',
@@ -126,6 +119,15 @@ String basemapStyle(
           'line-width': 1.0,
           'line-dasharray': [3, 2],
         },
+      },
+      // Imagery last in the base style: it covers the vector ground when
+      // switched on, while every overlay added at runtime still draws on
+      // top of it.
+      {
+        'id': 'satellite',
+        'type': 'raster',
+        'source': 'satellite',
+        'layout': {'visibility': 'none'},
       },
     ],
   };
