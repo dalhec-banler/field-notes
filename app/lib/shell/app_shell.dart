@@ -177,6 +177,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           db: widget.db,
           property: widget.property,
           prefs: widget.prefs,
+          active: _tab == 0,
           onPropertyCardTap: _switchProperty,
           onDropRecord: (latLng) => _openCapture(placedAt: latLng),
         ),

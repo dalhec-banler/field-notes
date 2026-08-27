@@ -21,11 +21,15 @@ class MapTab extends StatefulWidget {
     required this.onPropertyCardTap,
     required this.prefs,
     this.onDropRecord,
+    this.active = true,
   });
 
   final FieldNotesDb db;
   final Property property;
   final AppPrefs prefs;
+
+  /// Is this tab the one showing? Off-screen, the live GPS dot pauses.
+  final bool active;
   final VoidCallback onPropertyCardTap;
 
   /// Long-press on the map → capture a record placed at that point.
@@ -193,6 +197,7 @@ class _MapTabState extends State<MapTab> {
               onController: (c) => _controller = c,
               onCoverage: (b) => _coverage = b,
               onLongPress: _captureMode ? null : widget.onDropRecord,
+              visible: widget.active,
             ),
           ),
         ),

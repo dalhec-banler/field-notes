@@ -31,7 +31,7 @@ class _RestoreScreenState extends State<RestoreScreen> {
     final file = await openFile(acceptedTypeGroups: [
       const XTypeGroup(label: 'Backup zip', extensions: ['zip']),
     ]);
-    if (file != null) setState(() => _zip = file);
+    if (file != null && mounted) setState(() => _zip = file);
   }
 
   Future<void> _restore() async {
@@ -47,12 +47,14 @@ class _RestoreScreenState extends State<RestoreScreen> {
       final secret = _secretController.text.trim();
       final summary = await pipeline.stageFromZip(File(zip.path),
           secret: secret.isEmpty ? null : secret);
+      if (!mounted) return;
       setState(() => _status = summary);
     } catch (e) {
+      if (!mounted) return;
       setState(() =>
           _status = '$e'.replaceFirst(RegExp(r'^\w*Error: '), ''));
     } finally {
-      setState(() => _busy = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 

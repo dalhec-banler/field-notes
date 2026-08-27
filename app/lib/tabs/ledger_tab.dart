@@ -48,13 +48,34 @@ class _LedgerTabState extends State<LedgerTab> {
     _loadZones();
   }
 
+  /// Switching place (D-003) swaps the widget's property in place — the tab
+  /// lives in an IndexedStack and never re-inits. Zones and any zone/species
+  /// filter belong to the old place, so drop them and reload (audit M11).
+  @override
+  void didUpdateWidget(covariant LedgerTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.property.id != widget.property.id) {
+      setState(() {
+        _zones = const [];
+        _zoneFilter = null;
+        _speciesFilter = null;
+        _speciesLabel = null;
+      });
+      _loadZones();
+    }
+  }
+
   Future<void> _loadZones() async {
+    final propertyId = widget.property.id;
     final zones = await (widget.db.select(widget.db.zones)
-          ..where((z) => z.propertyId.equals(widget.property.id))
+          ..where((z) => z.propertyId.equals(propertyId))
           ..where((z) => z.deletedAt.isNull())
           ..orderBy([(z) => OrderingTerm.asc(z.name)]))
         .get();
-    if (mounted) setState(() => _zones = zones);
+    // A slower load for the previous place must not overwrite the new one.
+    if (mounted && widget.property.id == propertyId) {
+      setState(() => _zones = zones);
+    }
   }
 
   @override

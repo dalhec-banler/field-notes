@@ -75,6 +75,30 @@ void main() {
     expect((jsonDecode(pastures.geojson)['coordinates'] as List).length, 2);
   });
 
+  test('tolerates whitespace around commas in coordinates (audit M15)', () {
+    const spaced = '''<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+  <Placemark>
+    <name>Tank</name>
+    <Point><coordinates>-98.15, 31.05, 0</coordinates></Point>
+  </Placemark>
+  <Placemark>
+    <name>Trace</name>
+    <LineString><coordinates>
+      -98.20 , 31.00   -98.15,31.02
+      -98.10 ,31.00
+    </coordinates></LineString>
+  </Placemark>
+</Document></kml>''';
+    final pms = parseKml(spaced);
+    expect(pms.length, 2);
+    expect(jsonDecode(pms[0].geojson)['coordinates'], [-98.15, 31.05]);
+    final line = jsonDecode(pms[1].geojson)['coordinates'] as List;
+    expect(line.length, 3);
+    expect(line.first, [-98.20, 31.00]);
+    expect(line.last, [-98.10, 31.00]);
+  });
+
   test('KMZ round-trip', () {
     final archive = Archive()
       ..addFile(ArchiveFile('doc.kml', _kml.length, utf8.encode(_kml)));

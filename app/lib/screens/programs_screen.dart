@@ -64,35 +64,41 @@ class ProgramsScreen extends StatelessWidget {
     final contractController = TextEditingController();
     final created = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New program'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              autofocus: true,
-              decoration: const InputDecoration(
-                  labelText: 'Name (e.g. USDA-NRCS EQIP)'),
-            ),
-            TextField(
-              controller: agencyController,
-              decoration: const InputDecoration(labelText: 'Agency'),
-            ),
-            TextField(
-              controller: contractController,
-              decoration: const InputDecoration(labelText: 'Contract #'),
-            ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialog) => AlertDialog(
+          title: const Text('New program'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                onChanged: (_) => setDialog(() {}),
+                decoration: const InputDecoration(
+                    labelText: 'Name (e.g. USDA-NRCS EQIP)'),
+              ),
+              TextField(
+                controller: agencyController,
+                decoration: const InputDecoration(labelText: 'Agency'),
+              ),
+              TextField(
+                controller: contractController,
+                decoration: const InputDecoration(labelText: 'Contract #'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                // Validated inside the dialog (audit M12): a name is needed.
+                onPressed: nameController.text.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(context, true),
+                child: const Text('Create')),
           ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Create')),
-        ],
       ),
     );
     if (created != true || nameController.text.trim().isEmpty) return;
@@ -218,6 +224,7 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
                 ),
                 TextField(
                   controller: nameController,
+                  onChanged: (_) => setDialog(() {}),
                   decoration: const InputDecoration(
                       labelText: 'Name (e.g. Brush management)'),
                 ),
@@ -256,7 +263,10 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('Cancel')),
             FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                // Validated inside the dialog (audit M12): a name is needed.
+                onPressed: nameController.text.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(context, true),
                 child: const Text('Add')),
           ],
         ),
@@ -264,6 +274,7 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
     );
     if (created != true || nameController.text.trim().isEmpty) return;
     final now = nowUtcIso();
+    final unit = unitController.text.trim();
     await widget.db.into(widget.db.practices).insert(PracticesCompanion.insert(
           id: newId(),
           propertyId: program.propertyId,
@@ -274,7 +285,8 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
           name: nameController.text.trim(),
           plannedAmount:
               Value(double.tryParse(amountController.text.trim())),
-          unit: Value(unitController.text.trim()),
+          // Blank unit is "none", not an empty string.
+          unit: Value(unit.isEmpty ? null : unit),
           dueOn: Value(dueOn?.toIso8601String().substring(0, 10)),
           status: const Value('planned'),
           createdBy: 'local',
@@ -354,12 +366,21 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
           updatedAt: now,
         ));
     final newCompleted = (practice.completedAmount ?? 0) + (amount ?? 0);
+    // A finished practice stays finished: logging a follow-up activity on a
+    // complete/certified practice must not drag it back to in-progress.
+    final alreadyDone =
+        practice.status == 'complete' || practice.status == 'certified';
+    final Value<String?> status = complete
+        ? const Value('complete')
+        : alreadyDone
+            ? const Value.absent()
+            : const Value('in_progress');
     await (widget.db.update(widget.db.practices)
           ..where((x) => x.id.equals(practice.id)))
         .write(PracticesCompanion(
       completedAmount: Value(newCompleted),
       completedOn: complete ? Value(now.substring(0, 10)) : const Value.absent(),
-      status: Value(complete ? 'complete' : 'in_progress'),
+      status: status,
       updatedAt: Value(now),
     ));
     _load();

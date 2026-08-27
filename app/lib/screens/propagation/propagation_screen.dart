@@ -54,10 +54,15 @@ class PropagationScreen extends StatelessWidget {
     final containerController = TextEditingController();
     final sourceLabelController = TextEditingController();
 
+    // Validated inside the sheet (audit M12): a batch needs at least a
+    // species or a code, or it can never be found again.
+    bool valid() => taxon != null || codeController.text.trim().isNotEmpty;
+
     final created = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => Padding(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => Padding(
         padding: EdgeInsets.only(
           left: 16,
           right: 16,
@@ -71,13 +76,17 @@ class PropagationScreen extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
             SpeciesField(
-                db: db, label: 'Species', onSelected: (t) => taxon = t),
+                db: db,
+                label: 'Species',
+                onSelected: (t) => setSheet(() => taxon = t)),
             const SizedBox(height: 12),
             TextField(
               controller: codeController,
-              decoration: const InputDecoration(
+              onChanged: (_) => setSheet(() {}),
+              decoration: InputDecoration(
                 labelText: 'Batch code (e.g. M-07)',
-                border: OutlineInputBorder(),
+                helperText: valid() ? null : 'Give it a species or a code',
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
@@ -138,15 +147,17 @@ class PropagationScreen extends StatelessWidget {
             SizedBox(
               height: 56,
               child: FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed:
+                    valid() ? () => Navigator.pop(context, true) : null,
                 child: const Text('Start batch'),
               ),
             ),
           ],
         ),
+        ),
       ),
     );
-    if (created != true) return;
+    if (created != true || !valid()) return;
     final now = nowUtcIso();
     final today = now.substring(0, 10);
     final count = int.tryParse(countController.text.trim());

@@ -58,6 +58,12 @@ class PlantingsScreen extends StatelessWidget {
     var plantedOn = DateTime.now();
     final countController = TextEditingController();
     final notesController = TextEditingController();
+    // Validated inside the sheet (audit M12): the button stays off until the
+    // count is a whole number above zero, so nothing typed is ever discarded.
+    int? parsedCount() {
+      final n = int.tryParse(countController.text.trim());
+      return n == null || n <= 0 ? null : n;
+    }
 
     final created = await showModalBottomSheet<bool>(
       context: context,
@@ -82,9 +88,14 @@ class PlantingsScreen extends StatelessWidget {
               TextField(
                 controller: countController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
+                onChanged: (_) => setSheet(() {}),
+                decoration: InputDecoration(
                   labelText: 'Count planted',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  errorText: countController.text.trim().isNotEmpty &&
+                          parsedCount() == null
+                      ? 'Enter how many went in the ground'
+                      : null,
                 ),
               ),
               const SizedBox(height: 12),
@@ -156,7 +167,9 @@ class PlantingsScreen extends StatelessWidget {
               SizedBox(
                 height: 56,
                 child: FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
+                  onPressed: parsedCount() == null
+                      ? null
+                      : () => Navigator.pop(context, true),
                   child: const Text('Save planting'),
                 ),
               ),
@@ -166,8 +179,8 @@ class PlantingsScreen extends StatelessWidget {
       ),
     );
     if (created != true) return;
-    final count = int.tryParse(countController.text.trim());
-    if (count == null || count <= 0) return;
+    final count = parsedCount();
+    if (count == null) return; // unreachable: the button was disabled
     final now = nowUtcIso();
     await db.into(db.plantingEvents).insert(PlantingEventsCompanion.insert(
           id: newId(),
@@ -232,19 +245,28 @@ class _PlantingTile extends StatelessWidget {
                   children: [
                     Expanded(child: TaxonName(species, size: 20, maxLines: 1)),
                     const SizedBox(width: 10),
+                    // Cohort rate gets the big percent; a tag-derived figure
+                    // is over the tagged set only, so it is labelled as such
+                    // and never shown as a bare percent (audit M13).
                     survival == null
                         ? const MonoLabel('no check-ins',
                             size: 9, opacity: 0.6)
-                        : Text(
-                            '${(survival.rate * 100).toStringAsFixed(0)}%',
-                            style: TextStyle(
-                              fontFamily: Type.slab,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 20,
-                              height: 1,
-                              color: band,
-                            ),
-                          ),
+                        : survival.fromTags
+                            ? MonoLabel(
+                                '${survival.alive}/${survival.total} tagged',
+                                size: 9.5,
+                                color: band,
+                                weight: FontWeight.w600)
+                            : Text(
+                                '${(survival.rate * 100).toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontFamily: Type.slab,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 20,
+                                  height: 1,
+                                  color: band,
+                                ),
+                              ),
                   ],
                 ),
                 const SizedBox(height: 5),
@@ -273,8 +295,7 @@ class _PlantingTile extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      MonoLabel('${survival.alive} / ${survival.total}',
-                          size: 9, opacity: 0.8),
+                      MonoLabel(survival.summary, size: 9, opacity: 0.8),
                     ],
                   ),
                 ],

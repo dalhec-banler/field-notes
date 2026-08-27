@@ -5,22 +5,41 @@ import '../db/database.dart';
 /// Survival is always derived, never stored (spec §4.8).
 ///
 /// Preference order:
-/// 1. Tagged individuals exist → alive individuals / total individuals.
+/// 1. Tagged individuals exist → alive individuals / tagged individuals.
+///    Spec §4.8 reads "alive plants over count_planted", but a cohort is
+///    usually only partly tagged (3 tags on 40 cuttings), and 3/40 would read
+///    as 8 % survival when every tagged plant is alive. The rate is therefore
+///    over the tagged set and the UI labels it as such ("3 of 3 tagged
+///    alive") so it is never mistaken for the cohort figure.
 /// 2. Otherwise → most recent cohort-level check-in's count_alive over
-///    count_planted.
+///    count_planted (the spec's cohort figure: "31 of 40 alive · 78%").
 /// 3. No signal yet → null (unknown, not 100%).
 class SurvivalResult {
   const SurvivalResult({
     required this.alive,
     required this.total,
     required this.source,
+    required this.countPlanted,
   });
 
   final int alive;
+
+  /// Denominator: tagged individuals for [fromTags], else `count_planted`.
   final int total;
   final String source; // 'individuals' | 'cohort_checkin'
 
+  /// The cohort size, for context when [fromTags].
+  final int countPlanted;
+
   double get rate => total == 0 ? 0 : alive / total;
+
+  bool get fromTags => source == 'individuals';
+
+  /// Plain-language line for the UI. Cohort: "31 of 40 alive · 78%".
+  /// Tags: "3 of 3 tagged alive" — no percent, it is not the cohort rate.
+  String get summary => fromTags
+      ? '$alive of $total tagged alive'
+      : '$alive of $total alive · ${(rate * 100).toStringAsFixed(0)}%';
 }
 
 Future<SurvivalResult?> survivalFor(
@@ -40,6 +59,7 @@ Future<SurvivalResult?> survivalFor(
       alive: alive,
       total: individuals.length,
       source: 'individuals',
+      countPlanted: event.countPlanted,
     );
   }
 
@@ -55,6 +75,7 @@ Future<SurvivalResult?> survivalFor(
       alive: checkin.countAlive!,
       total: event.countPlanted,
       source: 'cohort_checkin',
+      countPlanted: event.countPlanted,
     );
   }
   return null;

@@ -159,11 +159,17 @@ List<List<List<double>>>? _polygonRings(XmlElement polygon) {
 
 /// KML coordinates: whitespace-separated `lon,lat[,alt]` tuples.
 /// GeoJSON positions keep [lng, lat] order; altitude is dropped.
+///
+/// The spec forbids whitespace inside a tuple, but hand-edited and
+/// Google-Earth-exported files often carry `lon, lat` with a space after
+/// the comma; those were silently dropped (audit M15). Whitespace around
+/// commas is collapsed before the tuples are split.
 List<List<double>> _coords(XmlElement geometryElement) {
   final text = geometryElement
       .findElements('coordinates')
       .firstOrNull
       ?.innerText
+      .replaceAll(RegExp(r'\s*,\s*'), ',')
       .trim();
   if (text == null || text.isEmpty) return [];
   final result = <List<double>>[];

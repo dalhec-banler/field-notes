@@ -30,7 +30,8 @@ class MapScreen extends StatefulWidget {
       this.embedded = false,
       this.onController,
       this.onCoverage,
-      this.onLongPress});
+      this.onLongPress,
+      this.visible = true});
 
   final FieldNotesDb? db;
   final Property? property;
@@ -47,11 +48,14 @@ class MapScreen extends StatefulWidget {
   /// Long-press on the map (spec §7.1: drop a record at an arbitrary point).
   final ValueChanged<LatLng>? onLongPress;
 
+  /// False while another tab is showing: the live-position stream pauses.
+  final bool visible;
+
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   TileServer? _server;
   MbTilesStore? _mbtiles;
   String? _styleJson;
@@ -59,12 +63,39 @@ class _MapScreenState extends State<MapScreen> {
   StreamSubscription<Position>? _fixSub;
   Position? _fix;
   bool _positionLayerReady = false;
+  bool _inForeground = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _start();
-    _watchPosition();
+    _syncPositionWatch();
+  }
+
+  @override
+  void didUpdateWidget(MapScreen old) {
+    super.didUpdateWidget(old);
+    if (old.visible != widget.visible) _syncPositionWatch();
+  }
+
+  /// Battery (spec §7): the live dot only costs GPS while the map is on
+  /// screen and the app is in front. Tracking keeps its own stream through
+  /// the hub, so pausing here never touches a walk in progress.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _inForeground = state == AppLifecycleState.resumed;
+    _syncPositionWatch();
+  }
+
+  void _syncPositionWatch() {
+    final want = widget.visible && _inForeground;
+    if (want && _fixSub == null) {
+      _watchPosition();
+    } else if (!want && _fixSub != null) {
+      _fixSub?.cancel();
+      _fixSub = null;
+    }
   }
 
   Future<void> _start() async {
@@ -174,14 +205,21 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  bool _watching = false;
+
   void _watchPosition() async {
+    if (_watching || _fixSub != null) return;
+    _watching = true;
     try {
       if (!await locationHub.ensurePermission()) return;
-      if (!mounted) return;
+      if (!mounted || !(widget.visible && _inForeground)) return;
       final last = locationHub.last;
       if (last != null) _onFix(last);
       _fixSub = locationHub.positions.listen(_onFix);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _watching = false;
+    }
   }
 
   Future<void> _onFix(Position pos) async {
@@ -209,6 +247,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _fixSub?.cancel();
     _server?.close();
     _mbtiles?.close();

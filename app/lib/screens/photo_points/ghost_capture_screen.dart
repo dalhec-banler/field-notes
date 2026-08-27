@@ -63,6 +63,7 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
     }
 
     final status = await Permission.camera.request();
+    if (!mounted) return;
     if (!status.isGranted) {
       setState(() => _error = 'Camera permission needed');
       return;
@@ -85,8 +86,9 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
       return;
     }
 
-    if (await locationHub.ensurePermission()) {
-      if (!mounted) return;
+    final located = await locationHub.ensurePermission();
+    if (!mounted) return;
+    if (located) {
       final last = locationHub.fresh();
       if (last != null) setState(() => _fix = last);
       _fixSub = locationHub.positions.listen((pos) {
@@ -129,24 +131,46 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
     return d != null && b != null && d <= 3 && b.abs() <= 5;
   }
 
+  /// A first visit anchors the point for good (D-007), so it needs a real
+  /// position AND a real heading; without both the point would sit at the
+  /// centroid facing north forever and never line up (audit M14).
+  bool get _anchorReady => !_isFirstVisit || (_fix != null && _heading != null);
+
+  /// What the first visit is still waiting on, or null when ready.
+  String? get _anchorWaiting {
+    if (!_isFirstVisit) return null;
+    if (_fix == null && _heading == null) return 'waiting for GPS and compass…';
+    if (_fix == null) return 'waiting for GPS…';
+    if (_heading == null) return 'waiting for compass…';
+    return null;
+  }
+
   Future<void> _capture() async {
     final camera = _camera;
     if (camera == null || !camera.value.isInitialized || _saving) return;
+    if (!_anchorReady) return;
     setState(() => _saving = true);
     try {
       await _captureInner(camera);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _saving = false);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Capture failed: $e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _captureInner(CameraController camera) async {
+    // Re-checked here so a fix/heading that vanished between the tap and
+    // the shutter can never anchor the point from a null.
+    final fix = _fix;
+    final heading = _heading;
+    if (_isFirstVisit && (fix == null || heading == null)) {
+      throw StateError('Need a GPS fix and a compass heading to anchor');
+    }
     final shot = await camera.takePicture();
     final now = nowUtcIso();
-    final fix = _fix;
     final db = widget.db;
     final point = widget.point;
 
@@ -160,7 +184,7 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
       createdBy: 'local',
       lat: fix?.latitude,
       lng: fix?.longitude,
-      headingDeg: _heading,
+      headingDeg: heading,
       capturedAt: now,
     );
 
@@ -172,7 +196,7 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
           visitedAt: now,
           actualLat: Value(fix?.latitude),
           actualLng: Value(fix?.longitude),
-          actualBearingDeg: Value(_heading),
+          actualBearingDeg: Value(heading),
           createdBy: 'local',
           createdAt: now,
           updatedAt: now,
@@ -185,6 +209,9 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
       role: _isFirstVisit ? 'reference' : 'attachment',
     );
 
+    // First visit anchors the point: reference frame, true position and
+    // bearing — all three together, or none (fix/heading were checked above).
+    final anchor = _isFirstVisit && fix != null && heading != null;
     final updates = PhotoPointsCompanion(
       updatedAt: Value(now),
       nextDueOn: point.cadenceDays != null
@@ -193,17 +220,10 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
               .toIso8601String()
               .substring(0, 10))
           : const Value.absent(),
-      // First visit anchors the point: reference frame, true position/bearing.
-      referenceMediaId:
-          _isFirstVisit ? Value(media.id) : const Value.absent(),
-      lat: _isFirstVisit && fix != null
-          ? Value(fix.latitude)
-          : const Value.absent(),
-      lng: _isFirstVisit && fix != null
-          ? Value(fix.longitude)
-          : const Value.absent(),
-      bearingDeg:
-          _isFirstVisit && _heading != null ? Value(_heading!) : const Value.absent(),
+      referenceMediaId: anchor ? Value(media.id) : const Value.absent(),
+      lat: anchor ? Value(fix.latitude) : const Value.absent(),
+      lng: anchor ? Value(fix.longitude) : const Value.absent(),
+      bearingDeg: anchor ? Value(heading) : const Value.absent(),
     );
     await (db.update(db.photoPoints)..where((p) => p.id.equals(point.id)))
         .write(updates);
@@ -254,9 +274,16 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
                             right: 12,
                             child: _isFirstVisit
                                 ? _readout(
-                                    'First visit — aim at the subject and '
-                                    'capture. This anchors the point.',
-                                    Colors.blueGrey.shade700)
+                                    _anchorWaiting != null
+                                        ? 'First visit — ${_anchorWaiting!} '
+                                            'Position and bearing are needed '
+                                            'to anchor the point.'
+                                        : 'First visit — aim at the subject '
+                                            'and capture. This anchors the '
+                                            'point.',
+                                    _anchorWaiting != null
+                                        ? Colors.black54
+                                        : Colors.blueGrey.shade700)
                                 : _readout(
                                     '${distance == null ? '— m' : '${distance.toStringAsFixed(1)} m'} from point   ·   '
                                     '${bearingOff == null ? '—°' : '${bearingOff > 0 ? '+' : ''}${bearingOff.toStringAsFixed(0)}°'} off bearing',
@@ -274,7 +301,8 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
                         child: FloatingActionButton.large(
                           backgroundColor:
                               _aligned ? Colors.green.shade600 : null,
-                          onPressed: _saving ? null : _capture,
+                          onPressed:
+                              _saving || !_anchorReady ? null : _capture,
                           child: const Icon(Icons.camera_alt, size: 36),
                         ),
                       ),

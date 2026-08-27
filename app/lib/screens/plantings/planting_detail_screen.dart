@@ -71,44 +71,80 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     final aliveController = TextEditingController();
     final deadController = TextEditingController();
     final notesController = TextEditingController();
+    final planted = event.countPlanted;
+
+    // Validated inside the dialog (audit M12/M13): 0 ≤ alive ≤ planted,
+    // dead ≥ 0 when given, and alive + dead can't exceed the cohort.
+    String? aliveError() {
+      final t = aliveController.text.trim();
+      if (t.isEmpty) return null;
+      final n = int.tryParse(t);
+      if (n == null || n < 0) return 'Whole number, 0 or more';
+      if (n > planted) return 'Only $planted were planted';
+      return null;
+    }
+
+    String? deadError() {
+      final t = deadController.text.trim();
+      if (t.isEmpty) return null;
+      final n = int.tryParse(t);
+      if (n == null || n < 0) return 'Whole number, 0 or more';
+      final alive = int.tryParse(aliveController.text.trim());
+      if (alive != null && alive + n > planted) {
+        return 'Alive + dead can\'t exceed $planted';
+      }
+      return null;
+    }
+
+    bool valid() =>
+        aliveController.text.trim().isNotEmpty &&
+        aliveError() == null &&
+        deadError() == null;
+
     final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cohort check-in'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: aliveController,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              decoration: InputDecoration(
-                  labelText: 'Alive (of ${event.countPlanted})'),
-            ),
-            TextField(
-              controller: deadController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Dead (optional)'),
-            ),
-            TextField(
-              controller: notesController,
-              decoration: const InputDecoration(labelText: 'Notes'),
-            ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialog) => AlertDialog(
+          title: const Text('Cohort check-in'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: aliveController,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                onChanged: (_) => setDialog(() {}),
+                decoration: InputDecoration(
+                    labelText: 'Alive (of $planted)',
+                    errorText: aliveError()),
+              ),
+              TextField(
+                controller: deadController,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setDialog(() {}),
+                decoration: InputDecoration(
+                    labelText: 'Dead (optional)', errorText: deadError()),
+              ),
+              TextField(
+                controller: notesController,
+                decoration: const InputDecoration(labelText: 'Notes'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed:
+                    valid() ? () => Navigator.pop(context, true) : null,
+                child: const Text('Save')),
           ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Save')),
-        ],
       ),
     );
-    if (saved != true) return;
-    final alive = int.tryParse(aliveController.text.trim());
-    if (alive == null) return;
+    if (saved != true || !valid()) return;
+    final alive = int.parse(aliveController.text.trim());
     final now = nowUtcIso();
     await widget.db
         .into(widget.db.plantCheckins)
@@ -136,35 +172,74 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     final controller =
         TextEditingController(text: nextTagCode(last) ?? '');
     if (!mounted) return;
+
+    // A tag code identifies one plant on a place (spec §4.8 UNIQUE
+    // (property_id, tag_code)); check for a live duplicate before accepting.
+    Future<bool> tagInUse(String code) async {
+      final hit = await (widget.db.select(widget.db.plants)
+            ..where((p) => p.propertyId.equals(event.propertyId))
+            ..where((p) => p.tagCode.equals(code))
+            ..where((p) => p.deletedAt.isNull())
+            ..limit(1))
+          .getSingleOrNull();
+      return hit != null;
+    }
+
+    String? error;
+    var checking = false;
     final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Tag an individual'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Tag code',
-            helperText: 'Physical tag on the plant or cage',
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Add')),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialog) {
+          final code = controller.text.trim();
+          Future<void> submit() async {
+            if (code.isEmpty || checking) return;
+            setDialog(() => checking = true);
+            final dup = await tagInUse(code);
+            if (!context.mounted) return;
+            if (dup) {
+              setDialog(() {
+                checking = false;
+                error = 'Tag "$code" is already on another plant here';
+              });
+              return;
+            }
+            Navigator.pop(context, true);
+          }
+
+          return AlertDialog(
+            title: const Text('Tag an individual'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              onChanged: (_) => setDialog(() => error = null),
+              onSubmitted: (_) => submit(),
+              decoration: InputDecoration(
+                labelText: 'Tag code',
+                helperText: 'Physical tag on the plant or cage',
+                errorText: error,
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel')),
+              FilledButton(
+                  onPressed: code.isEmpty || checking ? null : submit,
+                  child: Text(checking ? 'Checking…' : 'Add')),
+            ],
+          );
+        },
       ),
     );
-    if (saved != true || controller.text.trim().isEmpty) return;
+    final code = controller.text.trim();
+    if (saved != true || code.isEmpty) return;
     final now = nowUtcIso();
     await widget.db.into(widget.db.plants).insert(PlantsCompanion.insert(
           id: newId(),
           propertyId: event.propertyId,
           plantingEventId: event.id,
-          tagCode: Value(controller.text.trim()),
+          tagCode: Value(code),
           createdBy: 'local',
           createdAt: now,
           updatedAt: now,
@@ -311,7 +386,9 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: TaxonName(species, size: 24)),
-                    if (survival != null)
+                    // Only the cohort figure is a survival percent; the
+                    // tag-derived one is over tagged plants (audit M13).
+                    if (survival != null && !survival.fromTags)
                       Text(
                         '${(survival.rate * 100).toStringAsFixed(0)}%',
                         style: TextStyle(
@@ -336,8 +413,9 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                 if (survival != null) ...[
                   const SizedBox(height: 6),
                   MonoLabel(
-                      '${survival.alive} / ${survival.total} · from '
-                      '${survival.source == 'individuals' ? 'tagged individuals' : 'latest cohort check-in'}',
+                      survival.fromTags
+                          ? '${survival.summary} · of ${survival.countPlanted} planted'
+                          : '${survival.summary} · latest cohort check-in',
                       size: 9.5,
                       color: band),
                 ],

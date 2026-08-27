@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../db/database.dart';
+import '../main.dart' show locationHub;
 
 /// Features & infrastructure (spec §7.9): map-worthy things with condition
 /// history — springs, guzzlers, headcuts, gates.
@@ -26,6 +27,10 @@ class FeaturesScreen extends StatefulWidget {
 class _FeaturesScreenState extends State<FeaturesScreen> {
   List<FeatureType> _types = const [];
 
+  /// True from the moment the sheet closes until the row is written — the
+  /// FAB is off meanwhile so a second tap can't make a duplicate (audit M19).
+  bool _adding = false;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +48,7 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
       _types.where((t) => t.id == id).firstOrNull?.label ?? 'Feature';
 
   Future<void> _addFeature() async {
+    if (_adding) return;
     FeatureType? type;
     final nameController = TextEditingController();
     final notesController = TextEditingController();
@@ -88,12 +94,18 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
                     labelText: 'Notes', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 8),
-              const Text('Location: your current GPS position is used.'),
+              Text(type == null
+                  ? 'Pick a type to continue. Your current GPS position '
+                      'is used for the location.'
+                  : 'Location: your current GPS position is used.'),
               const SizedBox(height: 16),
               SizedBox(
                 height: 56,
                 child: FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
+                  // Validated inside the sheet (audit M12): no type, no save.
+                  onPressed: type == null
+                      ? null
+                      : () => Navigator.pop(context, true),
                   child: const Text('Add feature'),
                 ),
               ),
@@ -102,44 +114,64 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
         ),
       ),
     );
-    if (created != true || type == null) return;
+    final chosen = type;
+    if (created != true || chosen == null || !mounted) return;
 
-    double? lat;
-    double? lng;
+    setState(() => _adding = true);
     try {
-      final fix = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.best,
-              timeLimit: Duration(seconds: 10)));
-      lat = fix.latitude;
-      lng = fix.longitude;
-    } catch (_) {
-      lat = widget.property.centroidLat;
-      lng = widget.property.centroidLng;
-    }
+      // Hub fix first (instant); otherwise a short wait, then the centroid.
+      double? lat;
+      double? lng;
+      final fresh = locationHub.fresh();
+      if (fresh != null) {
+        lat = fresh.latitude;
+        lng = fresh.longitude;
+      } else {
+        try {
+          if (await locationHub.ensurePermission()) {
+            final fix = await Geolocator.getCurrentPosition(
+                locationSettings: const LocationSettings(
+                    accuracy: LocationAccuracy.best,
+                    timeLimit: Duration(seconds: 5)));
+            lat = fix.latitude;
+            lng = fix.longitude;
+          }
+        } catch (_) {}
+        lat ??= widget.property.centroidLat;
+        lng ??= widget.property.centroidLng;
+      }
 
-    final now = nowUtcIso();
-    await widget.db.into(widget.db.features).insert(FeaturesCompanion.insert(
-          id: newId(),
-          propertyId: widget.property.id,
-          featureTypeId: type!.id,
-          name: Value(nameController.text.trim().isEmpty
-              ? null
-              : nameController.text.trim()),
-          geojson: jsonEncode({
-            'type': 'Point',
-            'coordinates': [lng ?? 0, lat ?? 0],
-          }),
-          lat: Value(lat),
-          lng: Value(lng),
-          currentCondition: const Value('unknown'),
-          notes: Value(notesController.text.trim().isEmpty
-              ? null
-              : notesController.text.trim()),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+      final now = nowUtcIso();
+      await widget.db
+          .into(widget.db.features)
+          .insert(FeaturesCompanion.insert(
+            id: newId(),
+            propertyId: widget.property.id,
+            featureTypeId: chosen.id,
+            name: Value(nameController.text.trim().isEmpty
+                ? null
+                : nameController.text.trim()),
+            geojson: jsonEncode({
+              'type': 'Point',
+              'coordinates': [lng ?? 0, lat ?? 0],
+            }),
+            lat: Value(lat),
+            lng: Value(lng),
+            currentCondition: const Value('unknown'),
+            notes: Value(notesController.text.trim().isEmpty
+                ? null
+                : notesController.text.trim()),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Couldn\'t save the feature: $e')));
+    } finally {
+      if (mounted) setState(() => _adding = false);
+    }
   }
 
   Future<void> _logCondition(Feature feature) async {
@@ -233,9 +265,14 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
     return Scaffold(
       appBar: widget.embedded ? null : AppBar(title: const Text('Features')),
       floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add_location_alt_outlined),
-        label: const Text('Add feature'),
-        onPressed: _addFeature,
+        icon: _adding
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.add_location_alt_outlined),
+        label: Text(_adding ? 'Finding position…' : 'Add feature'),
+        onPressed: _adding ? null : _addFeature,
       ),
       body: StreamBuilder<List<Feature>>(
         stream: query.watch(),

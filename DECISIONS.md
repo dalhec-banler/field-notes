@@ -131,3 +131,19 @@ data-sensitive. Location is never a network dependency.
 
 ### §9.3 resolved · Naturalist suggestions notify the Steward (Austin, 2026-08-26)
 Notification, not a silent queue. Applies at M4.
+
+### D-017 (proposed) · Features get a maintenance due date — §4 schema addition
+Spec §7.9 wants "maintenance due" on features, but §4.3 `features` has no
+due/interval columns. Proposal: add `maintenance_interval_days INTEGER` and
+`next_due_on TEXT` to `features` (mirroring `photo_points.cadence_days` /
+`next_due_on`), set on creation and rolled forward when a condition log with
+`action_taken` is saved. Second approved deviation from the §4 contract if
+accepted; otherwise "maintenance due" is out of scope for v1. Not implemented
+until Austin signs off.
+
+### D-018 · Survival: cohort rate over `count_planted`; tag rate over tagged plants, labelled
+Spec §4.8 says survival is derived over `count_planted`. Cohort check-ins do
+exactly that ("31 of 40 alive · 78%"). Tagged-individual checks are a sample
+— 3 tags on 40 cuttings would read as 8% if divided by `count_planted` — so
+the tag-derived figure is shown as "3 of 3 tagged alive · of 40 planted",
+never as a percent of the cohort. Both stay derived, never stored.

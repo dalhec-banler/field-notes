@@ -5,9 +5,11 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../geo/simplify.dart' show distanceM;
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 import '../widgets/species_field.dart';
+import 'species_detail_sheet.dart';
 
 const _kTypes = [
   'general', 'plant', 'wildlife', 'problem', 'water', 'soil',
@@ -40,6 +42,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   EnvContext? _env;
   List<MediaData> _photos = const [];
   List<MediaData> _audio = const [];
+  List<(Observation, double)> _nearby = const [];
+  Property? _property;
   int _photoIndex = 0;
   final _player = AudioPlayer();
   String? _playingId;
@@ -56,6 +60,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           ..where((o) => o.id.equals(widget.obsId)))
         .getSingleOrNull();
     if (obs == null) return;
+    final property = await (db.select(db.properties)
+          ..where((p) => p.id.equals(obs.propertyId)))
+        .getSingleOrNull();
     TaxaData? taxon;
     if (obs.taxonId != null) {
       taxon = await (db.select(db.taxa)
@@ -95,6 +102,25 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         photos.add(m);
       }
     }
+    // Related (spec §7.4): other records within 50 m — the same plant
+    // photographed again, the same spring checked again.
+    final nearby = <(Observation, double)>[];
+    if (obs.gpsAccuracyM != -1) {
+      final candidates = await (db.select(db.observations)
+            ..where((o) => o.propertyId.equals(obs.propertyId))
+            ..where((o) => o.deletedAt.isNull())
+            ..where((o) => o.id.equals(obs.id).not())
+            ..where((o) => o.gpsAccuracyM.equals(-1).not() |
+                o.gpsAccuracyM.isNull())
+            ..where((o) => o.lat.isBetweenValues(obs.lat - 0.001, obs.lat + 0.001))
+            ..where((o) => o.lng.isBetweenValues(obs.lng - 0.001, obs.lng + 0.001)))
+          .get();
+      for (final c in candidates) {
+        final d = distanceM([obs.lng, obs.lat], [c.lng, c.lat]);
+        if (d <= 50) nearby.add((c, d));
+      }
+      nearby.sort((a, b) => a.$2.compareTo(b.$2));
+    }
     if (mounted) {
       setState(() {
         _obs = obs;
@@ -103,6 +129,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         _env = env;
         _photos = photos;
         _audio = audio;
+        _nearby = nearby.take(6).toList();
+        _property = property;
       });
     }
   }
@@ -111,6 +139,12 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   void dispose() {
     _player.dispose();
     super.dispose();
+  }
+
+  String _fmtDate(String iso) {
+    final d = DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return iso;
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 
   String _fmtMs(int? ms) {
@@ -468,7 +502,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 ]),
                 const SizedBox(height: 8),
                 if (_taxon != null) ...[
-                  TaxonName(_taxon!.scientificName, size: 34),
+                  // Name → the species' whole history on this place.
+                  GestureDetector(
+                    onTap: _property == null
+                        ? null
+                        : () => showSpeciesDetailSheet(context,
+                            db: widget.db,
+                            property: _property!,
+                            taxon: _taxon!),
+                    child: TaxonName(_taxon!.scientificName, size: 34),
+                  ),
                   const SizedBox(height: 5),
                   Text(
                     [
@@ -570,6 +613,62 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       : 'VOICE NOTE · ${_fmtMs(a.durationMs)}'),
                   onPressed: () => _play(a),
                 ),
+              ),
+            ),
+
+          // 5b. Related: other records within 50 m (spec §7.4) — the return
+          // visit is the whole point (core principle 4).
+          if (_nearby.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  Metrics.gutter, 4, Metrics.gutter, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const MonoLabel('Nearby · within 50 m', size: 9, spacing: 1.8),
+                  const SizedBox(height: 4),
+                  for (final (o, d) in _nearby)
+                    InkWell(
+                      onTap: () => Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              RecordDetailScreen(db: widget.db, obsId: o.id),
+                        ),
+                      ),
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 52),
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                              bottom:
+                                  BorderSide(color: Press.divider, width: 1)),
+                        ),
+                        child: Row(
+                          children: [
+                            Diamond(
+                                size: 7,
+                                color: recordTypeColor(o.observationType)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                [
+                                  _fmtDate(o.observedAt),
+                                  o.observationType,
+                                  if (o.notes != null) o.notes!,
+                                ].join(' · '),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontFamily: Type.serif, fontSize: 15),
+                              ),
+                            ),
+                            MonoLabel('${d.toStringAsFixed(0)} m',
+                                size: 9, opacity: 0.7),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 

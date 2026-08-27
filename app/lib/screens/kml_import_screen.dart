@@ -43,6 +43,7 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
       final placemarks = file.name.toLowerCase().endsWith('.kmz')
           ? parseKmz(await file.readAsBytes())
           : parseKml(await file.readAsString());
+      if (!mounted) return;
       if (placemarks.isEmpty) {
         setState(() => _error = 'No placemarks found in ${file.name}');
         return;
@@ -53,6 +54,7 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
         ];
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = 'Could not read ${file.name}: $e');
     }
   }
@@ -94,51 +96,64 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
       return id;
     }
 
-    for (final row in rows) {
-      final pm = row.placemark;
-      switch (row.destination) {
-        case _Destination.skip:
-          break;
-        case _Destination.boundary:
-          final centroid = _centroidOf(pm.geojson);
-          await (db.update(db.properties)
-                ..where((p) => p.id.equals(widget.property.id)))
-              .write(PropertiesCompanion(
-            boundaryGeojson: Value(pm.geojson),
-            centroidLat: Value(centroid?.lat.toDouble()),
-            centroidLng: Value(centroid?.lng.toDouble()),
-            updatedAt: Value(now),
-          ));
-          boundarySet = pm.name;
-        case _Destination.zone:
-          await db.into(db.zones).insert(ZonesCompanion.insert(
-                id: newId(),
-                propertyId: widget.property.id,
-                name: pm.name,
-                geojson: pm.geojson,
-                notes: Value(pm.description),
-                createdBy: 'local',
-                createdAt: now,
-                updatedAt: now,
+    // All or nothing (audit M15): a failure part-way must not leave half
+    // the placemarks in, or a re-run would duplicate the ones that landed.
+    try {
+      await db.transaction(() async {
+        for (final row in rows) {
+          final pm = row.placemark;
+          switch (row.destination) {
+            case _Destination.skip:
+              break;
+            case _Destination.boundary:
+              final centroid = _centroidOf(pm.geojson);
+              await (db.update(db.properties)
+                    ..where((p) => p.id.equals(widget.property.id)))
+                  .write(PropertiesCompanion(
+                boundaryGeojson: Value(pm.geojson),
+                centroidLat: Value(centroid?.lat.toDouble()),
+                centroidLng: Value(centroid?.lng.toDouble()),
+                updatedAt: Value(now),
               ));
-          zones++;
-        case _Destination.feature:
-          final centroid = _centroidOf(pm.geojson);
-          await db.into(db.features).insert(FeaturesCompanion.insert(
-                id: newId(),
-                propertyId: widget.property.id,
-                featureTypeId: await importedTypeId(),
-                name: Value(pm.name),
-                geojson: pm.geojson,
-                lat: Value(centroid?.lat.toDouble()),
-                lng: Value(centroid?.lng.toDouble()),
-                notes: Value(pm.description),
-                createdBy: 'local',
-                createdAt: now,
-                updatedAt: now,
-              ));
-          features++;
-      }
+              boundarySet = pm.name;
+            case _Destination.zone:
+              await db.into(db.zones).insert(ZonesCompanion.insert(
+                    id: newId(),
+                    propertyId: widget.property.id,
+                    name: pm.name,
+                    geojson: pm.geojson,
+                    notes: Value(pm.description),
+                    createdBy: 'local',
+                    createdAt: now,
+                    updatedAt: now,
+                  ));
+              zones++;
+            case _Destination.feature:
+              final centroid = _centroidOf(pm.geojson);
+              await db.into(db.features).insert(FeaturesCompanion.insert(
+                    id: newId(),
+                    propertyId: widget.property.id,
+                    featureTypeId: await importedTypeId(),
+                    name: Value(pm.name),
+                    geojson: pm.geojson,
+                    lat: Value(centroid?.lat.toDouble()),
+                    lng: Value(centroid?.lng.toDouble()),
+                    notes: Value(pm.description),
+                    createdBy: 'local',
+                    createdAt: now,
+                    updatedAt: now,
+                  ));
+              features++;
+          }
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Nothing was imported — $e')));
+      return;
+    } finally {
+      if (mounted) setState(() => _committing = false);
     }
 
     if (!mounted) return;
@@ -148,6 +163,8 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
         if (boundarySet != null) 'Boundary set from "$boundarySet"',
         if (zones > 0) '$zones zone${zones == 1 ? '' : 's'}',
         if (features > 0) '$features feature${features == 1 ? '' : 's'}',
+        if (boundarySet == null && zones == 0 && features == 0)
+          'Nothing selected to import',
       ].join(' · ')),
     ));
   }

@@ -250,6 +250,27 @@ class _SettingsTabState extends State<SettingsTab> {
               null,
             ),
           ]),
+          // Spec §7 field ergonomics. Tapping a row toggles it.
+          _group('Display', [
+            (
+              'Outdoor mode',
+              widget.prefs.outdoorMode
+                  ? 'bigger type for sun and gloves'
+                  : 'standard type · tap for bigger, for sun and gloves',
+              widget.prefs.outdoorMode ? 'On' : 'Off',
+              () => setState(
+                  () => widget.prefs.outdoorMode = !widget.prefs.outdoorMode),
+            ),
+            (
+              'Ledger rows',
+              widget.prefs.density == 'dense'
+                  ? 'dense · more entries per screen'
+                  : 'glove · roomy rows, easy to hit',
+              widget.prefs.density == 'dense' ? 'Dense' : 'Glove',
+              () => setState(() => widget.prefs.density =
+                  widget.prefs.density == 'dense' ? 'glove' : 'dense'),
+            ),
+          ]),
           // D-016: off-grid users, metered LTE. Tapping a row toggles it.
           _group('Network', [
             (

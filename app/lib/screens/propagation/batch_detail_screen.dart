@@ -82,6 +82,19 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     var eventType = 'check';
     final deltaController = TextEditingController();
     final notesController = TextEditingController();
+    final current = batch.countCurrent ?? batch.countStarted ?? 0;
+
+    // A loss can't take the batch below zero; say so inside the dialog
+    // rather than writing a negative count.
+    String? deltaError() {
+      final t = deltaController.text.trim();
+      if (t.isEmpty) return null;
+      final d = int.tryParse(t);
+      if (d == null) return 'Whole number, e.g. -3';
+      if (current + d < 0) return 'Only $current in this batch';
+      return null;
+    }
+
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -113,9 +126,12 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
               ),
               TextField(
                 controller: deltaController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
+                keyboardType:
+                    const TextInputType.numberWithOptions(signed: true),
+                onChanged: (_) => setDialog(() {}),
+                decoration: InputDecoration(
                   labelText: 'Count change (e.g. -3 for losses)',
+                  errorText: deltaError(),
                 ),
               ),
               TextField(
@@ -129,18 +145,20 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('Cancel')),
             FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: deltaError() == null
+                    ? () => Navigator.pop(context, true)
+                    : null,
                 child: const Text('Save')),
           ],
         ),
       ),
     );
-    if (saved != true) return;
+    if (saved != true || deltaError() != null) return;
     final now = nowUtcIso();
     final delta = int.tryParse(deltaController.text.trim());
-    final newCount = delta != null
-        ? ((batch.countCurrent ?? batch.countStarted ?? 0) + delta)
-        : null;
+    // Clamped at zero as a last line of defence; the dialog already refuses.
+    final newCount =
+        delta != null ? (current + delta).clamp(0, 1 << 31) : null;
     await widget.db.into(widget.db.batchEvents).insert(
           BatchEventsCompanion.insert(
             id: newId(),

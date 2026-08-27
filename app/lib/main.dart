@@ -77,10 +77,24 @@ class FieldNotesApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Field Notes',
-      theme: fieldStationTheme(),
-      home: RootScreen(db: db, prefs: prefs),
+    // Prefs are a ChangeNotifier so an outdoor-mode flip re-themes live.
+    return ListenableBuilder(
+      listenable: prefs,
+      builder: (context, _) => MaterialApp(
+        title: 'Field Notes',
+        theme: fieldStationTheme(),
+        // Outdoor mode (spec §7): scale every text style up ~18 %. Layouts
+        // are built to tolerate it; touch targets are already ≥ 56 dp.
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: prefs.outdoorMode
+                ? const TextScaler.linear(1.18)
+                : TextScaler.noScaling,
+          ),
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: RootScreen(db: db, prefs: prefs),
+      ),
     );
   }
 }

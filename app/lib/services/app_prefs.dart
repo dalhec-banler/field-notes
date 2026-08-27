@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 /// Tiny JSON prefs (design README §6: layout, density, basemap, active
 /// property are persisted user preferences).
-class AppPrefs {
+class AppPrefs extends ChangeNotifier {
   AppPrefs._(this._file, this._data);
 
   final File _file;
@@ -33,7 +34,13 @@ class AppPrefs {
       _data[key] = value;
     }
     _file.writeAsStringSync(jsonEncode(_data));
+    notifyListeners();
   }
+
+  /// Spec §7 "high-contrast outdoor mode": bigger type, glove density.
+  /// The paper/ink palette is already ~12:1; what direct sun takes is size.
+  bool get outdoorMode => get<bool>('outdoor_mode') ?? false;
+  set outdoorMode(bool v) => set('outdoor_mode', v);
 
   String? get activePropertyId => get<String>('active_property');
   set activePropertyId(String? id) => set('active_property', id);
