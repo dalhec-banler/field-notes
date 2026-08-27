@@ -160,7 +160,7 @@ class _SpeciesTabState extends State<SpeciesTab> {
             child: MonoLabel(
               '$_favoriteCount starred · '
               '${_totalCount - _favoriteCount} more regional · '
-              'tap a row to star it',
+              'star = quick pick · tap a row for its history',
               size: 9,
               opacity: 0.7,
             ),

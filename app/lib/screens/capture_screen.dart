@@ -616,9 +616,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         spacing: 1.8,
                         color: Press.paperRaised),
                     MonoLabel(
-                      fix == null
-                          ? 'GPS searching — save works anyway'
-                          : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m',
+                      widget.isPlaced
+                          ? 'Placed on the map'
+                          : fix == null
+                              ? 'GPS searching — save works anyway'
+                              : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m',
                       size: 9.5,
                       spacing: 1.4,
                       color: Press.paperRaised,
@@ -626,13 +628,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   ],
                 ),
               ),
-              // Bottom-left coordinates.
-              if (fix != null)
+              // Bottom-left coordinates: the placed point if there is one,
+              // else the live fix.
+              if (widget.isPlaced || fix != null)
                 Positioned(
                   left: 34,
                   bottom: 34,
                   child: MonoLabel(
-                    '${fix.latitude.toStringAsFixed(5)}\n${fix.longitude.toStringAsFixed(5)}',
+                    widget.isPlaced
+                        ? '${widget.placedLat!.toStringAsFixed(5)}\n${widget.placedLng!.toStringAsFixed(5)}'
+                        : '${fix!.latitude.toStringAsFixed(5)}\n${fix.longitude.toStringAsFixed(5)}',
                     size: 9.5,
                     spacing: 1.2,
                     color: Press.paperRaised,
@@ -819,9 +824,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       FactRow('when', _localNow()),
                       FactRow(
                           'where',
-                          fix != null
-                              ? '${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)}  ±${fix.accuracy.toStringAsFixed(0)} m'
-                              : 'no fix — flagged, never faked'),
+                          widget.isPlaced
+                              ? '${widget.placedLat!.toStringAsFixed(5)}, ${widget.placedLng!.toStringAsFixed(5)}  placed on map'
+                              : fix != null
+                                  ? '${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)}  ±${fix.accuracy.toStringAsFixed(0)} m'
+                                  : 'no fix — flagged, never faked'),
                       const FactRow('weather · soil',
                           'looked up when you\'re back online',
                           last: true),
