@@ -84,10 +84,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     // Land on the Ledger with the new row on top (README §5), then the
     // toast — the privacy promise restated at every write.
     setState(() => _tab = 1);
-    final seconds = (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1);
+    final ms = result.elapsed.inMilliseconds;
+    final speed = ms < 1000 ? 'INSTANTLY' : 'IN ${(ms / 1000).toStringAsFixed(1)} S';
     SaveToast.show(
       context,
-      title: 'OBSERVATION WRITTEN IN $seconds S',
+      title: 'OBSERVATION WRITTEN $speed',
       detail: 'SAVED ON THIS PHONE · NOTHING HAS LEFT IT',
       // Undo erases the record outright — row, photo, links, context — so
       // nothing of it reaches the next backup or export.

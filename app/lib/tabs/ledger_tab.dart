@@ -343,7 +343,8 @@ class _LedgerRow extends StatelessWidget {
   final Observation obs;
   final double em;
 
-  Future<(TaxaData?, String?)> _details() async {
+  /// (species, photo thumbnail, has a voice note)
+  Future<(TaxaData?, String?, bool)> _details() async {
     TaxaData? species;
     if (obs.taxonId != null) {
       species = await (db.select(db.taxa)
@@ -351,18 +352,25 @@ class _LedgerRow extends StatelessWidget {
           .getSingleOrNull();
     }
     String? thumb;
-    final link = await (db.select(db.mediaLinks)
+    var hasVoice = false;
+    final links = await (db.select(db.mediaLinks)
           ..where((l) =>
-              l.entityType.equals('observation') & l.entityId.equals(obs.id))
-          ..limit(1))
-        .getSingleOrNull();
-    if (link != null) {
+              l.entityType.equals('observation') &
+              l.entityId.equals(obs.id) &
+              l.deletedAt.isNull()))
+        .get();
+    for (final link in links) {
       final m = await (db.select(db.media)
             ..where((x) => x.id.equals(link.mediaId)))
           .getSingleOrNull();
-      thumb = m?.thumbPath;
+      if (m == null) continue;
+      if (m.mediaType == 'audio') {
+        hasVoice = true;
+      } else {
+        thumb ??= m.thumbPath;
+      }
     }
-    return (species, thumb);
+    return (species, thumb, hasVoice);
   }
 
   String _relativeTime() {
@@ -378,10 +386,11 @@ class _LedgerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typeColor = recordTypeColor(obs.observationType);
-    return FutureBuilder<(TaxaData?, String?)>(
+    return FutureBuilder<(TaxaData?, String?, bool)>(
       future: _details(),
       builder: (context, snapshot) {
-        final (species, thumb) = snapshot.data ?? (null, null);
+        final (species, thumb, hasVoice) =
+            snapshot.data ?? (null, null, false);
         return InkWell(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
@@ -400,14 +409,26 @@ class _LedgerRow extends StatelessWidget {
                 Container(
                   width: em * 3.6,
                   height: em * 4.2,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Press.photoPlaceholder,
+                    // A photoless record gets a plain plate, not an empty
+                    // photo frame pretending one is missing.
+                    color: thumb != null
+                        ? Press.photoPlaceholder
+                        : Press.paperRaised,
                     border: Border.all(color: Press.ink, width: 1),
                     image: thumb != null && File(thumb).existsSync()
                         ? DecorationImage(
                             image: FileImage(File(thumb)), fit: BoxFit.cover)
                         : null,
                   ),
+                  child: thumb == null
+                      ? Icon(
+                          hasVoice ? Icons.mic : Icons.notes,
+                          size: em * 1.2,
+                          color: Press.inkSoft.withValues(alpha: 0.45),
+                        )
+                      : null,
                 ),
                 SizedBox(width: em * 0.7),
                 Expanded(
@@ -419,6 +440,11 @@ class _LedgerRow extends StatelessWidget {
                         const SizedBox(width: 5),
                         MonoLabel(obs.observationType,
                             size: em * 0.66, spacing: 1.6, color: typeColor),
+                        if (hasVoice) ...[
+                          SizedBox(width: em * 0.4),
+                          Icon(Icons.mic,
+                              size: em * 0.8, color: Press.inkSoft),
+                        ],
                       ]),
                       SizedBox(height: em * 0.25),
                       // Common name leads — it's what was typed and what
@@ -444,7 +470,10 @@ class _LedgerRow extends StatelessWidget {
                         Text(
                           obs.notes != null
                               ? 'Note'
-                              : '${obs.observationType} record',
+                              : hasVoice
+                                  ? 'Voice note'
+                                  : '${obs.observationType[0].toUpperCase()}'
+                                      '${obs.observationType.substring(1)} record',
                           style: TextStyle(
                             fontFamily: Type.slab,
                             fontWeight: FontWeight.w700,
