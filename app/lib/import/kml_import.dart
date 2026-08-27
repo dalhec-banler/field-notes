@@ -183,3 +183,72 @@ List<List<double>> _coords(XmlElement geometryElement) {
   }
   return result;
 }
+
+/// GeoJSON import (spec §6): a FeatureCollection (or single Feature /
+/// geometry) mapped onto the same placemark model the review step already
+/// understands, so KML, KMZ and GeoJSON share one path to zones/features.
+List<KmlPlacemark> parseGeoJson(String text) {
+  final decoded = jsonDecode(text);
+  if (decoded is! Map<String, dynamic>) {
+    throw const FormatException('not a GeoJSON object');
+  }
+  final features = <Map<String, dynamic>>[];
+  switch (decoded['type']) {
+    case 'FeatureCollection':
+      for (final f in (decoded['features'] as List? ?? const [])) {
+        if (f is Map<String, dynamic>) features.add(f);
+      }
+    case 'Feature':
+      features.add(decoded);
+    default:
+      // Bare geometry.
+      features.add({'type': 'Feature', 'geometry': decoded, 'properties': {}});
+  }
+
+  final out = <KmlPlacemark>[];
+  var n = 0;
+  for (final f in features) {
+    final geometry = f['geometry'];
+    if (geometry is! Map<String, dynamic>) continue;
+    final type = geometry['type'] as String?;
+    if (type == null) continue;
+    final props = (f['properties'] as Map?)?.cast<String, dynamic>() ?? {};
+    n++;
+    String? pick(List<String> keys) {
+      for (final k in keys) {
+        final v = props[k];
+        if (v != null && '$v'.trim().isNotEmpty) return '$v'.trim();
+      }
+      return null;
+    }
+
+    // Multi-point / multi-line: one placemark per part, like the KML path.
+    if (type == 'MultiPoint' || type == 'MultiLineString') {
+      final partType = type == 'MultiPoint' ? 'Point' : 'LineString';
+      final coords = geometry['coordinates'] as List? ?? const [];
+      for (var i = 0; i < coords.length; i++) {
+        out.add(KmlPlacemark(
+          name: '${pick(['name', 'Name', 'title', 'label']) ?? 'Feature $n'}'
+              '${coords.length > 1 ? ' ${i + 1}' : ''}',
+          description: pick(['description', 'desc', 'notes']),
+          geometryType: partType,
+          geojson: jsonEncode({'type': partType, 'coordinates': coords[i]}),
+          folder: pick(['folder', 'layer', 'type', 'zone_type']),
+        ));
+      }
+      continue;
+    }
+    if (!const {'Point', 'LineString', 'Polygon', 'MultiPolygon'}
+        .contains(type)) {
+      continue;
+    }
+    out.add(KmlPlacemark(
+      name: pick(['name', 'Name', 'title', 'label']) ?? 'Feature $n',
+      description: pick(['description', 'desc', 'notes']),
+      geometryType: type,
+      geojson: jsonEncode(geometry),
+      folder: pick(['folder', 'layer', 'type', 'zone_type']),
+    ));
+  }
+  return out;
+}

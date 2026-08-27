@@ -36,13 +36,18 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
   Future<void> _pick() async {
     setState(() => _error = null);
     final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(label: 'KML/KMZ', extensions: ['kml', 'kmz']),
+      const XTypeGroup(
+          label: 'KML / KMZ / GeoJSON',
+          extensions: ['kml', 'kmz', 'geojson', 'json']),
     ]);
     if (file == null) return;
     try {
-      final placemarks = file.name.toLowerCase().endsWith('.kmz')
+      final lower = file.name.toLowerCase();
+      final placemarks = lower.endsWith('.kmz')
           ? parseKmz(await file.readAsBytes())
-          : parseKml(await file.readAsString());
+          : lower.endsWith('.geojson') || lower.endsWith('.json')
+              ? parseGeoJson(await file.readAsString())
+              : parseKml(await file.readAsString());
       if (!mounted) return;
       if (placemarks.isEmpty) {
         setState(() => _error = 'No placemarks found in ${file.name}');
@@ -184,7 +189,7 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
   Widget build(BuildContext context) {
     final rows = _rows;
     return Scaffold(
-      appBar: AppBar(title: const Text('Import KML/KMZ')),
+      appBar: AppBar(title: const Text('Import boundary & zones')),
       body: rows == null
           ? Center(
               child: Column(

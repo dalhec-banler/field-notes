@@ -10,6 +10,7 @@ import '../db/database.dart';
 import '../screens/backup_screen.dart';
 import '../screens/kml_import_screen.dart';
 import '../screens/offline_maps_screen.dart';
+import '../screens/photo_import_screen.dart';
 import '../screens/programs_screen.dart';
 import '../screens/restore_screen.dart';
 import '../services/app_prefs.dart';
@@ -227,10 +228,18 @@ class _SettingsTabState extends State<SettingsTab> {
           _group('Data', [
             (
               'Import boundary & zones',
-              'KML / KMZ from Google Earth, onX, or your county GIS',
+              'KML / KMZ / GeoJSON from Google Earth, onX, or your county GIS',
               '',
               () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => KmlImportScreen(
+                      db: widget.db, property: widget.property))),
+            ),
+            (
+              'Import photos',
+              'geotagged photos become records where they were taken',
+              '',
+              () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => PhotoImportScreen(
                       db: widget.db, property: widget.property))),
             ),
             (
