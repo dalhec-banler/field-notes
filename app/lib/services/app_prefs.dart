@@ -37,6 +37,10 @@ class AppPrefs extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// First run shows the walkthrough once; Settings can reopen it.
+  bool get hasSeenOnboarding => get<bool>('seen_onboarding') ?? false;
+  set hasSeenOnboarding(bool v) => set('seen_onboarding', v);
+
   /// Spec §7 "high-contrast outdoor mode": bigger type, glove density.
   /// The paper/ink palette is already ~12:1; what direct sun takes is size.
   bool get outdoorMode => get<bool>('outdoor_mode') ?? false;

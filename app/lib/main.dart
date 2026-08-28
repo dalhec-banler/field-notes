@@ -20,6 +20,7 @@ import 'services/track_recorder.dart';
 import 'shell/app_shell.dart';
 import 'theme/theme.dart';
 import 'theme/tokens.dart';
+import 'screens/onboarding_screen.dart';
 import 'widgets/new_place_dialog.dart';
 import 'widgets/press.dart';
 
@@ -159,6 +160,13 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     if (!_loaded) {
       return const Scaffold(body: SizedBox.shrink());
+    }
+    // First run: the walkthrough comes before anything is asked of you.
+    if (!widget.prefs.hasSeenOnboarding) {
+      return OnboardingScreen(
+        prefs: widget.prefs,
+        onDone: () => setState(() {}),
+      );
     }
     final active = _active;
     if (active == null) {

@@ -10,6 +10,7 @@ import '../db/database.dart';
 import '../screens/backup_screen.dart';
 import '../screens/kml_import_screen.dart';
 import '../screens/offline_maps_screen.dart';
+import '../screens/onboarding_screen.dart';
 import '../screens/photo_import_screen.dart';
 import '../screens/programs_screen.dart';
 import '../screens/species_id_settings_screen.dart';
@@ -270,6 +271,15 @@ class _SettingsTabState extends State<SettingsTab> {
                   .push(MaterialPageRoute(
                       builder: (_) => const SpeciesIdSettingsScreen()))
                   .then((_) => _load()),
+            ),
+          ]),
+          _group('Help', [
+            (
+              'Getting started',
+              'the walkthrough — what the app is for and how it behaves',
+              '',
+              () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => OnboardingScreen(prefs: widget.prefs))),
             ),
           ]),
           // Spec §7 field ergonomics. Tapping a row toggles it.
