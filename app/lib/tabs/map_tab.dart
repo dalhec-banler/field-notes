@@ -115,42 +115,6 @@ class _MapTabState extends State<MapTab> {
   Future<void> _applyLayers() async {
     final c = _controller;
     if (c == null) return;
-    try {
-      final visibleTypes =
-          _types.where((t) => !_hiddenTypes.contains(t)).toList();
-      final visibleGrowth =
-          _growthForms.where((g) => !_hiddenGrowth.contains(g)).toList();
-      // A record shows when its type is on AND — if it names a plant — that
-      // plant's growth form is on too. Records with no growth form aren't
-      // filtered by the plant pills.
-      final filter = [
-        'all',
-        [
-          'match',
-          ['get', 'type'],
-          visibleTypes.isEmpty ? ['__none__'] : visibleTypes,
-          true,
-          false,
-        ],
-        [
-          'any',
-          ['==', ['get', 'growth'], ''],
-          [
-            'match',
-            ['get', 'growth'],
-            visibleGrowth.isEmpty ? ['__none__'] : visibleGrowth,
-            true,
-            false,
-          ],
-        ],
-      ];
-      await c.setFilter('observations-circles', filter);
-      await c.setFilter('observations-named', [
-        'all',
-        ['==', ['get', 'named'], true],
-        filter,
-      ]);
-    } catch (_) {}
     for (final id in const ['zones-fill', 'zones-line']) {
       try {
         await c.setLayerVisibility(id, _showZones);
@@ -446,6 +410,8 @@ class _MapTabState extends State<MapTab> {
                   _presence = p;
                 }
               },
+              hiddenTypes: _hiddenTypes,
+              hiddenGrowthForms: _hiddenGrowth,
               onRecordCount: (n) {
                 if (mounted && n != _recordCount) {
                   setState(() => _recordCount = n);

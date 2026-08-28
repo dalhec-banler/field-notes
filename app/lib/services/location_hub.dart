@@ -100,7 +100,6 @@ class LocationHub extends ChangeNotifier {
   bool get _wanted => _foreground || _controller.hasListener;
 
   void _syncPlatform() {
-    debugPrint('[hub] sync wanted=$_wanted sub=${_platformSub != null} fg=$_foreground');
     if (_wanted != (_platformSub != null)) _restart();
   }
 
@@ -119,13 +118,11 @@ class LocationHub extends ChangeNotifier {
       try {
         await old?.cancel();
       } catch (_) {}
-      debugPrint('[hub] restart gen=$gen cur=$_gen wanted=$_wanted');
       if (gen != _gen || !_wanted) return;
       try {
         _platformSub =
             Geolocator.getPositionStream(locationSettings: _settings).listen(
           (pos) {
-            if (_last == null) debugPrint('[hub] first fix ${pos.accuracy} ts=${pos.timestamp}');
             _last = pos;
             lastError = null;
             if (!_controller.isClosed) _controller.add(pos);
@@ -143,7 +140,6 @@ class LocationHub extends ChangeNotifier {
   /// subscription so a later sync can start a new one, and retry on a
   /// backoff while anyone still wants fixes.
   void _onPlatformError(Object e) {
-    debugPrint('[hub] error $e');
     lastError = '$e';
     final dead = _platformSub;
     _platformSub = null;

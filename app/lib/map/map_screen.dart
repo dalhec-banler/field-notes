@@ -37,7 +37,9 @@ class MapScreen extends StatefulWidget {
       this.onRecordTap,
       this.onLayersReady,
       this.onPresence,
-      this.onRecordCount});
+      this.onRecordCount,
+      this.hiddenTypes = const {},
+      this.hiddenGrowthForms = const {}});
 
   final FieldNotesDb? db;
   final Property? property;
@@ -70,6 +72,13 @@ class MapScreen extends StatefulWidget {
   /// How many located records are currently drawn.
   final ValueChanged<int>? onRecordCount;
 
+  /// Record types the chrome has switched off.
+  final Set<String> hiddenTypes;
+
+  /// Plant growth forms the chrome has switched off. A record that names no
+  /// plant is never hidden by these.
+  final Set<String> hiddenGrowthForms;
+
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
@@ -92,6 +101,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Learn where this place is from its own records before deciding where
+    // to open, for a property that has never had a boundary imported.
+    _loadRecordCentre().whenComplete(() {
+      if (mounted) setState(() => _centreResolved = true);
+    });
     _start();
     _syncPositionWatch();
   }
@@ -100,6 +114,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   void didUpdateWidget(MapScreen old) {
     super.didUpdateWidget(old);
     if (old.visible != widget.visible) _syncPositionWatch();
+    if (old.hiddenTypes.length != widget.hiddenTypes.length ||
+        old.hiddenGrowthForms.length != widget.hiddenGrowthForms.length ||
+        !old.hiddenTypes.containsAll(widget.hiddenTypes) ||
+        !old.hiddenGrowthForms.containsAll(widget.hiddenGrowthForms)) {
+      _refreshRecords();
+    }
   }
 
   /// Battery (spec §7): the live dot only costs GPS while the map is on
@@ -251,8 +271,60 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   /// True once the camera has been centred on the user (at open, or on the
   /// first fix after opening without one). Never re-centres after that —
   /// the map is the user's to pan.
+  /// Where the map opened, decided once. Recomputing this per build would
+  /// be pointless (MapLibre reads it only at creation) and actively harmful,
+  /// because deciding also decides whether the first fix should recentre.
+  CameraPosition? _initialCamera;
   bool _openedOnFix = false;
   SitePresence? _presence;
+
+  /// Standing on the place → open where you are. Somewhere else → open on
+  /// the place; dragging the map 90 miles into town helps nobody. Knowing
+  /// neither → open on the fix, and let the first fix recentre.
+  CameraPosition _decideCamera() {
+    final fresh = locationHub.fresh() ?? _fix;
+    final property = widget.property;
+    final presence = property == null
+        ? SitePresence.unknown
+        : presenceFor(property, fresh?.latitude, fresh?.longitude);
+    final centre = property == null ? null : _centreFor(property);
+
+    if (fresh != null && (presence.onSite || centre == null)) {
+      _openedOnFix = true;
+      return CameraPosition(
+          target: LatLng(fresh.latitude, fresh.longitude), zoom: 16);
+    }
+    if (centre != null) {
+      // Off site: the place is the subject, and a later fix must not yank
+      // the camera away from it.
+      _openedOnFix = true;
+      return CameraPosition(
+        target: LatLng(centre[1], centre[0]),
+        zoom: property?.boundaryGeojson != null ? 14 : 15,
+      );
+    }
+    // Nothing known yet — no fix, no boundary, no records. Sit at a wide
+    // view and let the first fix bring us somewhere real.
+    _openedOnFix = false;
+    return const CameraPosition(target: LatLng(31.0, -98.0), zoom: 5);
+  }
+
+  /// The property's own centre, or — for a place that has never had a
+  /// boundary imported — the middle of the records already made on it.
+  /// A place with fifty records in it knows perfectly well where it is.
+  List<double>? _centreFor(Property property) =>
+      propertyCentre(property) ?? _recordCentre;
+
+  List<double>? _recordCentre;
+
+  /// `[minLon, minLat, maxLon, maxLat]` of this property's records, when
+  /// they're spread widely enough to be worth framing.
+  List<double>? _recordBounds;
+
+  /// Whether the record-centre lookup has finished. The camera is decided
+  /// exactly once, so it must not be decided before we know where the
+  /// property's records are — or a boundaryless place opens at a world view.
+  bool _centreResolved = false;
 
   Future<void> _onFix(Position pos) async {
     _fix = pos;
@@ -320,36 +392,14 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         ),
       );
     }
-    if (_styleJson == null) {
+    if (_styleJson == null || !_centreResolved) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    // Standing on the place → open where you are. Somewhere else → open on
-    // the place; dragging the map 90 miles into town helps nobody.
-    final fresh = locationHub.fresh() ?? _fix;
-    final property = widget.property;
-    final presence = property == null
-        ? SitePresence.unknown
-        : presenceFor(property, fresh?.latitude, fresh?.longitude);
-    final centre = property == null ? null : propertyCentre(property);
-    final LatLng start;
-    final double zoom;
-    if (fresh != null && (presence.onSite || centre == null)) {
-      start = LatLng(fresh.latitude, fresh.longitude);
-      zoom = 16;
-      _openedOnFix = true;
-    } else if (centre != null) {
-      start = LatLng(centre[1], centre[0]);
-      zoom = property?.boundaryGeojson != null ? 14 : 13;
-      // Off site: never yank the camera to the phone when a fix lands.
-      _openedOnFix = true;
-    } else {
-      start = const LatLng(31.06, -98.18);
-      zoom = 11;
-    }
+    final camera = _initialCamera ??= _decideCamera();
     return Scaffold(
       body: MapLibreMap(
         styleString: _styleJson!,
-        initialCameraPosition: CameraPosition(target: start, zoom: zoom),
+        initialCameraPosition: camera,
         myLocationEnabled: false,
         attributionButtonPosition: AttributionButtonPosition.bottomLeft,
         onMapCreated: _onMapCreated,
@@ -357,6 +407,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         onStyleLoadedCallback: () async {
           await _addOverlays();
           await _addPositionLayer();
+          await _frameRecordsIfNeeded();
           // Every layer now exists: chrome can apply its toggles.
           widget.onLayersReady?.call();
         },
@@ -519,6 +570,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         // A named plant is coloured by what kind of plant it is — trees,
         // shrubs, grasses and forbs read apart at a glance. Everything else
         // falls back to the kind of record it is.
+        // A named plant is coloured by what kind of plant it is — trees,
+        // shrubs, grasses and forbs read apart at a glance. Everything else
+        // falls back to the kind of record it is.
         circleColor: [
           'match',
           ['get', 'kind'],
@@ -544,20 +598,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         circleStrokeWidth: 1.5,
       ),
       enableInteraction: true,
-    );
-    // Named species get a ring, so a documented plant stands out from a
-    // general note at a glance.
-    await controller.addCircleLayer(
-      'observations',
-      'observations-named',
-      const CircleLayerProperties(
-        circleRadius: 12,
-        circleColor: '#00000000',
-        circleStrokeColor: '#1B1813',
-        circleStrokeWidth: 1.2,
-        circleOpacity: 0,
-      ),
-      filter: ['==', ['get', 'named'], true],
     );
     _recordLayersReady = true;
     await _refreshRecords();
@@ -587,6 +627,69 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   /// Every located record on this property, with the species and growth form
   /// the pin is drawn from.
+  /// A property with no boundary yet, and records spread across it, should
+  /// open showing all of them. initialCameraPosition can't express bounds,
+  /// so the framing happens once the map is up.
+  Future<void> _frameRecordsIfNeeded() async {
+    final bounds = _recordBounds;
+    final controller = _controller;
+    if (bounds == null || controller == null || _framedRecords) return;
+    if (_openedOnFix && (_presence?.onSite ?? false)) return;
+    if (widget.property != null && propertyCentre(widget.property!) != null) {
+      return; // the property knows its own place; leave the camera there
+    }
+    _framedRecords = true;
+    try {
+      await controller.animateCamera(CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(bounds[1], bounds[0]),
+          northeast: LatLng(bounds[3], bounds[2]),
+        ),
+        left: 48, right: 48, top: 150, bottom: 160,
+      ));
+    } catch (_) {}
+  }
+
+  bool _framedRecords = false;
+
+  /// Mean of located records — a stand-in centre for a property with no
+  /// boundary yet, so the map opens on the work instead of nowhere.
+  Future<void> _loadRecordCentre() async {
+    final db = widget.db;
+    final property = widget.property;
+    if (db == null || property == null) return;
+    if (propertyCentre(property) != null) return;
+    try {
+      final row = await db.customSelect(
+        'SELECT AVG(lat) AS lat, AVG(lng) AS lng, COUNT(*) AS n, '
+        'MIN(lat) AS min_lat, MAX(lat) AS max_lat, '
+        'MIN(lng) AS min_lng, MAX(lng) AS max_lng '
+        'FROM observations WHERE property_id = ? AND deleted_at IS NULL '
+        'AND (gps_accuracy_m IS NULL OR gps_accuracy_m != -1)',
+        variables: [Variable.withString(property.id)],
+        readsFrom: {db.observations},
+      ).getSingleOrNull();
+      final n = (row?.data['n'] as int?) ?? 0;
+      final lat = row?.data['lat'] as double?;
+      final lng = row?.data['lng'] as double?;
+      if (n > 0 && lat != null && lng != null) {
+        _recordCentre = [lng, lat];
+        final minLat = row?.data['min_lat'] as double?;
+        final maxLat = row?.data['max_lat'] as double?;
+        final minLng = row?.data['min_lng'] as double?;
+        final maxLng = row?.data['max_lng'] as double?;
+        if (n > 1 &&
+            minLat != null &&
+            maxLat != null &&
+            minLng != null &&
+            maxLng != null &&
+            (maxLat - minLat > 0.0002 || maxLng - minLng > 0.0002)) {
+          _recordBounds = [minLng, minLat, maxLng, maxLat];
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _refreshRecords() async {
     final db = widget.db;
     final property = widget.property;
@@ -610,6 +713,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         final growth = r.data['growth'] as String?;
         final type = r.data['type'] as String? ?? 'general';
         final species = r.data['species'] as String?;
+        if (widget.hiddenTypes.contains(type)) continue;
+        if (growth != null && widget.hiddenGrowthForms.contains(growth)) {
+          continue;
+        }
         features.add({
           'type': 'Feature',
           'geometry': {
