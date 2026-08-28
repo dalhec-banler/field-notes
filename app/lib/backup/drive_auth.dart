@@ -46,17 +46,19 @@ class DriveAuth {
     }
   }
 
-  /// The signed-in account's address, or null. Silent: never shows UI.
-  Future<String?> currentEmail() async {
-    try {
-      await _init();
-      final account =
-          await GoogleSignIn.instance.attemptLightweightAuthentication();
-      return account?.email;
-    } catch (_) {
-      return null;
-    }
-  }
+  /// The address of the account this session last obtained a token for, or
+  /// null. Reads nothing from Google — see the note below.
+  ///
+  /// There is deliberately no "ask Google who is signed in" call here.
+  /// `attemptLightweightAuthentication()` sounds silent and is not: on
+  /// Android it goes through Credential Manager, which puts the account
+  /// picker on screen when there is no existing grant. Calling it just to
+  /// label the Backup screen made a Google sheet appear the instant the
+  /// screen opened — before the user had touched Connect — which is exactly
+  /// what this app promises not to do. The screen shows the remembered
+  /// address instead, and Google is only ever contacted from [accessToken].
+  String? get lastKnownEmail => _lastEmail;
+  String? _lastEmail;
 
   /// Get a token for the Drive app folder.
   ///
@@ -72,6 +74,8 @@ class DriveAuth {
     GoogleSignInAccount? account =
         await signIn.attemptLightweightAuthentication();
     if (account == null) {
+      // Only past this line does a Google dialog become possible, and only
+      // because the user asked for one.
       if (!interactive) return null;
       if (!signIn.supportsAuthenticate()) {
         throw const DriveException(
@@ -79,6 +83,7 @@ class DriveAuth {
       }
       account = await signIn.authenticate(scopeHint: const [DriveTarget.scope]);
     }
+    _lastEmail = account.email;
 
     final client = account.authorizationClient;
     var authz =
@@ -97,6 +102,7 @@ class DriveAuth {
     try {
       await _init();
       await GoogleSignIn.instance.disconnect();
+      _lastEmail = null;
     } catch (_) {
       // Already gone, or offline — either way the local grant is dropped.
     }

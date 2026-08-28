@@ -37,13 +37,15 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
     _refresh();
   }
 
+  /// Opening this screen must not talk to Google. The remembered address is
+  /// enough to say which account is connected, and asking Google instead put
+  /// its account picker on screen before the user had touched anything.
   Future<void> _refresh() async {
     final supported = await DriveAuth.instance.isSupported;
-    final email = supported ? await DriveAuth.instance.currentEmail() : null;
     if (!mounted) return;
     setState(() {
       _supported = supported;
-      _email = email ?? widget.prefs.driveEmail;
+      _email = DriveAuth.instance.lastKnownEmail ?? widget.prefs.driveEmail;
     });
   }
 
@@ -58,7 +60,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
         if (mounted) setState(() => _status = 'Not connected.');
         return;
       }
-      final email = await DriveAuth.instance.currentEmail();
+      final email = DriveAuth.instance.lastKnownEmail;
       widget.prefs.driveEmail = email;
       if (mounted) {
         setState(() {
@@ -98,6 +100,10 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
         if (mounted) setState(() => _status = 'Not connected.');
         return;
       }
+      // Someone can go straight to Back up now without tapping Connect;
+      // remember the account so the screen can name it next time.
+      widget.prefs.driveEmail = DriveAuth.instance.lastKnownEmail;
+      if (mounted) setState(() => _email = widget.prefs.driveEmail);
       target = DriveTarget(accessToken: token);
       final engine = await _service.engineForTarget(
         target,
