@@ -120,6 +120,45 @@ class BackupService {
   /// Encrypted mode tries the key cache first; if empty, [askPassphrase] is
   /// consulted (null → give up). [setupIfNeeded] mints a new keyring when
   /// none exists; the recovery phrase is handed to [onRecoveryPhrase] once.
+  /// Same key handling as [engine], but pointed at an arbitrary target —
+  /// a computer on the network rather than the folder on this phone. The
+  /// keyring is shared, so a LAN backup is readable by the same passphrase
+  /// and recovery kit as every other copy.
+  Future<BackupEngine?> engineForTarget(
+    BackupTarget target, {
+    Future<String?> Function()? askPassphrase,
+    void Function(String status)? onStatus,
+  }) async {
+    final config = await loadConfigOrNull();
+    if (config == null) {
+      onStatus?.call('Backup settings file is damaged — see Settings.');
+      return null;
+    }
+    final encrypted = config['scheme'] == 'keyring-v1' ||
+        config['wrap_pass'] != null;
+    if (!encrypted) {
+      return BackupEngine(db, target, const PlainCipher());
+    }
+    final fields = Map<String, Object?>.from(config)..['scheme'] = 'keyring-v1';
+    final cached = await _keyCache.read();
+    if (cached != null) {
+      final keyring = BackupKeyring.fromCachedKey(cached, config);
+      return BackupEngine(db, target, keyring.cipher, envelopeExtra: fields);
+    }
+    final passphrase = await askPassphrase?.call();
+    if (passphrase == null || passphrase.isEmpty) return null;
+    onStatus?.call('Unlocking…');
+    try {
+      final keyring =
+          await BackupKeyring.unlockWithPassphrase(config, passphrase);
+      await _keyCache.write(await keyring.dataKeyBytes());
+      return BackupEngine(db, target, keyring.cipher, envelopeExtra: fields);
+    } catch (_) {
+      onStatus?.call('Wrong passphrase.');
+      return null;
+    }
+  }
+
   Future<BackupEngine?> engine({
     required bool encrypted,
     Future<String?> Function()? askPassphrase,

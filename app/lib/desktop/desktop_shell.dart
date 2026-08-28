@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../backup/lan_receiver.dart';
 import '../db/database.dart';
 import '../main.dart' show exportAndShare;
 import '../screens/backup_screen.dart';
@@ -880,6 +881,149 @@ class _BatchEvents extends StatelessWidget {
 
 class _DataWorkspace extends StatelessWidget {
   const _DataWorkspace({required this.db, required this.property});
+  final FieldNotesDb db;
+  final Property property;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        const _ReceiveBackupPanel(),
+        _DataWorkspaceBody(db: db, property: property),
+      ],
+    );
+  }
+}
+
+/// The desk half of LAN backup: switch it on, read the address and code to
+/// the phone, watch files land. The computer never decrypts anything.
+class _ReceiveBackupPanel extends StatefulWidget {
+  const _ReceiveBackupPanel();
+
+  @override
+  State<_ReceiveBackupPanel> createState() => _ReceiveBackupPanelState();
+}
+
+class _ReceiveBackupPanelState extends State<_ReceiveBackupPanel> {
+  LanReceiver? _receiver;
+  bool _starting = false;
+
+  @override
+  void dispose() {
+    _receiver?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggle() async {
+    if (_receiver?.running ?? false) {
+      await _receiver!.stop();
+      setState(() {});
+      return;
+    }
+    setState(() => _starting = true);
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = Directory(p.join(docs.path, 'received_backups'))
+      ..createSync(recursive: true);
+    final r = _receiver ??= LanReceiver(storeDir: dir)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
+    await r.start();
+    if (mounted) setState(() => _starting = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = _receiver;
+    final running = r?.running ?? false;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Press.paperRaised,
+          border: Border.all(
+              color: running ? Press.sage : Press.ink, width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Diamond(
+                    size: 11,
+                    color: running ? Press.sage : Press.inkSoft,
+                    filled: running),
+                const SizedBox(width: 8),
+                const MonoLabel('Receive a backup', size: 9, spacing: 1.8),
+                const Spacer(),
+                SizedBox(
+                  height: 40,
+                  child: OutlinedButton(
+                    onPressed: _starting ? null : _toggle,
+                    child: Text(running ? 'STOP' : 'SWITCH ON'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'A phone on this network can back up straight to this computer. '
+              'Nothing goes to the internet, and this machine only ever holds '
+              'encrypted files it cannot open.',
+              style:
+                  TextStyle(fontFamily: Type.serif, fontSize: 14, height: 1.45),
+            ),
+            if (running) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _readout('Address',
+                        '${r!.address ?? "unknown"}:${r.port}'),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: _readout('Code', r.pairingCode ?? '—')),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _readout('Files received', '${r.filesReceived}')),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const MonoLabel(
+                  'On the phone: Settings → Back up to a computer',
+                  size: 9,
+                  opacity: 0.7),
+            ],
+            if (r?.error != null) ...[
+              const SizedBox(height: 10),
+              Text(r!.error!,
+                  style: const TextStyle(
+                      fontFamily: Type.serif,
+                      fontSize: 14,
+                      color: Press.oxblood)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _readout(String label, String value) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MonoLabel(label, size: 8.5, opacity: 0.65),
+          const SizedBox(height: 3),
+          Text(value,
+              style: const TextStyle(
+                  fontFamily: Type.mono, fontSize: 16, color: Press.ink)),
+        ],
+      );
+}
+
+class _DataWorkspaceBody extends StatelessWidget {
+  const _DataWorkspaceBody({required this.db, required this.property});
   final FieldNotesDb db;
   final Property property;
 

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../id/id_keys.dart';
+import '../id/plantnet_client.dart' show PlantNetClient, HttpClientHolder;
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 
@@ -16,8 +19,15 @@ class SpeciesIdSettingsScreen extends StatefulWidget {
       _SpeciesIdSettingsScreenState();
 }
 
-class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen> {
+class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
+    with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _catchKeyFromClipboard();
+  }
+
   final _keys = IdKeys();
+  final _http = HttpClientHolder();
   final _plantNetController = TextEditingController();
   final _llmKeyController = TextEditingController();
   final _modelController = TextEditingController();
@@ -30,11 +40,14 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _http.close();
     _plantNetController.dispose();
     _llmKeyController.dispose();
     _modelController.dispose();
@@ -59,14 +72,88 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen> {
     });
   }
 
-  Future<void> _savePlantNet() async {
-    await _keys.setPlantNetKey(_plantNetController.text);
+  /// One tap out to Pl@ntNet — where a Google account is enough to sign in
+  /// — and on the way back the key is already in the box.
+  Future<void> _openPlantNet() async {
+    setState(() => _watchingClipboard = true);
+    try {
+      await launchUrl(Uri.parse('https://my.plantnet.org/account/settings'),
+          mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('COULD NOT OPEN THE BROWSER · GO TO MY.PLANTNET.ORG')));
+      }
+    }
+  }
+
+  /// Coming back from the browser: if the clipboard now holds something
+  /// key-shaped, put it in the field so there is nothing left to do but
+  /// tap save.
+  Future<void> _catchKeyFromClipboard() async {
+    if (!_watchingClipboard) return;
+    _watchingClipboard = false;
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text?.trim();
+      if (text == null || text.isEmpty) return;
+      // Pl@ntNet keys are a single opaque token — no spaces, no punctuation
+      // beyond the odd dash, and long enough not to be a stray word.
+      final looksLikeKey = text.length >= 16 &&
+          text.length <= 128 &&
+          !text.contains(RegExp(r'[\s@/]'));
+      if (!looksLikeKey || !mounted) return;
+      setState(() => _plantNetController.text = text);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('KEY PASTED FROM CLIPBOARD · CHECKING IT')));
+      await _savePlantNet(validateFirst: true);
+    } catch (_) {}
+  }
+
+  bool _watchingClipboard = false;
+  bool _checking = false;
+
+  Future<void> _savePlantNet({bool validateFirst = true}) async {
+    final key = _plantNetController.text.trim();
+    if (key.isEmpty) return;
+    if (validateFirst) {
+      setState(() => _checking = true);
+      final ok = await _validate(key);
+      if (!mounted) return;
+      setState(() => _checking = false);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('THAT KEY WAS REFUSED · CHECK YOU COPIED ALL OF IT')));
+        return;
+      }
+    }
+    await _keys.setPlantNetKey(key);
     _plantNetController.clear();
     await _load();
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('PL@NTNET KEY SAVED')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PL@NTNET KEY SAVED AND WORKING')));
     }
+  }
+
+  /// Ask Pl@ntNet whether the key is real, without spending an
+  /// identification: a deliberately empty request answers 400 for a good key
+  /// and 401/403 for a bad one.
+  Future<bool> _validate(String key) async {
+    try {
+      final res = await _probe(key);
+      return res != 401 && res != 403;
+    } catch (_) {
+      // Offline: accept it rather than block on a network we don't have.
+      return true;
+    }
+  }
+
+  Future<int> _probe(String key) async {
+    final uri = Uri.https(PlantNetClient.host, '/v2/identify/k-world-flora',
+        {'api-key': key, 'nb-results': '1'});
+    final res = await _http.post(uri).timeout(const Duration(seconds: 15));
+    return res.statusCode;
   }
 
   Future<void> _saveLlm() async {
@@ -163,11 +250,21 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen> {
                 const SizedBox(height: 12),
                 const MonoLabel('Getting a key', size: 9, spacing: 1.6),
                 const SizedBox(height: 6),
-                _step(1, 'Go to my.plantnet.org in a browser.'),
-                _step(2, 'Create a free account and confirm your email.'),
+                _step(1,
+                    'Tap below. Pl@ntNet opens — sign in with Google, or make '
+                    'an account.'),
+                _step(2, 'Copy the API key it shows you.'),
                 _step(3,
-                    'Open Settings on that site — your API key is shown there.'),
-                _step(4, 'Copy it and paste it below.'),
+                    'Come back here. It gets pasted and checked on its own.'),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 56,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('OPEN PL@NTNET'),
+                    onPressed: _openPlantNet,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 const Text(
                   'The free tier allows 500 identifications a day, which is '
@@ -186,9 +283,9 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen> {
                 const SizedBox(height: 10),
                 SizedBox(
                   height: 52,
-                  child: FilledButton(
-                    onPressed: _savePlantNet,
-                    child: const Text('SAVE KEY'),
+                  child: OutlinedButton(
+                    onPressed: _checking ? null : () => _savePlantNet(),
+                    child: Text(_checking ? 'CHECKING…' : 'SAVE KEY'),
                   ),
                 ),
               ],

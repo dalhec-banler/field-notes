@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../db/database.dart';
 import '../screens/backup_screen.dart';
 import '../screens/kml_import_screen.dart';
+import '../screens/lan_backup_screen.dart';
 import '../screens/offline_maps_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/photo_import_screen.dart';
@@ -271,6 +272,16 @@ class _SettingsTabState extends State<SettingsTab> {
                   .push(MaterialPageRoute(
                       builder: (_) => const SpeciesIdSettingsScreen()))
                   .then((_) => _load()),
+            ),
+          ]),
+          _group('Backup', [
+            (
+              'Back up to a computer',
+              'over your own network · nothing touches the internet',
+              '',
+              () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) =>
+                      LanBackupScreen(db: widget.db, prefs: widget.prefs))),
             ),
           ]),
           _group('Help', [

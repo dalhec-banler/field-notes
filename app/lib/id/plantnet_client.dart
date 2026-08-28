@@ -96,3 +96,11 @@ class PlantNetException implements Exception {
   @override
   String toString() => message;
 }
+
+/// A tiny owned http client, so a screen can probe a key without holding a
+/// whole PlantNetClient.
+class HttpClientHolder {
+  final _client = http.Client();
+  Future<http.Response> post(Uri uri) => _client.post(uri);
+  void close() => _client.close();
+}

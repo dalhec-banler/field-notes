@@ -37,6 +37,12 @@ class AppPrefs extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The computer this phone last paired with for LAN backup.
+  String? get lanHost => get<String>('lan_host');
+  set lanHost(String? v) => set('lan_host', v);
+  String? get lanCode => get<String>('lan_code');
+  set lanCode(String? v) => set('lan_code', v);
+
   /// First run shows the walkthrough once; Settings can reopen it.
   bool get hasSeenOnboarding => get<bool>('seen_onboarding') ?? false;
   set hasSeenOnboarding(bool v) => set('seen_onboarding', v);

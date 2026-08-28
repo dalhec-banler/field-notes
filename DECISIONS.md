@@ -147,3 +147,26 @@ exactly that ("31 of 40 alive · 78%"). Tagged-individual checks are a sample
 — 3 tags on 40 cuttings would read as 8% if divided by `count_planted` — so
 the tag-derived figure is shown as "3 of 3 tagged alive · of 40 planted",
 never as a percent of the cohort. Both stay derived, never stored.
+
+### D-019 · Backup to a computer on your own LAN (new capability)
+Spec §11.5 listed Google Drive, iCloud, S3 and "local folder / USB" as
+targets. Adding a fifth: the desktop app runs a receiver, the phone pushes
+the same encrypted blob store to it over the local network. Pairing is a
+six-digit code shown on the desktop, used as a bearer token. The receiver
+never decrypts — the phone encrypts first and the computer holds opaque
+files with HMAC names. This is the strongest privacy option the app offers
+(no account, no internet, no third party) and it costs nothing to operate.
+`BackupTarget` made it a drop-in: the engine is unchanged.
+
+### D-020 · Pl@ntNet keys stay bring-your-own; friction removed instead
+Austin asked whether "sign in with Google" on my.plantnet.org could let the
+app fetch a user's key on the backend. It can't: that button signs a person
+into Pl@ntNet's own website; Pl@ntNet is not an OAuth provider a third
+party can use to obtain a key or act on a user's behalf. The alternative —
+one key of ours serving every user — needs a commercial contract (their
+quotas are per account), a proxy server so the key isn't extractable from
+the APK, and would route every photo through us, which contradicts the
+app's core promise. Rejected for now; revisit only as a deliberate business
+decision. Instead the friction is removed: one tap opens Pl@ntNet (where
+Google sign-in works fine), and on return the key is read from the
+clipboard, validated against the API, and saved.
