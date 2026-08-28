@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart' show Position;
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../db/database.dart';
+import '../geo/site_presence.dart';
 import '../main.dart' show locationHub, trackRecorder;
 import '../map/area_downloader.dart';
 import '../map/map_screen.dart';
@@ -76,25 +77,78 @@ class _MapTabState extends State<MapTab> {
     'phenology', 'sign', 'weather', 'maintenance'
   ];
   final Set<String> _hiddenTypes = {};
+
+  /// What a plant is, as the library records it. Filtering by this is the
+  /// point of the map for a planting: where are the trees, where's the grass.
+  static const _growthForms = [
+    'tree', 'shrub', 'graminoid', 'forb', 'vine', 'succulent', 'fern', 'moss'
+  ];
+  static const _growthLabels = {
+    'tree': 'trees',
+    'shrub': 'shrubs',
+    'graminoid': 'grasses',
+    'forb': 'forbs',
+    'vine': 'vines',
+    'succulent': 'succulents',
+    'fern': 'ferns',
+    'moss': 'mosses',
+  };
+  final Set<String> _hiddenGrowth = {};
+
+  /// Records to draw: how many are on the map right now.
+  int _recordCount = 0;
+
+  /// Where the phone is relative to this place.
+  SitePresence _presence = SitePresence.unknown;
   bool _showZones = true;
   bool _showTracks = true;
   /// Satellite imagery draws over the offline vector map. Online-only, so
   /// it starts off and the sheet says as much.
   bool _showSatellite = false;
   bool get _layersTouched =>
-      _hiddenTypes.isNotEmpty || !_showZones || !_showTracks || _showSatellite;
+      _hiddenTypes.isNotEmpty ||
+      _hiddenGrowth.isNotEmpty ||
+      !_showZones ||
+      !_showTracks ||
+      _showSatellite;
 
   Future<void> _applyLayers() async {
     final c = _controller;
     if (c == null) return;
     try {
-      final visible = _types.where((t) => !_hiddenTypes.contains(t)).toList();
-      await c.setFilter('observations-circles', [
-        'match',
-        ['get', 'type'],
-        visible.isEmpty ? ['__none__'] : visible,
-        true,
-        false,
+      final visibleTypes =
+          _types.where((t) => !_hiddenTypes.contains(t)).toList();
+      final visibleGrowth =
+          _growthForms.where((g) => !_hiddenGrowth.contains(g)).toList();
+      // A record shows when its type is on AND — if it names a plant — that
+      // plant's growth form is on too. Records with no growth form aren't
+      // filtered by the plant pills.
+      final filter = [
+        'all',
+        [
+          'match',
+          ['get', 'type'],
+          visibleTypes.isEmpty ? ['__none__'] : visibleTypes,
+          true,
+          false,
+        ],
+        [
+          'any',
+          ['==', ['get', 'growth'], ''],
+          [
+            'match',
+            ['get', 'growth'],
+            visibleGrowth.isEmpty ? ['__none__'] : visibleGrowth,
+            true,
+            false,
+          ],
+        ],
+      ];
+      await c.setFilter('observations-circles', filter);
+      await c.setFilter('observations-named', [
+        'all',
+        ['==', ['get', 'named'], true],
+        filter,
       ]);
     } catch (_) {}
     for (final id in const ['zones-fill', 'zones-line']) {
@@ -119,7 +173,12 @@ class _MapTabState extends State<MapTab> {
             shrinkWrap: true,
             padding: const EdgeInsets.fromLTRB(13, 14, 13, 8),
             children: [
-              const MonoLabel('Show on the map', size: 9, spacing: 2),
+              MonoLabel(
+                  _recordCount == 0
+                      ? 'Show on the map'
+                      : 'Show on the map · $_recordCount record${_recordCount == 1 ? '' : 's'}',
+                  size: 9,
+                  spacing: 2),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 7,
@@ -129,6 +188,23 @@ class _MapTabState extends State<MapTab> {
                     _pill(t, !_hiddenTypes.contains(t), () {
                       setSheet(() {
                         if (!_hiddenTypes.remove(t)) _hiddenTypes.add(t);
+                      });
+                      setState(() {});
+                      _applyLayers();
+                    }),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const MonoLabel('Plants by kind', size: 9, spacing: 2),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  for (final g in _growthForms)
+                    _pill(_growthLabels[g]!, !_hiddenGrowth.contains(g), () {
+                      setSheet(() {
+                        if (!_hiddenGrowth.remove(g)) _hiddenGrowth.add(g);
                       });
                       setState(() {});
                       _applyLayers();
@@ -159,6 +235,7 @@ class _MapTabState extends State<MapTab> {
                     _pill('reset', false, () {
                       setSheet(() {
                         _hiddenTypes.clear();
+                        _hiddenGrowth.clear();
                         _showZones = true;
                         _showTracks = true;
                         _showSatellite = false;
@@ -201,6 +278,31 @@ class _MapTabState extends State<MapTab> {
         ),
       ),
     );
+  }
+
+  /// Show the whole place: the boundary if there is one, else its centre.
+  /// This is what the badge does when you're not standing on the property.
+  Future<void> _flyToProperty() async {
+    final controller = _controller;
+    if (controller == null) return;
+    final bounds = propertyBounds(widget.property);
+    try {
+      if (bounds != null) {
+        await controller.animateCamera(CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(bounds[1], bounds[0]),
+            northeast: LatLng(bounds[3], bounds[2]),
+          ),
+          left: 40, right: 40, top: 120, bottom: 140,
+        ));
+        return;
+      }
+      final centre = propertyCentre(widget.property);
+      if (centre != null) {
+        await controller.animateCamera(
+            CameraUpdate.newLatLngZoom(LatLng(centre[1], centre[0]), 14));
+      }
+    } catch (_) {}
   }
 
   /// Locate-me: fly the camera to the current fix, close enough to see the
@@ -337,6 +439,18 @@ class _MapTabState extends State<MapTab> {
               // only safe moment to re-apply toggles after a re-key.
               onLayersReady: _applyLayers,
               onCoverage: (b) => _coverage = b,
+              onPresence: (p) {
+                if (mounted && p.onSite != _presence.onSite) {
+                  setState(() => _presence = p);
+                } else {
+                  _presence = p;
+                }
+              },
+              onRecordCount: (n) {
+                if (mounted && n != _recordCount) {
+                  setState(() => _recordCount = n);
+                }
+              },
               onLongPress: _captureMode ? null : widget.onDropRecord,
               visible: widget.active,
               onRecordTap: widget.onRecordTap,
@@ -524,11 +638,26 @@ class _MapTabState extends State<MapTab> {
                                 (locationHub.foreground
                                     ? locationHub.last
                                     : null);
+                            final presence = fix == null
+                                ? SitePresence.unknown
+                                : presenceFor(widget.property, fix.latitude,
+                                    fix.longitude);
+                            // Off the property, the useful move is to show
+                            // the property — not to drag the map to town.
+                            final offSite =
+                                fix != null && !presence.onSite &&
+                                    presence.distanceM != null;
                             final label = fix == null
                                 ? 'GPS · searching'
-                                : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · find me';
+                                : offSite
+                                    ? '${presence.awayLabel} · show the place'
+                                    : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · find me';
                             return GestureDetector(
-                              onTap: fix == null ? null : () => _flyTo(fix),
+                              onTap: fix == null
+                                  ? null
+                                  : offSite
+                                      ? _flyToProperty
+                                      : () => _flyTo(fix),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 8),
@@ -537,7 +666,9 @@ class _MapTabState extends State<MapTab> {
                                   border: Border.all(
                                       color: fix == null
                                           ? Press.sage
-                                          : Press.ink,
+                                          : offSite
+                                              ? Press.ochre
+                                              : Press.ink,
                                       width: 1.5),
                                 ),
                                 child: Row(
@@ -547,7 +678,9 @@ class _MapTabState extends State<MapTab> {
                                         size: 9,
                                         color: fix == null
                                             ? Press.sage
-                                            : Press.river,
+                                            : offSite
+                                                ? Press.ochre
+                                                : Press.river,
                                         filled: fix != null,
                                         blink: fix == null),
                                     const SizedBox(width: 6),
@@ -556,7 +689,9 @@ class _MapTabState extends State<MapTab> {
                                         spacing: 1.4,
                                         color: fix == null
                                             ? Press.sage
-                                            : Press.ink),
+                                            : offSite
+                                                ? Press.ochre
+                                                : Press.ink),
                                   ],
                                 ),
                               ),

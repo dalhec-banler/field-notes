@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
+import '../geo/site_presence.dart';
 import '../main.dart' show locationHub;
 import 'area_downloader.dart';
 import 'basemap_style.dart';
@@ -34,7 +35,9 @@ class MapScreen extends StatefulWidget {
       this.onLongPress,
       this.visible = true,
       this.onRecordTap,
-      this.onLayersReady});
+      this.onLayersReady,
+      this.onPresence,
+      this.onRecordCount});
 
   final FieldNotesDb? db;
   final Property? property;
@@ -60,6 +63,12 @@ class MapScreen extends StatefulWidget {
   /// Fired once the style and every overlay layer exist — the moment chrome
   /// can safely apply filters/visibility.
   final VoidCallback? onLayersReady;
+
+  /// Whether the current fix is on this property, so the chrome can say so.
+  final ValueChanged<SitePresence>? onPresence;
+
+  /// How many located records are currently drawn.
+  final ValueChanged<int>? onRecordCount;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -243,9 +252,22 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   /// first fix after opening without one). Never re-centres after that —
   /// the map is the user's to pan.
   bool _openedOnFix = false;
+  SitePresence? _presence;
 
   Future<void> _onFix(Position pos) async {
     _fix = pos;
+    final property = widget.property;
+    if (property != null) {
+      final presence =
+          presenceFor(property, pos.latitude, pos.longitude);
+      if (presence.onSite != _presence?.onSite ||
+          _presence == null ||
+          ((presence.distanceM ?? 0) - (_presence!.distanceM ?? 0)).abs() >
+              50) {
+        _presence = presence;
+        widget.onPresence?.call(presence);
+      }
+    }
     final controller = _controller;
     if (controller == null) return;
     if (!_openedOnFix && widget.visible) {
@@ -278,6 +300,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _recordSub?.cancel();
     _fixSub?.cancel();
     _server?.close();
     _mbtiles?.close();
@@ -300,19 +323,25 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (_styleJson == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    // Open where you're standing (a fresh fix), else on the property, else
-    // Lampasas River country until a boundary is imported.
+    // Standing on the place → open where you are. Somewhere else → open on
+    // the place; dragging the map 90 miles into town helps nobody.
     final fresh = locationHub.fresh() ?? _fix;
+    final property = widget.property;
+    final presence = property == null
+        ? SitePresence.unknown
+        : presenceFor(property, fresh?.latitude, fresh?.longitude);
+    final centre = property == null ? null : propertyCentre(property);
     final LatLng start;
     final double zoom;
-    if (fresh != null) {
+    if (fresh != null && (presence.onSite || centre == null)) {
       start = LatLng(fresh.latitude, fresh.longitude);
       zoom = 16;
       _openedOnFix = true;
-    } else if (widget.property?.centroidLat != null) {
-      start = LatLng(
-          widget.property!.centroidLat!, widget.property!.centroidLng!);
-      zoom = widget.property?.boundaryGeojson != null ? 14 : 11;
+    } else if (centre != null) {
+      start = LatLng(centre[1], centre[0]);
+      zoom = property?.boundaryGeojson != null ? 14 : 13;
+      // Off site: never yank the camera to the phone when a fix lands.
+      _openedOnFix = true;
     } else {
       start = const LatLng(31.06, -98.18);
       zoom = 11;
@@ -478,53 +507,132 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       );
     }
 
-    // Record pins: coloured by type, only records with a real location
-    // (gps_accuracy_m = -1 is a stand-in coordinate, not a place).
-    final obs = await (db.select(db.observations)
-          ..where((o) => o.propertyId.equals(property.id))
-          ..where((o) => o.deletedAt.isNull())
-          ..where((o) =>
-              o.gpsAccuracyM.isNull() | o.gpsAccuracyM.equals(-1).not()))
-        .get();
-    if (obs.isNotEmpty) {
-      await controller.addGeoJsonSource('observations', {
-        'type': 'FeatureCollection',
-        'features': [
-          for (final o in obs)
-            {
-              'type': 'Feature',
-              'geometry': {
-                'type': 'Point',
-                'coordinates': [o.lng, o.lat],
-              },
-              'properties': {'id': o.id, 'type': o.observationType},
-            }
+    // Record pins. The source is created empty and then kept in step with
+    // the database by [_watchRecords] — a record saved five minutes from now
+    // has to appear without restarting the app.
+    await controller.addGeoJsonSource('observations', _emptyCollection);
+    await controller.addCircleLayer(
+      'observations',
+      'observations-circles',
+      const CircleLayerProperties(
+        circleRadius: 7.5,
+        // A named plant is coloured by what kind of plant it is — trees,
+        // shrubs, grasses and forbs read apart at a glance. Everything else
+        // falls back to the kind of record it is.
+        circleColor: [
+          'match',
+          ['get', 'kind'],
+          'tree', '#3F5957',
+          'shrub', '#5F6B58',
+          'graminoid', '#B58A3C',
+          'forb', '#8E6A28',
+          'vine', '#5C7A78',
+          'succulent', '#8E9B85',
+          'fern', '#6B8F71',
+          'moss', '#6B8F71',
+          'wildlife', '#7A5C2E',
+          'problem', '#7A2E1E',
+          'water', '#5E6E8C',
+          'soil', '#6B4F2A',
+          'phenology', '#5C7A78',
+          'sign', '#8E6A28',
+          'weather', '#5E6E8C',
+          'maintenance', '#2C2620',
+          '#2f5233',
         ],
-      });
-      await controller.addCircleLayer(
-        'observations',
-        'observations-circles',
-        const CircleLayerProperties(
-          circleRadius: 7.5,
-          circleColor: [
-            'match',
-            ['get', 'type'],
-            'plant', '#5F6B58',
-            'wildlife', '#8E6A28',
-            'problem', '#7A2E1E',
-            'water', '#3F5957',
-            'soil', '#6B4F2A',
-            'phenology', '#5C7A78',
-            'sign', '#8E6A28',
-            'weather', '#5E6E8C',
-            'maintenance', '#2C2620',
-            '#2f5233',
-          ],
-          circleStrokeColor: '#ECE3CE',
-          circleStrokeWidth: 1.5,
-        ),
-        enableInteraction: true,
-      );
+        circleStrokeColor: '#ECE3CE',
+        circleStrokeWidth: 1.5,
+      ),
+      enableInteraction: true,
+    );
+    // Named species get a ring, so a documented plant stands out from a
+    // general note at a glance.
+    await controller.addCircleLayer(
+      'observations',
+      'observations-named',
+      const CircleLayerProperties(
+        circleRadius: 12,
+        circleColor: '#00000000',
+        circleStrokeColor: '#1B1813',
+        circleStrokeWidth: 1.2,
+        circleOpacity: 0,
+      ),
+      filter: ['==', ['get', 'named'], true],
+    );
+    _recordLayersReady = true;
+    await _refreshRecords();
+    _watchRecords();
+  }
+
+  static const _emptyCollection = {
+    'type': 'FeatureCollection',
+    'features': <Map<String, dynamic>>[],
+  };
+
+  bool _recordLayersReady = false;
+  StreamSubscription<void>? _recordSub;
+
+  /// Keep the pins in step with the ledger: any insert, edit or delete of an
+  /// observation (or of the species library behind it) redraws the source.
+  void _watchRecords() {
+    final db = widget.db;
+    if (db == null) return;
+    _recordSub?.cancel();
+    _recordSub = db
+        .customSelect('SELECT 1',
+            readsFrom: {db.observations, db.taxa})
+        .watch()
+        .listen((_) => _refreshRecords());
+  }
+
+  /// Every located record on this property, with the species and growth form
+  /// the pin is drawn from.
+  Future<void> _refreshRecords() async {
+    final db = widget.db;
+    final property = widget.property;
+    final controller = _controller;
+    if (db == null || property == null || controller == null) return;
+    if (!_recordLayersReady) return;
+    try {
+      final rows = await db.customSelect(
+        'SELECT o.id AS id, o.lat AS lat, o.lng AS lng, '
+        'o.observation_type AS type, o.gps_accuracy_m AS acc, '
+        't.growth_form AS growth, '
+        'COALESCE(t.common_name, t.scientific_name) AS species '
+        'FROM observations o LEFT JOIN taxa t ON t.id = o.taxon_id '
+        'WHERE o.property_id = ? AND o.deleted_at IS NULL '
+        'AND (o.gps_accuracy_m IS NULL OR o.gps_accuracy_m != -1)',
+        variables: [Variable.withString(property.id)],
+        readsFrom: {db.observations, db.taxa},
+      ).get();
+      final features = <Map<String, dynamic>>[];
+      for (final r in rows) {
+        final growth = r.data['growth'] as String?;
+        final type = r.data['type'] as String? ?? 'general';
+        final species = r.data['species'] as String?;
+        features.add({
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [r.data['lng'], r.data['lat']],
+          },
+          'properties': {
+            'id': r.data['id'],
+            'type': type,
+            // What the pin is coloured by: growth form when the record
+            // names a plant, otherwise the record type.
+            'kind': growth ?? type,
+            'growth': growth ?? '',
+            'named': species != null,
+            'species': species ?? '',
+          },
+        });
+      }
+      await controller.setGeoJsonSource(
+          'observations', {'type': 'FeatureCollection', 'features': features});
+      widget.onRecordCount?.call(features.length);
+    } catch (_) {
+      // A redraw failure must never take the map down.
     }
   }
 }
