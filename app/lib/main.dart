@@ -56,14 +56,16 @@ Future<void> main() async {
   // startup gates).
   seedTaxaIfEmpty(db);
   seedFeatureTypesIfEmpty(db);
-  // Retry pass for env contexts created offline (spec §4.11).
-  EnvContextService(db).backfillStale();
   locationHub = LocationHub();
   trackRecorder = TrackRecorder(db, locationHub);
   // A track left open by a killed process is closed out from its raw points.
   // Startup never fails over it.
   trackRecorder.recoverOpenTracks().catchError((_) => 0);
   final prefs = await AppPrefs.load();
+  // Retry pass for env contexts created offline (spec §4.11). Moved below
+  // AppPrefs.load() deliberately: it must not run before we know whether the
+  // user has switched it on, and it is off unless they have (D-022).
+  EnvContextService(db).backfillStale(enabled: prefs.envContext);
   // Daily automatic backup + weekly verify, when due (spec §11.7–11.8).
   // Never gates startup.
   BackupService(db).maybeRunAutomatic(prefs).catchError((_) => null);

@@ -640,8 +640,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                   if (_env != null) ...[
                     FactRow(
                       'rain, 30 d',
+                      // True whether the lookup is switched off or simply
+                      // hasn't run yet — the old copy promised a lookup that
+                      // may never happen now that it's opt-in (D-022).
                       _env!.isStale == 1
-                          ? 'looked up when back online'
+                          ? 'not looked up'
                           : '${_env!.precip30dMm?.toStringAsFixed(1) ?? '—'} mm · '
                                 '${_env!.daysSinceRain ?? '—'} d since rain',
                     ),

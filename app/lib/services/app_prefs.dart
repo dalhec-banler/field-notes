@@ -68,6 +68,16 @@ class AppPrefs extends ChangeNotifier {
   bool get autoBackup => get<bool>('auto_backup') ?? true;
   set autoBackup(bool v) => set('auto_backup', v);
 
+  /// Weather + soil lookup for each record (spec §4.11).
+  ///
+  /// Defaults to **off**, and is the only setting in the app whose default is
+  /// chosen against the feature: it is the one path that sends a location to
+  /// a third party without the user asking for it in the moment, and the
+  /// app's first rule is that coordinates of private land don't leave the
+  /// device unprompted. On, the coordinate is rounded to ~1 km first.
+  bool get envContext => get<bool>('env_context') ?? false;
+  set envContext(bool v) => set('env_context', v);
+
   /// glove | dense — drives the ledger row scale factor.
   String get density => get<String>('density') ?? 'glove';
   set density(String v) => set('density', v);

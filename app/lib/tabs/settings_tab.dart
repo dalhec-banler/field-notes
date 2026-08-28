@@ -245,7 +245,9 @@ class _SettingsTabState extends State<SettingsTab> {
               '',
               () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => PhotoImportScreen(
-                      db: widget.db, property: widget.property))),
+                      db: widget.db,
+                      property: widget.property,
+                      prefs: widget.prefs))),
             ),
             (
               'Import species list',
@@ -342,6 +344,19 @@ class _SettingsTabState extends State<SettingsTab> {
               widget.prefs.autoBackup ? 'On' : 'Off',
               () => setState(
                   () => widget.prefs.autoBackup = !widget.prefs.autoBackup),
+            ),
+            // Off by default and described in terms of what leaves the phone
+            // rather than what you get (D-022). It is the only switch here
+            // that turns on an unprompted request to a third party.
+            (
+              'Weather & soil for each record',
+              widget.prefs.envContext
+                  ? 'on · sends a location rounded to about a kilometre to '
+                      'Open-Meteo and USDA-NRCS'
+                  : 'off · nothing is looked up and no location is sent',
+              widget.prefs.envContext ? 'On' : 'Off',
+              () => setState(
+                  () => widget.prefs.envContext = !widget.prefs.envContext),
             ),
           ]),
           _group('Privacy', [

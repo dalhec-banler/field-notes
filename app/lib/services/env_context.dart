@@ -12,6 +12,24 @@ import '../db/database.dart';
 /// (USDA-NRCS Soil Data Access) when connectivity returns. Soil is cached per
 /// mukey — the soil under a point does not change. SDA is single-threaded
 /// upstream, so requests run strictly one at a time with a courtesy delay.
+///
+/// ## The coordinate never leaves at full precision (D-022)
+///
+/// This is the only part of the app that sends a location to a third party
+/// without the user pressing something for it, so two rules apply and both
+/// are enforced here rather than at the call sites:
+///
+///  * **It is off unless switched on.** [backfillStale] refuses to make a
+///    request unless the user has enabled it. Rows are still created locally
+///    while it is off, so turning it on later can fill in the history without
+///    anything having been sent in the meantime.
+///  * **Coordinates are rounded to [egressDecimals] (~1 km) before they go
+///    anywhere.** The stored row keeps the real coordinate — it is the
+///    record's own location and stays on the phone. Only [_coarse] output is
+///    ever put on the wire. This is the same standard the species-ID path
+///    already holds itself to; weather at 1 km is identical in practice, and
+///    a soil map unit at 1 km is occasionally a neighbouring unit, which is
+///    a trade worth making for not broadcasting a gate.
 class EnvContextService {
   EnvContextService(
     this.db, {
@@ -22,6 +40,14 @@ class EnvContextService {
   final FieldNotesDb db;
   final http.Client _client;
   final Duration courtesyDelay;
+
+  /// Decimal places kept when a coordinate is sent to a third party.
+  /// Two places is ~1.1 km at this latitude.
+  static const egressDecimals = 2;
+
+  /// The only coordinate form allowed out of this file.
+  static double _coarse(double v) =>
+      double.parse(v.toStringAsFixed(egressDecimals));
 
   static const _openMeteo = 'archive-api.open-meteo.com';
   static const _sdaUrl =
@@ -52,7 +78,12 @@ class EnvContextService {
   }
 
   /// Backfills every stale row. Returns how many were completed.
-  Future<int> backfillStale() async {
+  ///
+  /// [enabled] is the user's switch and defaults to false: a caller that
+  /// forgets to pass it sends nothing, which is the safe way round for the
+  /// one call in the app that talks to a third party unprompted.
+  Future<int> backfillStale({bool enabled = false}) async {
+    if (!enabled) return 0;
     final stale = await (db.select(db.envContexts)
           ..where((e) => e.isStale.equals(1))
           ..limit(50))
@@ -60,9 +91,10 @@ class EnvContextService {
     var done = 0;
     for (final row in stale) {
       try {
-        final weather =
-            await _fetchWeather(row.lat, row.lng, row.resolvedFor);
-        final soil = await _fetchSoil(row.lat, row.lng);
+        // Coarsened here, once, so neither fetch can see a precise point.
+        final lat = _coarse(row.lat), lng = _coarse(row.lng);
+        final weather = await _fetchWeather(lat, lng, row.resolvedFor);
+        final soil = await _fetchSoil(lat, lng);
         await (db.update(db.envContexts)..where((e) => e.id.equals(row.id)))
             .write(EnvContextsCompanion(
           tempMinC: Value(weather['temp_min_c'] as double?),
@@ -149,9 +181,10 @@ class EnvContextService {
 
   /// NRCS Soil Data Access: dominant component for the map unit at the point.
   Future<Map<String, Object?>?> _fetchSoil(double lat, double lng) async {
-    // Cache by rounded coordinate first (points within ~100 m share soil
-    // lookups), then by mukey server-side semantics.
-    final cacheKey = '${lat.toStringAsFixed(3)},${lng.toStringAsFixed(3)}';
+    // Callers hand us an already-coarsened point, so the cache key is just
+    // that point: every record within the same ~1 km cell shares one lookup.
+    final cacheKey = '${lat.toStringAsFixed(egressDecimals)},'
+        '${lng.toStringAsFixed(egressDecimals)}';
     final cached = _soilCache[cacheKey];
     if (cached != null) return cached;
 

@@ -213,3 +213,41 @@ the account picker when no grant exists — so a Google sheet appeared before
 the user had touched Connect, contradicting this decision's own third
 constraint. The screen now labels from local state; Google is contacted only
 from `accessToken()`.
+
+### D-022 · Environmental context is opt-in, and coarsened when on
+Spec §4.11 auto-attaches weather and soil to every record, and names
+Open-Meteo and USDA-NRCS Soil Data Access as the sources. The feature is
+right — "why did these die" is usually answered by drought and soil. The
+implementation was not.
+
+As built (2026-08-17) it ran automatically from `main()` on every launch and
+sent the record's **full-precision coordinate** to both services. That
+contradicts hard rule 3 in `CLAUDE.md` — nothing leaves the device without
+explicit user action — and it was inconsistent with the app's own better
+instinct elsewhere: the LLM identification path already rounds coordinates
+to ~1 km before sending. It was found while writing the public privacy page,
+not by the audits, because enumerating every egress point is a different
+exercise from reviewing a diff.
+
+Two changes, both enforced in `EnvContextService` rather than at the call
+sites, so a future caller cannot reintroduce either:
+
+1. **Off unless switched on.** `backfillStale({bool enabled = false})`
+   returns without a request when disabled, and the parameter *defaults to
+   off* — a caller that forgets it sends nothing. `AppPrefs.envContext`
+   defaults to false; the Settings row describes what leaves the phone
+   rather than what you gain.
+2. **Rounded before egress.** `_coarse()` (2 dp, ~1.1 km) is applied once in
+   `backfillStale` before either fetch. The stored row keeps the true
+   coordinate — it is the record's own location and stays local. Weather is
+   unchanged at that resolution; a soil map unit occasionally resolves to a
+   neighbour, which is the price.
+
+Rows are still created locally while the feature is off, so switching it on
+later backfills the history without anything having been sent in the interim.
+
+Tests assert the guarantees directly: zero HTTP requests while off, and that
+`31.061847` never appears on the wire while `31.06` does.
+
+Austin's call, 2026-08-28, choosing "off by default, coarsen when on" over
+leaving it on-but-coarsened or removing it outright.

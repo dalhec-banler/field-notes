@@ -7,6 +7,7 @@ import 'package:native_exif/native_exif.dart';
 
 import '../db/database.dart';
 import '../geo/zone_assignment.dart';
+import '../services/app_prefs.dart';
 import '../services/env_context.dart';
 import '../services/media_store.dart';
 import '../services/observation_ops.dart';
@@ -19,10 +20,14 @@ import '../widgets/press.dart';
 /// unlocated (gps_accuracy_m = -1), never faked.
 class PhotoImportScreen extends StatefulWidget {
   const PhotoImportScreen(
-      {super.key, required this.db, required this.property});
+      {super.key,
+      required this.db,
+      required this.property,
+      required this.prefs});
 
   final FieldNotesDb db;
   final Property property;
+  final AppPrefs prefs;
 
   @override
   State<PhotoImportScreen> createState() => _PhotoImportScreenState();
@@ -191,7 +196,8 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
         setState(() => _status = 'Importing $done of ${chosen.length}…');
       }
     }
-    EnvContextService(db).backfillStale();
+    // Only if the user has switched weather/soil lookup on (D-022).
+    EnvContextService(db).backfillStale(enabled: widget.prefs.envContext);
     if (!mounted) return;
     setState(() {
       _importing = false;
