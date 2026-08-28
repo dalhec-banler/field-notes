@@ -9,6 +9,7 @@ import '../geo/simplify.dart' show distanceM;
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 import '../widgets/species_field.dart';
+import 'identify_sheet.dart';
 import 'species_detail_sheet.dart';
 
 const _kTypes = [
@@ -785,6 +786,32 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       ),
                     ),
                 ],
+              ),
+            ),
+
+          // 5c. Identify: only where there's a photograph to work from.
+          if (_photos.isNotEmpty && _property != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  Metrics.gutter, 0, Metrics.gutter, 12),
+              child: SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.eco_outlined),
+                  label: Text(_taxon == null
+                      ? 'WHAT IS IT?'
+                      : 'SUGGEST ANOTHER SPECIES'),
+                  onPressed: () async {
+                    final accepted = await showIdentifySheet(
+                      context,
+                      db: widget.db,
+                      observation: _obs!,
+                      property: _property!,
+                      photo: File(_photos[_photoIndex].localPath!),
+                    );
+                    if (accepted) _load();
+                  },
+                ),
               ),
             ),
 

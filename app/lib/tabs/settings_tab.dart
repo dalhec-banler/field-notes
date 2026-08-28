@@ -12,6 +12,7 @@ import '../screens/kml_import_screen.dart';
 import '../screens/offline_maps_screen.dart';
 import '../screens/photo_import_screen.dart';
 import '../screens/programs_screen.dart';
+import '../screens/species_id_settings_screen.dart';
 import '../screens/species_import_screen.dart';
 import '../screens/restore_screen.dart';
 import '../services/app_prefs.dart';
@@ -263,9 +264,12 @@ class _SettingsTabState extends State<SettingsTab> {
           _group('Species ID', [
             (
               'Photo identification',
-              'coming later · you name the plant, the app never guesses for you',
-              'Off',
-              null,
+              'your own Pl@ntNet and AI keys · the app suggests, you decide',
+              '',
+              () => Navigator.of(context)
+                  .push(MaterialPageRoute(
+                      builder: (_) => const SpeciesIdSettingsScreen()))
+                  .then((_) => _load()),
             ),
           ]),
           // Spec §7 field ergonomics. Tapping a row toggles it.
