@@ -199,6 +199,17 @@ per target instance into a name→id index — `BackupEngine.backup` calls
 few hundred photos take minutes.
 
 Cloud project `field-notes-506920`; the Web client ID is in `DriveAuth` and
-is not a secret. Publishing status is **Testing** until there is a public
-home page and privacy policy URL to register — see the note in
-`docs/GOOGLE-DRIVE-SETUP.md`.
+is not a secret. **Published to production 2026-08-28**, which required a
+public home page and privacy policy on an authorized domain — both now live
+as unlisted pages on shortsfieldstation.org (`/fieldnotes` and
+`/fieldnotes/privacy`: noindex, out of the sitemap, not in the nav). No
+verification or security assessment was needed, `appdata` being
+non-sensitive, and the seven-day Testing sign-in expiry is gone.
+
+One behaviour bug found only on the device and fixed the same day: opening
+the Drive screen called `attemptLightweightAuthentication()` merely to label
+the account, and on Android that goes through Credential Manager and shows
+the account picker when no grant exists — so a Google sheet appeared before
+the user had touched Connect, contradicting this decision's own third
+constraint. The screen now labels from local state; Google is contacted only
+from `accessToken()`.

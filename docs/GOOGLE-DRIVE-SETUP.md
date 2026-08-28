@@ -1,10 +1,8 @@
-# Google Drive backup — what's configured, and the one thing left
+# Google Drive backup — what's configured
 
-**Status: done and wired up.** The Cloud project exists, the credentials are
-created, and the app has a working **Back up to Google Drive** screen. You do
-not need to do anything in the console to use it.
-
-There is one loose end — publishing status — described at the bottom.
+**Status: done, published, and verified on the phone.** The Cloud project
+exists, the credentials are created, the app is in production, and the
+**Back up to Google Drive** screen works end to end. Nothing is outstanding.
 
 ---
 
@@ -15,7 +13,7 @@ There is one loose end — publishing status — described at the bottom.
 | Cloud project | `Field Notes` — `field-notes-506920` |
 | Drive API | Enabled |
 | Scope | `https://www.googleapis.com/auth/drive.appdata` (**non-sensitive**) |
-| Publishing status | **Testing** — `austinnelsen@gmail.com` is a test user |
+| Publishing status | **In production** (published 28 Aug 2026 — no verification required) |
 | Web client ID | `447000916304-t5mglcl7s586up04oobapom5sqiukkoq.apps.googleusercontent.com` |
 | Android client (release) | package `io.nativeplanet.field_notes`, SHA-1 `8E:60:9F:8F:7E:C3:DA:64:56:B2:DE:B8:67:80:A7:C0:27:B6:23:80` |
 | Android client (debug) | same package, SHA-1 `93:A9:6E:0F:2D:16:51:4E:25:B6:C5:54:84:1A:59:E3:AB:7E:73:E5` |
@@ -52,35 +50,30 @@ working; it just stops uploading.
 
 ---
 
-## The one thing left: Testing → Production
+## Publishing status: done
 
-The app is in **Testing** mode. That works today because your address is on
-the test-user list, with one annoyance: **a sign-in expires after seven days**
-and you reconnect. For a backup that runs daily, that means a tap roughly
-weekly.
+The app is **in production**. Two static pages on shortsfieldstation.org
+satisfied Google's requirement:
 
-Moving to Production removes the expiry. Google requires two things first that
-Field Notes does not have yet:
+| Field | Value |
+|---|---|
+| Application home page | `https://shortsfieldstation.org/fieldnotes` |
+| Application privacy policy | `https://shortsfieldstation.org/fieldnotes/privacy` |
+| Authorized domain | `shortsfieldstation.org` |
 
-1. An **application home page** URL
-2. A **privacy policy** URL
+Both pages are deliberately **unlisted** — `noindex`, absent from the
+sitemap, not linked from the site nav — on the same pattern as `/support`.
+They resolve for anyone with the URL, which is all Google needs, without
+competing in search while the app isn't ready to hand to strangers.
 
-Both must be on a domain registered under *Authorized domains* in the console.
-Any hosted page works — a GitHub Pages site under `dalhec-banler`, a page on
-an existing domain, anything public and stable. Two static pages is the whole
-job.
+Because `drive.appdata` is a **non-sensitive** scope, and the project has
+one authorized domain and no uploaded logo, publishing required **no
+verification and no security assessment**. The seven-day Testing-mode
+sign-in expiry is gone.
 
-Because `drive.appdata` is a **non-sensitive** scope, that's all it takes:
-Production here does *not* trigger the third-party security assessment that
-full-Drive access requires. Once those URLs exist:
-
-1. Console → **Branding** → fill in Application home page and Application
-   privacy policy link → Save
-2. **Audience** → **Publish app**
-
-Two minutes. Until then, Testing is fine.
-
----
+Verified end to end on the Pixel: sign-in with no "unverified app" warning,
+consent showing only "See, create, and delete its own configuration data in
+your Google Drive", and three real backup generations to the app folder.
 
 ## If something goes wrong
 
@@ -88,10 +81,11 @@ Two minutes. Until then, Testing is fine.
   phone. Both release and debug clients are registered, so this most likely
   means the app was signed with a different keystore. Check
   `~/.keystores` is the one in use.
-- **"This app isn't verified"** — expected in Testing. *Advanced* → *Go to
-  Field Notes*.
-- **Sign-in worked, then stopped about a week later** — the seven-day Testing
-  expiry above. Reconnect, or finish the Production step.
+- **"This app isn't verified"** — should not appear now that the app is in
+  production with a non-sensitive scope. If it does, check the console hasn't
+  been reverted to Testing.
+- **Sign-in worked, then stopped about a week later** — this was the Testing-mode
+  expiry and no longer applies now that the app is in production. Reconnect.
 - **"Google sign-in expired. Open Backup and connect again."** — the app's own
   wording for a 401. Same fix.
 - **"This Google account is out of Drive storage."** — the backup is real data
