@@ -92,17 +92,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               'travels — each option trades privacy against convenience '
               'differently.',
           points: [
-            'Working today — on this phone, encrypted: a passphrase you '
+            'On this phone, encrypted: a passphrase you '
                 'choose plus a 12-word recovery kit. Strongest, and nobody '
                 'but you can open it, including us. Share the file wherever '
                 'you like from there.',
-            'Coming — Google Drive: signing in with Google would be used for '
-                'one thing only, permission to write to your own Drive. '
-                'Convenient, but a copy of your records then sits on '
-                'Google\'s servers.',
-            'Coming — the desktop app over your own network: run Field Notes '
-                'on a computer at home and back up across your LAN, so '
-                'nothing touches the internet at all.',
+            'Google Drive: signing in with Google is used for one thing, '
+                'permission to write to a hidden folder in your own Drive. '
+                'Convenient — the copy survives a lost phone without you '
+                'remembering anything. Google holds the file and no key.',
+            'Your own computer, over your own network: run Field Notes on a '
+                'machine at home, switch on Receive a backup, and the phone '
+                'pushes to it across the LAN. Nothing touches the internet '
+                'and no account exists.',
           ],
         ),
         _Page(

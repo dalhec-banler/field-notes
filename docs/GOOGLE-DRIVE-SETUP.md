@@ -1,166 +1,98 @@
-# Setting up Google Drive backup — what Austin needs to do
+# Google Drive backup — what's configured, and the one thing left
 
-Everything here happens in a browser, once. It takes about fifteen minutes.
-You are creating a *permission slip* that lets Field Notes write to a hidden
-folder in your own Drive — nothing else in your Drive, and nobody else's.
+**Status: done and wired up.** The Cloud project exists, the credentials are
+created, and the app has a working **Back up to Google Drive** screen. You do
+not need to do anything in the console to use it.
 
-Two facts to keep in mind:
-
-- **Google is not being given your records.** You are giving *your copy of
-  Field Notes* permission to put files in *your* Drive. The scope we use,
-  `drive.appdata`, can only see a private folder it creates for itself. It
-  cannot read your documents, photos, or anything you already have.
-- **You do not need Google to review or approve anything** while this is
-  just you. Approval ("verification") only matters if this ships to
-  strangers. Until then you add yourself as a test user and it works.
-
-You'll paste two values back to me at the end. Neither is a password.
+There is one loose end — publishing status — described at the bottom.
 
 ---
 
-## The values you'll need (already worked out)
+## What exists
 
-| What | Value |
+| Thing | Value |
 |---|---|
-| Package name | `io.nativeplanet.field_notes` |
-| SHA-1, release build | `8E:60:9F:8F:7E:C3:DA:64:56:B2:DE:B8:67:80:A7:C0:27:B6:23:80` |
-| SHA-1, debug build | `93:A9:6E:0F:2D:16:51:4E:25:B6:C5:54:84:1A:59:E3:AB:7E:73:E5` |
+| Cloud project | `Field Notes` — `field-notes-506920` |
+| Drive API | Enabled |
+| Scope | `https://www.googleapis.com/auth/drive.appdata` (**non-sensitive**) |
+| Publishing status | **Testing** — `austinnelsen@gmail.com` is a test user |
+| Web client ID | `447000916304-t5mglcl7s586up04oobapom5sqiukkoq.apps.googleusercontent.com` |
+| Android client (release) | package `io.nativeplanet.field_notes`, SHA-1 `8E:60:9F:8F:7E:C3:DA:64:56:B2:DE:B8:67:80:A7:C0:27:B6:23:80` |
+| Android client (debug) | same package, SHA-1 `93:A9:6E:0F:2D:16:51:4E:25:B6:C5:54:84:1A:59:E3:AB:7E:73:E5` |
 
-A SHA-1 fingerprint is just a checksum of the key your app is signed with.
-Google uses it to be sure a request really comes from *your* app and not
-something impersonating it. It is not secret — it's fine in this file.
+The Web client ID lives in `app/lib/backup/drive_auth.dart`. It is not a
+secret — it names the app and authorises nothing on its own. There is a client
+*secret* too; the app does not use it and it is not in the repo.
 
----
-
-## Step 1 — Make a project
-
-1. Go to **console.cloud.google.com** and sign in with the Google account
-   whose Drive you want backups in.
-2. At the top of the page there's a project dropdown (it may say
-   "Select a project"). Click it, then **New project**.
-3. Name it `Field Notes`. Leave organisation/location as they are.
-4. Click **Create**, then make sure that project is the one selected in the
-   dropdown before you carry on. Everything after this happens *inside* it.
-
-A "project" is just a container for settings. Nothing is running, nothing
-is billed.
+**Why two clients.** Google's Android libraries want both. The Android client
+(matched by package name and signing fingerprint) proves a request came from
+your build; the Web client is the identity string that build presents. There is
+no website involved.
 
 ---
 
-## Step 2 — Turn on the Drive API
+## What it does on the phone
 
-1. In the search bar at the top, type **Google Drive API** and open it.
-2. Click **Enable**.
+Settings → Backup → **Back up to Google Drive** → Connect. You approve one
+permission, and backups go to a folder Drive creates for this app.
 
-That's it. You've said "this project is allowed to talk to Drive."
+That folder — `appDataFolder` — is not the same thing as "a folder in your
+Drive". It does not appear in your file list, no other app can open it, and
+the app cannot see anything that was already in your Drive. It is a private
+box, not a key to the house.
 
----
+What lands in it is the same encrypted blob store as every other backup
+target. The phone seals every object before upload, so Google holds ciphertext
+with meaningless names and no key. Losing your phone loses nothing; losing
+your passphrase *and* your 12-word recovery kit loses everything, and that is
+the trade you chose when you set the backup up.
 
-## Step 3 — Fill in the consent screen
-
-This is the screen you'll see on your phone that says "Field Notes wants
-access to…". Google needs to know what to put on it.
-
-1. Search for **OAuth consent screen** (it may appear under *Google Auth
-   Platform* → *Branding*) and open it.
-2. Choose **External** if asked. (*Internal* is only for Google Workspace
-   organisations. External does not mean public — it stays private until
-   you publish it.)
-3. Fill in:
-   - **App name:** `Field Notes`
-   - **User support email:** your email
-   - **Developer contact email:** your email
-   - Skip the logo and the links.
-4. Save.
-5. Find the **Audience** (or *Test users*) section. Make sure the publishing
-   status is **Testing**, and click **Add users** — add your own Google
-   address. Add any other address that will use the app.
-
-> **Why Testing is the right setting.** In Testing mode, only the addresses
-> you list can use it, and Google requires no review. The one quirk: a
-> sign-in expires after seven days and you sign in again. When you're ready
-> to hand this to other people, you switch to Production and go through
-> basic verification — `drive.appdata` is a *non-sensitive* scope, so it's
-> the light version, not the security audit that full-Drive access needs.
-
-6. If there's a **Data access** or *Scopes* section, click **Add or remove
-   scopes**, paste this into the filter box, tick it, and save:
-
-   ```
-   https://www.googleapis.com/auth/drive.appdata
-   ```
-
-   If you can't find it, skip this — the app asks for the scope itself.
+Revoke any time at **myaccount.google.com/permissions**. The app keeps
+working; it just stops uploading.
 
 ---
 
-## Step 4 — Create two credentials
+## The one thing left: Testing → Production
 
-You need two, and the reason is genuinely confusing, so: the **Android**
-one proves the request came from your app; the **Web** one is the identity
-string the app hands to Google. Google's own libraries want both, even
-though there's no website involved.
+The app is in **Testing** mode. That works today because your address is on
+the test-user list, with one annoyance: **a sign-in expires after seven days**
+and you reconnect. For a backup that runs daily, that means a tap roughly
+weekly.
 
-Go to **Credentials** in the left menu.
+Moving to Production removes the expiry. Google requires two things first that
+Field Notes does not have yet:
 
-**4a. The Android one**
+1. An **application home page** URL
+2. A **privacy policy** URL
 
-1. **Create credentials** → **OAuth client ID**.
-2. Application type: **Android**.
-3. Name: `Field Notes Android`.
-4. Package name: `io.nativeplanet.field_notes`
-5. SHA-1: `8E:60:9F:8F:7E:C3:DA:64:56:B2:DE:B8:67:80:A7:C0:27:B6:23:80`
-6. **Create**. There's no secret to copy — that's normal for Android.
-7. *(Optional but useful)* Repeat 1–6 with the **debug** SHA-1
-   (`93:A9:6E:...`) and the name `Field Notes Android (debug)`, so
-   development builds work too.
+Both must be on a domain registered under *Authorized domains* in the console.
+Any hosted page works — a GitHub Pages site under `dalhec-banler`, a page on
+an existing domain, anything public and stable. Two static pages is the whole
+job.
 
-**4b. The Web one**
+Because `drive.appdata` is a **non-sensitive** scope, that's all it takes:
+Production here does *not* trigger the third-party security assessment that
+full-Drive access requires. Once those URLs exist:
 
-1. **Create credentials** → **OAuth client ID** again.
-2. Application type: **Web application**.
-3. Name: `Field Notes Web`.
-4. Leave the redirect URIs empty.
-5. **Create**.
-6. Copy the **Client ID**. It looks like:
+1. Console → **Branding** → fill in Application home page and Application
+   privacy policy link → Save
+2. **Audience** → **Publish app**
 
-   ```
-   123456789012-abcdefghijklmnop.apps.googleusercontent.com
-   ```
-
----
-
-## Step 5 — Send me
-
-- The **Web client ID** from 4b.
-
-That's all. It is not a password and not a secret — it identifies the app,
-it doesn't authorise anything on its own. Confirm you added the Android
-client too, and I'll wire up the rest.
-
----
-
-## What happens after
-
-You'll get a **Google Drive** option on the Backup screen. Tapping it opens
-the normal Google sign-in, you approve the one permission, and backups start
-going to a hidden folder in your Drive that only Field Notes can see. The
-files there are the same encrypted blobs as everywhere else — Google stores
-them, Google cannot read them, and neither can we.
-
-You can revoke it any time at **myaccount.google.com/permissions**, and the
-app keeps working exactly as before, backing up locally.
+Two minutes. Until then, Testing is fine.
 
 ---
 
 ## If something goes wrong
 
-- **"Error 400: redirect_uri_mismatch"** — you're using the Web client where
-  the Android client should be. Tell me; it's my side.
-- **"This app isn't verified"** — expected in Testing. Click *Advanced* →
-  *Go to Field Notes*. Or check your address is in the test-user list.
-- **Sign-in worked, then stopped a week later** — that's the seven-day
-  Testing-mode expiry. Sign in again, or switch to Production.
 - **"Developer error" / code 10** — the SHA-1 doesn't match the build on the
-  phone. Usually means the debug client is missing. Send me the error and
-  I'll check which build you're running.
+  phone. Both release and debug clients are registered, so this most likely
+  means the app was signed with a different keystore. Check
+  `~/.keystores` is the one in use.
+- **"This app isn't verified"** — expected in Testing. *Advanced* → *Go to
+  Field Notes*.
+- **Sign-in worked, then stopped about a week later** — the seven-day Testing
+  expiry above. Reconnect, or finish the Production step.
+- **"Google sign-in expired. Open Backup and connect again."** — the app's own
+  wording for a 401. Same fix.
+- **"This Google account is out of Drive storage."** — the backup is real data
+  and it counts against the account's quota.

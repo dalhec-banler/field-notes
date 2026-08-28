@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../db/database.dart';
 import '../screens/backup_screen.dart';
 import '../screens/kml_import_screen.dart';
+import '../screens/drive_backup_screen.dart';
 import '../screens/lan_backup_screen.dart';
 import '../screens/offline_maps_screen.dart';
 import '../screens/onboarding_screen.dart';
@@ -282,6 +283,14 @@ class _SettingsTabState extends State<SettingsTab> {
               () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) =>
                       LanBackupScreen(db: widget.db, prefs: widget.prefs))),
+            ),
+            (
+              'Back up to Google Drive',
+              'a hidden folder in your own Drive · encrypted before it leaves',
+              '',
+              () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) =>
+                      DriveBackupScreen(db: widget.db, prefs: widget.prefs))),
             ),
           ]),
           _group('Help', [

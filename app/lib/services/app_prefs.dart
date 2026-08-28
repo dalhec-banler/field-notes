@@ -42,6 +42,10 @@ class AppPrefs extends ChangeNotifier {
   set lanHost(String? v) => set('lan_host', v);
   String? get lanCode => get<String>('lan_code');
   set lanCode(String? v) => set('lan_code', v);
+  /// The Google account backups go to, remembered only so the Backup screen
+  /// can say which one without a silent sign-in on every visit.
+  String? get driveEmail => get<String>('drive_email');
+  set driveEmail(String? v) => set('drive_email', v);
 
   /// First run shows the walkthrough once; Settings can reopen it.
   bool get hasSeenOnboarding => get<bool>('seen_onboarding') ?? false;

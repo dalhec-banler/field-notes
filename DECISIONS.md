@@ -170,3 +170,35 @@ app's core promise. Rejected for now; revisit only as a deliberate business
 decision. Instead the friction is removed: one tap opens Pl@ntNet (where
 Google sign-in works fine), and on return the key is read from the
 clipboard, validated against the API, and saved.
+
+### D-021 · Google Drive backup: `drive.appdata` only, and never the default
+Spec §11.5 listed Google Drive as a target; it is now built (`DriveTarget`,
+`DriveAuth`). Three constraints, all deliberate:
+
+**Scope.** The only scope requested is `drive.appdata` — a hidden folder
+Drive creates for this app, invisible to the user's file list and to every
+other app. It cannot read what was already in the Drive. This is also why
+the app can go to Production without Google's restricted-scope security
+assessment: `appdata` is classed non-sensitive, unlike full Drive access.
+
+**Encryption is unchanged.** The Drive target sits under the same engine as
+every other, so the phone seals each object before upload. Google stores
+ciphertext with HMAC names and holds no key. Signing in creates no account
+with us and syncs nothing.
+
+**Framing.** The Backup screen and the walkthrough both say Drive is the
+convenient option and LAN (D-019) is the private one. Drive is never
+preselected and nothing signs in on launch; `accessToken(interactive:
+false)` exists precisely so the automatic runner can reuse a grant without
+putting a Google dialog in front of someone standing in a field.
+
+Implementation note: Drive has no paths. `fieldnotes/blobs/ab/cd` is stored
+flat as `fieldnotes__blobs__ab__cd`, and the whole app folder is listed once
+per target instance into a name→id index — `BackupEngine.backup` calls
+`exists()` once per blob, and a query apiece would make a first backup of a
+few hundred photos take minutes.
+
+Cloud project `field-notes-506920`; the Web client ID is in `DriveAuth` and
+is not a secret. Publishing status is **Testing** until there is a public
+home page and privacy policy URL to register — see the note in
+`docs/GOOGLE-DRIVE-SETUP.md`.
