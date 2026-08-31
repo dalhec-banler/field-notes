@@ -82,6 +82,13 @@ class AppPrefs extends ChangeNotifier {
   String get skinName => get<String>('skin') ?? 'quiet';
   set skinName(String v) => set('skin', v);
 
+  /// Satellite imagery on the map. On by default (Austin, 2026-08-31):
+  /// imagery reads better in the field and covers the ground the offline
+  /// vector extract doesn't — the vector map stays underneath for when
+  /// there's no signal.
+  bool get mapSatellite => get<bool>('map_satellite') ?? true;
+  set mapSatellite(bool v) => set('map_satellite', v);
+
   /// Whether the press skin has been discovered (seven taps on the version
   /// row). Once found, the Appearance row shows and stays shown.
   bool get pressUnlocked => get<bool>('press_unlocked') ?? false;

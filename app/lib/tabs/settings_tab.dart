@@ -52,6 +52,7 @@ class _SettingsTabState extends State<SettingsTab> {
   void initState() {
     super.initState();
     _load();
+    _deliverUnlockToastIfPending();
   }
 
   Future<void> _load() async {
@@ -438,6 +439,12 @@ class _SettingsTabState extends State<SettingsTab> {
 
   static const _appVersion = '1.1.0+2';
 
+  /// Set when the unlock flips the skin: the flip rebuilds the whole tree
+  /// (D-023), which destroys the ScaffoldMessenger the toast would have
+  /// shown on. The freshly built SettingsTab finds this flag and delivers
+  /// the toast from the new tree instead.
+  static bool _pendingUnlockToast = false;
+
   /// Seven taps on the version row wakes the press (D-023). The Android
   /// developer-options gesture: the curious find it, nobody trips it.
   void _versionTapped() {
@@ -457,18 +464,26 @@ class _SettingsTabState extends State<SettingsTab> {
       }
       return;
     }
-    setState(() {
-      widget.prefs.pressUnlocked = true;
-      widget.prefs.skinName = 'press';
-    });
-    // The reveal speaks in the voice you just found. These values are the
-    // press's own, deliberately not the active skin's: the toast IS the
-    // easter egg, whatever the app was wearing a frame ago.
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(
+    // The toast can't be shown from here: flipping the skin re-keys the
+    // root MaterialApp, and this tree — messenger included — is gone before
+    // the snackbar draws. Leave a note for the successor tab instead.
+    _pendingUnlockToast = true;
+    widget.prefs.pressUnlocked = true;
+    widget.prefs.skinName = 'press'; // notifies → root rebuild
+  }
+
+  /// Delivered from the freshly built tree, first frame after the flip.
+  /// The reveal speaks in the voice just found — these values are the
+  /// press's own, not the active skin's, so the toast IS the easter egg
+  /// whatever the app happens to be wearing.
+  void _deliverUnlockToastIfPending() {
+    if (!_pendingUnlockToast) return;
+    _pendingUnlockToast = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: pressSkin.ink,
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 6),
         content: Text(
           '◆ YOU FOUND THE PRESS — SHORT\'S RESORT FIELD STATION.\n'
           'SWITCH SKINS ANY TIME UNDER APPEARANCE.',
@@ -481,6 +496,7 @@ class _SettingsTabState extends State<SettingsTab> {
           ),
         ),
       ));
+    });
   }
 
   Widget _group(

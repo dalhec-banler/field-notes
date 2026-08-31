@@ -102,15 +102,19 @@ class _MapTabState extends State<MapTab> {
   SitePresence _presence = SitePresence.unknown;
   bool _showZones = true;
   bool _showTracks = true;
-  /// Satellite imagery draws over the offline vector map. Online-only, so
-  /// it starts off and the sheet says as much.
-  bool _showSatellite = false;
+  /// Satellite imagery draws over the offline vector map. The standard view
+  /// (on by default, remembered): imagery is what the ground actually looks
+  /// like, and it covers everywhere there's signal — including the gaps an
+  /// offline extract doesn't reach, which used to read as "the map didn't
+  /// load". Offline with no signal, the raster tiles simply don't draw and
+  /// the vector map underneath carries on.
+  late bool _showSatellite = widget.prefs.mapSatellite;
   bool get _layersTouched =>
       _hiddenTypes.isNotEmpty ||
       _hiddenGrowth.isNotEmpty ||
       !_showZones ||
       !_showTracks ||
-      _showSatellite;
+      !_showSatellite;
 
   Future<void> _applyLayers() async {
     final c = _controller;
@@ -192,6 +196,7 @@ class _MapTabState extends State<MapTab> {
                   }),
                   _pill('satellite', _showSatellite, () {
                     setSheet(() => _showSatellite = !_showSatellite);
+                    widget.prefs.mapSatellite = _showSatellite;
                     setState(() {});
                     _applyLayers();
                   }),
@@ -202,7 +207,8 @@ class _MapTabState extends State<MapTab> {
                         _hiddenGrowth.clear();
                         _showZones = true;
                         _showTracks = true;
-                        _showSatellite = false;
+                        _showSatellite = true;
+                        widget.prefs.mapSatellite = true;
                       });
                       setState(() {});
                       _applyLayers();

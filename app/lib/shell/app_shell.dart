@@ -40,7 +40,13 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
-  int _tab = 0;
+  /// The active tab survives the shell being torn down and rebuilt — which
+  /// happens on every skin swap (D-023: the root MaterialApp is re-keyed).
+  /// Without this, changing the skin from Settings dumped you back on the
+  /// Map. Process-lifetime only, deliberately: a fresh launch starts on the
+  /// Map as always.
+  static int _lastTab = 0;
+  int _tab = _lastTab;
 
   @override
   void initState() {
@@ -209,7 +215,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       bottomNavigationBar: _TabBar(
         tabs: _tabs,
         current: _tab,
-        onTap: (i) => setState(() => _tab = i),
+        onTap: (i) => setState(() => _tab = _lastTab = i),
       ),
     );
   }
