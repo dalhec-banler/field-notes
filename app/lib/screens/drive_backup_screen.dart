@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'package:path_provider/path_provider.dart';
+
 import '../backup/backup_service.dart';
 import '../backup/drive_auth.dart';
 import '../backup/drive_target.dart';
+import '../backup/restore.dart';
 import '../db/database.dart';
 import '../services/app_prefs.dart';
 import '../theme/tokens.dart';
@@ -125,6 +128,108 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
     }
   }
 
+  /// Read every object back from Drive and check it against the manifest —
+  /// the proof that the copy up there is real, run against Drive itself.
+  Future<void> _verify() async {
+    setState(() {
+      _busy = true;
+      _status = 'Reading the backup back from Drive…';
+    });
+    DriveTarget? target;
+    try {
+      final token = await DriveAuth.instance.accessToken(interactive: true);
+      if (token == null) {
+        if (mounted) setState(() => _status = 'Not connected.');
+        return;
+      }
+      target = DriveTarget(accessToken: token);
+      final engine = await _service.engineForTarget(
+        target,
+        askPassphrase: () => _askPassphrase(context),
+        onStatus: (s) => mounted ? setState(() => _status = s) : null,
+      );
+      if (engine == null) {
+        if (mounted) setState(() => _status = null);
+        return;
+      }
+      final problem = await _service.verifyNow(engine);
+      if (mounted) {
+        setState(() => _status = problem == null
+            ? 'Verified: every object in Drive reads back intact.'
+            : 'Verify found a problem: $problem');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _status = 'Verify failed: $e');
+    } finally {
+      target?.close();
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Restore from the Drive copy. Stages only — the swap happens on the
+  /// next launch, the old database is kept aside, and a corrupt backup is
+  /// refused before anything live is touched (spec §11.9, audit P3).
+  Future<void> _restore() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('RESTORE FROM DRIVE?'),
+        content: const Text(
+            'The backup in Drive will replace what is on this phone the next '
+            'time the app starts. The current database is kept aside, and '
+            'nothing changes until the backup has been read back whole and '
+            'checked.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('CANCEL')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('RESTORE')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() {
+      _busy = true;
+      _status = 'Downloading the backup from Drive…';
+    });
+    DriveTarget? target;
+    try {
+      final token = await DriveAuth.instance.accessToken(interactive: true);
+      if (token == null) {
+        if (mounted) setState(() => _status = 'Not connected.');
+        return;
+      }
+      target = DriveTarget(accessToken: token);
+      if (!await target.exists('fieldnotes/manifest.json')) {
+        if (mounted) setState(() => _status = 'No backup found in Drive.');
+        return;
+      }
+      final docs = await getApplicationDocumentsDirectory();
+      final pipeline = RestorePipeline(docs);
+      try {
+        final summary = await pipeline.stageFromTarget(target);
+        if (mounted) setState(() => _status = summary);
+      } on StateError catch (e) {
+        if (!e.toString().contains('encrypted')) rethrow;
+        final secret = await _askPassphrase(context);
+        if (secret == null || secret.isEmpty) {
+          if (mounted) setState(() => _status = null);
+          return;
+        }
+        if (mounted) setState(() => _status = 'Unlocking and staging…');
+        final summary = await pipeline.stageFromTarget(target, secret: secret);
+        if (mounted) setState(() => _status = summary);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _status = 'Restore failed: $e');
+    } finally {
+      target?.close();
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<String?> _askPassphrase(BuildContext context) {
     final controller = TextEditingController();
     return showDialog<String>(
@@ -207,6 +312,30 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
                     child: FilledButton(
                       onPressed: _busy ? null : _backup,
                       child: Text(_busy ? 'WORKING…' : 'BACK UP NOW'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 56,
+                    child: OutlinedButton(
+                      onPressed: _busy ? null : _verify,
+                      child: const Text('VERIFY'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 56,
+                    child: OutlinedButton(
+                      onPressed: _busy ? null : _restore,
+                      child: const Text('RESTORE FROM DRIVE'),
                     ),
                   ),
                 ),

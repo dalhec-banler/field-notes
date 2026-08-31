@@ -70,6 +70,13 @@ class RestorePipeline {
     return _stageFromTarget(DirectoryTarget(store), secret: secret);
   }
 
+  /// Stage a restore from any backup target — the Drive app folder, a LAN
+  /// receiver, wherever. Same pipeline, same integrity refusal, same
+  /// restart-to-apply contract as every other source (audit P3: a backup
+  /// you can't restore from isn't one).
+  Future<String> stageFromTarget(BackupTarget target, {String? secret}) =>
+      _stageFromTarget(target, secret: secret);
+
   Future<String> _stageFromTarget(BackupTarget target,
       {String? secret}) async {
     final envelopeRaw = await target.read('${BackupEngine.root}/manifest.json');
