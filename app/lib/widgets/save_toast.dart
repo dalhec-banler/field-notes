@@ -21,6 +21,10 @@ class SaveToast {
     required String title,
     required String detail,
     required Future<void> Function() onUndo,
+    // Optional second action (audit U1: "identify" belongs at the moment of
+    // saving, not buried a screen deep). Tapping it dismisses the toast.
+    String? actionLabel,
+    VoidCallback? onAction,
     Duration duration = const Duration(seconds: 5),
   }) {
     dismiss();
@@ -30,6 +34,13 @@ class SaveToast {
       builder: (context) => _ToastBody(
         title: title,
         detail: detail,
+        actionLabel: actionLabel,
+        onAction: onAction == null
+            ? null
+            : () {
+                dismiss();
+                onAction();
+              },
         onUndo: () async {
           dismiss();
           // Grab the messenger before the await; the overlay outlives any
@@ -67,11 +78,15 @@ class _ToastBody extends StatelessWidget {
     required this.title,
     required this.detail,
     required this.onUndo,
+    this.actionLabel,
+    this.onAction,
   });
 
   final String title;
   final String detail;
   final Future<void> Function() onUndo;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +124,12 @@ class _ToastBody extends StatelessWidget {
                   ],
                 ),
               ),
+              if (actionLabel != null && onAction != null)
+                TextButton(
+                  onPressed: onAction,
+                  child: MonoLabel(actionLabel!,
+                      size: 10.5, spacing: 1.6, color: Press.sageLight),
+                ),
               TextButton(
                 onPressed: onUndo,
                 child: MonoLabel('UNDO',

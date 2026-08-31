@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
@@ -5,6 +7,7 @@ import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 import '../backup/backup_service.dart';
 import '../db/database.dart';
 import '../screens/capture_screen.dart';
+import '../screens/identify_sheet.dart';
 import '../screens/record_detail_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/observation_ops.dart';
@@ -92,13 +95,59 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     setState(() => _tab = 1);
     final ms = result.elapsed.inMilliseconds;
     final speed = ms < 1000 ? 'INSTANTLY' : 'IN ${(ms / 1000).toStringAsFixed(1)} S';
+    // Identify belongs at the moment of saving (audit U1) — but only when
+    // the record actually has a photo and a key is on file; a dead-end
+    // button teaches people to ignore the toast.
+    final identifyReady = await _identifyPhotoFor(result.observationId);
+    if (!mounted) return;
     SaveToast.show(
       context,
       title: 'OBSERVATION WRITTEN $speed',
       detail: 'SAVED ON THIS PHONE · NOTHING HAS LEFT IT',
+      actionLabel: identifyReady == null ? null : 'IDENTIFY',
+      onAction: identifyReady == null
+          ? null
+          : () => _identifyJustSaved(result.observationId, identifyReady),
       // Undo erases the record outright — row, photo, links, context — so
       // nothing of it reaches the next backup or export.
       onUndo: () => eraseObservation(widget.db, result.observationId),
+    );
+  }
+
+  /// The record's first photo, if identification could actually run on it.
+  Future<File?> _identifyPhotoFor(String observationId) async {
+    try {
+      final links = await (widget.db.select(widget.db.mediaLinks)
+            ..where((l) => l.entityType.equals('observation'))
+            ..where((l) => l.entityId.equals(observationId))
+            ..where((l) => l.deletedAt.isNull()))
+          .get();
+      if (links.isEmpty) return null;
+      final media = await (widget.db.select(widget.db.media)
+            ..where((m) => m.id.isIn([for (final l in links) l.mediaId]))
+            ..where((m) => m.mediaType.equals('photo')))
+          .get();
+      for (final m in media) {
+        final path = m.localPath;
+        if (path != null && File(path).existsSync()) return File(path);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _identifyJustSaved(String observationId, File photo) async {
+    final obs = await (widget.db.select(widget.db.observations)
+          ..where((o) => o.id.equals(observationId)))
+        .getSingleOrNull();
+    if (obs == null || !mounted) return;
+    await showIdentifySheet(
+      context,
+      db: widget.db,
+      observation: obs,
+      property: widget.property,
+      photo: photo,
     );
   }
 

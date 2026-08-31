@@ -1,5 +1,12 @@
 import 'package:drift/drift.dart' hide Column;
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../export/evidence_packet.dart';
 
 import '../db/database.dart';
 
@@ -198,6 +205,40 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
         _program = program;
         _practices = practices;
       });
+    }
+  }
+
+  /// Build the evidence packet and hand it to the share sheet. Leaving the
+  /// device is exactly the point of this document, and it happens only on
+  /// this explicit tap.
+  Future<void> _sharePacket() async {
+    final program = _program;
+    if (program == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+        const SnackBar(content: Text('Building the evidence packet…')));
+    try {
+      final property = await (widget.db.select(widget.db.properties)
+            ..where((x) => x.id.equals(program.propertyId)))
+          .getSingle();
+      final bytes = await EvidencePacket(widget.db).build(property, program);
+      final docs = await getApplicationDocumentsDirectory();
+      final reports = Directory(p.join(docs.path, 'reports'))
+        ..createSync(recursive: true);
+      final safeName = program.name
+          .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
+          .toLowerCase();
+      final file = File(p.join(reports.path,
+          'evidence-$safeName-${nowUtcIso().substring(0, 10)}.pdf'));
+      file.writeAsBytesSync(bytes);
+      messenger.hideCurrentSnackBar();
+      await SharePlus.instance.share(ShareParams(
+          files: [XFile(file.path)],
+          text: 'Evidence packet — ${program.name}'));
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+          SnackBar(content: Text('Could not build the packet: $e')));
     }
   }
 
@@ -400,7 +441,18 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
-      appBar: AppBar(title: Text(program.name)),
+      appBar: AppBar(
+        title: Text(program.name),
+        actions: [
+          // The moneymaker (audit 2026-08-31): the program's field record,
+          // formatted for the agency desk, out through the share sheet.
+          IconButton(
+            tooltip: 'Evidence packet',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            onPressed: _sharePacket,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add_task),
         label: const Text('Add practice'),
