@@ -26,7 +26,7 @@ import '../widgets/press.dart';
 /// Settings & backup (design README §3.6). Order is the argument:
 /// verification first, storage second, then the grouped tables, then export.
 class SettingsTab extends StatefulWidget {
-  const SettingsTab(
+  SettingsTab(
       {super.key,
       required this.db,
       required this.property,
@@ -41,6 +41,8 @@ class SettingsTab extends StatefulWidget {
 }
 
 class _SettingsTabState extends State<SettingsTab> {
+  /// Taps on the version row since the last timeout. Seven finds the press.
+  int _versionTaps = 0;
   String? _lastBackup;
   String? _lastVerify;
   bool _basemapInstalled = false;
@@ -117,16 +119,16 @@ class _SettingsTabState extends State<SettingsTab> {
     return SafeArea(
       bottom: false,
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 110),
+        padding: EdgeInsets.only(bottom: 110),
         children: [
-          const ScreenHeader(
+          ScreenHeader(
               kicker: 'Configuration · this device', title: 'Settings'),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // 1. Backup card — verification first.
           Padding(
             padding:
-                const EdgeInsets.symmetric(horizontal: Metrics.gutter),
+                EdgeInsets.symmetric(horizontal: Metrics.gutter),
             child: Container(
               decoration: BoxDecoration(
                 border: Border.all(
@@ -138,12 +140,12 @@ class _SettingsTabState extends State<SettingsTab> {
                 children: [
                   Container(
                     color: cardColor,
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                         horizontal: 12, vertical: 8),
                     child: Row(
                       children: [
-                        const Diamond(size: 9, color: Press.paper),
-                        const SizedBox(width: 7),
+                        Diamond(size: 9, color: Press.paper),
+                        SizedBox(width: 7),
                         MonoLabel(
                           !backupHealthy
                               ? 'Backup needed'
@@ -156,14 +158,14 @@ class _SettingsTabState extends State<SettingsTab> {
                           spacing: 1.6,
                           color: Press.paper,
                         ),
-                        const Spacer(),
+                        Spacer(),
                         MonoLabel(_ago(_lastBackup),
                             size: 9, color: Press.paper, opacity: 0.85),
                       ],
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -174,12 +176,12 @@ class _SettingsTabState extends State<SettingsTab> {
                               : 'Only what changed gets copied, so it\'s '
                                   'quick. Last verified ${_ago(_lastVerify)} '
                                   '— an untested backup is not a backup.',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontFamily: Type.serif,
                               fontSize: 15.5,
                               height: 1.45),
                         ),
-                        const SizedBox(height: 10),
+                        SizedBox(height: 10),
                         Row(
                           children: [
                             Expanded(
@@ -190,17 +192,17 @@ class _SettingsTabState extends State<SettingsTab> {
                                             db: widget.db,
                                             prefs: widget.prefs)))
                                     .then((_) => _load()),
-                                child: const Text('BACK UP NOW'),
+                                child: Text('BACK UP NOW'),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             Expanded(
                               child: OutlinedButton(
                                 onPressed: () => Navigator.of(context).push(
                                     MaterialPageRoute(
                                         builder: (_) =>
-                                            const RestoreScreen())),
-                                child: const Text('RESTORE'),
+                                            RestoreScreen())),
+                                child: Text('RESTORE'),
                               ),
                             ),
                           ],
@@ -212,7 +214,7 @@ class _SettingsTabState extends State<SettingsTab> {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
 
           // 2. Grouped tables.
           _group('Offline maps', [
@@ -226,7 +228,7 @@ class _SettingsTabState extends State<SettingsTab> {
                   : 'None',
               () => Navigator.of(context)
                   .push(MaterialPageRoute(
-                      builder: (_) => const OfflineMapsScreen()))
+                      builder: (_) => OfflineMapsScreen()))
                   .then((_) => _load()),
             ),
           ]),
@@ -273,7 +275,7 @@ class _SettingsTabState extends State<SettingsTab> {
               '',
               () => Navigator.of(context)
                   .push(MaterialPageRoute(
-                      builder: (_) => const SpeciesIdSettingsScreen()))
+                      builder: (_) => SpeciesIdSettingsScreen()))
                   .then((_) => _load()),
             ),
           ]),
@@ -359,6 +361,26 @@ class _SettingsTabState extends State<SettingsTab> {
                   () => widget.prefs.envContext = !widget.prefs.envContext),
             ),
           ]),
+          if (widget.prefs.pressUnlocked)
+            _group('Appearance', [
+              (
+                'Skin',
+                widget.prefs.skinName == 'press'
+                    ? 'Field Station — paper, ink and the press'
+                    : 'Quiet — the plain one',
+                widget.prefs.skinName == 'press' ? 'Press' : 'Quiet',
+                () => setState(() => widget.prefs.skinName =
+                    widget.prefs.skinName == 'press' ? 'quiet' : 'press'),
+              ),
+            ]),
+          _group('About', [
+            (
+              'Version',
+              'Field Notes',
+              _appVersion,
+              _versionTapped,
+            ),
+          ]),
           _group('Privacy', [
             (
               'Account',
@@ -374,12 +396,12 @@ class _SettingsTabState extends State<SettingsTab> {
             ),
           ]),
 
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
 
           // 4. Take my data.
           Padding(
             padding:
-                const EdgeInsets.symmetric(horizontal: Metrics.gutter),
+                EdgeInsets.symmetric(horizontal: Metrics.gutter),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -387,7 +409,7 @@ class _SettingsTabState extends State<SettingsTab> {
                   height: 58,
                   child: OutlinedButton(
                     onPressed: () => _export(context),
-                    child: const Text(
+                    child: Text(
                       'TAKE MY DATA — FULL EXPORT',
                       style: TextStyle(
                         fontFamily: Type.slab,
@@ -398,8 +420,8 @@ class _SettingsTabState extends State<SettingsTab> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 7),
-                const MonoLabel(
+                SizedBox(height: 7),
+                MonoLabel(
                   'database.sqlite · data/*.csv · geo/*.geojson + '
                   'property.kml · media with EXIF GPS · zipped to the share '
                   'sheet',
@@ -414,6 +436,53 @@ class _SettingsTabState extends State<SettingsTab> {
     );
   }
 
+  static const _appVersion = '1.1.0+2';
+
+  /// Seven taps on the version row wakes the press (D-023). The Android
+  /// developer-options gesture: the curious find it, nobody trips it.
+  void _versionTapped() {
+    if (widget.prefs.pressUnlocked) {
+      // Already found; the row is just a version row now.
+      return;
+    }
+    _versionTaps++;
+    if (_versionTaps < 7) {
+      if (_versionTaps >= 4 && mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(SnackBar(
+            content: Text('${7 - _versionTaps} more…'),
+            duration: const Duration(milliseconds: 700),
+          ));
+      }
+      return;
+    }
+    setState(() {
+      widget.prefs.pressUnlocked = true;
+      widget.prefs.skinName = 'press';
+    });
+    // The reveal speaks in the voice you just found. These values are the
+    // press's own, deliberately not the active skin's: the toast IS the
+    // easter egg, whatever the app was wearing a frame ago.
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        backgroundColor: pressSkin.ink,
+        duration: const Duration(seconds: 5),
+        content: Text(
+          '◆ YOU FOUND THE PRESS — SHORT\'S RESORT FIELD STATION.\n'
+          'SWITCH SKINS ANY TIME UNDER APPEARANCE.',
+          style: TextStyle(
+            fontFamily: 'JetBrainsMono',
+            fontSize: 10,
+            letterSpacing: 1.2,
+            height: 1.6,
+            color: pressSkin.paper,
+          ),
+        ),
+      ));
+  }
+
   Widget _group(
       String label, List<(String, String, String, VoidCallback?)> rows) {
     return Padding(
@@ -426,7 +495,7 @@ class _SettingsTabState extends State<SettingsTab> {
           const SizedBox(height: 6),
           Container(
             decoration:
-                BoxDecoration(border: Border.all(color: Press.ink, width: 1.5)),
+                BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
             child: Column(
               children: [
                 for (var i = 0; i < rows.length; i++)
@@ -439,7 +508,7 @@ class _SettingsTabState extends State<SettingsTab> {
                       decoration: BoxDecoration(
                         color: Press.paperRaised,
                         border: i < rows.length - 1
-                            ? const Border(
+                            ? Border(
                                 bottom: BorderSide(
                                     color: Press.divider, width: 1))
                             : null,
@@ -453,7 +522,7 @@ class _SettingsTabState extends State<SettingsTab> {
                               children: [
                                 Text(
                                   rows[i].$1.toUpperCase(),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: Type.slab,
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14.5,

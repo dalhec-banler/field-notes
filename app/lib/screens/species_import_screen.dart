@@ -12,7 +12,7 @@ import '../widgets/press.dart';
 /// never need to upload a list). Pick a CSV, say which column is which,
 /// review, import as this place's own starred taxa.
 class SpeciesImportScreen extends StatefulWidget {
-  const SpeciesImportScreen(
+  SpeciesImportScreen(
       {super.key, required this.db, required this.property});
 
   final FieldNotesDb db;
@@ -39,8 +39,8 @@ const _growthForms = {
 const _nativities = {'native', 'introduced', 'invasive', 'cultivated', 'unknown'};
 
 class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
-  List<String> _headers = const [];
-  List<List<String>> _rows = const [];
+  List<String> _headers = [];
+  List<List<String>> _rows = [];
   final Map<String, int?> _map = {for (final k in _fields.keys) k: null};
   bool _importing = false;
   String? _status;
@@ -48,7 +48,7 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
 
   Future<void> _pick() async {
     final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(label: 'CSV', extensions: ['csv', 'txt']),
+      XTypeGroup(label: 'CSV', extensions: ['csv', 'txt']),
     ]);
     if (file == null) return;
     try {
@@ -165,8 +165,8 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
                 existing.propertyId == widget.property.id;
             await (db.update(db.taxa)..where((t) => t.id.equals(existing.id)))
                 .write(TaxaCompanion(
-              isFavorite: const Value(1),
-              commonName: fillName ? Value(common) : const Value.absent(),
+              isFavorite: Value(1),
+              commonName: fillName ? Value(common) : Value.absent(),
               updatedAt: Value(now),
             ));
             updated++;
@@ -182,8 +182,8 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
                 nativity: Value(_nativity(_cell(row, 'nativity'))),
                 usdaPlantsSymbol: Value(_cell(row, 'usda')),
                 notes: Value(_cell(row, 'notes')),
-                isFavorite: const Value(1),
-                createdBy: const Value('import'),
+                isFavorite: Value(1),
+                createdBy: Value('import'),
                 createdAt: now,
                 updatedAt: now,
               ));
@@ -193,8 +193,8 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
       setState(() {
         _status = 'Added $added, starred $updated already in the library'
             '${skipped > 0 ? ', skipped $skipped without a name' : ''}.';
-        _rows = const [];
-        _headers = const [];
+        _rows = [];
+        _headers = [];
       });
     } catch (e) {
       setState(() => _status = 'Nothing was imported — $e');
@@ -207,38 +207,38 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
   Widget build(BuildContext context) {
     final ready = _map['scientific'] != null && _rows.isNotEmpty;
     return Scaffold(
-      appBar: AppBar(title: const Text('Import species list')),
+      appBar: AppBar(title: Text('Import species list')),
       body: ListView(
-        padding: const EdgeInsets.all(Metrics.gutter),
+        padding: EdgeInsets.all(Metrics.gutter),
         children: [
-          const Text(
+          Text(
             'Optional. The library already has the regional list; this adds '
             'your own — from a nursery order, a survey, a spreadsheet. Pick '
             'the CSV, then tell it which column is which.',
             style: TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           SizedBox(
             height: 58,
             child: OutlinedButton.icon(
-              icon: const Icon(Icons.table_chart_outlined),
+              icon: Icon(Icons.table_chart_outlined),
               label: Text(_fileName == null ? 'CHOOSE A CSV' : _fileName!),
               onPressed: _importing ? null : _pick,
             ),
           ),
           if (_headers.isNotEmpty) ...[
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             MonoLabel('${_rows.length} rows · which column is which?',
                 size: 9, spacing: 1.6, opacity: 0.75),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             for (final e in _fields.entries)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: EdgeInsets.only(bottom: 8),
                 child: DropdownButtonFormField<int?>(
                   initialValue: _map[e.key],
                   decoration: InputDecoration(labelText: e.value),
                   items: [
-                    const DropdownMenuItem<int?>(
+                    DropdownMenuItem<int?>(
                         value: null, child: Text('— not in this file —')),
                     for (var i = 0; i < _headers.length; i++)
                       DropdownMenuItem<int?>(
@@ -251,8 +251,8 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
                 ),
               ),
             if (_map['scientific'] != null && _rows.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              const MonoLabel('Preview', size: 9, spacing: 1.8),
+              SizedBox(height: 6),
+              MonoLabel('Preview', size: 9, spacing: 1.8),
               const SizedBox(height: 4),
               for (final row in _rows.take(5))
                 Padding(
@@ -266,7 +266,7 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
                       if (_nativity(_cell(row, 'nativity')) != null)
                         _nativity(_cell(row, 'nativity'))!,
                     ].join(' · '),
-                    style: const TextStyle(fontFamily: Type.serif, fontSize: 14),
+                    style: TextStyle(fontFamily: Type.serif, fontSize: 14),
                   ),
                 ),
             ],
@@ -285,7 +285,7 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 14),
               child: Text(_status!,
-                  style: const TextStyle(fontFamily: Type.serif, fontSize: 15)),
+                  style: TextStyle(fontFamily: Type.serif, fontSize: 15)),
             ),
         ],
       ),

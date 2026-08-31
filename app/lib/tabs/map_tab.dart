@@ -15,7 +15,7 @@ import '../widgets/press.dart';
 /// Map home (design README §3.1): full-bleed map with card chrome — property
 /// card (tap = property switcher), track toggle, GPS badge.
 class MapTab extends StatefulWidget {
-  const MapTab({
+  MapTab({
     super.key,
     required this.db,
     required this.property,
@@ -115,7 +115,7 @@ class _MapTabState extends State<MapTab> {
   Future<void> _applyLayers() async {
     final c = _controller;
     if (c == null) return;
-    for (final id in const ['zones-fill', 'zones-line']) {
+    for (final id in ['zones-fill', 'zones-line']) {
       try {
         await c.setLayerVisibility(id, _showZones);
       } catch (_) {}
@@ -135,7 +135,7 @@ class _MapTabState extends State<MapTab> {
         builder: (ctx, setSheet) => SafeArea(
           child: ListView(
             shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(13, 14, 13, 8),
+            padding: EdgeInsets.fromLTRB(13, 14, 13, 8),
             children: [
               MonoLabel(
                   _recordCount == 0
@@ -143,7 +143,7 @@ class _MapTabState extends State<MapTab> {
                       : 'Show on the map · $_recordCount record${_recordCount == 1 ? '' : 's'}',
                   size: 9,
                   spacing: 2),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Wrap(
                 spacing: 7,
                 runSpacing: 7,
@@ -158,8 +158,8 @@ class _MapTabState extends State<MapTab> {
                     }),
                 ],
               ),
-              const SizedBox(height: 14),
-              const MonoLabel('Plants by kind', size: 9, spacing: 2),
+              SizedBox(height: 14),
+              MonoLabel('Plants by kind', size: 9, spacing: 2),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 7,
@@ -225,7 +225,7 @@ class _MapTabState extends State<MapTab> {
         padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
           color: on ? Press.ink : null,
-          border: Border.all(color: Press.ink, width: 1),
+          border: Border.all(color: Press.borderInk, width: 1),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Center(
@@ -306,7 +306,7 @@ class _MapTabState extends State<MapTab> {
           '${(count * 40 / 1024).toStringAsFixed(0)} MB. Downloads once from '
           'OpenStreetMap (Protomaps build) and lives on this phone. Areas '
           'accumulate; capture as many as you walk.',
-          style: const TextStyle(
+          style: TextStyle(
               fontFamily: Type.serif, fontSize: 15, height: 1.45),
         ),
         actions: [
@@ -333,7 +333,7 @@ class _MapTabState extends State<MapTab> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('YOU\'RE ON CELLULAR'),
-          content: const Text(
+          content: Text(
             'This download uses mobile data. Allow it this once, or turn on '
             'cellular downloads in Settings → Network to stop asking.',
             style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.45),
@@ -514,7 +514,7 @@ class _MapTabState extends State<MapTab> {
                           children: [
                             Text(
                               widget.property.name.toUpperCase(),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: Type.slab,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 15,
@@ -555,7 +555,7 @@ class _MapTabState extends State<MapTab> {
                                   ? Press.oxblood
                                   : Press.paper,
                               border:
-                                  Border.all(color: Press.ink, width: 1.5),
+                                  Border.all(color: Press.borderInk, width: 1.5),
                             ),
                             child: MonoLabel(
                               '⌗ Capture area',
@@ -579,7 +579,7 @@ class _MapTabState extends State<MapTab> {
                                   ? Press.ink
                                   : Press.paper,
                               border:
-                                  Border.all(color: Press.ink, width: 1.5),
+                                  Border.all(color: Press.borderInk, width: 1.5),
                             ),
                             child: MonoLabel(
                               _layersTouched ? '◈ Layers · filtered' : '◈ Layers',
@@ -708,7 +708,7 @@ class _TrackToggle extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: on ? Press.oxblood : Press.paper,
-              border: Border.all(color: Press.ink, width: 1.5),
+              border: Border.all(color: Press.borderInk, width: 1.5),
             ),
             child: MonoLabel(
               on

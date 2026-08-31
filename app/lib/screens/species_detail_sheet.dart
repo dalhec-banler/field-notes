@@ -26,7 +26,7 @@ Future<void> showSpeciesDetailSheet(
 }
 
 class _SpeciesDetail extends StatefulWidget {
-  const _SpeciesDetail(
+  _SpeciesDetail(
       {required this.db, required this.property, required this.taxon});
 
   final FieldNotesDb db;
@@ -46,7 +46,7 @@ class _Sighting {
 
 class _SpeciesDetailState extends State<_SpeciesDetail> {
   late TaxaData _taxon = widget.taxon;
-  List<_Sighting> _sightings = const [];
+  List<_Sighting> _sightings = [];
   bool _loaded = false;
 
   @override
@@ -126,7 +126,7 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
       maxChildSize: 0.95,
       builder: (context, scroll) => ListView(
         controller: scroll,
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
             Metrics.gutter, 14, Metrics.gutter, 32),
         children: [
           Row(
@@ -138,15 +138,15 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                   children: [
                     if (t.commonName != null)
                       Text(t.commonName!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontFamily: Type.slab,
                               fontWeight: FontWeight.w900,
                               fontSize: 26,
                               height: 1.0,
                               color: Press.ink)),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     TaxonName(t.scientificName, size: 17),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     MonoLabel(
                       [
                         if (t.family != null) t.family!,
@@ -169,11 +169,11 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           Container(
             decoration: BoxDecoration(
               color: Press.paperRaised,
-              border: Border.all(color: Press.ink, width: 1.5),
+              border: Border.all(color: Press.borderInk, width: 1.5),
             ),
             child: Column(
               children: [
@@ -185,18 +185,18 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
             ),
           ),
           if (!_loaded)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator()),
             ),
           if (photos.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const MonoLabel('Photos', size: 9, spacing: 1.8),
-            const SizedBox(height: 8),
+            SizedBox(height: 16),
+            MonoLabel('Photos', size: 9, spacing: 1.8),
+            SizedBox(height: 8),
             GridView.count(
               crossAxisCount: 3,
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+              physics: NeverScrollableScrollPhysics(),
               mainAxisSpacing: 6,
               crossAxisSpacing: 6,
               children: [
@@ -205,7 +205,7 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                     onTap: () => _open(s),
                     child: Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: Press.ink, width: 1),
+                        border: Border.all(color: Press.borderInk, width: 1),
                         image: DecorationImage(
                             image: FileImage(File(s.thumb!)),
                             fit: BoxFit.cover),
@@ -216,8 +216,8 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
             ),
           ],
           if (_sightings.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const MonoLabel('Sightings', size: 9, spacing: 1.8),
+            SizedBox(height: 16),
+            MonoLabel('Sightings', size: 9, spacing: 1.8),
             const SizedBox(height: 4),
             for (final s in _sightings)
               InkWell(
@@ -225,7 +225,7 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 56),
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     border: Border(
                         bottom: BorderSide(color: Press.divider, width: 1)),
                   ),
@@ -240,17 +240,17 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                           ].join(' · '),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontFamily: Type.serif, fontSize: 15),
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: Press.inkSoft),
+                      Icon(Icons.chevron_right, color: Press.inkSoft),
                     ],
                   ),
                 ),
               ),
           ] else if (_loaded)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 18),
               child: Text(
                 'Not recorded on this place yet. Star it and it leads the '

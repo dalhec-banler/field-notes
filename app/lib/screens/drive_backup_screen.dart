@@ -15,7 +15,7 @@ import '../widgets/press.dart';
 /// plug anything in is worth having; the cost is that a company knows a file
 /// arrived. It cannot know what is in it.
 class DriveBackupScreen extends StatefulWidget {
-  const DriveBackupScreen({super.key, required this.db, required this.prefs});
+  DriveBackupScreen({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
   final AppPrefs prefs;
@@ -130,19 +130,19 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('BACKUP PASSPHRASE'),
+        title: Text('BACKUP PASSPHRASE'),
         content: TextField(
           controller: controller,
           autofocus: true,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Passphrase'),
+          decoration: InputDecoration(labelText: 'Passphrase'),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL')),
+              onPressed: () => Navigator.pop(ctx), child: Text('CANCEL')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, controller.text),
-              child: const Text('CONTINUE')),
+              child: Text('CONTINUE')),
         ],
       ),
     );
@@ -152,11 +152,11 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
   Widget build(BuildContext context) {
     final connected = _email != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Back up to Google Drive')),
+      appBar: AppBar(title: Text('Back up to Google Drive')),
       body: ListView(
-        padding: const EdgeInsets.all(Metrics.gutter),
+        padding: EdgeInsets.all(Metrics.gutter),
         children: [
-          const Text(
+          Text(
             'A copy goes to a hidden folder in your own Drive — one this app '
             'creates for itself, which nothing else can open and which does '
             'not appear alongside your files. The phone encrypts everything '
@@ -164,31 +164,31 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
             style:
                 TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
           ),
-          const SizedBox(height: 14),
-          const Text(
+          SizedBox(height: 14),
+          Text(
             'This is the convenient option, not the private one. Backing up '
             'to your own computer over your own network keeps the copy in '
             'the house. Both work; you can use both.',
             style:
                 TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           if (!_supported)
-            const Text(
+            Text(
               'Google sign-in isn’t available in this build. The LAN backup '
               'and the local copy both still work.',
               style: TextStyle(
                   fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
             )
           else ...[
-            const MonoLabel('Account', size: 9, spacing: 1.8),
-            const SizedBox(height: 8),
+            MonoLabel('Account', size: 9, spacing: 1.8),
+            SizedBox(height: 8),
             Text(
               connected ? _email! : 'Not connected',
-              style: const TextStyle(
+              style: TextStyle(
                   fontFamily: Type.serif, fontSize: 16, height: 1.35),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
@@ -200,7 +200,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: SizedBox(
                     height: 56,
@@ -215,13 +215,13 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
           ],
           if (_status != null)
             Padding(
-              padding: const EdgeInsets.only(top: 16),
+              padding: EdgeInsets.only(top: 16),
               child: Text(_status!,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontFamily: Type.serif, fontSize: 15.5, height: 1.4)),
             ),
-          const SizedBox(height: 20),
-          const MonoLabel(
+          SizedBox(height: 20),
+          MonoLabel(
               'You can revoke this at myaccount.google.com/permissions at any '
               'time. The app keeps working; it just stops uploading.',
               size: 9,

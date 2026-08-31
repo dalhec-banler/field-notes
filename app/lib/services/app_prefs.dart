@@ -78,6 +78,15 @@ class AppPrefs extends ChangeNotifier {
   bool get envContext => get<bool>('env_context') ?? false;
   set envContext(bool v) => set('env_context', v);
 
+  /// Which skin the app wears (D-023): 'quiet' (default) or 'press'.
+  String get skinName => get<String>('skin') ?? 'quiet';
+  set skinName(String v) => set('skin', v);
+
+  /// Whether the press skin has been discovered (seven taps on the version
+  /// row). Once found, the Appearance row shows and stays shown.
+  bool get pressUnlocked => get<bool>('press_unlocked') ?? false;
+  set pressUnlocked(bool v) => set('press_unlocked', v);
+
   /// glove | dense — drives the ledger row scale factor.
   String get density => get<String>('density') ?? 'glove';
   set density(String v) => set('density', v);

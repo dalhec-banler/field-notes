@@ -18,7 +18,7 @@ import '../widgets/press.dart';
 /// nav, workspace, status bar, principle cells. The phone is the source of
 /// truth; data arrives here by restore-from-zip.
 class DesktopShell extends StatefulWidget {
-  const DesktopShell({super.key, required this.db, required this.property});
+  DesktopShell({super.key, required this.db, required this.property});
 
   final FieldNotesDb db;
   final Property property;
@@ -60,17 +60,17 @@ class _DesktopShellState extends State<DesktopShell> {
       backgroundColor: Press.paperEdge,
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1400),
+          constraints: BoxConstraints(maxWidth: 1400),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: Column(
               children: [
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
                       color: Press.paper,
-                      border: Border.all(color: Press.ink, width: 1.5),
-                      boxShadow: const [
+                      border: Border.all(color: Press.borderInk, width: 1.5),
+                      boxShadow: [
                         BoxShadow(
                             color: Color(0x6B14120C),
                             offset: Offset(0, 34),
@@ -93,7 +93,7 @@ class _DesktopShellState extends State<DesktopShell> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 _principleCells(),
               ],
             ),
@@ -106,29 +106,29 @@ class _DesktopShellState extends State<DesktopShell> {
   Widget _titleBar() {
     return Container(
       color: Press.ink,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       child: Row(
         children: [
           for (var i = 0; i < 3; i++)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(right: 6),
               child: Opacity(
                   opacity: 0.5,
                   child: Diamond(size: 7, color: Press.paper)),
             ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           MonoLabel('Field Notes · ${widget.property.name}',
               size: 10.5, spacing: 1.6, color: Press.paper),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           MonoLabel(
               'database.sqlite · ${(_dbBytes / (1 << 20)).toStringAsFixed(1)} MB · $_mediaCount media',
               size: 9.5,
               color: Press.paper,
               opacity: 0.72),
-          const Spacer(),
-          const Diamond(size: 8, color: Press.sage, blink: true),
-          const SizedBox(width: 6),
-          const MonoLabel('Local only — no account · schema v1',
+          Spacer(),
+          Diamond(size: 8, color: Press.sage, blink: true),
+          SizedBox(width: 6),
+          MonoLabel('Local only — no account · schema v1',
               size: 9.5, color: Press.paper, opacity: 0.9),
         ],
       ),
@@ -137,9 +137,9 @@ class _DesktopShellState extends State<DesktopShell> {
 
   Widget _navBar() {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Press.paperEdge,
-        border: Border(bottom: BorderSide(color: Press.ink, width: 2)),
+        border: Border(bottom: BorderSide(color: Press.borderInk, width: 2)),
       ),
       child: Row(
         children: [
@@ -147,14 +147,14 @@ class _DesktopShellState extends State<DesktopShell> {
             InkWell(
               onTap: () => setState(() => _view = i),
               child: Container(
-                constraints: const BoxConstraints(minHeight: 50),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
+                constraints: BoxConstraints(minHeight: 50),
+                padding: EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
                   color: i == _view ? Press.paper : null,
-                  border: const Border(
+                  border: Border(
                       right: BorderSide(color: Color(0x331B1813), width: 1)),
                   boxShadow: i == _view
-                      ? const [
+                      ? [
                           BoxShadow(
                               color: Press.oxblood,
                               offset: Offset(0, -3),
@@ -172,7 +172,7 @@ class _DesktopShellState extends State<DesktopShell> {
                           color: i == _view
                               ? Press.oxblood
                               : Press.inkSoft.withValues(alpha: 0.4)),
-                      const SizedBox(width: 7),
+                      SizedBox(width: 7),
                       MonoLabel(_views[i],
                           size: 10, spacing: 1.6, color: Press.ink),
                     ],
@@ -195,23 +195,23 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 
   Widget _statusBar() {
-    const sentences = [
+    final sentences = [
       'Reviewing the local store · click a row to inspect',
       'Survival is derived at read time · never stored',
       'The chain must tolerate a break at either end',
       'Nothing commits until you review the mapping',
     ];
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Press.paperEdge,
-        border: Border(top: BorderSide(color: Press.ink, width: 2)),
+        border: Border(top: BorderSide(color: Press.borderInk, width: 2)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       child: Row(
         children: [
           MonoLabel(sentences[_view], size: 9.5, opacity: 0.8),
-          const Spacer(),
-          const MonoLabel('Write queue empty | Sync off',
+          Spacer(),
+          MonoLabel('Write queue empty | Sync off',
               size: 9.5, opacity: 0.8),
         ],
       ),
@@ -219,7 +219,7 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 
   Widget _principleCells() {
-    const principles = [
+    final principles = [
       ('source of truth', 'The phone is the source of truth. This desk reads '
           'a restored copy; it invents nothing.'),
       ('permissions', 'Roles are enforced in RLS as well as the UI. The '
@@ -230,7 +230,7 @@ class _DesktopShellState extends State<DesktopShell> {
           'rows the field device wrote.'),
     ];
     return Container(
-      decoration: BoxDecoration(border: Border.all(color: Press.ink, width: 1.5)),
+      decoration: BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
       child: IntrinsicHeight(
         child: Row(
           children: [
@@ -239,15 +239,15 @@ class _DesktopShellState extends State<DesktopShell> {
               Expanded(
                 child: Container(
                   color: Press.paper,
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       MonoLabel(principles[i].$1,
                           size: 9, spacing: 1.8, color: Press.oxblood),
-                      const SizedBox(height: 5),
+                      SizedBox(height: 5),
                       Text(principles[i].$2,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontFamily: Type.serif,
                               fontSize: 14.5,
                               height: 1.4)),
@@ -266,7 +266,7 @@ class _DesktopShellState extends State<DesktopShell> {
 // ───────────────────────────── Review ─────────────────────────────
 
 class _ReviewWorkspace extends StatefulWidget {
-  const _ReviewWorkspace({required this.db, required this.property});
+  _ReviewWorkspace({required this.db, required this.property});
   final FieldNotesDb db;
   final Property property;
 
@@ -290,35 +290,35 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
         SizedBox(
           width: 330,
           child: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border:
-                  Border(right: BorderSide(color: Press.ink, width: 1.5)),
+                  Border(right: BorderSide(color: Press.borderInk, width: 1.5)),
             ),
             child: StreamBuilder<List<Observation>>(
               stream: query.watch(),
               builder: (context, snapshot) {
-                final obs = snapshot.data ?? const [];
+                final obs = snapshot.data ?? [];
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+                      padding: EdgeInsets.fromLTRB(14, 12, 14, 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Kicker('Queue'),
-                          const SizedBox(height: 4),
+                          Kicker('Queue'),
+                          SizedBox(height: 4),
                           Row(
                             children: [
-                              const Text('NEEDS A LOOK',
+                              Text('NEEDS A LOOK',
                                   style: TextStyle(
                                       fontFamily: Type.slab,
                                       fontWeight: FontWeight.w900,
                                       fontSize: 22,
                                       height: 0.9)),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8),
                               Text('${obs.length}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontFamily: Type.slab,
                                       fontWeight: FontWeight.w900,
                                       fontSize: 22,
@@ -338,13 +338,13 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
                             onTap: () =>
                                 setState(() => _selectedId = o.id),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
                                 color:
                                     selected ? Press.paperRaised : null,
                                 border: Border(
-                                  bottom: const BorderSide(
+                                  bottom: BorderSide(
                                       color: Press.divider, width: 1),
                                   left: BorderSide(
                                       color: selected
@@ -359,7 +359,7 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
                                       size: 9,
                                       color: recordTypeColor(
                                           o.observationType)),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -395,7 +395,7 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
         // Inspector.
         Expanded(
           child: _selectedId == null
-              ? const Center(
+              ? Center(
                   child: MonoLabel('— select a record —',
                       size: 9.5, spacing: 2, opacity: 0.5))
               : _Inspector(db: widget.db, obsId: _selectedId!),
@@ -406,7 +406,7 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
 }
 
 class _Inspector extends StatelessWidget {
-  const _Inspector({required this.db, required this.obsId});
+  _Inspector({required this.db, required this.obsId});
   final FieldNotesDb db;
   final String obsId;
 
@@ -450,38 +450,38 @@ class _Inspector extends StatelessWidget {
       future: _load(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(child: CircularProgressIndicator());
         }
         final (obs, taxon, zone, photo) = snapshot.data!;
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           children: [
             Container(
               height: 216,
               decoration: BoxDecoration(
                 color: Press.photoPlaceholder,
-                border: Border.all(color: Press.ink, width: 1.5),
+                border: Border.all(color: Press.borderInk, width: 1.5),
                 image: photo != null
                     ? DecorationImage(
                         image: FileImage(File(photo)), fit: BoxFit.cover)
                     : null,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Kicker(obs.observationType),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             taxon != null
                 ? TaxonName(taxon.scientificName, size: 26)
                 : Text(obs.observationType.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontFamily: Type.slab,
                         fontWeight: FontWeight.w900,
                         fontSize: 22)),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(
                 color: Press.paperRaised,
-                border: Border.all(color: Press.ink, width: 1.5),
+                border: Border.all(color: Press.borderInk, width: 1.5),
               ),
               child: Column(
                 children: [
@@ -504,7 +504,7 @@ class _Inspector extends StatelessWidget {
 // ──────────────────────────── Survival ────────────────────────────
 
 class _SurvivalWorkspace extends StatelessWidget {
-  const _SurvivalWorkspace({required this.db, required this.property});
+  _SurvivalWorkspace({required this.db, required this.property});
   final FieldNotesDb db;
   final Property property;
 
@@ -532,7 +532,7 @@ class _SurvivalWorkspace extends StatelessWidget {
     return FutureBuilder<List<(PlantingEvent, TaxaData?, SurvivalResult?)>>(
       future: _load(),
       builder: (context, snapshot) {
-        final rows = snapshot.data ?? const [];
+        final rows = snapshot.data ?? [];
         final totalPlanted =
             rows.fold(0, (a, r) => a + r.$1.countPlanted);
         final totalAlive = rows.fold(0, (a, r) => a + (r.$3?.alive ?? 0));
@@ -542,27 +542,27 @@ class _SurvivalWorkspace extends StatelessWidget {
             .where((r) => r.$3 != null && r.$3!.rate < 0.6)
             .length;
         return ListView(
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(18),
           children: [
             StatCells(cells: [
               ('Alive', '$totalAlive / $totalPlanted', null),
               ('Weighted', (weighted * 100).toStringAsFixed(0), '%'),
               ('Under 60%', '$under60 of ${rows.length}', null),
             ]),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Container(
               decoration:
-                  BoxDecoration(border: Border.all(color: Press.ink, width: 1.5)),
+                  BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
               child: Column(
                 children: [
                   for (var i = 0; i < rows.length; i++)
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 14, vertical: 13),
                       decoration: BoxDecoration(
                         color: Press.paperRaised,
                         border: i < rows.length - 1
-                            ? const Border(
+                            ? Border(
                                 bottom: BorderSide(
                                     color: Press.divider, width: 1))
                             : null,
@@ -607,7 +607,7 @@ class _SurvivalWorkspace extends StatelessWidget {
                           SizedBox(
                             width: 160,
                             child: rows[i].$3 == null
-                                ? const MonoLabel('no check-ins',
+                                ? MonoLabel('no check-ins',
                                     size: 9, opacity: 0.5)
                                 : Row(
                                     children: [
@@ -615,7 +615,7 @@ class _SurvivalWorkspace extends StatelessWidget {
                                         child: Container(
                                           height: 9,
                                           decoration: BoxDecoration(
-                                            color: const Color(0x121B1813),
+                                            color: Color(0x121B1813),
                                             border: Border.all(
                                                 color: Press.ink, width: 1),
                                           ),
@@ -631,7 +631,7 @@ class _SurvivalWorkspace extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: 8),
                                       Text(
                                         '${(rows[i].$3!.rate * 100).toStringAsFixed(0)}%',
                                         style: TextStyle(
@@ -649,7 +649,7 @@ class _SurvivalWorkspace extends StatelessWidget {
                       ),
                     ),
                   if (rows.isEmpty)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.all(24),
                       child: MonoLabel('— no plantings in the store —',
                           size: 9.5, spacing: 2, opacity: 0.5),
@@ -667,7 +667,7 @@ class _SurvivalWorkspace extends StatelessWidget {
 // ─────────────────────────── Propagation ───────────────────────────
 
 class _PropagationWorkspace extends StatefulWidget {
-  const _PropagationWorkspace({required this.db, required this.property});
+  _PropagationWorkspace({required this.db, required this.property});
   final FieldNotesDb db;
   final Property property;
 
@@ -688,13 +688,13 @@ class _PropagationWorkspaceState extends State<_PropagationWorkspace> {
     return StreamBuilder<List<PropagationBatche>>(
       stream: query.watch(),
       builder: (context, snapshot) {
-        final batches = snapshot.data ?? const [];
+        final batches = snapshot.data ?? [];
         final selected = batches
                 .where((b) => b.id == _selectedBatchId)
                 .firstOrNull ??
             batches.firstOrNull;
         return Padding(
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(18),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -703,14 +703,14 @@ class _PropagationWorkspaceState extends State<_PropagationWorkspace> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Kicker(
+                    Kicker(
                         'source_plants → collection_events → propagation_batches → planting_events'),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
                             border:
-                                Border.all(color: Press.ink, width: 1.5)),
+                                Border.all(color: Press.borderInk, width: 1.5)),
                         child: ListView(
                           children: [
                             for (final b in batches)
@@ -718,14 +718,14 @@ class _PropagationWorkspaceState extends State<_PropagationWorkspace> {
                                 onTap: () => setState(
                                     () => _selectedBatchId = b.id),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding: EdgeInsets.symmetric(
                                       horizontal: 13, vertical: 11),
                                   decoration: BoxDecoration(
                                     color: b.id == selected?.id
                                         ? Press.paperRaised
                                         : null,
                                     border: Border(
-                                      bottom: const BorderSide(
+                                      bottom: BorderSide(
                                           color: Press.divider, width: 1),
                                       left: BorderSide(
                                           color: b.id == selected?.id
@@ -737,7 +737,7 @@ class _PropagationWorkspaceState extends State<_PropagationWorkspace> {
                                   child: Row(
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets
+                                        padding: EdgeInsets
                                             .symmetric(
                                             horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
@@ -746,13 +746,13 @@ class _PropagationWorkspaceState extends State<_PropagationWorkspace> {
                                                 width: 1.5)),
                                         child: Text(
                                           b.batchCode ?? '—',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontFamily: Type.slab,
                                               fontWeight: FontWeight.w900,
                                               fontSize: 14),
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
+                                      SizedBox(width: 10),
                                       Expanded(
                                         child: MonoLabel(
                                             '${b.method?.replaceAll('_', ' ') ?? ''} · started ${b.startedOn}',
@@ -762,7 +762,7 @@ class _PropagationWorkspaceState extends State<_PropagationWorkspace> {
                                       MonoLabel(
                                           '${b.countCurrent ?? b.countStarted ?? '?'}',
                                           size: 11),
-                                      const SizedBox(width: 10),
+                                      SizedBox(width: 10),
                                       StatusPill(
                                         b.status ?? 'active',
                                         color: switch (b.status) {
@@ -780,7 +780,7 @@ class _PropagationWorkspaceState extends State<_PropagationWorkspace> {
                                 ),
                               ),
                             if (batches.isEmpty)
-                              const Padding(
+                              Padding(
                                 padding: EdgeInsets.all(24),
                                 child: MonoLabel(
                                     '— no batches in the store —',
@@ -795,12 +795,12 @@ class _PropagationWorkspaceState extends State<_PropagationWorkspace> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               // Right: event log for the selected batch.
               SizedBox(
                 width: 330,
                 child: selected == null
-                    ? const SizedBox.shrink()
+                    ? SizedBox.shrink()
                     : _BatchEvents(db: widget.db, batch: selected),
               ),
             ],
@@ -812,7 +812,7 @@ class _PropagationWorkspaceState extends State<_PropagationWorkspace> {
 }
 
 class _BatchEvents extends StatelessWidget {
-  const _BatchEvents({required this.db, required this.batch});
+  _BatchEvents({required this.db, required this.batch});
   final FieldNotesDb db;
   final PropagationBatche batch;
 
@@ -825,29 +825,29 @@ class _BatchEvents extends StatelessWidget {
     return StreamBuilder<List<BatchEvent>>(
       stream: query.watch(),
       builder: (context, snapshot) {
-        final events = snapshot.data ?? const [];
+        final events = snapshot.data ?? [];
         return Container(
           decoration: BoxDecoration(
             color: Press.paperRaised,
-            border: Border.all(color: Press.ink, width: 1.5),
+            border: Border.all(color: Press.borderInk, width: 1.5),
           ),
-          padding: const EdgeInsets.all(13),
+          padding: EdgeInsets.all(13),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               MonoLabel('batch_events · ${batch.batchCode ?? ''}',
                   size: 9, spacing: 1.8),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Expanded(
                 child: events.isEmpty
-                    ? const MonoLabel('— quiet bench —',
+                    ? MonoLabel('— quiet bench —',
                         size: 9, spacing: 2, opacity: 0.5)
                     : ListView(
                         children: [
                           for (final e in events)
                             Padding(
                               padding:
-                                  const EdgeInsets.only(bottom: 9),
+                                  EdgeInsets.only(bottom: 9),
                               child: Column(
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
@@ -859,7 +859,7 @@ class _BatchEvents extends StatelessWidget {
                                       color: Press.oxblood),
                                   if (e.notes != null)
                                     Text(e.notes!,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontFamily: Type.serif,
                                             fontSize: 14,
                                             height: 1.4)),
@@ -880,7 +880,7 @@ class _BatchEvents extends StatelessWidget {
 // ─────────────────────────── Data & backup ───────────────────────────
 
 class _DataWorkspace extends StatelessWidget {
-  const _DataWorkspace({required this.db, required this.property});
+  _DataWorkspace({required this.db, required this.property});
   final FieldNotesDb db;
   final Property property;
 
@@ -889,7 +889,7 @@ class _DataWorkspace extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        const _ReceiveBackupPanel(),
+        _ReceiveBackupPanel(),
         _DataWorkspaceBody(db: db, property: property),
       ],
     );
@@ -899,7 +899,7 @@ class _DataWorkspace extends StatelessWidget {
 /// The desk half of LAN backup: switch it on, read the address and code to
 /// the phone, watch files land. The computer never decrypts anything.
 class _ReceiveBackupPanel extends StatefulWidget {
-  const _ReceiveBackupPanel();
+  _ReceiveBackupPanel();
 
   @override
   State<_ReceiveBackupPanel> createState() => _ReceiveBackupPanelState();
@@ -938,9 +938,9 @@ class _ReceiveBackupPanelState extends State<_ReceiveBackupPanel> {
     final r = _receiver;
     final running = r?.running ?? false;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+      padding: EdgeInsets.fromLTRB(18, 18, 18, 0),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Press.paperRaised,
           border: Border.all(
@@ -955,9 +955,9 @@ class _ReceiveBackupPanelState extends State<_ReceiveBackupPanel> {
                     size: 11,
                     color: running ? Press.sage : Press.inkSoft,
                     filled: running),
-                const SizedBox(width: 8),
-                const MonoLabel('Receive a backup', size: 9, spacing: 1.8),
-                const Spacer(),
+                SizedBox(width: 8),
+                MonoLabel('Receive a backup', size: 9, spacing: 1.8),
+                Spacer(),
                 SizedBox(
                   height: 40,
                   child: OutlinedButton(
@@ -967,8 +967,8 @@ class _ReceiveBackupPanelState extends State<_ReceiveBackupPanel> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            const Text(
+            SizedBox(height: 10),
+            Text(
               'A phone on this network can back up straight to this computer. '
               'Nothing goes to the internet, and this machine only ever holds '
               'encrypted files it cannot open.',
@@ -976,30 +976,30 @@ class _ReceiveBackupPanelState extends State<_ReceiveBackupPanel> {
                   TextStyle(fontFamily: Type.serif, fontSize: 14, height: 1.45),
             ),
             if (running) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     child: _readout('Address',
                         '${r!.address ?? "unknown"}:${r.port}'),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(child: _readout('Code', r.pairingCode ?? '—')),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                       child: _readout('Files received', '${r.filesReceived}')),
                 ],
               ),
-              const SizedBox(height: 8),
-              const MonoLabel(
+              SizedBox(height: 8),
+              MonoLabel(
                   'On the phone: Settings → Back up to a computer',
                   size: 9,
                   opacity: 0.7),
             ],
             if (r?.error != null) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(r!.error!,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontFamily: Type.serif,
                       fontSize: 14,
                       color: Press.oxblood)),
@@ -1014,16 +1014,16 @@ class _ReceiveBackupPanelState extends State<_ReceiveBackupPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           MonoLabel(label, size: 8.5, opacity: 0.65),
-          const SizedBox(height: 3),
+          SizedBox(height: 3),
           Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontFamily: Type.mono, fontSize: 16, color: Press.ink)),
         ],
       );
 }
 
 class _DataWorkspaceBody extends StatelessWidget {
-  const _DataWorkspaceBody({required this.db, required this.property});
+  _DataWorkspaceBody({required this.db, required this.property});
   final FieldNotesDb db;
   final Property property;
 
@@ -1042,24 +1042,24 @@ class _DataWorkspaceBody extends StatelessWidget {
     property.kml
   media/photos/YYYY/MM/''';
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Press.paperRaised,
-                  border: Border.all(color: Press.ink, width: 1.5),
+                  border: Border.all(color: Press.borderInk, width: 1.5),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const MonoLabel('Take it all', size: 9, spacing: 1.8),
+                    MonoLabel('Take it all', size: 9, spacing: 1.8),
                     const SizedBox(height: 8),
-                    const Text(tree,
+                    Text(tree,
                         style: TextStyle(
                             fontFamily: Type.mono,
                             fontSize: 11.5,
@@ -1093,7 +1093,7 @@ class _DataWorkspaceBody extends StatelessWidget {
                           color: Press.sage,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
-                          child: const Row(
+                          child: Row(
                             children: [
                               Diamond(size: 9, color: Press.paper),
                               SizedBox(width: 7),
@@ -1108,7 +1108,7 @@ class _DataWorkspaceBody extends StatelessWidget {
                           padding: const EdgeInsets.all(12),
                           child: Column(
                             children: [
-                              const Text(
+                              Text(
                                 'Incremental and content-addressed. The '
                                 'weekly check decrypts the manifest and one '
                                 'blob and verifies the hash.',
@@ -1156,7 +1156,7 @@ class _DataWorkspaceBody extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const RailNote(
+                  RailNote(
                     color: Press.sage,
                     label: 'restore · database first, media after',
                     body:

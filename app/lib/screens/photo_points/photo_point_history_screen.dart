@@ -110,7 +110,7 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
                 ),
                 const SizedBox(height: 12),
                 if (_frames.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
                     child: Text(
                       'No frames yet. The first visit anchors the point — '
@@ -150,7 +150,7 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
                     aspectRatio: 4 / 3,
                     child: Container(
                       decoration: BoxDecoration(
-                          border: Border.all(color: Press.ink, width: 1.5)),
+                          border: Border.all(color: Press.borderInk, width: 1.5)),
                       child: Image.file(File(current.media.localPath!),
                           fit: BoxFit.cover),
                     ),
@@ -219,7 +219,7 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
           aspectRatio: 4 / 3,
           child: Container(
             decoration:
-                BoxDecoration(border: Border.all(color: Press.ink, width: 1)),
+                BoxDecoration(border: Border.all(color: Press.borderInk, width: 1)),
             child: Image.file(
                 File(f.media.thumbPath ?? f.media.localPath!),
                 fit: BoxFit.cover),

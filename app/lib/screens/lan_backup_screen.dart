@@ -15,7 +15,7 @@ import '../widgets/press.dart';
 /// account. The phone still encrypts first — the computer only ever holds
 /// opaque files.
 class LanBackupScreen extends StatefulWidget {
-  const LanBackupScreen({super.key, required this.db, required this.prefs});
+  LanBackupScreen({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
   final AppPrefs prefs;
@@ -131,33 +131,33 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('BACKUP PASSPHRASE'),
+        title: Text('BACKUP PASSPHRASE'),
         content: TextField(
           controller: controller,
           autofocus: true,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Passphrase'),
+          decoration: InputDecoration(labelText: 'Passphrase'),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL')),
+              onPressed: () => Navigator.pop(ctx), child: Text('CANCEL')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, controller.text),
-              child: const Text('CONTINUE')),
+              child: Text('CONTINUE')),
         ],
       ),
     );
   }
 
   Widget _step(int n, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
+        padding: EdgeInsets.only(bottom: 6),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(width: 22, child: MonoLabel('$n.', size: 10, spacing: 1.2)),
             Expanded(
               child: Text(text,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontFamily: Type.serif, fontSize: 15, height: 1.4)),
             ),
           ],
@@ -167,44 +167,44 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Back up to a computer')),
+      appBar: AppBar(title: Text('Back up to a computer')),
       body: ListView(
-        padding: const EdgeInsets.all(Metrics.gutter),
+        padding: EdgeInsets.all(Metrics.gutter),
         children: [
-          const Text(
+          Text(
             'The copy goes from this phone to a computer you own, across your '
             'own network. It never touches the internet and there is no '
             'account. The phone encrypts first, so the computer only ever '
             'holds files it cannot read.',
             style: TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
           ),
-          const SizedBox(height: 18),
-          const MonoLabel('On the computer', size: 9, spacing: 1.8),
-          const SizedBox(height: 8),
+          SizedBox(height: 18),
+          MonoLabel('On the computer', size: 9, spacing: 1.8),
+          SizedBox(height: 8),
           _step(1, 'Open Field Notes on the computer.'),
           _step(2, 'Go to Data → Receive a backup, and switch it on.'),
           _step(3, 'It shows an address and a six-digit code.'),
-          const SizedBox(height: 18),
-          const MonoLabel('On this phone', size: 9, spacing: 1.8),
-          const SizedBox(height: 8),
+          SizedBox(height: 18),
+          MonoLabel('On this phone', size: 9, spacing: 1.8),
+          SizedBox(height: 8),
           TextField(
             controller: _hostController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Address (e.g. 192.168.1.42)',
               isDense: true,
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           TextField(
             controller: _codeController,
             keyboardType: TextInputType.number,
             decoration:
-                const InputDecoration(labelText: 'Six-digit code', isDense: true),
+                InputDecoration(labelText: 'Six-digit code', isDense: true),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           TextButton.icon(
-            icon: const Icon(Icons.content_paste, size: 18),
-            label: const Text('PASTE PAIRING LINK'),
+            icon: Icon(Icons.content_paste, size: 18),
+            label: Text('PASTE PAIRING LINK'),
             onPressed: () async {
               final data = await Clipboard.getData(Clipboard.kTextPlain);
               final text = data?.text;
@@ -214,7 +214,7 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
               setState(() {});
             },
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -222,11 +222,11 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
                   height: 56,
                   child: OutlinedButton(
                     onPressed: _busy ? null : _test,
-                    child: const Text('TEST'),
+                    child: Text('TEST'),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: SizedBox(
                   height: 56,
@@ -240,13 +240,13 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
           ),
           if (_status != null)
             Padding(
-              padding: const EdgeInsets.only(top: 16),
+              padding: EdgeInsets.only(top: 16),
               child: Text(_status!,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontFamily: Type.serif, fontSize: 15.5, height: 1.4)),
             ),
-          const SizedBox(height: 20),
-          const MonoLabel(
+          SizedBox(height: 20),
+          MonoLabel(
               'Both devices must be on the same network. The code changes '
               'each time the receiver is switched on.',
               size: 9,

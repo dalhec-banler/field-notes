@@ -111,7 +111,7 @@ class _ToastBody extends StatelessWidget {
               ),
               TextButton(
                 onPressed: onUndo,
-                child: const MonoLabel('UNDO',
+                child: MonoLabel('UNDO',
                     size: 10.5, spacing: 1.6, color: Press.gold),
               ),
             ],

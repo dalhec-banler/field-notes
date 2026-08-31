@@ -2,11 +2,30 @@ import 'package:flutter/material.dart';
 
 import 'tokens.dart';
 
-/// Field Station theme. The rules (README §2): two paper tones and ink,
-/// 1.5 px ink borders, radius 0 everywhere except pills and circles, hard
-/// offset shadows only.
-ThemeData fieldStationTheme() {
-  const scheme = ColorScheme(
+/// The app theme, built from the active [skin] (D-023).
+///
+/// Under press this is the Field Station rulebook (README §2): two paper
+/// tones and ink, 1.5 px ink borders, radius 0 everywhere except pills and
+/// circles, hard offset shadows only. Under quiet the same slots resolve to
+/// system type, soft radii and hairline borders. The colour and font values
+/// arrive through the token getters automatically; only shape and label
+/// typography branch here.
+ThemeData appTheme() {
+  final radius = BorderRadius.circular(skin.radiusControl);
+  final upper = skin.upperLabels;
+  // Press buttons speak uppercase letterspaced mono at 10.5; with a system
+  // face that reads as shouting in a doll's font, so quiet uses its own
+  // label voice.
+  final buttonLabel = upper
+      ? TextStyle(
+          fontFamily: Type.mono,
+          fontWeight: FontWeight.w500,
+          fontSize: 10.5,
+          letterSpacing: 1.6,
+        )
+      : const TextStyle(
+          fontWeight: FontWeight.w600, fontSize: 15, letterSpacing: 0.1);
+  final scheme = ColorScheme(
     brightness: Brightness.light,
     primary: Press.ink,
     onPrimary: Press.paper,
@@ -18,7 +37,7 @@ ThemeData fieldStationTheme() {
     onSurface: Press.ink,
   );
 
-  const inkBorder = BorderSide(color: Press.ink, width: Metrics.borderCard);
+  final inkBorder = BorderSide(color: Press.borderInk, width: skin.borderCard);
 
   return ThemeData(
     useMaterial3: true,
@@ -27,8 +46,8 @@ ThemeData fieldStationTheme() {
     fontFamily: Type.serif,
     splashFactory: NoSplash.splashFactory,
     highlightColor: Press.paperRaised,
-    dividerTheme: const DividerThemeData(color: Press.divider, thickness: 1),
-    appBarTheme: const AppBarTheme(
+    dividerTheme: DividerThemeData(color: Press.divider, thickness: 1),
+    appBarTheme: AppBarTheme(
       backgroundColor: Press.paper,
       foregroundColor: Press.ink,
       elevation: 0,
@@ -39,67 +58,68 @@ ThemeData fieldStationTheme() {
       style: FilledButton.styleFrom(
         backgroundColor: Press.ink,
         foregroundColor: Press.paper,
-        shape: const RoundedRectangleBorder(),
+        shape: RoundedRectangleBorder(borderRadius: radius),
         minimumSize: const Size(Metrics.touchMin, Metrics.touchMin),
-        textStyle: const TextStyle(
-          fontFamily: Type.slab,
-          fontWeight: FontWeight.w900,
-          fontSize: 15,
-          letterSpacing: 0.6,
-        ),
+        textStyle: upper
+            ? TextStyle(
+                fontFamily: Type.slab,
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                letterSpacing: 0.6,
+              )
+            : const TextStyle(
+                fontWeight: FontWeight.w600, fontSize: 15.5, letterSpacing: 0.1),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: Press.ink,
-        side: inkBorder,
-        shape: const RoundedRectangleBorder(),
+        side: skin.upperLabels
+            ? inkBorder
+            : BorderSide(color: Press.inkSoft.withValues(alpha: 0.4)),
+        shape: RoundedRectangleBorder(borderRadius: radius),
         minimumSize: const Size(Metrics.touchMin, Metrics.touchMin),
-        textStyle: const TextStyle(
-          fontFamily: Type.mono,
-          fontWeight: FontWeight.w500,
-          fontSize: 10.5,
-          letterSpacing: 1.6,
-        ),
+        textStyle: buttonLabel,
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: Press.ink,
-        shape: const RoundedRectangleBorder(),
-        textStyle: const TextStyle(
-          fontFamily: Type.mono,
-          fontWeight: FontWeight.w500,
-          fontSize: 10.5,
-          letterSpacing: 1.6,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        textStyle: buttonLabel,
       ),
     ),
-    inputDecorationTheme: const InputDecorationTheme(
+    inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Press.paperRaised,
-      border: OutlineInputBorder(
-          borderSide: inkBorder, borderRadius: BorderRadius.zero),
-      enabledBorder: OutlineInputBorder(
-          borderSide: inkBorder, borderRadius: BorderRadius.zero),
+      border: OutlineInputBorder(borderSide: inkBorder, borderRadius: radius),
+      enabledBorder:
+          OutlineInputBorder(borderSide: inkBorder, borderRadius: radius),
       focusedBorder: OutlineInputBorder(
           borderSide: BorderSide(color: Press.oxblood, width: 1.5),
-          borderRadius: BorderRadius.zero),
-      labelStyle: TextStyle(
-        fontFamily: Type.mono,
-        fontSize: 11,
-        letterSpacing: 1.4,
-        color: Press.inkSoft,
-      ),
-      hintStyle: TextStyle(
-        fontFamily: Type.mono,
-        fontSize: 11,
-        color: Color(0x8C2C2620),
-      ),
+          borderRadius: radius),
+      labelStyle: upper
+          ? TextStyle(
+              fontFamily: Type.mono,
+              fontSize: 11,
+              letterSpacing: 1.4,
+              color: Press.inkSoft,
+            )
+          : TextStyle(fontSize: 14, color: Press.inkSoft),
+      hintStyle: upper
+          ? TextStyle(
+              fontFamily: Type.mono,
+              fontSize: 11,
+              color: const Color(0x8C2C2620),
+            )
+          : TextStyle(
+              fontSize: 14, color: Press.inkSoft.withValues(alpha: 0.55)),
     ),
-    dialogTheme: const DialogThemeData(
+    dialogTheme: DialogThemeData(
       backgroundColor: Press.paper,
-      shape: RoundedRectangleBorder(side: inkBorder),
+      shape: RoundedRectangleBorder(
+          side: skin.upperLabels ? inkBorder : BorderSide.none,
+          borderRadius: BorderRadius.circular(skin.radiusCard)),
       titleTextStyle: TextStyle(
         fontFamily: Type.slab,
         fontWeight: FontWeight.w700,
@@ -107,41 +127,51 @@ ThemeData fieldStationTheme() {
         color: Press.ink,
       ),
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
+    bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: Press.paper,
-      shape: Border(
-          top: BorderSide(color: Press.ink, width: Metrics.borderStructural)),
+      shape: skin.upperLabels
+          ? Border(top: BorderSide(
+              color: Press.ink, width: Metrics.borderStructural))
+          : RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(skin.radiusCard + 4))),
     ),
-    snackBarTheme: const SnackBarThemeData(
+    snackBarTheme: SnackBarThemeData(
       backgroundColor: Press.ink,
-      contentTextStyle: TextStyle(
-        fontFamily: Type.mono,
-        fontSize: 10,
-        letterSpacing: 1.2,
-        color: Press.paper,
-      ),
+      contentTextStyle: upper
+          ? TextStyle(
+              fontFamily: Type.mono,
+              fontSize: 10,
+              letterSpacing: 1.2,
+              color: Press.paper,
+            )
+          : TextStyle(fontSize: 13.5, color: Press.paper),
       actionTextColor: Press.gold,
-      shape: RoundedRectangleBorder(),
+      shape: RoundedRectangleBorder(borderRadius: radius),
       behavior: SnackBarBehavior.floating,
     ),
     chipTheme: ChipThemeData(
       backgroundColor: Press.paper,
-      side: const BorderSide(color: Press.ink, width: 1),
+      side: skin.borderCard > 0
+          ? BorderSide(color: Press.borderInk, width: 1)
+          : BorderSide(color: Press.paperEdge, width: 1),
       shape: const StadiumBorder(),
-      labelStyle: const TextStyle(
-        fontFamily: Type.mono,
-        fontSize: 9.5,
-        letterSpacing: 1.5,
-        color: Press.ink,
-      ),
+      labelStyle: upper
+          ? TextStyle(
+              fontFamily: Type.mono,
+              fontSize: 9.5,
+              letterSpacing: 1.5,
+              color: Press.ink,
+            )
+          : TextStyle(fontSize: 12.5, color: Press.ink),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
     ),
-    listTileTheme: const ListTileThemeData(
+    listTileTheme: ListTileThemeData(
       minTileHeight: Metrics.touchMin,
       iconColor: Press.ink,
     ),
     materialTapTargetSize: MaterialTapTargetSize.padded,
-    textTheme: const TextTheme(
+    textTheme: TextTheme(
       // Screen titles: Zilla Slab 900 30 uppercase (applied at call sites).
       headlineLarge: TextStyle(
         fontFamily: Type.slab,
@@ -174,19 +204,28 @@ ThemeData fieldStationTheme() {
         height: 1.5,
         color: Press.ink,
       ),
-      bodySmall: TextStyle(
-        fontFamily: Type.mono,
-        fontSize: 9.5,
-        letterSpacing: 1.0,
-        color: Press.inkSoft,
-      ),
-      labelLarge: TextStyle(
-        fontFamily: Type.mono,
-        fontWeight: FontWeight.w500,
-        fontSize: 11,
-        letterSpacing: 1.6,
-        color: Press.ink,
-      ),
+      bodySmall: upper
+          ? TextStyle(
+              fontFamily: Type.mono,
+              fontSize: 9.5,
+              letterSpacing: 1.0,
+              color: Press.inkSoft,
+            )
+          : TextStyle(fontSize: 12, color: Press.inkSoft),
+      labelLarge: upper
+          ? TextStyle(
+              fontFamily: Type.mono,
+              fontWeight: FontWeight.w500,
+              fontSize: 11,
+              letterSpacing: 1.6,
+              color: Press.ink,
+            )
+          : TextStyle(
+              fontWeight: FontWeight.w600, fontSize: 13, color: Press.ink),
     ),
   );
 }
+
+
+/// The historical name; screens and the desktop shell still call this.
+ThemeData fieldStationTheme() => appTheme();

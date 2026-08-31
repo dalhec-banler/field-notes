@@ -16,7 +16,7 @@ import '../widgets/press.dart';
 /// ways to get more — capture an area from the map, import a file, or
 /// download from a link.
 class OfflineMapsScreen extends StatefulWidget {
-  const OfflineMapsScreen({super.key});
+  OfflineMapsScreen({super.key});
 
   @override
   State<OfflineMapsScreen> createState() => _OfflineMapsScreenState();
@@ -59,7 +59,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
   /// slot — works on release builds and needs no cable or server.
   Future<void> _importFile() async {
     final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(label: 'PMTiles', extensions: ['pmtiles']),
+      XTypeGroup(label: 'PMTiles', extensions: ['pmtiles']),
     ]);
     if (file == null) return;
     final docs = await getApplicationDocumentsDirectory();
@@ -70,7 +70,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     _refresh();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('BASEMAP INSTALLED')));
+          SnackBar(content: Text('BASEMAP INSTALLED')));
     }
   }
 
@@ -78,23 +78,23 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('REMOVE CAPTURED AREAS?'),
-        content: const Text(
+        title: Text('REMOVE CAPTURED AREAS?'),
+        content: Text(
             'Every area you captured from the map goes. Your records stay. '
             'You can capture again any time you have signal.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('KEEP')),
+              child: Text('KEEP')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('REMOVE')),
+              child: Text('REMOVE')),
         ],
       ),
     );
     if (ok != true) return;
     final f = await AreaDownloader.target();
-    for (final suffix in const ['', '-wal', '-shm', '-journal']) {
+    for (final suffix in ['', '-wal', '-shm', '-journal']) {
       final s = File('${f.path}$suffix');
       if (s.existsSync()) s.deleteSync();
     }
@@ -112,10 +112,10 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     VoidCallback? onRemove,
   }) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      padding: EdgeInsets.fromLTRB(14, 12, 6, 12),
       decoration: BoxDecoration(
         color: Press.paperRaised,
-        border: Border.all(color: Press.ink, width: 1.5),
+        border: Border.all(color: Press.borderInk, width: 1.5),
       ),
       child: Row(
         children: [
@@ -123,25 +123,25 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               size: 12,
               color: present ? Press.sage : Press.inkSoft,
               filled: present),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontFamily: Type.slab,
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
                         color: Press.ink)),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 MonoLabel(detail, size: 9, spacing: 1.2, opacity: 0.75),
               ],
             ),
           ),
           if (present && onRemove != null)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Press.oxblood),
+              icon: Icon(Icons.delete_outline, color: Press.oxblood),
               tooltip: 'Remove',
               onPressed: onRemove,
             ),
@@ -155,12 +155,12 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     final installed = _installedBytes != null;
     final captured = _capturedBytes != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Offline maps')),
+      appBar: AppBar(title: Text('Offline maps')),
       body: ListView(
-        padding: const EdgeInsets.all(Metrics.gutter),
+        padding: EdgeInsets.all(Metrics.gutter),
         children: [
-          const MonoLabel('On this phone', size: 9, spacing: 1.8),
-          const SizedBox(height: 8),
+          MonoLabel('On this phone', size: 9, spacing: 1.8),
+          SizedBox(height: 8),
           _card(
             title: 'Captured areas',
             detail: captured
@@ -169,7 +169,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
             present: captured,
             onRemove: _removeCaptured,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _card(
             title: 'Regional basemap file',
             detail: installed
@@ -181,16 +181,16 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               _refresh();
             },
           ),
-          const SizedBox(height: 10),
-          const Text(
+          SizedBox(height: 10),
+          Text(
             'Captured areas draw first; the regional file fills in around '
             'them. Both live only on this phone and never need signal to use.',
             style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.45),
           ),
-          const SizedBox(height: 26),
-          const MonoLabel('Add a regional basemap file', size: 9, spacing: 1.8),
+          SizedBox(height: 26),
+          MonoLabel('Add a regional basemap file', size: 9, spacing: 1.8),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Easiest: tap ⌗ Capture area on the map while you have signal. '
             'For a whole county in one go, import a .pmtiles file someone '
             'made for you, or paste a link to one.',

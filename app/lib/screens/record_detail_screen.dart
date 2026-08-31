@@ -35,7 +35,7 @@ const _kConfidence = {
 /// keyed by the actual schema field names — the app and the schema stay
 /// honest with each other.
 class RecordDetailScreen extends StatefulWidget {
-  const RecordDetailScreen({super.key, required this.db, required this.obsId});
+  RecordDetailScreen({super.key, required this.db, required this.obsId});
 
   final FieldNotesDb db;
   final String obsId;
@@ -49,9 +49,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   TaxaData? _taxon;
   Zone? _zone;
   EnvContext? _env;
-  List<MediaData> _photos = const [];
-  List<MediaData> _audio = const [];
-  List<(Observation, double)> _nearby = const [];
+  List<MediaData> _photos = [];
+  List<MediaData> _audio = [];
+  List<(Observation, double)> _nearby = [];
   Property? _property;
   int _photoIndex = 0;
   final _player = AudioPlayer();
@@ -225,10 +225,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             top: false,
             child: ListView(
               shrinkWrap: true,
-              padding: const EdgeInsets.all(Metrics.gutter),
+              padding: EdgeInsets.all(Metrics.gutter),
               children: [
-                const MonoLabel('Edit record', size: 10, spacing: 2),
-                const SizedBox(height: 12),
+                MonoLabel('Edit record', size: 10, spacing: 2),
+                SizedBox(height: 12),
                 SpeciesField(
                   db: widget.db,
                   label: 'Species — common or Latin name',
@@ -243,9 +243,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                   }),
                 ),
                 if (taxon != null) ...[
-                  const SizedBox(height: 12),
-                  const MonoLabel('How sure?', size: 9, spacing: 1.8),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 12),
+                  MonoLabel('How sure?', size: 9, spacing: 1.8),
+                  SizedBox(height: 6),
                   Wrap(
                     spacing: 7,
                     runSpacing: 7,
@@ -259,9 +259,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 14),
-                const MonoLabel('What kind of record', size: 9, spacing: 1.8),
-                const SizedBox(height: 6),
+                SizedBox(height: 14),
+                MonoLabel('What kind of record', size: 9, spacing: 1.8),
+                SizedBox(height: 6),
                 Wrap(
                   spacing: 7,
                   runSpacing: 7,
@@ -274,25 +274,25 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                const MonoLabel('Notes', size: 9, spacing: 1.8),
-                const SizedBox(height: 6),
+                SizedBox(height: 14),
+                MonoLabel('Notes', size: 9, spacing: 1.8),
+                SizedBox(height: 6),
                 TextField(
                   controller: notes,
                   minLines: 3,
                   maxLines: 8,
                   textCapitalization: TextCapitalization.sentences,
                   cursorColor: Press.oxblood,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: Type.serif,
                     fontSize: 16,
                     height: 1.5,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'What did you see?',
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
@@ -300,16 +300,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                         height: 52,
                         child: FilledButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('SAVE CHANGES'),
+                          child: Text('SAVE CHANGES'),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     SizedBox(
                       height: 52,
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('CANCEL'),
+                        child: Text('CANCEL'),
                       ),
                     ),
                   ],
@@ -342,10 +342,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       onTap: onTap,
       child: Container(
         height: 56, // glove target (spec §7)
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
           color: on ? Press.ink : null,
-          border: Border.all(color: Press.ink, width: 1),
+          border: Border.all(color: Press.borderInk, width: 1),
           borderRadius: BorderRadius.circular(999),
         ),
         // Center(widthFactor) keeps the pill hugging its label inside a Wrap.
@@ -369,19 +369,19 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('DELETE RECORD?'),
-        content: const Text(
+        title: Text('DELETE RECORD?'),
+        content: Text(
           'The record leaves your ledger. Photos stay on disk.',
           style: TextStyle(fontFamily: Type.serif, fontSize: 15.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
+            child: Text('CANCEL'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('DELETE'),
+            child: Text('DELETE'),
           ),
         ],
       ),
@@ -403,7 +403,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   Widget build(BuildContext context) {
     final obs = _obs;
     if (obs == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final typeColor = recordTypeColor(obs.observationType);
     // observed_at is stored UTC (spec §4); show it in the phone's local time
@@ -440,11 +440,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 if (_photos.isNotEmpty)
                   Positioned.fill(
                     child: Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(8),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: const Color(0x66F4ECD8),
+                            color: Color(0x66F4ECD8),
                             width: 1,
                           ),
                         ),
@@ -463,7 +463,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       decoration: BoxDecoration(
                         color: _photos.isEmpty
                             ? Press.paper
-                            : const Color(0x991B1813),
+                            : Color(0x991B1813),
                         border: Border.all(
                           color: _photos.isEmpty
                               ? Press.ink
@@ -492,7 +492,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     bottom: 8,
                     child: Container(
                       color: Press.ink,
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 9,
                         vertical: 5,
                       ),
@@ -521,12 +521,12 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                             child: Container(
                               width: 34,
                               height: 34,
-                              margin: const EdgeInsets.only(left: 5),
+                              margin: EdgeInsets.only(left: 5),
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: i == _photoIndex
                                       ? Press.oxblood
-                                      : const Color(0xCCF4ECD8),
+                                      : Color(0xCCF4ECD8),
                                   width: i == _photoIndex ? 2 : 1,
                                 ),
                                 image: DecorationImage(
@@ -550,7 +550,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
           // 2. Title block.
           Padding(
-            padding: const EdgeInsets.fromLTRB(
+            padding: EdgeInsets.fromLTRB(
               Metrics.gutter,
               14,
               Metrics.gutter,
@@ -562,7 +562,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 Row(
                   children: [
                     Container(width: 14, height: 2, color: Press.oxblood),
-                    const SizedBox(width: 7),
+                    SizedBox(width: 7),
                     MonoLabel(
                       '${obs.observationType}'
                       '${_taxon != null && _kConfidence.containsKey(obs.taxonConfidence) ? ' · ${_kConfidence[obs.taxonConfidence]}' : ''}',
@@ -572,7 +572,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 if (_taxon != null) ...[
                   // Name → the species' whole history on this place.
                   GestureDetector(
@@ -586,14 +586,14 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                           ),
                     child: TaxonName(_taxon!.scientificName, size: 34),
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5),
                   Text(
                     [
                       if (_taxon!.commonName != null) _taxon!.commonName!,
                       if (_taxon!.family != null) _taxon!.family!,
                       if (_taxon!.nativity != null) _taxon!.nativity!,
                     ].join(' · ').toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: Type.slab,
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
@@ -603,7 +603,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 ] else
                   Text(
                     obs.observationType.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: Type.slab,
                       fontWeight: FontWeight.w900,
                       fontSize: 30,
@@ -617,11 +617,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
           // 3. Fact card — schema field names as keys.
           Padding(
-            padding: const EdgeInsets.all(Metrics.gutter),
+            padding: EdgeInsets.all(Metrics.gutter),
             child: Container(
               decoration: BoxDecoration(
                 color: Press.paperRaised,
-                border: Border.all(color: Press.ink, width: 1.5),
+                border: Border.all(color: Press.borderInk, width: 1.5),
               ),
               child: Column(
                 children: [
@@ -671,7 +671,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       last: true,
                     ),
                   if (_photos.isEmpty && _audio.isEmpty)
-                    const FactRow('media', 'none', last: true),
+                    FactRow('media', 'none', last: true),
                 ],
               ),
             ),
@@ -680,7 +680,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           // Notes.
           if (obs.notes != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 Metrics.gutter,
                 0,
                 Metrics.gutter,
@@ -688,7 +688,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               ),
               child: Text(
                 obs.notes!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: Type.serif,
                   fontSize: 16,
                   height: 1.5,
@@ -700,7 +700,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           // already in the notes above.
           for (final a in _audio)
             Padding(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 Metrics.gutter,
                 0,
                 Metrics.gutter,
@@ -726,7 +726,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           // visit is the whole point (core principle 4).
           if (_nearby.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 Metrics.gutter,
                 4,
                 Metrics.gutter,
@@ -735,7 +735,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const MonoLabel(
+                  MonoLabel(
                     'Nearby · within 50 m',
                     size: 9,
                     spacing: 1.8,
@@ -752,7 +752,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       child: Container(
                         constraints: const BoxConstraints(minHeight: 52),
                         padding: const EdgeInsets.symmetric(vertical: 7),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           border: Border(
                             bottom: BorderSide(color: Press.divider, width: 1),
                           ),
@@ -773,7 +773,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                                 ].join(' · '),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: Type.serif,
                                   fontSize: 15,
                                 ),

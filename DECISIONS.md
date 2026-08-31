@@ -251,3 +251,41 @@ Tests assert the guarantees directly: zero HTTP requests while off, and that
 
 Austin's call, 2026-08-28, choosing "off by default, coarsen when on" over
 leaving it on-but-coarsened or removing it outright.
+
+### D-023 · Two skins: quiet by default, the press as an easter egg
+Austin's call (2026-08-31): the Field Station press aesthetic matches the
+Shorts Resort identity but is a strong flavour; the app should default to a
+clean contemporary skin, with the press discoverable rather than imposed.
+
+**Architecture.** The app had a constants layer, not a theme layer — 331
+`Press.*` refs, 1,117 `Type.*` refs, 120 hand-built TextStyles, and only 10
+`Theme.of(context)` lookups. Rather than rename 1,400+ call sites, `Press`
+and `Type` kept their names and became getters delegating to a process-wide
+`Skin` object (lib/theme/skin.dart): `pressSkin` (values unchanged) and
+`quietSkin`. The cost is that token references can no longer be `const`;
+an analyzer-driven sweep removed ~700 consts. The active skin is chosen from
+prefs before runApp and swapped only via a root-level rebuild
+(`ValueKey('skin-…')` on MaterialApp), never mid-frame.
+
+**Pixel-identity contract.** A golden test renders a composite of the press
+widgets; its baseline was generated from unmodified main in a git worktree,
+and the post-seam branch renders byte-identical against it. The quiet
+composite is a second golden as a reviewed reference, not a contract.
+
+**What a skin may vary:** palette, faces (quiet = system), radii, shadows
+(hard offset vs soft elevation), border colour/weight (`Press.borderInk`:
+ink vs hairline edge), label casing, ornament. **What it may not:** field
+ergonomics — touch targets, FAB/shutter sizes, outdoor-mode scaling are
+shared in `Metrics`. A skin is a look, not a downgrade for gloved hands.
+
+**The easter egg.** Settings gained an About/Version row (was missing
+anyway). Seven taps — the Android developer-options idiom — unlocks the
+press: a snackbar speaks in the press's own ink and mono regardless of the
+active skin, the skin flips, and a normal Appearance row appears and stays.
+`prefs.pressUnlocked` persists the discovery.
+
+Phase 2 (later): quiet is currently the same layouts reskinned — uppercase
+literals persist in button copy, and the press furniture (Diamond markers)
+renders recoloured rather than redesigned. A designer will clock it as the
+same app in different clothes; that's the accepted trade for shipping the
+seam first.

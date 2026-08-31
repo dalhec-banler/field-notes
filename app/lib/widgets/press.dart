@@ -6,7 +6,7 @@ import '../theme/tokens.dart';
 
 /// The system's mark: a 45°-rotated square. Never a circle, never an icon.
 class Diamond extends StatelessWidget {
-  const Diamond({
+  Diamond({
     super.key,
     required this.size,
     required this.color,
@@ -38,7 +38,7 @@ class Diamond extends StatelessWidget {
 }
 
 class _Blink extends StatefulWidget {
-  const _Blink({required this.child});
+  _Blink({required this.child});
   final Widget child;
 
   @override
@@ -47,7 +47,7 @@ class _Blink extends StatefulWidget {
 
 class _BlinkState extends State<_Blink> with SingleTickerProviderStateMixin {
   late final _controller = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2000))
+      vsync: this, duration: Duration(milliseconds: 2000))
     ..repeat(reverse: true);
 
   @override
@@ -67,7 +67,7 @@ class _BlinkState extends State<_Blink> with SingleTickerProviderStateMixin {
 
 /// Kicker: 14×2 px oxblood rule + Mono 9 uppercase label.
 class Kicker extends StatelessWidget {
-  const Kicker(this.text, {super.key});
+  Kicker(this.text, {super.key});
   final String text;
 
   @override
@@ -75,11 +75,11 @@ class Kicker extends StatelessWidget {
     return Row(
       children: [
         Container(width: 14, height: 2, color: Press.oxblood),
-        const SizedBox(width: 7),
+        SizedBox(width: 7),
         Expanded(
           child: Text(
             text.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: Type.mono,
               fontSize: 9,
               letterSpacing: 2.0,
@@ -95,7 +95,7 @@ class Kicker extends StatelessWidget {
 /// Screen header: kicker + Zilla Slab 900 uppercase title (+ optional
 /// right-aligned annotation), over a 2 px structural rule.
 class ScreenHeader extends StatelessWidget {
-  const ScreenHeader({
+  ScreenHeader({
     super.key,
     required this.kicker,
     required this.title,
@@ -109,12 +109,12 @@ class ScreenHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
           Metrics.gutter, 10, Metrics.gutter, 10),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
             bottom:
-                BorderSide(color: Press.ink, width: Metrics.borderStructural)),
+                BorderSide(color: Press.borderInk, width: Metrics.borderStructural)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -124,10 +124,10 @@ class ScreenHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Kicker(kicker),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   title.toUpperCase(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: Type.slab,
                     fontWeight: FontWeight.w900,
                     fontSize: 30,
@@ -148,19 +148,21 @@ class ScreenHeader extends StatelessWidget {
 
 /// Card with the canonical 1.5 px ink border on paper-raised.
 class InkCard extends StatelessWidget {
-  const InkCard({
+  // Colour defaults resolve in build — a default parameter must be
+  // constant, and tokens no longer are (D-023).
+  InkCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(12),
-    this.color = Press.paperRaised,
-    this.borderColor = Press.ink,
+    this.color,
+    this.borderColor,
     this.shadow = false,
   });
 
   final Widget child;
   final EdgeInsets padding;
-  final Color color;
-  final Color borderColor;
+  final Color? color;
+  final Color? borderColor;
   final bool shadow;
 
   @override
@@ -168,8 +170,9 @@ class InkCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: color,
-        border: Border.all(color: borderColor, width: Metrics.borderCard),
+        color: color ?? Press.paperRaised,
+        border:
+            Border.all(color: borderColor ?? Press.borderInk, width: Metrics.borderCard),
         boxShadow: shadow ? Metrics.shadowCard : null,
       ),
       child: child,
@@ -179,12 +182,12 @@ class InkCard extends StatelessWidget {
 
 /// Mono uppercase label — the instrumental voice.
 class MonoLabel extends StatelessWidget {
-  const MonoLabel(
+  MonoLabel(
     this.text, {
     super.key,
     this.size = 9.5,
     this.spacing = 1.5,
-    this.color = Press.inkSoft,
+    this.color,
     this.opacity = 1,
     this.weight = FontWeight.w400,
     this.maxLines,
@@ -193,7 +196,7 @@ class MonoLabel extends StatelessWidget {
   final String text;
   final double size;
   final double spacing;
-  final Color color;
+  final Color? color;
   final double opacity;
   final FontWeight weight;
   final int? maxLines;
@@ -209,7 +212,7 @@ class MonoLabel extends StatelessWidget {
         fontWeight: weight,
         fontSize: size,
         letterSpacing: spacing,
-        color: color.withValues(alpha: opacity),
+        color: (color ?? Press.inkSoft).withValues(alpha: opacity),
       ),
     );
   }
@@ -217,7 +220,7 @@ class MonoLabel extends StatelessWidget {
 
 /// Scientific name — Newsreader italic, always.
 class TaxonName extends StatelessWidget {
-  const TaxonName(this.name, {super.key, this.size = 19, this.maxLines});
+  TaxonName(this.name, {super.key, this.size = 19, this.maxLines});
   final String name;
   final double size;
   final int? maxLines;
@@ -241,12 +244,11 @@ class TaxonName extends StatelessWidget {
 
 /// Big number — Zilla Slab 900 with an optional Mono unit.
 class BigNumber extends StatelessWidget {
-  const BigNumber(this.value,
-      {super.key, this.unit, this.size = 25, this.color = Press.ink});
+  BigNumber(this.value, {super.key, this.unit, this.size = 25, this.color});
   final String value;
   final String? unit;
   final double size;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +261,7 @@ class BigNumber extends StatelessWidget {
             fontWeight: FontWeight.w900,
             fontSize: size,
             height: 1,
-            color: color,
+            color: color ?? Press.ink,
           ),
         ),
         if (unit != null)
@@ -269,7 +271,7 @@ class BigNumber extends StatelessWidget {
               fontFamily: Type.mono,
               fontSize: size * 0.4,
               letterSpacing: 1.2,
-              color: color.withValues(alpha: 0.7),
+              color: (color ?? Press.ink).withValues(alpha: 0.7),
             ),
           ),
       ]),
@@ -340,7 +342,7 @@ class RailNote extends StatelessWidget {
           ],
           Text(
             body,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: Type.serif,
               fontSize: 15,
               height: 1.45,
@@ -364,7 +366,7 @@ class StatCells extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration:
-          BoxDecoration(border: Border.all(color: Press.ink, width: 1.5)),
+          BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
       child: IntrinsicHeight(
         child: Row(
           children: [
@@ -409,7 +411,7 @@ class FactRow extends StatelessWidget {
       decoration: BoxDecoration(
         border: last
             ? null
-            : const Border(bottom: BorderSide(color: Press.divider, width: 1)),
+            : Border(bottom: BorderSide(color: Press.divider, width: 1)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,7 +425,7 @@ class FactRow extends StatelessWidget {
             child: valueWidget ??
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: Type.mono,
                     fontSize: 11.5,
                     height: 1.45,
@@ -457,7 +459,7 @@ class CaptureFab extends StatelessWidget {
             BoxShadow(color: Color(0x551B1813), offset: Offset(0, 3), blurRadius: 8),
           ],
         ),
-        child: const Icon(Icons.add_a_photo_outlined,
+        child: Icon(Icons.add_a_photo_outlined,
             color: Press.paper, size: 26),
       ),
     );

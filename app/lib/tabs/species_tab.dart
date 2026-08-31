@@ -8,7 +8,7 @@ import '../widgets/press.dart';
 
 /// Per-taxon presence on this place: count, first and last observed.
 class _Seen {
-  const _Seen(this.count, this.first, this.last);
+  _Seen(this.count, this.first, this.last);
   final int count;
   final String? first;
   final String? last;
@@ -17,7 +17,7 @@ class _Seen {
 /// Species library (design README §3.5): the property's taxa with search,
 /// nativity diamonds, and occurrence counts.
 class SpeciesTab extends StatefulWidget {
-  const SpeciesTab({super.key, required this.db, required this.property});
+  SpeciesTab({super.key, required this.db, required this.property});
 
   final FieldNotesDb db;
   final Property property;
@@ -138,7 +138,7 @@ class _SpeciesTabState extends State<SpeciesTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const ScreenHeader(
+          ScreenHeader(
               kicker: 'Property library · taxa', title: 'Species'),
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -150,7 +150,7 @@ class _SpeciesTabState extends State<SpeciesTab> {
                 hintText: 'Search scientific, common, or family…',
                 isDense: true,
               ),
-              style: const TextStyle(
+              style: TextStyle(
                   fontFamily: Type.mono, fontSize: 11, color: Press.ink),
             ),
           ),
@@ -175,7 +175,7 @@ class _SpeciesTabState extends State<SpeciesTab> {
                   builder: (context, snapshot) {
                     final taxa = snapshot.data ?? const [];
                     if (taxa.isEmpty) {
-                      return const Center(
+                      return Center(
                           child: MonoLabel('— no matches —',
                               size: 9, spacing: 2, opacity: 0.5));
                     }
@@ -198,7 +198,7 @@ class _SpeciesTabState extends State<SpeciesTab> {
                           child: Container(
                             padding: const EdgeInsets.fromLTRB(
                                 4, 4, Metrics.gutter, 4),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               border: Border(
                                   bottom: BorderSide(
                                       color: Press.divider, width: 1)),
@@ -229,7 +229,7 @@ class _SpeciesTabState extends State<SpeciesTab> {
                                           t.commonName!,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontFamily: Type.slab,
                                             fontWeight: FontWeight.w700,
                                             fontSize: 15.5,

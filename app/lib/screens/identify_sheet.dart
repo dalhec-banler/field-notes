@@ -37,7 +37,7 @@ Future<bool> showIdentifySheet(
 }
 
 class _IdentifySheet extends StatefulWidget {
-  const _IdentifySheet({
+  _IdentifySheet({
     required this.db,
     required this.observation,
     required this.property,
@@ -55,7 +55,7 @@ class _IdentifySheet extends StatefulWidget {
 
 class _IdentifySheetState extends State<_IdentifySheet> {
   late final _service = IdentificationService(widget.db);
-  List<IdCandidate> _candidates = const [];
+  List<IdCandidate> _candidates = [];
   String? _status;
   String? _error;
   bool _running = false;
@@ -144,35 +144,35 @@ class _IdentifySheetState extends State<_IdentifySheet> {
       maxChildSize: 0.95,
       builder: (context, scroll) => ListView(
         controller: scroll,
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
             Metrics.gutter, 14, Metrics.gutter, 32),
         children: [
-          const MonoLabel('What is it?', size: 10, spacing: 2),
-          const SizedBox(height: 12),
+          MonoLabel('What is it?', size: 10, spacing: 2),
+          SizedBox(height: 12),
 
           if (!_loaded)
-            const Center(child: Padding(
+            Center(child: Padding(
               padding: EdgeInsets.all(24),
               child: CircularProgressIndicator(),
             ))
           else if (!_configured) ...[
-            const Text(
+            Text(
               'Photo identification needs a key from you first — Pl@ntNet, '
               'an AI provider, or both. Your account, your key, and nothing '
               'is sent until you ask.',
               style:
                   TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             SizedBox(
               height: 56,
               child: FilledButton(
                 onPressed: () {
                   Navigator.pop(context, false);
                   Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const SpeciesIdSettingsScreen()));
+                      builder: (_) => SpeciesIdSettingsScreen()));
                 },
-                child: const Text('SET IT UP'),
+                child: Text('SET IT UP'),
               ),
             ),
           ] else ...[
@@ -180,15 +180,15 @@ class _IdentifySheetState extends State<_IdentifySheet> {
               aspectRatio: 16 / 9,
               child: Container(
                 decoration:
-                    BoxDecoration(border: Border.all(color: Press.ink, width: 1.5)),
+                    BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
                 child: Image.file(widget.photo, fit: BoxFit.cover),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             if (_candidates.isEmpty && !_running) ...[
-              const MonoLabel('What does the photo show?',
+              MonoLabel('What does the photo show?',
                   size: 9, spacing: 1.6),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Wrap(
                 spacing: 7,
                 runSpacing: 7,
@@ -198,10 +198,10 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                       onTap: () => setState(() => _organ = e.key),
                       child: Container(
                         height: 48,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
                           color: _organ == e.key ? Press.ink : null,
-                          border: Border.all(color: Press.ink, width: 1),
+                          border: Border.all(color: Press.borderInk, width: 1),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Center(
@@ -221,46 +221,46 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               SizedBox(
                 height: 56,
                 child: FilledButton.icon(
-                  icon: const Icon(Icons.search),
-                  label: const Text('SUGGEST A SPECIES'),
+                  icon: Icon(Icons.search),
+                  label: Text('SUGGEST A SPECIES'),
                   onPressed: _run,
                 ),
               ),
             ],
             if (_running) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Row(
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   MonoLabel(_status ?? 'Looking…', size: 10, spacing: 1.2),
                 ],
               ),
             ],
             if (_error != null) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Text(_error!,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontFamily: Type.serif,
                       fontSize: 15,
                       color: Press.oxblood)),
             ],
             if (_candidates.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              const MonoLabel('Suggestions · tap the one you agree with',
+              SizedBox(height: 14),
+              MonoLabel('Suggestions · tap the one you agree with',
                   size: 9, spacing: 1.6),
               const SizedBox(height: 8),
               for (final c in _candidates) _candidateTile(c),
               const SizedBox(height: 14),
-              const RailNote(
+              RailNote(
                 color: Press.sage,
                 body: 'Nothing has been written to this record. A suggestion '
                     'only becomes the species when you tap it.',
@@ -292,7 +292,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Press.paperRaised,
-            border: Border.all(color: Press.ink, width: 1.5),
+            border: Border.all(color: Press.borderInk, width: 1.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,7 +306,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                       children: [
                         if (c.commonName != null)
                           Text(c.commonName!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: Type.slab,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
@@ -325,7 +325,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
               if (c.reasoning != null) ...[
                 const SizedBox(height: 8),
                 Text(c.reasoning!,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontFamily: Type.serif, fontSize: 14.5, height: 1.4)),
               ],
               const SizedBox(height: 6),

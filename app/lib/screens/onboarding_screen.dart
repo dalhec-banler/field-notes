@@ -227,7 +227,7 @@ class _PageView extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           page.title,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: Type.slab,
             fontWeight: FontWeight.w900,
             fontSize: 46,
@@ -238,7 +238,7 @@ class _PageView extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           page.body,
-          style: const TextStyle(
+          style: TextStyle(
               fontFamily: Type.serif, fontSize: 17, height: 1.5),
         ),
         const SizedBox(height: 22),
@@ -248,7 +248,7 @@ class _PageView extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 7),
                   child: Diamond(size: 8, color: Press.sage, filled: true),
                 ),
@@ -256,7 +256,7 @@ class _PageView extends StatelessWidget {
                 Expanded(
                   child: Text(
                     p,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
                   ),
                 ),

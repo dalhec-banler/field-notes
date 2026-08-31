@@ -363,7 +363,7 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
       appBar: AppBar(
         title: Text(
           (_taxon?.commonName ?? species).toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
               fontFamily: Type.slab,
               fontWeight: FontWeight.w900,
               fontSize: 20),
@@ -377,7 +377,7 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Press.paperRaised,
-              border: Border.all(color: Press.ink, width: 1.5),
+              border: Border.all(color: Press.borderInk, width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,7 +423,7 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          const RailNote(
+          RailNote(
             color: Press.sage,
             body:
                 'Survival is derived on every read — latest status per tag, '
@@ -462,7 +462,7 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
             const SizedBox(height: 6),
             Container(
               decoration:
-                  BoxDecoration(border: Border.all(color: Press.ink, width: 1.5)),
+                  BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
               child: Column(
                 children: [
                   for (var i = 0; i < _individuals.length; i++)
@@ -474,7 +474,7 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                         decoration: BoxDecoration(
                           color: Press.paperRaised,
                           border: i < _individuals.length - 1
-                              ? const Border(
+                              ? Border(
                                   bottom: BorderSide(
                                       color: Press.divider, width: 1))
                               : null,

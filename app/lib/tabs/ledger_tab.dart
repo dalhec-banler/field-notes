@@ -191,7 +191,7 @@ class _LedgerTabState extends State<LedgerTab> {
                             itemCount: obs.length + 1,
                             itemBuilder: (context, i) {
                               if (i == obs.length) {
-                                return const Padding(
+                                return Padding(
                                   padding: EdgeInsets.symmetric(vertical: 22),
                                   child: Center(
                                     child: MonoLabel('— that\'s everything —',
@@ -218,7 +218,7 @@ class _LedgerTabState extends State<LedgerTab> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: active ? Press.ink : null,
-          border: Border.all(color: Press.ink, width: 1),
+          border: Border.all(color: Press.borderInk, width: 1),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
@@ -323,7 +323,7 @@ class _LedgerTabState extends State<LedgerTab> {
               ListTile(
                 minTileHeight: 56,
                 title: Text(item.$2.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontFamily: Type.mono,
                         fontSize: 11,
                         letterSpacing: 1.4)),
@@ -400,7 +400,7 @@ class _LedgerRow extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.symmetric(
                 horizontal: Metrics.gutter, vertical: em * 0.75),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: Press.divider, width: 1)),
             ),
             child: Row(
@@ -416,7 +416,7 @@ class _LedgerRow extends StatelessWidget {
                     color: thumb != null
                         ? Press.photoPlaceholder
                         : Press.paperRaised,
-                    border: Border.all(color: Press.ink, width: 1),
+                    border: Border.all(color: Press.borderInk, width: 1),
                     image: thumb != null && File(thumb).existsSync()
                         ? DecorationImage(
                             image: FileImage(File(thumb)), fit: BoxFit.cover)

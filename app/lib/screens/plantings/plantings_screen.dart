@@ -10,7 +10,7 @@ import 'planting_detail_screen.dart';
 
 /// Plantings (spec §7.5): events with survival %, drill into cohorts.
 class PlantingsScreen extends StatelessWidget {
-  const PlantingsScreen(
+  PlantingsScreen(
       {super.key,
       required this.db,
       required this.property,
@@ -27,18 +27,18 @@ class PlantingsScreen extends StatelessWidget {
       ..where((e) => e.deletedAt.isNull())
       ..orderBy([(e) => OrderingTerm.desc(e.plantedOn)]));
     return Scaffold(
-      appBar: embedded ? null : AppBar(title: const Text('Plantings')),
+      appBar: embedded ? null : AppBar(title: Text('Plantings')),
       floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add),
-        label: const Text('New planting'),
+        icon: Icon(Icons.add),
+        label: Text('New planting'),
         onPressed: () => _newPlanting(context),
       ),
       body: StreamBuilder<List<PlantingEvent>>(
         stream: query.watch(),
         builder: (context, snapshot) {
-          final events = snapshot.data ?? const [];
+          final events = snapshot.data ?? [];
           if (events.isEmpty) {
-            return const Center(
+            return Center(
                 child: Text('No plantings recorded yet.'));
           }
           return ListView.builder(
@@ -81,29 +81,29 @@ class PlantingsScreen extends StatelessWidget {
             children: [
               Text('New planting',
                   style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               SpeciesField(
                   db: db, label: 'Species', onSelected: (t) => taxon = t),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextField(
                 controller: countController,
                 keyboardType: TextInputType.number,
                 onChanged: (_) => setSheet(() {}),
                 decoration: InputDecoration(
                   labelText: 'Count planted',
-                  border: const OutlineInputBorder(),
+                  border: OutlineInputBorder(),
                   errorText: countController.text.trim().isNotEmpty &&
                           parsedCount() == null
                       ? 'Enter how many went in the ground'
                       : null,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: stockSource,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                     labelText: 'Stock source', border: OutlineInputBorder()),
-                items: const [
+                items: [
                   DropdownMenuItem(
                       value: 'own_propagation',
                       child: Text('Own propagation')),
@@ -123,12 +123,12 @@ class PlantingsScreen extends StatelessWidget {
                 ],
                 onChanged: (v) => stockSource = v ?? stockSource,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: protection,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                     labelText: 'Protection', border: OutlineInputBorder()),
-                items: const [
+                items: [
                   DropdownMenuItem(value: 'none', child: Text('None')),
                   DropdownMenuItem(
                       value: 'welded_wire_cage',
@@ -142,10 +142,10 @@ class PlantingsScreen extends StatelessWidget {
                 ],
                 onChanged: (v) => protection = v ?? protection,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.event),
+                leading: Icon(Icons.event),
                 title: Text('Planted on '
                     '${plantedOn.toIso8601String().substring(0, 10)}'),
                 onTap: () async {
@@ -160,17 +160,17 @@ class PlantingsScreen extends StatelessWidget {
               ),
               TextField(
                 controller: notesController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                     labelText: 'Notes', border: OutlineInputBorder()),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               SizedBox(
                 height: 56,
                 child: FilledButton(
                   onPressed: parsedCount() == null
                       ? null
                       : () => Navigator.pop(context, true),
-                  child: const Text('Save planting'),
+                  child: Text('Save planting'),
                 ),
               ),
             ],
@@ -201,7 +201,7 @@ class PlantingsScreen extends StatelessWidget {
 }
 
 class _PlantingTile extends StatelessWidget {
-  const _PlantingTile({required this.db, required this.event});
+  _PlantingTile({required this.db, required this.event});
 
   final FieldNotesDb db;
   final PlantingEvent event;
@@ -232,9 +232,9 @@ class _PlantingTile extends StatelessWidget {
             ),
           ),
           child: Container(
-            padding: const EdgeInsets.symmetric(
+            padding: EdgeInsets.symmetric(
                 horizontal: Metrics.gutter, vertical: 13),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: Press.divider, width: 1)),
             ),
             child: Column(
@@ -244,12 +244,12 @@ class _PlantingTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: TaxonName(species, size: 20, maxLines: 1)),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     // Cohort rate gets the big percent; a tag-derived figure
                     // is over the tagged set only, so it is labelled as such
                     // and never shown as a bare percent (audit M13).
                     survival == null
-                        ? const MonoLabel('no check-ins',
+                        ? MonoLabel('no check-ins',
                             size: 9, opacity: 0.6)
                         : survival.fromTags
                             ? MonoLabel(
@@ -285,7 +285,7 @@ class _PlantingTile extends StatelessWidget {
                           height: 9,
                           decoration: BoxDecoration(
                             color: const Color(0x121B1813),
-                            border: Border.all(color: Press.ink, width: 1),
+                            border: Border.all(color: Press.borderInk, width: 1),
                           ),
                           child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,

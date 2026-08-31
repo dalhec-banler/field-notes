@@ -217,7 +217,7 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
       body: ListView(
         padding: const EdgeInsets.all(Metrics.gutter),
         children: [
-          const Text(
+          Text(
             'Pick photos from your phone. Ones with GPS in them land on the '
             'map where they were taken; the rest still import, marked as '
             'unlocated. Each becomes a record you can edit.',
@@ -281,7 +281,7 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 14),
               child: Text(_status!,
-                  style: const TextStyle(fontFamily: Type.serif, fontSize: 15)),
+                  style: TextStyle(fontFamily: Type.serif, fontSize: 15)),
             ),
         ],
       ),

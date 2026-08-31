@@ -306,7 +306,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
               color: Press.paperRaised,
-              border: Border.all(color: Press.ink, width: 1.5),
+              border: Border.all(color: Press.borderInk, width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

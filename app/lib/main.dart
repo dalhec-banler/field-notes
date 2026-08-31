@@ -69,11 +69,15 @@ Future<void> main() async {
   // Daily automatic backup + weekly verify, when due (spec §11.7–11.8).
   // Never gates startup.
   BackupService(db).maybeRunAutomatic(prefs).catchError((_) => null);
+  // The skin is process-wide state read during build (D-023); it must be
+  // decided before the first frame and only ever changed with the rebuild
+  // below, never mid-frame.
+  skin = prefs.skinName == 'press' ? pressSkin : quietSkin;
   runApp(FieldNotesApp(db: db, prefs: prefs));
 }
 
 class FieldNotesApp extends StatelessWidget {
-  const FieldNotesApp({super.key, required this.db, required this.prefs});
+  FieldNotesApp({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
   final AppPrefs prefs;
@@ -83,9 +87,15 @@ class FieldNotesApp extends StatelessWidget {
     // Prefs are a ChangeNotifier so an outdoor-mode flip re-themes live.
     return ListenableBuilder(
       listenable: prefs,
-      builder: (context, _) => MaterialApp(
+      builder: (context, _) {
+        // Re-resolve the skin on every prefs change, and key the whole tree
+        // by it: a skin swap must rebuild every widget, including the ones
+        // that cached token values in `const`-free but long-lived state.
+        skin = prefs.skinName == 'press' ? pressSkin : quietSkin;
+        return MaterialApp(
+        key: ValueKey('skin-${skin.name}'),
         title: 'Field Notes',
-        theme: fieldStationTheme(),
+        theme: appTheme(),
         // Outdoor mode (spec §7): scale every text style up ~18 %. Layouts
         // are built to tolerate it; touch targets are already ≥ 56 dp.
         builder: (context, child) {
@@ -96,11 +106,12 @@ class FieldNotesApp extends StatelessWidget {
               : mq.textScaler;
           return MediaQuery(
             data: mq.copyWith(textScaler: scaled),
-            child: child ?? const SizedBox.shrink(),
+            child: child ?? SizedBox.shrink(),
           );
         },
         home: RootScreen(db: db, prefs: prefs),
-      ),
+      );
+      },
     );
   }
 }
@@ -108,7 +119,7 @@ class FieldNotesApp extends StatelessWidget {
 /// Boots into the five-tab shell on the active property; falls back to
 /// first-run place creation when the database has no properties.
 class RootScreen extends StatefulWidget {
-  const RootScreen({super.key, required this.db, required this.prefs});
+  RootScreen({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
   final AppPrefs prefs;
@@ -161,7 +172,7 @@ class _RootScreenState extends State<RootScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
-      return const Scaffold(body: SizedBox.shrink());
+      return Scaffold(body: SizedBox.shrink());
     }
     // First run: the walkthrough comes before anything is asked of you.
     if (!widget.prefs.hasSeenOnboarding) {
@@ -176,14 +187,14 @@ class _RootScreenState extends State<RootScreen> {
       return Scaffold(
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(26),
+            padding: EdgeInsets.all(26),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Spacer(),
-                const Kicker('Local-first field journal'),
+                Spacer(),
+                Kicker('Local-first field journal'),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'FIELD\nNOTES',
                   style: TextStyle(
                     fontFamily: Type.slab,
@@ -194,7 +205,7 @@ class _RootScreenState extends State<RootScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
+                Text(
                   'The record lives on this phone. It works with the radio '
                   'off. Add the land you walk — owned, leased, public, or a '
                   'collection site.',

@@ -29,7 +29,7 @@ class CaptureResult {
 /// Camera-dark full-screen modal; save is never blocked on GPS, network, or
 /// identification; a record without a photograph is a legitimate record.
 class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({
+  CaptureScreen({
     super.key,
     required this.db,
     required this.property,
@@ -140,7 +140,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         final last = await Geolocator.getLastKnownPosition();
         if (last != null &&
             DateTime.now().difference(last.timestamp) <
-                const Duration(minutes: 2) &&
+                Duration(minutes: 2) &&
             mounted) {
           setState(() => _fix = last);
         }
@@ -476,16 +476,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
     final discard = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('DISCARD THIS RECORD?'),
-        content: const Text(
+        title: Text('DISCARD THIS RECORD?'),
+        content: Text(
             'The photo and anything you filled in will be dropped.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('KEEP')),
+              child: Text('KEEP')),
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('DISCARD')),
+              child: Text('DISCARD')),
         ],
       ),
     );
@@ -535,14 +535,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     children: [
                       Text(_cameraError!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontFamily: Type.serif,
                               color: Color(0xB3F4ECD8))),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Press.paperRaised,
-                          side: const BorderSide(
+                          side: BorderSide(
                               color: Press.paperRaised, width: 1.5),
                         ),
                         onPressed: () async {
@@ -561,13 +561,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   ),
                 )
               else if (camera == null)
-                const Center(
+                Center(
                     child: CircularProgressIndicator(
                         color: Press.paperRaised))
               else
                 CameraPreview(camera),
               // Scrim.
-              const DecoratedBox(
+              DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -579,21 +579,21 @@ class _CaptureScreenState extends State<CaptureScreen> {
               // Inset frame line.
               Positioned.fill(
                 child: Padding(
-                  padding: const EdgeInsets.all(22),
+                  padding: EdgeInsets.all(22),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       border: Border.all(
-                          color: const Color(0x66F4ECD8), width: 1.5),
+                          color: Color(0x66F4ECD8), width: 1.5),
                     ),
                   ),
                 ),
               ),
               // Corner diamonds.
-              const Positioned(
+              Positioned(
                   top: 30,
                   left: 30,
                   child: Diamond(size: 9, color: Press.sage)),
-              const Positioned(
+              Positioned(
                   top: 30,
                   right: 30,
                   child: Diamond(size: 9, color: Press.sage)),
@@ -604,7 +604,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   height: 84,
                   decoration: BoxDecoration(
                     border: Border.all(
-                        color: const Color(0x99F4ECD8), width: 1.5),
+                        color: Color(0x99F4ECD8), width: 1.5),
                   ),
                 ),
               ),
@@ -656,7 +656,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         // Shutter bar: Cancel · shutter · No photo — which advances exactly
         // like the shutter does.
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: EdgeInsets.symmetric(vertical: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -665,7 +665,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 height: 58,
                 child: TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('CANCEL',
+                  child: Text('CANCEL',
                       style: TextStyle(color: Color(0x99F4ECD8))),
                 ),
               ),
@@ -687,7 +687,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 height: 58,
                 child: TextButton(
                   onPressed: _noPhoto,
-                  child: const Text('NO PHOTO',
+                  child: Text('NO PHOTO',
                       style: TextStyle(color: Color(0x99F4ECD8))),
                 ),
               ),
@@ -707,16 +707,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
         children: [
           // Header strip.
           Container(
-            padding: const EdgeInsets.fromLTRB(13, 10, 6, 10),
-            decoration: const BoxDecoration(
+            padding: EdgeInsets.fromLTRB(13, 10, 6, 10),
+            decoration: BoxDecoration(
               border: Border(
                   bottom: BorderSide(
                       color: Press.ink, width: Metrics.borderStructural)),
             ),
             child: Row(
               children: [
-                const Diamond(size: 9, color: Press.sage),
-                const SizedBox(width: 8),
+                Diamond(size: 9, color: Press.sage),
+                SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -727,7 +727,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         spacing: 1.6,
                         color: Press.sage,
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       MonoLabel(
                           widget.isPlaced
                               ? 'Placed on the map · ${widget.placedLat!.toStringAsFixed(5)}, ${widget.placedLng!.toStringAsFixed(5)}'
@@ -748,7 +748,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   height: 46,
                   child: TextButton(
                     onPressed: _confirmDiscard,
-                    child: const Text('✕'),
+                    child: Text('✕'),
                   ),
                 ),
               ],
@@ -756,7 +756,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(Metrics.gutter),
+              padding: EdgeInsets.all(Metrics.gutter),
               children: [
                 MonoLabel(
                     _taxon == null
@@ -764,7 +764,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         : 'What is it? · ${_taxon!.scientificName}',
                     size: 9,
                     spacing: 1.8),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 SpeciesField(
                   db: widget.db,
                   label: 'Species — common or Latin name',
@@ -777,9 +777,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     }
                   }),
                 ),
-                const SizedBox(height: 16),
-                const MonoLabel('What kind of record', size: 9, spacing: 1.8),
-                const SizedBox(height: 8),
+                SizedBox(height: 16),
+                MonoLabel('What kind of record', size: 9, spacing: 1.8),
+                SizedBox(height: 8),
                 Wrap(
                   spacing: 7,
                   runSpacing: 7,
@@ -790,11 +790,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         child: Container(
                           height: 56, // glove target (spec §7)
                           padding:
-                              const EdgeInsets.symmetric(horizontal: 18),
+                              EdgeInsets.symmetric(horizontal: 18),
                           decoration: BoxDecoration(
                             color:
                                 _observationType == t ? Press.ink : null,
-                            border: Border.all(color: Press.ink, width: 1),
+                            border: Border.all(color: Press.borderInk, width: 1),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           // Center(widthFactor) keeps the pill hugging its
@@ -818,13 +818,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                const MonoLabel('Saved with this record', size: 9, spacing: 1.8),
-                const SizedBox(height: 8),
+                SizedBox(height: 16),
+                MonoLabel('Saved with this record', size: 9, spacing: 1.8),
+                SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
                       color: Press.paperRaised,
-                      border: Border.all(color: Press.ink, width: 1.5)),
+                      border: Border.all(color: Press.borderInk, width: 1.5)),
                   child: Column(
                     children: [
                       FactRow('when', _localNow()),
@@ -835,7 +835,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                               : fix != null
                                   ? '${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)}  ±${fix.accuracy.toStringAsFixed(0)} m'
                                   : 'no fix — flagged, never faked'),
-                      const FactRow('weather · soil',
+                      FactRow('weather · soil',
                           'looked up when you\'re back online',
                           last: true),
                     ],
@@ -846,8 +846,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
           ),
           // Footer.
           Container(
-            padding: const EdgeInsets.all(Metrics.gutter),
-            decoration: const BoxDecoration(
+            padding: EdgeInsets.all(Metrics.gutter),
+            decoration: BoxDecoration(
               border:
                   Border(top: BorderSide(color: Press.divider, width: 1)),
             ),
@@ -863,12 +863,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 SizedBox(
                   height: 58,
                   child: OutlinedButton(
                     onPressed: () => setState(() => _step = 2),
-                    child: const Text('+ NOTES'),
+                    child: Text('+ NOTES'),
                   ),
                 ),
               ],
@@ -886,8 +886,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(6, 10, 13, 10),
-            decoration: const BoxDecoration(
+            padding: EdgeInsets.fromLTRB(6, 10, 13, 10),
+            decoration: BoxDecoration(
               border: Border(
                   bottom: BorderSide(
                       color: Press.ink, width: Metrics.borderStructural)),
@@ -898,11 +898,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   height: 46,
                   child: TextButton(
                     onPressed: () => setState(() => _step = 1),
-                    child: const Text('‹ BACK'),
+                    child: Text('‹ BACK'),
                   ),
                 ),
-                const SizedBox(width: 6),
-                const MonoLabel('Notes', size: 10, spacing: 1.8),
+                SizedBox(width: 6),
+                MonoLabel('Notes', size: 10, spacing: 1.8),
               ],
             ),
           ),
@@ -963,7 +963,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     minLines: 5,
                     maxLines: 12,
                     cursorColor: Press.oxblood,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontFamily: Type.serif,
                         fontSize: 16.5,
                         height: 1.6),

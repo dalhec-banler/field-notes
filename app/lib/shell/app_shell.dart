@@ -124,7 +124,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 ),
                 title: Text(
                   property.name.toUpperCase(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: Type.slab,
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
@@ -139,8 +139,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             // first run.
             ListTile(
               minTileHeight: 56,
-              leading: const Icon(Icons.add, size: 18, color: Press.ink),
-              title: const Text(
+              leading: Icon(Icons.add, size: 18, color: Press.ink),
+              title: Text(
                 'ADD A PLACE',
                 style: TextStyle(
                   fontFamily: Type.mono,
@@ -226,10 +226,10 @@ class _TabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Press.paperEdge,
         border: Border(
-            top: BorderSide(color: Press.ink, width: Metrics.borderStructural)),
+            top: BorderSide(color: Press.borderInk, width: Metrics.borderStructural)),
       ),
       child: SafeArea(
         top: false,
