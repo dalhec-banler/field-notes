@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -52,6 +53,7 @@ class _SettingsTabState extends State<SettingsTab> {
   void initState() {
     super.initState();
     _load();
+    _loadVersion();
     _deliverUnlockToastIfPending();
   }
 
@@ -437,7 +439,17 @@ class _SettingsTabState extends State<SettingsTab> {
     );
   }
 
-  static const _appVersion = '1.1.0+2';
+  /// Read from the package itself, never hardcoded — the row is
+  /// load-bearing (the seven-tap unlock lives on it) and a stale string
+  /// here would lie about the very build being tapped on (audit P2).
+  String _appVersion = '…';
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() => _appVersion = '${info.version}+${info.buildNumber}');
+    }
+  }
 
   /// Set when the unlock flips the skin: the flip rebuilds the whole tree
   /// (D-023), which destroys the ScaffoldMessenger the toast would have
