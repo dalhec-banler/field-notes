@@ -12,6 +12,8 @@ import '../services/survival.dart';
 import '../widgets/edit_record_sheet.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../screens/drive_backup_screen.dart';
+import 'drive_watch.dart';
 import 'export_workspace.dart';
 import 'settings_workspace.dart';
 
@@ -52,10 +54,74 @@ class _DesktopShellState extends State<DesktopShell> {
   int _mediaCount = 0;
   List<Property> _properties = const [];
 
+  /// The phone has put a newer copy in Drive than the one this desk holds.
+  DriveNews? _news;
+
   @override
   void initState() {
     super.initState();
     _loadStatus();
+    _checkDrive();
+  }
+
+  Future<void> _checkDrive() async {
+    final news = await checkDriveForNewer(widget.prefs);
+    if (mounted) setState(() => _news = news);
+  }
+
+  /// One-way mirror until sync (D-024): say so, and make it one click.
+  Widget _driveBanner() {
+    final news = _news;
+    if (news == null) return SizedBox.shrink();
+    final when = news.createdAt.replaceFirst('T', ' ');
+    final stamp = when.length >= 16 ? when.substring(0, 16) : when;
+    return Container(
+      color: Press.sageLight,
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: Row(
+        children: [
+          Diamond(size: 9, color: Press.sage, filled: true),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'The phone has put a newer copy in Drive (generation '
+              '${news.generation}, $stamp UTC). This desk is a mirror — '
+              'bring it over to see what the phone sees.',
+              style: TextStyle(
+                fontFamily: Type.serif,
+                fontSize: 14,
+                color: Press.ink,
+              ),
+            ),
+          ),
+          SizedBox(width: 12),
+          SizedBox(
+            height: 36,
+            child: FilledButton(
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => DriveBackupScreen(
+                      db: widget.db,
+                      prefs: widget.prefs,
+                      intake: true,
+                    ),
+                  ),
+                );
+                _checkDrive();
+              },
+              child: Text('BRING IT OVER'),
+            ),
+          ),
+          SizedBox(width: 6),
+          IconButton(
+            tooltip: 'Not now',
+            onPressed: () => setState(() => _news = null),
+            icon: Icon(Icons.close, size: 18, color: Press.inkSoft),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadStatus() async {
@@ -113,6 +179,7 @@ class _DesktopShellState extends State<DesktopShell> {
                       children: [
                         _titleBar(),
                         _navBar(),
+                        _driveBanner(),
                         Expanded(child: _workspace()),
                         _statusBar(),
                       ],

@@ -149,7 +149,33 @@ class RestorePipeline {
     }
 
     _ready.writeAsStringSync(nowUtcIso());
+    // Remember where this copy came from, so a desk can tell when the
+    // phone has put a newer one in the same place.
+    try {
+      _restoredFrom.writeAsStringSync(
+        jsonEncode({
+          'generation': envelope['generation'],
+          'created_at': envelope['created_at'],
+          'scheme': scheme,
+          'source': target.description,
+          'staged_at': nowUtcIso(),
+        }),
+      );
+    } catch (_) {}
     return '$result. Restart the app to finish.';
+  }
+
+  File get _restoredFrom => File(p.join(docsDir.path, 'restored_from.json'));
+
+  /// The manifest this device's copy was last restored from, or null.
+  Map<String, dynamic>? get lastRestoredFrom {
+    try {
+      if (!_restoredFrom.existsSync()) return null;
+      return jsonDecode(_restoredFrom.readAsStringSync())
+          as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
   }
 
   static String _integrityCheck(File dbFile) {

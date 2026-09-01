@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../backup/backup_service.dart';
@@ -46,6 +47,16 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
 
   /// A restore is staged: on a computer, offer the reopen right here.
   bool _staged = false;
+
+  /// A computer only ever RECEIVES from Drive until sync arrives (D-024):
+  /// the phone is the one that backs up. A desk that could press BACK UP
+  /// NOW would overwrite the phone's lineage with its older copy — which
+  /// is exactly what happened once. Intake is the same posture.
+  bool get _receiveOnly =>
+      widget.intake ||
+      Platform.isMacOS ||
+      Platform.isLinux ||
+      Platform.isWindows;
 
   @override
   void initState() {
@@ -193,7 +204,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('RESTORE FROM DRIVE?'),
         content: Text(
-          widget.intake
+          _receiveOnly
               ? 'The copy in Drive becomes this computer\'s record the next time '
                     'Field Notes opens. Nothing changes until the copy has been '
                     'read back whole and checked.'
@@ -297,7 +308,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.intake
+          _receiveOnly
               ? 'Bring the record from Drive'
               : 'Back up to Google Drive',
         ),
@@ -305,7 +316,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
       body: ListView(
         padding: EdgeInsets.all(Metrics.gutter),
         children: [
-          if (widget.intake) ...[
+          if (_receiveOnly) ...[
             Text(
               'If the phone backs up to Google Drive, this computer can fetch '
               'that copy. Connect with the same Google account, restore, and '
@@ -385,13 +396,13 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
                       // Intake: the one thing a fresh computer does here.
                       onPressed: _busy
                           ? null
-                          : widget.intake
+                          : _receiveOnly
                           ? (connected ? _restore : null)
                           : _backup,
                       child: Text(
                         _busy
                             ? 'WORKING…'
-                            : widget.intake
+                            : _receiveOnly
                             ? 'RESTORE FROM DRIVE'
                             : 'BACK UP NOW',
                       ),
@@ -400,7 +411,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
                 ),
               ],
             ),
-            if (!widget.intake) ...[
+            if (!_receiveOnly) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
