@@ -289,3 +289,46 @@ literals persist in button copy, and the press furniture (Diamond markers)
 renders recoloured rather than redesigned. A designer will clock it as the
 same app in different clothes; that's the accepted trade for shipping the
 seam first.
+
+### D-024 · The desk edits, refines, and exports; the field device originates
+Austin's call (2026-09-01): "the phone is the place of truth, and the
+desktop app only ever gets data from the phone or field device" — refined
+the same hour to: the desk "should be able to review decisions, make edits,
+etc. Sometimes it's easier to refine field notes on the desktop than on the
+phone," and its "primary functions should really be editing, refining, and
+publishing" — meaning **exporting useful information for publishing**
+(maps and reports as PDF/HTML/images for grantors, land-management
+partners, the website), not a publish integration.
+
+**What this fixes.** The desktop build inherited the phone's first run —
+the "phone in the creek" walkthrough and ADD A PLACE — and creating a
+place there red-screened (`_dependents.isEmpty`: the first-run subtree was
+swapped for the desk shell under an open dialog). Worse than the crash, it
+let a computer invent a property from nothing, which contradicts the desk's
+own principle cell ("This desk reads a restored copy; it invents nothing").
+
+**The rule.** Records are *born* on the field device: capture, GPS, camera,
+tracks, photo points — none of that exists on the desk. A computer with no
+data shows an intake screen (`DesktopIntakeScreen`) with exactly three
+ways in — receive from the phone over the LAN, restore from Google Drive,
+open a backup file — then quits and reopens on the copy (macOS relaunches
+itself; the staged restore applies before the DB opens, spec §11.9). No
+ADD A PLACE, no onboarding wizard on desktop.
+
+Once it has the record, the desk is a full editing peer: record edits,
+review decisions (the steward's queue from the pending-visible model),
+species refinement, programs/costs, and exports. Desk edits reach the
+phone through the same oplog as any other device (docs/SYNC-DESIGN.md is
+already bidirectional; phone + desk is its first device pair). Until M4a
+lands, a desk edit is local to the desk — the intake screen and the shell
+say so rather than pretend.
+
+**Exports for publishing** are a desk-first feature: property/zone map
+plates (PNG, PDF), an interactive HTML map for the website, and the
+existing evidence packet / survival PDF. Constraint discovered the same
+day: `maplibre_gl` has no macOS/Linux/Windows platform, so the desk has no
+interactive map and cannot render one for export through the plugin. The
+map plate is therefore our own renderer — imagery tiles composited with
+the property's GeoJSON on a Canvas — which doubles as the desk's on-screen
+map. Every export that carries coordinates says so at the point of export
+(hard rule 3: nothing leaves without explicit action).

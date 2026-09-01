@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'backup/backup_service.dart';
 import 'backup/restore.dart';
 import 'db/database.dart';
+import 'desktop/desktop_intake_screen.dart';
 import 'desktop/desktop_shell.dart';
 import 'db/seed.dart';
 import 'export/exporter.dart';
@@ -93,24 +94,24 @@ class FieldNotesApp extends StatelessWidget {
         // that cached token values in `const`-free but long-lived state.
         skin = prefs.skinName == 'press' ? pressSkin : quietSkin;
         return MaterialApp(
-        key: ValueKey('skin-${skin.name}'),
-        title: 'Field Notes',
-        theme: appTheme(),
-        // Outdoor mode (spec §7): scale every text style up ~18 %. Layouts
-        // are built to tolerate it; touch targets are already ≥ 56 dp.
-        builder: (context, child) {
-          final mq = MediaQuery.of(context);
-          // Compose with the OS font-size setting; never override it.
-          final scaled = prefs.outdoorMode
-              ? TextScaler.linear(mq.textScaler.scale(1.0) * 1.18)
-              : mq.textScaler;
-          return MediaQuery(
-            data: mq.copyWith(textScaler: scaled),
-            child: child ?? SizedBox.shrink(),
-          );
-        },
-        home: RootScreen(db: db, prefs: prefs),
-      );
+          key: ValueKey('skin-${skin.name}'),
+          title: 'Field Notes',
+          theme: appTheme(),
+          // Outdoor mode (spec §7): scale every text style up ~18 %. Layouts
+          // are built to tolerate it; touch targets are already ≥ 56 dp.
+          builder: (context, child) {
+            final mq = MediaQuery.of(context);
+            // Compose with the OS font-size setting; never override it.
+            final scaled = prefs.outdoorMode
+                ? TextScaler.linear(mq.textScaler.scale(1.0) * 1.18)
+                : mq.textScaler;
+            return MediaQuery(
+              data: mq.copyWith(textScaler: scaled),
+              child: child ?? SizedBox.shrink(),
+            );
+          },
+          home: RootScreen(db: db, prefs: prefs),
+        );
       },
     );
   }
@@ -139,10 +140,11 @@ class _RootScreenState extends State<RootScreen> {
   }
 
   Future<void> _resolveActive() async {
-    final properties = await (widget.db.select(widget.db.properties)
-          ..where((x) => x.deletedAt.isNull())
-          ..orderBy([(x) => OrderingTerm.asc(x.name)]))
-        .get();
+    final properties =
+        await (widget.db.select(widget.db.properties)
+              ..where((x) => x.deletedAt.isNull())
+              ..orderBy([(x) => OrderingTerm.asc(x.name)]))
+            .get();
     Property? active;
     final savedId = widget.prefs.activePropertyId;
     if (savedId != null) {
@@ -174,8 +176,15 @@ class _RootScreenState extends State<RootScreen> {
     if (!_loaded) {
       return Scaffold(body: SizedBox.shrink());
     }
+    final isDesk = Platform.isMacOS || Platform.isLinux || Platform.isWindows;
+    // A computer never starts a property from nothing (D-024): the phone's
+    // walkthrough and ADD A PLACE don't apply here. It brings the record
+    // over and reopens on the copy.
+    if (isDesk && _active == null) {
+      return DesktopIntakeScreen(db: widget.db, prefs: widget.prefs);
+    }
     // First run: the walkthrough comes before anything is asked of you.
-    if (!widget.prefs.hasSeenOnboarding) {
+    if (!isDesk && !widget.prefs.hasSeenOnboarding) {
       return OnboardingScreen(
         prefs: widget.prefs,
         onDone: () => setState(() {}),
@@ -210,7 +219,10 @@ class _RootScreenState extends State<RootScreen> {
                   'off. Add the land you walk — owned, leased, public, or a '
                   'collection site.',
                   style: TextStyle(
-                      fontFamily: Type.serif, fontSize: 16.5, height: 1.5),
+                    fontFamily: Type.serif,
+                    fontSize: 16.5,
+                    height: 1.5,
+                  ),
                 ),
                 const SizedBox(height: 22),
                 SizedBox(
@@ -230,7 +242,7 @@ class _RootScreenState extends State<RootScreen> {
     }
     // Desk companion (design README §4) on desktop platforms; the five-tab
     // handheld shell everywhere else.
-    if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
+    if (isDesk) {
       return DesktopShell(db: widget.db, property: active);
     }
     return AppShell(
@@ -244,7 +256,10 @@ class _RootScreenState extends State<RootScreen> {
 
 /// Full export → zip → share sheet (spec §6). Shared by Settings.
 Future<void> exportAndShare(
-    BuildContext context, FieldNotesDb db, Property property) async {
+  BuildContext context,
+  FieldNotesDb db,
+  Property property,
+) async {
   final messenger = ScaffoldMessenger.of(context);
   messenger.showSnackBar(const SnackBar(content: Text('WRITING EXPORT…')));
   try {
@@ -256,9 +271,12 @@ Future<void> exportAndShare(
     await encoder.addDirectory(dir);
     await encoder.close();
     messenger.hideCurrentSnackBar();
-    await SharePlus.instance.share(ShareParams(
+    await SharePlus.instance.share(
+      ShareParams(
         files: [XFile(zipPath)],
-        text: 'Field Notes export — ${property.name}'));
+        text: 'Field Notes export — ${property.name}',
+      ),
+    );
   } catch (e) {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(SnackBar(content: Text('EXPORT FAILED: $e')));

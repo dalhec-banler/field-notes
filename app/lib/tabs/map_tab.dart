@@ -11,6 +11,7 @@ import '../services/app_prefs.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../widgets/records_here_sheet.dart';
 
 /// Map home (design README §3.1): full-bleed map with card chrome — property
 /// card (tap = property switcher), track toggle, GPS badge.
@@ -73,15 +74,30 @@ class _MapTabState extends State<MapTab> {
   // Layer toggles (spec §7.1): record types, zones, tracks. Kept on the tab
   // so they survive the map being re-keyed after a capture.
   static const _types = [
-    'general', 'plant', 'wildlife', 'problem', 'water', 'soil',
-    'phenology', 'sign', 'weather', 'maintenance'
+    'general',
+    'plant',
+    'wildlife',
+    'problem',
+    'water',
+    'soil',
+    'phenology',
+    'sign',
+    'weather',
+    'maintenance',
   ];
   final Set<String> _hiddenTypes = {};
 
   /// What a plant is, as the library records it. Filtering by this is the
   /// point of the map for a planting: where are the trees, where's the grass.
   static const _growthForms = [
-    'tree', 'shrub', 'graminoid', 'forb', 'vine', 'succulent', 'fern', 'moss'
+    'tree',
+    'shrub',
+    'graminoid',
+    'forb',
+    'vine',
+    'succulent',
+    'fern',
+    'moss',
   ];
   static const _growthLabels = {
     'tree': 'trees',
@@ -102,6 +118,7 @@ class _MapTabState extends State<MapTab> {
   SitePresence _presence = SitePresence.unknown;
   bool _showZones = true;
   bool _showTracks = true;
+
   /// Satellite imagery draws over the offline vector map. The standard view
   /// (on by default, remembered): imagery is what the ground actually looks
   /// like, and it covers everywhere there's signal — including the gaps an
@@ -142,11 +159,12 @@ class _MapTabState extends State<MapTab> {
             padding: EdgeInsets.fromLTRB(13, 14, 13, 8),
             children: [
               MonoLabel(
-                  _recordCount == 0
-                      ? 'Show on the map'
-                      : 'Show on the map · $_recordCount record${_recordCount == 1 ? '' : 's'}',
-                  size: 9,
-                  spacing: 2),
+                _recordCount == 0
+                    ? 'Show on the map'
+                    : 'Show on the map · $_recordCount record${_recordCount == 1 ? '' : 's'}',
+                size: 9,
+                spacing: 2,
+              ),
               SizedBox(height: 8),
               Wrap(
                 spacing: 7,
@@ -258,19 +276,25 @@ class _MapTabState extends State<MapTab> {
     final bounds = propertyBounds(widget.property);
     try {
       if (bounds != null) {
-        await controller.animateCamera(CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(bounds[1], bounds[0]),
-            northeast: LatLng(bounds[3], bounds[2]),
+        await controller.animateCamera(
+          CameraUpdate.newLatLngBounds(
+            LatLngBounds(
+              southwest: LatLng(bounds[1], bounds[0]),
+              northeast: LatLng(bounds[3], bounds[2]),
+            ),
+            left: 40,
+            right: 40,
+            top: 120,
+            bottom: 140,
           ),
-          left: 40, right: 40, top: 120, bottom: 140,
-        ));
+        );
         return;
       }
       final centre = propertyCentre(widget.property);
       if (centre != null) {
         await controller.animateCamera(
-            CameraUpdate.newLatLngZoom(LatLng(centre[1], centre[0]), 14));
+          CameraUpdate.newLatLngZoom(LatLng(centre[1], centre[0]), 14),
+        );
       }
     } catch (_) {}
   }
@@ -281,16 +305,20 @@ class _MapTabState extends State<MapTab> {
     final controller = _controller;
     if (controller == null) return;
     try {
-      await controller.animateCamera(CameraUpdate.newLatLngZoom(
-          LatLng(fix.latitude, fix.longitude), 17.5));
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(fix.latitude, fix.longitude), 17.5),
+      );
     } catch (_) {}
     if (!_covered(fix) && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text(
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
             'No offline map for this spot yet — ⌗ Capture area downloads it '
-            'while you have signal.'),
-        duration: Duration(seconds: 5),
-      ));
+            'while you have signal.',
+          ),
+          duration: Duration(seconds: 5),
+        ),
+      );
     }
   }
 
@@ -301,7 +329,11 @@ class _MapTabState extends State<MapTab> {
     final sw = region.southwest;
     final ne = region.northeast;
     final (count, maxZ) = AreaDownloader.estimate(
-        sw.longitude, sw.latitude, ne.longitude, ne.latitude);
+      sw.longitude,
+      sw.latitude,
+      ne.longitude,
+      ne.latitude,
+    );
     if (!mounted) return;
     final go = await showDialog<bool>(
       context: context,
@@ -312,16 +344,17 @@ class _MapTabState extends State<MapTab> {
           '${(count * 40 / 1024).toStringAsFixed(0)} MB. Downloads once from '
           'OpenStreetMap (Protomaps build) and lives on this phone. Areas '
           'accumulate; capture as many as you walk.',
-          style: TextStyle(
-              fontFamily: Type.serif, fontSize: 15, height: 1.45),
+          style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.45),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('CANCEL')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('CAPTURE')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('CAPTURE'),
+          ),
         ],
       ),
     );
@@ -330,8 +363,11 @@ class _MapTabState extends State<MapTab> {
     final verdict = await NetworkPolicy().bulkVerdict(widget.prefs);
     if (!mounted) return;
     if (verdict == BulkVerdict.offline) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('NO SIGNAL — CAPTURE THIS AREA WHEN YOU HAVE ONE')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('NO SIGNAL — CAPTURE THIS AREA WHEN YOU HAVE ONE'),
+        ),
+      );
       return;
     }
     if (verdict == BulkVerdict.cellularBlocked) {
@@ -342,15 +378,21 @@ class _MapTabState extends State<MapTab> {
           content: Text(
             'This download uses mobile data. Allow it this once, or turn on '
             'cellular downloads in Settings → Network to stop asking.',
-            style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.45),
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 15,
+              height: 1.45,
+            ),
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('WAIT FOR WI-FI')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('WAIT FOR WI-FI'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('USE DATA THIS ONCE')),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('USE DATA THIS ONCE'),
+            ),
           ],
         ),
       );
@@ -358,18 +400,26 @@ class _MapTabState extends State<MapTab> {
     }
     setState(() => _captureMode = false);
     await _downloader.download(
-        sw.longitude, sw.latitude, ne.longitude, ne.latitude);
+      sw.longitude,
+      sw.latitude,
+      ne.longitude,
+      ne.latitude,
+    );
     if (!mounted) return;
     if (_downloader.error == null) {
       // Reload the map onto the captured store.
       setState(() => _mapEpoch++);
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text((_downloader.error != null
-              ? 'CAPTURE FAILED: ${_downloader.error}'
-              : _downloader.status ?? 'CAPTURED')
-          .toUpperCase()),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          (_downloader.error != null
+                  ? 'CAPTURE FAILED: ${_downloader.error}'
+                  : _downloader.status ?? 'CAPTURED')
+              .toUpperCase(),
+        ),
+      ),
+    );
   }
 
   @override
@@ -385,10 +435,11 @@ class _MapTabState extends State<MapTab> {
   }
 
   Future<void> _loadCounts() async {
-    final zones = await (widget.db.select(widget.db.zones)
-          ..where((z) => z.propertyId.equals(widget.property.id))
-          ..where((z) => z.deletedAt.isNull()))
-        .get();
+    final zones =
+        await (widget.db.select(widget.db.zones)
+              ..where((z) => z.propertyId.equals(widget.property.id))
+              ..where((z) => z.deletedAt.isNull()))
+            .get();
     if (mounted) setState(() => _zoneCount = zones.length);
   }
 
@@ -426,6 +477,12 @@ class _MapTabState extends State<MapTab> {
               onLongPress: _captureMode ? null : widget.onDropRecord,
               visible: widget.active,
               onRecordTap: widget.onRecordTap,
+              onClusterTap: (ids) => showRecordsHereSheet(
+                context,
+                db: widget.db,
+                ids: ids,
+                onOpen: widget.onRecordTap,
+              ),
             ),
           ),
         ),
@@ -491,8 +548,11 @@ class _MapTabState extends State<MapTab> {
                           backgroundColor: const Color(0x33ECE3CE),
                         ),
                         const SizedBox(height: 7),
-                        MonoLabel(_downloader.status ?? 'Capturing…',
-                            size: 9.5, color: Press.paper),
+                        MonoLabel(
+                          _downloader.status ?? 'Capturing…',
+                          size: 9.5,
+                          color: Press.paper,
+                        ),
                       ],
                     ),
                   ),
@@ -509,42 +569,50 @@ class _MapTabState extends State<MapTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Property card — hard offset shadow; the switcher.
-                    GestureDetector(
-                      onTap: widget.onPropertyCardTap,
-                      child: InkCard(
-                        color: Press.paper,
-                        shadow: true,
-                        padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.property.name.toUpperCase(),
-                              style: TextStyle(
-                                fontFamily: Type.slab,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
-                                color: Press.ink,
+                    // Flexible: a long place name wraps inside the card
+                    // instead of pushing the controls off the screen.
+                    Flexible(
+                      child: GestureDetector(
+                        onTap: widget.onPropertyCardTap,
+                        child: InkCard(
+                          color: Press.paper,
+                          shadow: true,
+                          padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.property.name.toUpperCase(),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: Type.slab,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                  color: Press.ink,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 3),
-                            MonoLabel(
-                              [
-                                if (_zoneCount > 0) '$_zoneCount zones',
-                                if (widget.property.acreage != null)
-                                  '${widget.property.acreage!.toStringAsFixed(2)} ac',
-                                widget.property.landTenure
-                                    .replaceAll('_', ' '),
-                              ].join(' · '),
-                              size: 9,
-                              spacing: 1.4,
-                              opacity: 0.8,
-                            ),
-                          ],
+                              const SizedBox(height: 3),
+                              MonoLabel(
+                                [
+                                  if (_zoneCount > 0) '$_zoneCount zones',
+                                  if (widget.property.acreage != null)
+                                    '${widget.property.acreage!.toStringAsFixed(2)} ac',
+                                  widget.property.landTenure.replaceAll(
+                                    '_',
+                                    ' ',
+                                  ),
+                                ].join(' · '),
+                                size: 9,
+                                spacing: 1.4,
+                                opacity: 0.8,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -555,21 +623,21 @@ class _MapTabState extends State<MapTab> {
                               setState(() => _captureMode = !_captureMode),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
-                              color: _captureMode
-                                  ? Press.oxblood
-                                  : Press.paper,
-                              border:
-                                  Border.all(color: Press.borderInk, width: 1.5),
+                              color: _captureMode ? Press.oxblood : Press.paper,
+                              border: Border.all(
+                                color: Press.borderInk,
+                                width: 1.5,
+                              ),
                             ),
                             child: MonoLabel(
                               '⌗ Capture area',
                               size: 9.5,
                               spacing: 1.4,
-                              color: _captureMode
-                                  ? Press.paper
-                                  : Press.ink,
+                              color: _captureMode ? Press.paper : Press.ink,
                             ),
                           ),
                         ),
@@ -579,21 +647,23 @@ class _MapTabState extends State<MapTab> {
                           onTap: _showLayersSheet,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
-                              color: _layersTouched
-                                  ? Press.ink
-                                  : Press.paper,
-                              border:
-                                  Border.all(color: Press.borderInk, width: 1.5),
+                              color: _layersTouched ? Press.ink : Press.paper,
+                              border: Border.all(
+                                color: Press.borderInk,
+                                width: 1.5,
+                              ),
                             ),
                             child: MonoLabel(
-                              _layersTouched ? '◈ Layers · filtered' : '◈ Layers',
+                              _layersTouched
+                                  ? '◈ Layers · filtered'
+                                  : '◈ Layers',
                               size: 9.5,
                               spacing: 1.4,
-                              color: _layersTouched
-                                  ? Press.paper
-                                  : Press.ink,
+                              color: _layersTouched ? Press.paper : Press.ink,
                             ),
                           ),
                         ),
@@ -606,64 +676,75 @@ class _MapTabState extends State<MapTab> {
                             // While a track runs the stream is distance-
                             // filtered, so standing still is silence, not
                             // a lost fix — trust the last one then.
-                            final fix = locationHub.fresh() ??
+                            final fix =
+                                locationHub.fresh() ??
                                 (locationHub.foreground
                                     ? locationHub.last
                                     : null);
                             final presence = fix == null
                                 ? SitePresence.unknown
-                                : presenceFor(widget.property, fix.latitude,
-                                    fix.longitude);
+                                : presenceFor(
+                                    widget.property,
+                                    fix.latitude,
+                                    fix.longitude,
+                                  );
                             // Off the property, the useful move is to show
                             // the property — not to drag the map to town.
                             final offSite =
-                                fix != null && !presence.onSite &&
-                                    presence.distanceM != null;
+                                fix != null &&
+                                !presence.onSite &&
+                                presence.distanceM != null;
                             final label = fix == null
                                 ? 'GPS · searching'
                                 : offSite
-                                    ? '${presence.awayLabel} · show the place'
-                                    : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · find me';
+                                ? '${presence.awayLabel} · show the place'
+                                : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · find me';
                             return GestureDetector(
                               onTap: fix == null
                                   ? null
                                   : offSite
-                                      ? _flyToProperty
-                                      : () => _flyTo(fix),
+                                  ? _flyToProperty
+                                  : () => _flyTo(fix),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 8),
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Press.paper,
                                   border: Border.all(
-                                      color: fix == null
-                                          ? Press.sage
-                                          : offSite
-                                              ? Press.ochre
-                                              : Press.ink,
-                                      width: 1.5),
+                                    color: fix == null
+                                        ? Press.sage
+                                        : offSite
+                                        ? Press.ochre
+                                        : Press.ink,
+                                    width: 1.5,
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Diamond(
-                                        size: 9,
-                                        color: fix == null
-                                            ? Press.sage
-                                            : offSite
-                                                ? Press.ochre
-                                                : Press.river,
-                                        filled: fix != null,
-                                        blink: fix == null),
+                                      size: 9,
+                                      color: fix == null
+                                          ? Press.sage
+                                          : offSite
+                                          ? Press.ochre
+                                          : Press.river,
+                                      filled: fix != null,
+                                      blink: fix == null,
+                                    ),
                                     const SizedBox(width: 6),
-                                    MonoLabel(label,
-                                        size: 9.5,
-                                        spacing: 1.4,
-                                        color: fix == null
-                                            ? Press.sage
-                                            : offSite
-                                                ? Press.ochre
-                                                : Press.ink),
+                                    MonoLabel(
+                                      label,
+                                      size: 9.5,
+                                      spacing: 1.4,
+                                      color: fix == null
+                                          ? Press.sage
+                                          : offSite
+                                          ? Press.ochre
+                                          : Press.ink,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -692,7 +773,8 @@ class _TrackToggle extends StatelessWidget {
     return ListenableBuilder(
       listenable: trackRecorder,
       builder: (context, _) {
-        final on = trackRecorder.recording &&
+        final on =
+            trackRecorder.recording &&
             trackRecorder.activePropertyId == propertyId;
         return GestureDetector(
           onTap: () async {
@@ -710,8 +792,7 @@ class _TrackToggle extends StatelessWidget {
             }
           },
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: on ? Press.oxblood : Press.paper,
               border: Border.all(color: Press.borderInk, width: 1.5),
@@ -719,8 +800,8 @@ class _TrackToggle extends StatelessWidget {
             child: MonoLabel(
               on
                   ? trackRecorder.lastError != null
-                      ? '◼ Track · GPS lost'
-                      : '◼ Track ${(trackRecorder.distanceSoFarM / 1000).toStringAsFixed(1)} km'
+                        ? '◼ Track · GPS lost'
+                        : '◼ Track ${(trackRecorder.distanceSoFarM / 1000).toStringAsFixed(1)} km'
                   : '▶ Log track',
               size: 9.5,
               spacing: 1.4,

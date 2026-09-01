@@ -8,7 +8,8 @@ import '../db/database.dart';
 import '../geo/simplify.dart' show distanceM;
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
-import '../widgets/species_field.dart';
+import '../widgets/edit_record_sheet.dart';
+
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../geo/zone_assignment.dart';
@@ -16,25 +17,6 @@ import '../services/review.dart';
 import 'identify_sheet.dart';
 import 'move_pin_screen.dart';
 import 'species_detail_sheet.dart';
-
-const _kTypes = [
-  'general',
-  'plant',
-  'wildlife',
-  'problem',
-  'water',
-  'soil',
-  'phenology',
-  'sign',
-  'weather',
-  'maintenance',
-];
-
-const _kConfidence = {
-  'certain': 'Certain',
-  'probable': 'Probably',
-  'uncertain': 'Not sure',
-};
 
 /// Record detail (design README §3.3): photo header, title block, fact card
 /// keyed by the actual schema field names — the app and the schema stay
@@ -151,8 +133,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       }
       nearby.sort((a, b) => a.$2.compareTo(b.$2));
     }
-    final review =
-        await ReviewService(widget.db).forEntity('observation', widget.obsId);
+    final review = await ReviewService(widget.db)
+        .forEntity('observation', widget.obsId);
     if (mounted) {
       setState(() {
         _review = review;
@@ -207,160 +189,25 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
   }
 
-  /// Edit what a field ID most often gets wrong: the species, the kind of
-  /// record, how sure you were, and the notes. Location and time are the
-  /// record's evidence and stay as captured.
+  /// Edit what a field ID most often gets wrong (shared editor, see
+  /// widgets/edit_record_sheet.dart). MOVE THE PIN comes back here because
+  /// it needs the map.
   Future<void> _editRecord() async {
     final obs = _obs;
     if (obs == null) return;
-    final notes = TextEditingController(text: obs.notes ?? '');
-    TaxaData? taxon = _taxon;
-    var type = obs.observationType;
-    String? confidence = obs.taxonConfidence;
-    if (confidence == 'unidentified') confidence = null;
-
-    final saved = await showModalBottomSheet<Object>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Press.paper,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => Padding(
-          padding: EdgeInsets.only(
-            // Keep the keyboard clear, and stay out from under the clock.
-            top: MediaQuery.of(ctx).padding.top + 8,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: SafeArea(
-            top: false,
-            child: ListView(
-              shrinkWrap: true,
-              padding: EdgeInsets.all(Metrics.gutter),
-              children: [
-                MonoLabel('Edit record', size: 10, spacing: 2),
-                SizedBox(height: 12),
-                SpeciesField(
-                  db: widget.db,
-                  label: 'Species — common or Latin name',
-                  initial: taxon,
-                  onSelected: (t) => setSheet(() {
-                    taxon = t;
-                    if (t == null) confidence = null;
-                    // Same default the capture flow writes: naming it from
-                    // the list counts as certain until you say otherwise.
-                    if (t != null && confidence == null) confidence = 'certain';
-                    if (t != null && type == 'general') type = 'plant';
-                  }),
-                ),
-                if (taxon != null) ...[
-                  SizedBox(height: 12),
-                  MonoLabel('How sure?', size: 9, spacing: 1.8),
-                  SizedBox(height: 6),
-                  Wrap(
-                    spacing: 7,
-                    runSpacing: 7,
-                    children: [
-                      for (final e in _kConfidence.entries)
-                        _pill(
-                          e.value,
-                          confidence == e.key,
-                          () => setSheet(() => confidence = e.key),
-                        ),
-                    ],
-                  ),
-                ],
-                SizedBox(height: 14),
-                MonoLabel('What kind of record', size: 9, spacing: 1.8),
-                SizedBox(height: 6),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
-                  children: [
-                    for (final t in _kTypes)
-                      _pill(
-                        t.toUpperCase(),
-                        type == t,
-                        () => setSheet(() => type = t),
-                      ),
-                  ],
-                ),
-                SizedBox(height: 14),
-                // A wrong fix is forever until you can move it (batch 1).
-                SizedBox(
-                  height: 48,
-                  child: OutlinedButton.icon(
-                    icon: Icon(Icons.place_outlined, size: 18),
-                    label: Text('MOVE THE PIN'),
-                    onPressed: () => Navigator.pop(ctx, _movePinSentinel),
-                  ),
-                ),
-                SizedBox(height: 14),
-                MonoLabel('Notes', size: 9, spacing: 1.8),
-                SizedBox(height: 6),
-                TextField(
-                  controller: notes,
-                  minLines: 3,
-                  maxLines: 8,
-                  textCapitalization: TextCapitalization.sentences,
-                  cursorColor: Press.oxblood,
-                  style: TextStyle(
-                    fontFamily: Type.serif,
-                    fontSize: 16,
-                    height: 1.5,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'What did you see?',
-                  ),
-                ),
-                SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 52,
-                        child: FilledButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: Text('SAVE CHANGES'),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    SizedBox(
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: Text('CANCEL'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    final outcome = await showEditRecordSheet(
+      context,
+      db: widget.db,
+      obs: obs,
+      taxon: _taxon,
     );
-    final text = notes.text.trim();
-    notes.dispose();
-    if (saved == _movePinSentinel) {
+    if (!mounted) return;
+    if (outcome == EditOutcome.movePin) {
       await _movePin(obs);
       return;
     }
-    if (saved != true) return;
-    await (widget.db.update(
-      widget.db.observations,
-    )..where((o) => o.id.equals(obs.id))).write(
-      ObservationsCompanion(
-        taxonId: Value(taxon?.id),
-        taxonConfidence: Value(taxon == null ? 'unidentified' : confidence),
-        observationType: Value(type),
-        notes: Value(text.isEmpty ? null : text),
-        updatedAt: Value(nowUtcIso()),
-      ),
-    );
-    _load();
+    if (outcome == EditOutcome.saved) _load();
   }
-
-  static const _movePinSentinel = '__move_pin__';
 
   /// Hand-adjust the record's location, then keep the derived facts honest:
   /// accuracy becomes "placed by hand" (null — the same meaning the capture
@@ -373,49 +220,25 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       ),
     );
     if (moved == null) return;
-    await (widget.db.update(widget.db.observations)
-          ..where((o) => o.id.equals(obs.id)))
-        .write(ObservationsCompanion(
-      lat: Value(moved.latitude),
-      lng: Value(moved.longitude),
-      gpsAccuracyM: const Value(null),
-      zoneId: const Value(null),
-      updatedAt: Value(nowUtcIso()),
-    ));
-    await assignZone(widget.db,
-        observationId: obs.id,
-        propertyId: obs.propertyId,
-        lat: moved.latitude,
-        lng: moved.longitude);
-    _load();
-  }
-
-  Widget _pill(String label, bool on, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 56, // glove target (spec §7)
-        padding: EdgeInsets.symmetric(horizontal: 18),
-        decoration: BoxDecoration(
-          color: on ? Press.ink : null,
-          border: Border.all(color: Press.borderInk, width: 1),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        // Center(widthFactor) keeps the pill hugging its label inside a Wrap.
-        child: Center(
-          widthFactor: 1,
-          child: Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontFamily: Type.mono,
-              fontSize: 9.5,
-              letterSpacing: 1.4,
-              color: on ? Press.paper : Press.ink,
-            ),
-          ),
-        ),
+    await (widget.db.update(
+      widget.db.observations,
+    )..where((o) => o.id.equals(obs.id))).write(
+      ObservationsCompanion(
+        lat: Value(moved.latitude),
+        lng: Value(moved.longitude),
+        gpsAccuracyM: const Value(null),
+        zoneId: const Value(null),
+        updatedAt: Value(nowUtcIso()),
       ),
     );
+    await assignZone(
+      widget.db,
+      observationId: obs.id,
+      propertyId: obs.propertyId,
+      lat: moved.latitude,
+      lng: moved.longitude,
+    );
+    _load();
   }
 
   Future<void> _delete() async {
@@ -545,10 +368,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     bottom: 8,
                     child: Container(
                       color: Press.ink,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
-                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                       child: MonoLabel(
                         [
                           if (_photos.length > 1)
@@ -603,12 +423,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
           // 2. Title block.
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              Metrics.gutter,
-              14,
-              Metrics.gutter,
-              0,
-            ),
+            padding: EdgeInsets.fromLTRB(Metrics.gutter, 14, Metrics.gutter, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -618,7 +433,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     SizedBox(width: 7),
                     MonoLabel(
                       '${obs.observationType}'
-                      '${_taxon != null && _kConfidence.containsKey(obs.taxonConfidence) ? ' · ${_kConfidence[obs.taxonConfidence]}' : ''}',
+                      '${_taxon != null && kConfidenceLabels.containsKey(obs.taxonConfidence) ? ' · ${kConfidenceLabels[obs.taxonConfidence]}' : ''}',
                       size: 9,
                       spacing: 1.8,
                       color: typeColor,
@@ -795,11 +610,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  MonoLabel(
-                    'Nearby · within 50 m',
-                    size: 9,
-                    spacing: 1.8,
-                  ),
+                  MonoLabel('Nearby · within 50 m', size: 9, spacing: 1.8),
                   const SizedBox(height: 4),
                   for (final (o, d) in _nearby)
                     InkWell(
@@ -856,14 +667,18 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           if (_photos.isNotEmpty && _property != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                  Metrics.gutter, 0, Metrics.gutter, 12),
+                Metrics.gutter,
+                0,
+                Metrics.gutter,
+                12,
+              ),
               child: SizedBox(
                 height: 56,
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.eco_outlined),
-                  label: Text(_taxon == null
-                      ? 'WHAT IS IT?'
-                      : 'SUGGEST ANOTHER SPECIES'),
+                  label: Text(
+                    _taxon == null ? 'WHAT IS IT?' : 'SUGGEST ANOTHER SPECIES',
+                  ),
                   onPressed: () async {
                     final accepted = await showIdentifySheet(
                       context,

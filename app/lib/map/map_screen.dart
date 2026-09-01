@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' show Point;
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
@@ -14,6 +15,8 @@ import '../geo/site_presence.dart';
 import '../main.dart' show locationHub;
 import 'area_downloader.dart';
 import 'basemap_style.dart';
+import 'cluster_badge.dart';
+import 'record_clusters.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
 import 'tile_server.dart';
@@ -25,21 +28,23 @@ const _basemapFile = 'basemap.pmtiles';
 /// `<documents>/basemap/` and are served over loopback; nothing here touches
 /// the network.
 class MapScreen extends StatefulWidget {
-  const MapScreen(
-      {super.key,
-      this.db,
-      this.property,
-      this.embedded = false,
-      this.onController,
-      this.onCoverage,
-      this.onLongPress,
-      this.visible = true,
-      this.onRecordTap,
-      this.onLayersReady,
-      this.onPresence,
-      this.onRecordCount,
-      this.hiddenTypes = const {},
-      this.hiddenGrowthForms = const {}});
+  const MapScreen({
+    super.key,
+    this.db,
+    this.property,
+    this.embedded = false,
+    this.onController,
+    this.onCoverage,
+    this.onLongPress,
+    this.visible = true,
+    this.onRecordTap,
+    this.onClusterTap,
+    this.onLayersReady,
+    this.onPresence,
+    this.onRecordCount,
+    this.hiddenTypes = const {},
+    this.hiddenGrowthForms = const {},
+  });
 
   final FieldNotesDb? db;
   final Property? property;
@@ -61,6 +66,10 @@ class MapScreen extends StatefulWidget {
 
   /// Tap on a record pin → its id.
   final ValueChanged<String>? onRecordTap;
+
+  /// Tap on a cluster that can't split (or long-press on any dot): the
+  /// records under it, for the "what's here" sheet.
+  final ValueChanged<List<String>>? onClusterTap;
 
   /// Fired once the style and every overlay layer exist — the moment chrome
   /// can safely apply filters/visibility.
@@ -163,9 +172,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       if (mbtiles != null) {
         final TileServer server;
         try {
-          server = await TileServer.start(basemapDir,
-              mbtiles: mbtiles,
-              pmtilesFallback: pmFile.existsSync() ? pmFile : null);
+          server = await TileServer.start(
+            basemapDir,
+            mbtiles: mbtiles,
+            pmtilesFallback: pmFile.existsSync() ? pmFile : null,
+          );
         } catch (_) {
           mbtiles.close();
           rethrow;
@@ -208,7 +219,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         setState(() {
           _server = server;
           _styleJson = basemapStyle(
-              tilesUrl: server.mbtilesUrlTemplate, maxZoom: maxZoom);
+            tilesUrl: server.mbtilesUrlTemplate,
+            maxZoom: maxZoom,
+          );
         });
       } else if (pmFile.existsSync()) {
         final server = await TileServer.start(basemapDir);
@@ -233,8 +246,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         }
         setState(() {
           _server = server;
-          _styleJson =
-              basemapStyle(pmtilesUrl: server.pmtilesUrlFor(_basemapFile));
+          _styleJson = basemapStyle(
+            pmtilesUrl: server.pmtilesUrlFor(_basemapFile),
+          );
         });
       } else {
         // No archive on the phone: imagery-only, which needs signal but
@@ -292,7 +306,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (fresh != null && (presence.onSite || centre == null)) {
       _openedOnFix = true;
       return CameraPosition(
-          target: LatLng(fresh.latitude, fresh.longitude), zoom: 16);
+        target: LatLng(fresh.latitude, fresh.longitude),
+        zoom: 16,
+      );
     }
     if (centre != null) {
       // Off site: the place is the subject, and a later fix must not yank
@@ -330,8 +346,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _fix = pos;
     final property = widget.property;
     if (property != null) {
-      final presence =
-          presenceFor(property, pos.latitude, pos.longitude);
+      final presence = presenceFor(property, pos.latitude, pos.longitude);
       if (presence.onSite != _presence?.onSite ||
           _presence == null ||
           ((presence.distanceM ?? 0) - (_presence!.distanceM ?? 0)).abs() >
@@ -346,7 +361,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       _openedOnFix = true;
       try {
         await controller.animateCamera(
-            CameraUpdate.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 16));
+          CameraUpdate.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 16),
+        );
       } catch (_) {}
     }
     if (!_positionLayerReady) return;
@@ -356,18 +372,18 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 
   Map<String, dynamic> _positionGeoJson(Position pos) => {
-        'type': 'FeatureCollection',
-        'features': [
-          {
-            'type': 'Feature',
-            'geometry': {
-              'type': 'Point',
-              'coordinates': [pos.longitude, pos.latitude],
-            },
-            'properties': {'acc': pos.accuracy},
-          }
-        ],
-      };
+    'type': 'FeatureCollection',
+    'features': [
+      {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [pos.longitude, pos.latitude],
+        },
+        'properties': {'acc': pos.accuracy},
+      },
+    ],
+  };
 
   @override
   void dispose() {
@@ -403,7 +419,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         myLocationEnabled: false,
         attributionButtonPosition: AttributionButtonPosition.bottomLeft,
         onMapCreated: _onMapCreated,
-        onMapLongClick: (_, latLng) => widget.onLongPress?.call(latLng),
+        onMapLongClick: _onLongClick,
+        onCameraIdle: _paintRecords,
         onStyleLoadedCallback: () async {
           await _addOverlays();
           await _addPositionLayer();
@@ -422,21 +439,130 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     // Pin tap → the record. The plugin hands us the screen point; ask the
     // renderer what's under it so we get the feature's properties back.
     controller.onFeatureTapped.add((point, latLng, id, layerId, _) async {
-      if (widget.onRecordTap == null) return;
-      try {
-        final hits = await controller
-            .queryRenderedFeatures(point, ['observations-circles'], null);
-        for (final h in hits) {
-          final props = (h as Map)['properties'] as Map?;
-          final obsId = props?['id'] as String?;
-          if (obsId != null) {
-            widget.onRecordTap!(obsId);
-            return;
-          }
-        }
-      } catch (_) {}
+      final hit = await _hitAt(point);
+      if (hit == null) return;
+      if (!hit.isCluster) {
+        widget.onRecordTap?.call(hit.ids.single);
+        return;
+      }
+      // The Zillow move: land where the cluster splits; if it never does,
+      // the sheet lists what's here.
+      final zoom = controller.cameraPosition?.zoom ?? 15;
+      final z = expansionZoom(hit.members, zoom);
+      if (z != null) {
+        final (lat, lng) = hit.centre;
+        await controller.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(lat, lng), z + 0.4),
+        );
+      } else {
+        widget.onClusterTap?.call(hit.ids);
+      }
     });
     widget.onController?.call(controller);
+  }
+
+  /// What is under a screen point: a single record or a cluster, or null.
+  Future<ClusterGroup?> _hitAt(Point<double> point) async {
+    final controller = _controller;
+    if (controller == null) return null;
+    try {
+      final hits = await controller.queryRenderedFeatures(point, [
+        'observations-clusters',
+        'observations-circles',
+      ], null);
+      for (final h in hits) {
+        final props = (h as Map)['properties'] as Map?;
+        if (props == null) continue;
+        final idsCsv = props['ids'] as String?;
+        if (idsCsv != null) {
+          final ids = idsCsv.split(',').toSet();
+          return ClusterGroup([
+            for (final f in _recordFeatures)
+              if (ids.contains((f['properties'] as Map)['id'])) f,
+          ]);
+        }
+        final obsId = props['id'] as String?;
+        if (obsId != null) {
+          final f = _recordFeatures
+              .where((f) => (f['properties'] as Map)['id'] == obsId)
+              .firstOrNull;
+          if (f != null) return ClusterGroup([f]);
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Long-press on a dot or cluster always opens the sheet; on bare map it
+  /// keeps meaning "capture here".
+  Future<void> _onLongClick(Point<double> point, LatLng latLng) async {
+    final hit = await _hitAt(point);
+    if (hit != null && widget.onClusterTap != null) {
+      widget.onClusterTap!(hit.ids);
+      return;
+    }
+    widget.onLongPress?.call(latLng);
+  }
+
+  /// Every located record as a GeoJSON feature — the clustering input.
+  List<Map<String, dynamic>> _recordFeatures = const [];
+  final Set<String> _badgeImages = {};
+  bool _painting = false;
+  bool _paintAgain = false;
+
+  /// Regroup the pins for the current zoom and push them to the source.
+  /// Runs on every camera idle and after every data refresh; a paint that
+  /// arrives mid-paint queues one more, never a pile.
+  Future<void> _paintRecords() async {
+    final controller = _controller;
+    if (controller == null || !_recordLayersReady) return;
+    if (_painting) {
+      _paintAgain = true;
+      return;
+    }
+    _painting = true;
+    try {
+      final zoom = controller.cameraPosition?.zoom ?? 15;
+      final groups = clusterFeatures(_recordFeatures, zoom);
+      final out = <Map<String, dynamic>>[];
+      for (final g in groups) {
+        if (!g.isCluster) {
+          out.add(g.members.single);
+          continue;
+        }
+        final n = g.members.length;
+        final icon = 'cluster-${n > 99 ? '99plus' : n}';
+        if (_badgeImages.add(icon)) {
+          await controller.addImage(icon, await clusterBadge(n));
+        }
+        final (lat, lng) = g.centre;
+        out.add({
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [lng, lat],
+          },
+          'properties': {
+            'cluster': true,
+            'count': n,
+            'icon': icon,
+            'ids': g.ids.join(','),
+          },
+        });
+      }
+      await controller.setGeoJsonSource('observations', {
+        'type': 'FeatureCollection',
+        'features': out,
+      });
+    } catch (_) {
+      // A repaint failure must never take the map down.
+    } finally {
+      _painting = false;
+      if (_paintAgain) {
+        _paintAgain = false;
+        _paintRecords();
+      }
+    }
   }
 
   /// Current position: river-fill circle with a paper border and a soft
@@ -446,10 +572,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (controller == null) return;
     final seed = _fix;
     await controller.addGeoJsonSource(
-        'me',
-        seed != null
-            ? _positionGeoJson(seed)
-            : {'type': 'FeatureCollection', 'features': []});
+      'me',
+      seed != null
+          ? _positionGeoJson(seed)
+          : {'type': 'FeatureCollection', 'features': []},
+    );
     await controller.addCircleLayer(
       'me',
       'me-ring',
@@ -479,10 +606,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final property = widget.property;
     if (controller == null || db == null || property == null) return;
 
-    final zones = await (db.select(db.zones)
-          ..where((z) => z.propertyId.equals(property.id))
-          ..where((z) => z.deletedAt.isNull()))
-        .get();
+    final zones =
+        await (db.select(db.zones)
+              ..where((z) => z.propertyId.equals(property.id))
+              ..where((z) => z.deletedAt.isNull()))
+            .get();
     if (zones.isNotEmpty) {
       await controller.addGeoJsonSource('zones', {
         'type': 'FeatureCollection',
@@ -492,16 +620,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               'type': 'Feature',
               'geometry': jsonDecode(z.geojson),
               'properties': {'name': z.name},
-            }
+            },
         ],
       });
       await controller.addFillLayer(
         'zones',
         'zones-fill',
-        const FillLayerProperties(
-          fillColor: '#7d9b76',
-          fillOpacity: 0.25,
-        ),
+        const FillLayerProperties(fillColor: '#7d9b76', fillOpacity: 0.25),
       );
       await controller.addLineLayer(
         'zones',
@@ -522,19 +647,17 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         'boundary-line',
         // No lineDasharray: the plugin's Java property converter hits a JNI
         // toArray-on-null crash on dash arrays (observed on Android 36).
-        const LineLayerProperties(
-          lineColor: '#8a3324',
-          lineWidth: 2.5,
-        ),
+        const LineLayerProperties(lineColor: '#8a3324', lineWidth: 2.5),
       );
     }
 
     // Tracks (spec §4.13) as thin ink lines under the pins.
-    final tracks = await (db.select(db.tracks)
-          ..where((t) => t.propertyId.equals(property.id))
-          ..where((t) => t.deletedAt.isNull())
-          ..where((t) => t.geojson.isNotNull()))
-        .get();
+    final tracks =
+        await (db.select(db.tracks)
+              ..where((t) => t.propertyId.equals(property.id))
+              ..where((t) => t.deletedAt.isNull())
+              ..where((t) => t.geojson.isNotNull()))
+            .get();
     if (tracks.isNotEmpty) {
       await controller.addGeoJsonSource('tracks', {
         'type': 'FeatureCollection',
@@ -544,7 +667,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               'type': 'Feature',
               'geometry': jsonDecode(t.geojson!),
               'properties': {'id': t.id},
-            }
+            },
         ],
       });
       await controller.addLineLayer(
@@ -576,27 +699,60 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         circleColor: [
           'match',
           ['get', 'kind'],
-          'tree', '#3F5957',
-          'shrub', '#5F6B58',
-          'graminoid', '#B58A3C',
-          'forb', '#8E6A28',
-          'vine', '#5C7A78',
-          'succulent', '#8E9B85',
-          'fern', '#6B8F71',
-          'moss', '#6B8F71',
-          'wildlife', '#7A5C2E',
-          'problem', '#7A2E1E',
-          'water', '#5E6E8C',
-          'soil', '#6B4F2A',
-          'phenology', '#5C7A78',
-          'sign', '#8E6A28',
-          'weather', '#5E6E8C',
-          'maintenance', '#2C2620',
+          'tree',
+          '#3F5957',
+          'shrub',
+          '#5F6B58',
+          'graminoid',
+          '#B58A3C',
+          'forb',
+          '#8E6A28',
+          'vine',
+          '#5C7A78',
+          'succulent',
+          '#8E9B85',
+          'fern',
+          '#6B8F71',
+          'moss',
+          '#6B8F71',
+          'wildlife',
+          '#7A5C2E',
+          'problem',
+          '#7A2E1E',
+          'water',
+          '#5E6E8C',
+          'soil',
+          '#6B4F2A',
+          'phenology',
+          '#5C7A78',
+          'sign',
+          '#8E6A28',
+          'weather',
+          '#5E6E8C',
+          'maintenance',
+          '#2C2620',
           '#2f5233',
         ],
         circleStrokeColor: '#ECE3CE',
         circleStrokeWidth: 1.5,
       ),
+      filter: [
+        '!',
+        ['has', 'cluster'],
+      ],
+      enableInteraction: true,
+    );
+    // Clusters: one badge with the count (image, so no glyphs needed).
+    await controller.addSymbolLayer(
+      'observations',
+      'observations-clusters',
+      const SymbolLayerProperties(
+        iconImage: ['get', 'icon'],
+        iconSize: 1 / 3, // badges are drawn at 3× for crisp text
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+      ),
+      filter: ['has', 'cluster'],
       enableInteraction: true,
     );
     _recordLayersReady = true;
@@ -619,8 +775,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null) return;
     _recordSub?.cancel();
     _recordSub = db
-        .customSelect('SELECT 1',
-            readsFrom: {db.observations, db.taxa})
+        .customSelect('SELECT 1', readsFrom: {db.observations, db.taxa})
         .watch()
         .listen((_) => _refreshRecords());
   }
@@ -640,13 +795,18 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     }
     _framedRecords = true;
     try {
-      await controller.animateCamera(CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(bounds[1], bounds[0]),
-          northeast: LatLng(bounds[3], bounds[2]),
+      await controller.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(bounds[1], bounds[0]),
+            northeast: LatLng(bounds[3], bounds[2]),
+          ),
+          left: 48,
+          right: 48,
+          top: 150,
+          bottom: 160,
         ),
-        left: 48, right: 48, top: 150, bottom: 160,
-      ));
+      );
     } catch (_) {}
   }
 
@@ -660,15 +820,17 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null || property == null) return;
     if (propertyCentre(property) != null) return;
     try {
-      final row = await db.customSelect(
-        'SELECT AVG(lat) AS lat, AVG(lng) AS lng, COUNT(*) AS n, '
-        'MIN(lat) AS min_lat, MAX(lat) AS max_lat, '
-        'MIN(lng) AS min_lng, MAX(lng) AS max_lng '
-        'FROM observations WHERE property_id = ? AND deleted_at IS NULL '
-        'AND (gps_accuracy_m IS NULL OR gps_accuracy_m != -1)',
-        variables: [Variable.withString(property.id)],
-        readsFrom: {db.observations},
-      ).getSingleOrNull();
+      final row = await db
+          .customSelect(
+            'SELECT AVG(lat) AS lat, AVG(lng) AS lng, COUNT(*) AS n, '
+            'MIN(lat) AS min_lat, MAX(lat) AS max_lat, '
+            'MIN(lng) AS min_lng, MAX(lng) AS max_lng '
+            'FROM observations WHERE property_id = ? AND deleted_at IS NULL '
+            'AND (gps_accuracy_m IS NULL OR gps_accuracy_m != -1)',
+            variables: [Variable.withString(property.id)],
+            readsFrom: {db.observations},
+          )
+          .getSingleOrNull();
       final n = (row?.data['n'] as int?) ?? 0;
       final lat = row?.data['lat'] as double?;
       final lng = row?.data['lng'] as double?;
@@ -697,17 +859,19 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null || property == null || controller == null) return;
     if (!_recordLayersReady) return;
     try {
-      final rows = await db.customSelect(
-        'SELECT o.id AS id, o.lat AS lat, o.lng AS lng, '
-        'o.observation_type AS type, o.gps_accuracy_m AS acc, '
-        't.growth_form AS growth, '
-        'COALESCE(t.common_name, t.scientific_name) AS species '
-        'FROM observations o LEFT JOIN taxa t ON t.id = o.taxon_id '
-        'WHERE o.property_id = ? AND o.deleted_at IS NULL '
-        'AND (o.gps_accuracy_m IS NULL OR o.gps_accuracy_m != -1)',
-        variables: [Variable.withString(property.id)],
-        readsFrom: {db.observations, db.taxa},
-      ).get();
+      final rows = await db
+          .customSelect(
+            'SELECT o.id AS id, o.lat AS lat, o.lng AS lng, '
+            'o.observation_type AS type, o.gps_accuracy_m AS acc, '
+            't.growth_form AS growth, '
+            'COALESCE(t.common_name, t.scientific_name) AS species '
+            'FROM observations o LEFT JOIN taxa t ON t.id = o.taxon_id '
+            'WHERE o.property_id = ? AND o.deleted_at IS NULL '
+            'AND (o.gps_accuracy_m IS NULL OR o.gps_accuracy_m != -1)',
+            variables: [Variable.withString(property.id)],
+            readsFrom: {db.observations, db.taxa},
+          )
+          .get();
       final features = <Map<String, dynamic>>[];
       for (final r in rows) {
         final growth = r.data['growth'] as String?;
@@ -735,9 +899,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           },
         });
       }
-      await controller.setGeoJsonSource(
-          'observations', {'type': 'FeatureCollection', 'features': features});
+      _recordFeatures = features;
       widget.onRecordCount?.call(features.length);
+      await _paintRecords();
     } catch (_) {
       // A redraw failure must never take the map down.
     }
