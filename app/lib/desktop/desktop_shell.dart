@@ -12,6 +12,7 @@ import '../services/survival.dart';
 import '../widgets/edit_record_sheet.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../backup/restore.dart';
 import '../screens/drive_backup_screen.dart';
 import 'drive_watch.dart';
 import 'export_workspace.dart';
@@ -135,14 +136,34 @@ class _DesktopShellState extends State<DesktopShell> {
               ..where((p) => p.deletedAt.isNull())
               ..orderBy([(p) => OrderingTerm.asc(p.name)]))
             .get();
+    // Where this copy came from — the honest thing to put in a title bar.
+    final from = RestorePipeline(docs).lastRestoredFrom;
+    String copyLine;
+    if (from == null) {
+      copyLine = 'Copy on this computer';
+    } else {
+      final src = '${from['source'] ?? ''}'.toLowerCase();
+      final via = src.contains('drive')
+          ? 'Drive'
+          : src.contains('received')
+          ? 'LAN'
+          : 'file';
+      final at = '${from['created_at'] ?? ''}'.replaceFirst('T', ' ');
+      copyLine =
+          'Copy from the phone · $via gen ${from['generation'] ?? '?'} · '
+          '${at.length >= 16 ? at.substring(0, 16) : at}';
+    }
     if (mounted) {
       setState(() {
         _dbBytes = dbFile.existsSync() ? dbFile.lengthSync() : 0;
         _mediaCount = media.read(widget.db.media.id.count()) ?? 0;
         _properties = properties;
+        _copyLine = copyLine;
       });
     }
   }
+
+  String _copyLine = '';
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +268,7 @@ class _DesktopShellState extends State<DesktopShell> {
           SizedBox(width: 16),
           Flexible(
             child: MonoLabel(
-              'database.sqlite · ${(_dbBytes / (1 << 20)).toStringAsFixed(1)} MB · $_mediaCount media',
+              '${(_dbBytes / (1 << 20)).toStringAsFixed(1)} MB · $_mediaCount media',
               size: 9.5,
               color: Press.paper,
               opacity: 0.72,
@@ -259,7 +280,7 @@ class _DesktopShellState extends State<DesktopShell> {
           SizedBox(width: 6),
           Flexible(
             child: MonoLabel(
-              'Local only — no account · schema v1',
+              _copyLine,
               size: 9.5,
               color: Press.paper,
               opacity: 0.9,
