@@ -243,7 +243,7 @@ class _RootScreenState extends State<RootScreen> {
     // Desk companion (design README §4) on desktop platforms; the five-tab
     // handheld shell everywhere else.
     if (isDesk) {
-      return DesktopShell(db: widget.db, property: active);
+      return DesktopShell(db: widget.db, property: active, prefs: widget.prefs);
     }
     return AppShell(
       db: widget.db,

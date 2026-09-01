@@ -8,7 +8,9 @@ import 'package:path_provider/path_provider.dart';
 import '../db/database.dart';
 import '../main.dart' show exportAndShare;
 import '../screens/backup_screen.dart';
+import '../screens/drive_backup_screen.dart';
 import '../screens/restore_screen.dart';
+import '../services/app_prefs.dart';
 import '../services/review.dart';
 import '../services/survival.dart';
 import '../widgets/edit_record_sheet.dart';
@@ -21,10 +23,16 @@ import 'receive_backup_panel.dart';
 /// nav, workspace, status bar, principle cells. The phone is the source of
 /// truth; data arrives here by restore-from-zip.
 class DesktopShell extends StatefulWidget {
-  DesktopShell({super.key, required this.db, required this.property});
+  DesktopShell({
+    super.key,
+    required this.db,
+    required this.property,
+    required this.prefs,
+  });
 
   final FieldNotesDb db;
   final Property property;
+  final AppPrefs prefs;
 
   @override
   State<DesktopShell> createState() => _DesktopShellState();
@@ -225,7 +233,11 @@ class _DesktopShellState extends State<DesktopShell> {
       1 => _SurvivalWorkspace(db: widget.db, property: widget.property),
       2 => _PropagationWorkspace(db: widget.db, property: widget.property),
       3 => ExportWorkspace(db: widget.db, property: widget.property),
-      _ => _DataWorkspace(db: widget.db, property: widget.property),
+      _ => _DataWorkspace(
+        db: widget.db,
+        property: widget.property,
+        prefs: widget.prefs,
+      ),
     };
   }
 
@@ -1241,9 +1253,14 @@ class _BatchEvents extends StatelessWidget {
 // ─────────────────────────── Data & backup ───────────────────────────
 
 class _DataWorkspace extends StatelessWidget {
-  _DataWorkspace({required this.db, required this.property});
+  _DataWorkspace({
+    required this.db,
+    required this.property,
+    required this.prefs,
+  });
   final FieldNotesDb db;
   final Property property;
+  final AppPrefs prefs;
 
   @override
   Widget build(BuildContext context) {
@@ -1251,16 +1268,21 @@ class _DataWorkspace extends StatelessWidget {
       padding: EdgeInsets.zero,
       children: [
         ReceiveBackupPanel(),
-        _DataWorkspaceBody(db: db, property: property),
+        _DataWorkspaceBody(db: db, property: property, prefs: prefs),
       ],
     );
   }
 }
 
 class _DataWorkspaceBody extends StatelessWidget {
-  _DataWorkspaceBody({required this.db, required this.property});
+  _DataWorkspaceBody({
+    required this.db,
+    required this.property,
+    required this.prefs,
+  });
   final FieldNotesDb db;
   final Property property;
+  final AppPrefs prefs;
 
   @override
   Widget build(BuildContext context) {
@@ -1276,146 +1298,202 @@ class _DataWorkspaceBody extends StatelessWidget {
     features.geojson · plantings.geojson · tracks.geojson
     property.kml
   media/photos/YYYY/MM/''';
-    return ListView(
+    // A plain column: this sits inside the tab's ListView, and a nested
+    // ListView has no height to give (it rendered nothing in release).
+    return Padding(
       padding: EdgeInsets.all(18),
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Container(
-                padding: EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Press.paperRaised,
-                  border: Border.all(color: Press.borderInk, width: 1.5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Press.paperRaised,
+                    border: Border.all(color: Press.borderInk, width: 1.5),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      MonoLabel('Take it all', size: 9, spacing: 1.8),
+                      const SizedBox(height: 8),
+                      Text(
+                        tree,
+                        style: TextStyle(
+                          fontFamily: Type.mono,
+                          fontSize: 11.5,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 56,
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () =>
+                              exportAndShare(context, db, property),
+                          child: const Text('TAKE MY DATA'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    MonoLabel('Take it all', size: 9, spacing: 1.8),
-                    const SizedBox(height: 8),
-                    Text(
-                      tree,
-                      style: TextStyle(
-                        fontFamily: Type.mono,
-                        fontSize: 11.5,
-                        height: 1.5,
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Press.sage, width: 1.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            color: Press.sage,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                Diamond(size: 9, color: Press.paper),
+                                SizedBox(width: 7),
+                                MonoLabel(
+                                  'Encrypted backup',
+                                  size: 10,
+                                  spacing: 1.6,
+                                  color: Press.paper,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Incremental and content-addressed. The '
+                                  'weekly check decrypts the manifest and one '
+                                  'blob and verifies the hash.',
+                                  style: TextStyle(
+                                    fontFamily: Type.serif,
+                                    fontSize: 14.5,
+                                    height: 1.45,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 50,
+                                        child: FilledButton(
+                                          onPressed: () => Navigator.of(context)
+                                              .push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => BackupScreen(
+                                                    db: db,
+                                                    prefs: prefs,
+                                                  ),
+                                                ),
+                                              ),
+                                          child: const Text('BACKUP'),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 50,
+                                        child: OutlinedButton(
+                                          onPressed: () => Navigator.of(context)
+                                              .push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const RestoreScreen(),
+                                                ),
+                                              ),
+                                          child: const Text('RESTORE'),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: 56,
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () => exportAndShare(context, db, property),
-                        child: const Text('TAKE MY DATA'),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Press.paperRaised,
+                        border: Border.all(color: Press.borderInk, width: 1.5),
                       ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                MonoLabel(
+                                  'Google Drive',
+                                  size: 9,
+                                  spacing: 1.8,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'The same hidden app folder the phone backs '
+                                  'up to. Back up this desk there, verify it, '
+                                  'or restore from it.',
+                                  style: TextStyle(
+                                    fontFamily: Type.serif,
+                                    fontSize: 14,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            height: 44,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      DriveBackupScreen(db: db, prefs: prefs),
+                                ),
+                              ),
+                              child: const Text('OPEN DRIVE'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    RailNote(
+                      color: Press.sage,
+                      label: 'restore · database first, media after',
+                      body:
+                          'Bring a backup zip from the phone: the database '
+                          'restores in seconds and this desk is immediately '
+                          'usable; media streams in behind it.',
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Press.sage, width: 1.5),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          color: Press.sage,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            children: [
-                              Diamond(size: 9, color: Press.paper),
-                              SizedBox(width: 7),
-                              MonoLabel(
-                                'Encrypted backup',
-                                size: 10,
-                                spacing: 1.6,
-                                color: Press.paper,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            children: [
-                              Text(
-                                'Incremental and content-addressed. The '
-                                'weekly check decrypts the manifest and one '
-                                'blob and verifies the hash.',
-                                style: TextStyle(
-                                  fontFamily: Type.serif,
-                                  fontSize: 14.5,
-                                  height: 1.45,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: 50,
-                                      child: FilledButton(
-                                        onPressed: () => Navigator.of(context)
-                                            .push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    BackupScreen(db: db),
-                                              ),
-                                            ),
-                                        child: const Text('BACKUP'),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: 50,
-                                      child: OutlinedButton(
-                                        onPressed: () => Navigator.of(context)
-                                            .push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const RestoreScreen(),
-                                              ),
-                                            ),
-                                        child: const Text('RESTORE'),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  RailNote(
-                    color: Press.sage,
-                    label: 'restore · database first, media after',
-                    body:
-                        'Bring a backup zip from the phone: the database '
-                        'restores in seconds and this desk is immediately '
-                        'usable; media streams in behind it.',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
