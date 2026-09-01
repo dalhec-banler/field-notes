@@ -25,6 +25,9 @@ Future<bool> showIdentifySheet(
   Future<void> Function(IdCandidate)? onChoose,
   void Function(List<IdCandidate>)? onCandidates,
 }) async {
+  // Every caller gates on having photos, but the service and the preview
+  // both assume `photos.first` exists — keep the invariant here too.
+  if (photos.isEmpty) return false;
   final accepted = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,

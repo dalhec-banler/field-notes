@@ -6,6 +6,7 @@ import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../backup/backup_service.dart';
 import '../db/database.dart';
+import '../id/id_keys.dart';
 import '../screens/capture_screen.dart';
 import '../screens/identify_sheet.dart';
 import '../screens/record_detail_screen.dart';
@@ -100,14 +101,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     // Identify belongs at the moment of saving (audit U1) — but only when
     // the record actually has a photo and a key is on file; a dead-end
     // button teaches people to ignore the toast.
-    final identifyReady = await _identifyPhotoFor(result.observationId);
+    final identifyReady = await _identifyPhotosFor(result.observationId);
     if (!mounted) return;
     SaveToast.show(
       context,
       title: 'OBSERVATION WRITTEN $speed',
       detail: 'SAVED ON THIS PHONE · NOTHING HAS LEFT IT',
-      actionLabel: identifyReady == null ? null : 'IDENTIFY',
-      onAction: identifyReady == null
+      actionLabel: identifyReady.isEmpty ? null : 'IDENTIFY',
+      onAction: identifyReady.isEmpty
           ? null
           : () => _identifyJustSaved(result.observationId, identifyReady),
       // Undo erases the record outright — row, photo, links, context — so
@@ -116,32 +117,25 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     );
   }
 
-  /// The record's first photo, if identification could actually run on it.
-  Future<File?> _identifyPhotoFor(String observationId) async {
+  /// The record's photos, in link order, if identification could actually
+  /// run: at least one photo on disk and a key on file. Empty means the
+  /// toast doesn't offer the action.
+  Future<List<File>> _identifyPhotosFor(String observationId) async {
     try {
-      final links =
-          await (widget.db.select(widget.db.mediaLinks)
-                ..where((l) => l.entityType.equals('observation'))
-                ..where((l) => l.entityId.equals(observationId))
-                ..where((l) => l.deletedAt.isNull()))
-              .get();
-      if (links.isEmpty) return null;
-      final media =
-          await (widget.db.select(widget.db.media)
-                ..where((m) => m.id.isIn([for (final l in links) l.mediaId]))
-                ..where((m) => m.mediaType.equals('photo')))
-              .get();
-      for (final m in media) {
-        final path = m.localPath;
-        if (path != null && File(path).existsSync()) return File(path);
-      }
-      return null;
-    } catch (_) {
-      return null;
+      final keys = IdKeys();
+      if (!(await keys.hasPlantNet) && !(await keys.hasLlm)) return const [];
+      return await observationPhotoFiles(widget.db, observationId);
+    } catch (e) {
+      // Best-effort gate: a failure only hides the button, but say so.
+      debugPrint('save-toast identify gate failed: $e');
+      return const [];
     }
   }
 
-  Future<void> _identifyJustSaved(String observationId, File photo) async {
+  Future<void> _identifyJustSaved(
+    String observationId,
+    List<File> photos,
+  ) async {
     final obs = await (widget.db.select(
       widget.db.observations,
     )..where((o) => o.id.equals(observationId))).getSingleOrNull();
@@ -151,7 +145,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       db: widget.db,
       observation: obs,
       property: widget.property,
-      photos: [photo],
+      photos: photos,
     );
   }
 

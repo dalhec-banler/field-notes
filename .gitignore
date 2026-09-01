@@ -7,3 +7,6 @@ app/.packages
 .DS_Store
 docs/basemap/
 android/key.properties
+
+# Xcode workspace SwiftPM state — regenerated on every build
+app/macos/**/xcshareddata/swiftpm/

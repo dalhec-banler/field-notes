@@ -78,6 +78,46 @@ Future<void> eraseObservation(FieldNotesDb db, String observationId) async {
   deleteFiles(files);
 }
 
+/// The photos linked to an observation, in link order (`sort_order`, the
+/// order capture wrote them), restricted to rows whose file is on disk.
+/// This is the one place that decides what "the record's photos" means —
+/// identification callers hand the whole list on (spec §5: every photo of
+/// the record goes to Pl@ntNet, up to its limit of five).
+Future<List<File>> observationPhotoFiles(
+  FieldNotesDb db,
+  String observationId,
+) async {
+  final links =
+      await (db.select(db.mediaLinks)
+            ..where(
+              (l) =>
+                  l.entityType.equals('observation') &
+                  l.entityId.equals(observationId) &
+                  l.deletedAt.isNull(),
+            )
+            ..orderBy([(l) => OrderingTerm.asc(l.sortOrder)]))
+          .get();
+  if (links.isEmpty) return const [];
+  final rows =
+      await (db.select(db.media)
+            ..where(
+              (m) =>
+                  m.id.isIn([for (final l in links) l.mediaId]) &
+                  m.mediaType.equals('photo') &
+                  m.deletedAt.isNull(),
+            ))
+          .get();
+  final byId = {for (final m in rows) m.id: m};
+  final files = <File>[];
+  for (final link in links) {
+    final path = byId[link.mediaId]?.localPath;
+    if (path == null) continue;
+    final f = File(path);
+    if (f.existsSync()) files.add(f);
+  }
+  return files;
+}
+
 /// Original, working copy and thumbnail for a media row.
 List<String> mediaFilePaths(MediaData m) {
   final paths = <String>[];
