@@ -48,8 +48,7 @@ class LanTarget implements BackupTarget {
     }
   }
 
-  Uri _uri(String path) =>
-      Uri.http('$host:$port', '/backup/$path');
+  Uri _uri(String path) => Uri.http('$host:$port', '/backup/$path');
 
   Map<String, String> get _headers => {'authorization': 'Bearer $token'};
 
@@ -94,21 +93,26 @@ class LanTarget implements BackupTarget {
   @override
   Future<void> write(String path, Uint8List bytes) async {
     final res = await _client
-        .put(_uri(path),
-            headers: {..._headers, 'content-type': 'application/octet-stream'},
-            body: bytes)
+        .put(
+          _uri(path),
+          headers: {..._headers, 'content-type': 'application/octet-stream'},
+          body: bytes,
+        )
         .timeout(const Duration(minutes: 5));
     if (res.statusCode != 200 && res.statusCode != 201) {
       throw LanTargetException(
-          'The computer refused that file (${res.statusCode})');
+        'The computer refused that file (${res.statusCode})',
+      );
     }
   }
 
   @override
   Future<List<String>> list(String prefix) async {
     final res = await _client
-        .get(Uri.http('$host:$port', '/list', {'prefix': prefix}),
-            headers: _headers)
+        .get(
+          Uri.http('$host:$port', '/list', {'prefix': prefix}),
+          headers: _headers,
+        )
         .timeout(const Duration(seconds: 30));
     if (res.statusCode != 200) return const [];
     final data = jsonDecode(res.body);

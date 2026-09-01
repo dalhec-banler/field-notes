@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../backup/restore.dart';
+import '../desktop/relaunch.dart';
 
 /// Restore from a backup zip (spec §11.9). The staged data applies on next
 /// launch — DB first, so the app is usable the moment it reopens.
@@ -28,9 +29,11 @@ class _RestoreScreenState extends State<RestoreScreen> {
   }
 
   Future<void> _pickZip() async {
-    final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(label: 'Backup zip', extensions: ['zip']),
-    ]);
+    final file = await openFile(
+      acceptedTypeGroups: [
+        const XTypeGroup(label: 'Backup zip', extensions: ['zip']),
+      ],
+    );
     if (file != null && mounted) setState(() => _zip = file);
   }
 
@@ -45,14 +48,15 @@ class _RestoreScreenState extends State<RestoreScreen> {
       final docs = await getApplicationDocumentsDirectory();
       final pipeline = RestorePipeline(docs);
       final secret = _secretController.text.trim();
-      final summary = await pipeline.stageFromZip(File(zip.path),
-          secret: secret.isEmpty ? null : secret);
+      final summary = await pipeline.stageFromZip(
+        File(zip.path),
+        secret: secret.isEmpty ? null : secret,
+      );
       if (!mounted) return;
       setState(() => _status = summary);
     } catch (e) {
       if (!mounted) return;
-      setState(() =>
-          _status = '$e'.replaceFirst(RegExp(r'^\w*Error: '), ''));
+      setState(() => _status = '$e'.replaceFirst(RegExp(r'^\w*Error: '), ''));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -101,8 +105,22 @@ class _RestoreScreenState extends State<RestoreScreen> {
           if (_status != null)
             Padding(
               padding: const EdgeInsets.only(top: 16),
-              child: Text(_status!,
-                  style: Theme.of(context).textTheme.bodyLarge),
+              child: Text(
+                _status!,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+          // On a computer the restart is one click; a phone relaunches by hand.
+          if (_status != null && _status!.contains('Restart') && canRelaunch)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: SizedBox(
+                height: 56,
+                child: FilledButton(
+                  onPressed: relaunchApp,
+                  child: const Text('QUIT & REOPEN'),
+                ),
+              ),
             ),
         ],
       ),

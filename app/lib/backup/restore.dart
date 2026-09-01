@@ -43,15 +43,16 @@ class RestorePipeline {
     final tmp = Directory.systemTemp.createTempSync('fnrestore');
     try {
       await extractArchiveToDisk(
-          ZipDecoder().decodeStream(InputFileStream(zip.path)), tmp.path);
+        ZipDecoder().decodeStream(InputFileStream(zip.path)),
+        tmp.path,
+      );
       // The zip may contain the fieldnotes/ folder itself or its contents.
       var root = tmp;
       if (Directory(p.join(tmp.path, 'fieldnotes')).existsSync()) {
         // target layout expects <root>/fieldnotes/...
       } else if (File(p.join(tmp.path, 'manifest.json')).existsSync()) {
         // Contents were zipped without the folder: wrap them.
-        final wrapped = Directory(p.join(tmp.path, 'fieldnotes'))
-          ..createSync();
+        final wrapped = Directory(p.join(tmp.path, 'fieldnotes'))..createSync();
         for (final e in tmp.listSync()) {
           if (p.basename(e.path) == 'fieldnotes') continue;
           e.renameSync(p.join(wrapped.path, p.basename(e.path)));
@@ -77,8 +78,7 @@ class RestorePipeline {
   Future<String> stageFromTarget(BackupTarget target, {String? secret}) =>
       _stageFromTarget(target, secret: secret);
 
-  Future<String> _stageFromTarget(BackupTarget target,
-      {String? secret}) async {
+  Future<String> _stageFromTarget(BackupTarget target, {String? secret}) async {
     final envelopeRaw = await target.read('${BackupEngine.root}/manifest.json');
     final envelope =
         jsonDecode(utf8.decode(envelopeRaw)) as Map<String, dynamic>;
@@ -90,16 +90,20 @@ class RestorePipeline {
     } else if (scheme == 'keyring-v1') {
       if (secret == null || secret.isEmpty) {
         throw StateError(
-            'This backup is encrypted — enter the passphrase or recovery phrase.');
+          'This backup is encrypted — enter the passphrase or recovery phrase.',
+        );
       }
       try {
-        cipher =
-            (await BackupKeyring.unlockWithPassphrase(envelope, secret)).cipher;
+        cipher = (await BackupKeyring.unlockWithPassphrase(
+          envelope,
+          secret,
+        )).cipher;
       } catch (_) {
         try {
           cipher = (await BackupKeyring.unlockWithRecoveryPhrase(
-                  envelope, secret))
-              .cipher;
+            envelope,
+            secret,
+          )).cipher;
         } catch (_) {
           throw StateError('That passphrase or recovery phrase is wrong.');
         }
@@ -129,8 +133,10 @@ class RestorePipeline {
     final verdict = _integrityCheck(stagedDb);
     if (verdict != 'ok') {
       _staging.deleteSync(recursive: true);
-      throw StateError('The backup\'s database failed its integrity check '
-          '($verdict). Nothing was changed.');
+      throw StateError(
+        'The backup\'s database failed its integrity check '
+        '($verdict). Nothing was changed.',
+      );
     }
 
     _ready.writeAsStringSync(nowUtcIso());
@@ -139,8 +145,10 @@ class RestorePipeline {
 
   static String _integrityCheck(File dbFile) {
     try {
-      final db = sqlite.sqlite3.open(dbFile.path,
-          mode: sqlite.OpenMode.readOnly);
+      final db = sqlite.sqlite3.open(
+        dbFile.path,
+        mode: sqlite.OpenMode.readOnly,
+      );
       try {
         final rows = db.select('PRAGMA integrity_check');
         if (rows.isEmpty) return 'no result';
@@ -168,10 +176,10 @@ class RestorePipeline {
     // Move the live DB AND its sidecars aside together. A hot -journal or
     // -wal left behind would be "rolled back" into the restored file the
     // moment SQLite opens it.
-    final stamp = DateTime.now()
-        .toUtc()
-        .toIso8601String()
-        .replaceAll(RegExp('[:.]'), '-');
+    final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(
+      RegExp('[:.]'),
+      '-',
+    );
     for (final suffix in const ['', '-journal', '-wal', '-shm']) {
       final f = File('$liveDbPath$suffix');
       if (f.existsSync()) {
@@ -200,9 +208,9 @@ class RestorePipeline {
     final destDir = Directory(p.join(docsDir.path, 'media', 'restored'))
       ..createSync(recursive: true);
 
-    final rows = await (db.select(db.media)
-          ..where((m) => m.sha256.isNotNull()))
-        .get();
+    final rows = await (db.select(
+      db.media,
+    )..where((m) => m.sha256.isNotNull())).get();
     var remapped = 0;
     var failed = 0;
     for (final m in rows) {

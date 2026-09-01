@@ -55,11 +55,11 @@ class PassphraseCipher implements BackupCipher {
   /// Parameters are stored in the manifest header so they can be raised later
   /// without breaking old backups.
   static Argon2id kdf({int memoryKiB = 65536, int iterations = 3}) => Argon2id(
-        parallelism: 2,
-        memory: memoryKiB,
-        iterations: iterations,
-        hashLength: 32,
-      );
+    parallelism: 2,
+    memory: memoryKiB,
+    iterations: iterations,
+    hashLength: 32,
+  );
 
   static Future<PassphraseCipher> fromPassphrase(
     String passphrase,
@@ -67,8 +67,10 @@ class PassphraseCipher implements BackupCipher {
     int memoryKiB = 65536,
     int iterations = 3,
   }) async {
-    final key = await kdf(memoryKiB: memoryKiB, iterations: iterations)
-        .deriveKeyFromPassword(password: passphrase, nonce: salt);
+    final key = await kdf(
+      memoryKiB: memoryKiB,
+      iterations: iterations,
+    ).deriveKeyFromPassword(password: passphrase, nonce: salt);
     return PassphraseCipher._(key);
   }
 
@@ -82,8 +84,11 @@ class PassphraseCipher implements BackupCipher {
   Future<Uint8List> seal(Uint8List plaintext) async {
     final box = await _aead.encrypt(plaintext, secretKey: _key);
     // nonce (24) ‖ ciphertext ‖ mac (16)
-    return Uint8List.fromList(
-        [...box.nonce, ...box.cipherText, ...box.mac.bytes]);
+    return Uint8List.fromList([
+      ...box.nonce,
+      ...box.cipherText,
+      ...box.mac.bytes,
+    ]);
   }
 
   @override
@@ -102,8 +107,10 @@ class PassphraseCipher implements BackupCipher {
 
   @override
   Future<String> blobName(String sha256Hex) async {
-    final mac = await Hmac.sha256()
-        .calculateMac(utf8.encode(sha256Hex), secretKey: _key);
+    final mac = await Hmac.sha256().calculateMac(
+      utf8.encode(sha256Hex),
+      secretKey: _key,
+    );
     return mac.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 }

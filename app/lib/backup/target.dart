@@ -52,7 +52,7 @@ class DirectoryTarget implements BackupTarget {
     return [
       for (final e in dir.listSync(recursive: true))
         if (e is File && !e.path.endsWith('.tmp'))
-          p.relative(e.path, from: root.path)
+          p.relative(e.path, from: root.path),
     ];
   }
 

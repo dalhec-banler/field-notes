@@ -148,7 +148,11 @@ class _DesktopIntakeScreenState extends State<DesktopIntakeScreen> {
                     'Google account and restore the copy here.',
                 action: 'OPEN DRIVE',
                 onTap: () => _push(
-                  DriveBackupScreen(db: widget.db, prefs: widget.prefs),
+                  DriveBackupScreen(
+                    db: widget.db,
+                    prefs: widget.prefs,
+                    intake: true,
+                  ),
                 ),
               ),
               SizedBox(height: 14),

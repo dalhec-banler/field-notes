@@ -34,7 +34,9 @@ class BackupKeyring {
 
   /// Rebuild a working keyring from a cached data key — no passphrase.
   static BackupKeyring fromCachedKey(
-      List<int> dataKey, Map<String, dynamic> fields) {
+    List<int> dataKey,
+    Map<String, dynamic> fields,
+  ) {
     return BackupKeyring._(
       cipher: DataKeyCipher(SecretKey(dataKey)),
       envelopeFields: Map<String, Object?>.from(fields),
@@ -51,18 +53,21 @@ class BackupKeyring {
     List<int> salt, {
     int memoryKiB = 65536,
     int iterations = 3,
-  }) =>
-      PassphraseCipher.kdf(memoryKiB: memoryKiB, iterations: iterations)
-          .deriveKeyFromPassword(password: secret, nonce: salt);
+  }) => PassphraseCipher.kdf(
+    memoryKiB: memoryKiB,
+    iterations: iterations,
+  ).deriveKeyFromPassword(password: secret, nonce: salt);
 
   static Future<Uint8List> _wrap(List<int> dataKey, SecretKey wrapKey) async {
     final box = await _aead.encrypt(dataKey, secretKey: wrapKey);
-    return Uint8List.fromList(
-        [...box.nonce, ...box.cipherText, ...box.mac.bytes]);
+    return Uint8List.fromList([
+      ...box.nonce,
+      ...box.cipherText,
+      ...box.mac.bytes,
+    ]);
   }
 
-  static Future<List<int>> _unwrap(
-      Uint8List wrapped, SecretKey wrapKey) async {
+  static Future<List<int>> _unwrap(Uint8List wrapped, SecretKey wrapKey) async {
     final box = SecretBox(
       wrapped.sublist(24, wrapped.length - 16),
       nonce: wrapped.sublist(0, 24),
@@ -82,10 +87,18 @@ class BackupKeyring {
 
     final saltPass = _randomBytes(16);
     final saltRec = _randomBytes(16);
-    final passKey = await _derive(passphrase, saltPass,
-        memoryKiB: memoryKiB, iterations: iterations);
-    final recKey = await _derive(mnemonic, saltRec,
-        memoryKiB: memoryKiB, iterations: iterations);
+    final passKey = await _derive(
+      passphrase,
+      saltPass,
+      memoryKiB: memoryKiB,
+      iterations: iterations,
+    );
+    final recKey = await _derive(
+      mnemonic,
+      saltRec,
+      memoryKiB: memoryKiB,
+      iterations: iterations,
+    );
 
     final fields = {
       'scheme': 'keyring-v1',
@@ -106,15 +119,13 @@ class BackupKeyring {
   static Future<BackupKeyring> unlockWithPassphrase(
     Map<String, dynamic> fields,
     String passphrase,
-  ) =>
-      _unlock(fields, passphrase, 'salt_pass', 'wrap_pass');
+  ) => _unlock(fields, passphrase, 'salt_pass', 'wrap_pass');
 
   /// Unlocks with the 12-word recovery phrase alone (spec §11.6).
   static Future<BackupKeyring> unlockWithRecoveryPhrase(
     Map<String, dynamic> fields,
     String mnemonic,
-  ) =>
-      _unlock(fields, mnemonic.trim().toLowerCase(), 'salt_rec', 'wrap_rec');
+  ) => _unlock(fields, mnemonic.trim().toLowerCase(), 'salt_rec', 'wrap_rec');
 
   static Future<BackupKeyring> _unlock(
     Map<String, dynamic> fields,
@@ -129,8 +140,10 @@ class BackupKeyring {
       memoryKiB: (kdf['memory_kib'] as int?) ?? 65536,
       iterations: (kdf['iterations'] as int?) ?? 3,
     );
-    final dataKey =
-        await _unwrap(base64Decode(fields[wrapField] as String), wrapKey);
+    final dataKey = await _unwrap(
+      base64Decode(fields[wrapField] as String),
+      wrapKey,
+    );
     return BackupKeyring._(
       cipher: DataKeyCipher(SecretKey(dataKey)),
       envelopeFields: Map<String, Object?>.from(fields),
@@ -156,8 +169,11 @@ class DataKeyCipher implements BackupCipher {
   @override
   Future<Uint8List> seal(Uint8List plaintext) async {
     final box = await _aead.encrypt(plaintext, secretKey: _key);
-    return Uint8List.fromList(
-        [...box.nonce, ...box.cipherText, ...box.mac.bytes]);
+    return Uint8List.fromList([
+      ...box.nonce,
+      ...box.cipherText,
+      ...box.mac.bytes,
+    ]);
   }
 
   @override
@@ -175,8 +191,10 @@ class DataKeyCipher implements BackupCipher {
 
   @override
   Future<String> blobName(String sha256Hex) async {
-    final mac = await Hmac.sha256()
-        .calculateMac(utf8.encode(sha256Hex), secretKey: _key);
+    final mac = await Hmac.sha256().calculateMac(
+      utf8.encode(sha256Hex),
+      secretKey: _key,
+    );
     return mac.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 }

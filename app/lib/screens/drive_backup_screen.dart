@@ -7,6 +7,7 @@ import '../backup/drive_auth.dart';
 import '../backup/drive_target.dart';
 import '../backup/restore.dart';
 import '../db/database.dart';
+import '../desktop/relaunch.dart';
 import '../services/app_prefs.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
@@ -18,7 +19,16 @@ import '../widgets/press.dart';
 /// plug anything in is worth having; the cost is that a company knows a file
 /// arrived. It cannot know what is in it.
 class DriveBackupScreen extends StatefulWidget {
-  DriveBackupScreen({super.key, required this.db, required this.prefs});
+  DriveBackupScreen({
+    super.key,
+    required this.db,
+    required this.prefs,
+    this.intake = false,
+  });
+
+  /// Intake (D-024): a computer with no record yet. There is nothing to back
+  /// up, so the screen is Connect → Restore → reopen, and says so.
+  final bool intake;
 
   final FieldNotesDb db;
   final AppPrefs prefs;
@@ -34,6 +44,9 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
   String? _email;
   String? _status;
 
+  /// A restore is staged: on a computer, offer the reopen right here.
+  bool _staged = false;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +58,8 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
   /// its account picker on screen before the user had touched anything.
   Future<void> _refresh() async {
     final supported = await DriveAuth.instance.isSupported;
+    // The desk keeps its grant in the keychain; label from that, locally.
+    await DriveAuth.instance.primeDeskEmail();
     if (!mounted) return;
     setState(() {
       _supported = supported;
@@ -86,7 +101,8 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
     setState(() {
       _busy = false;
       _email = null;
-      _status = 'Disconnected. Copies already in Drive are still there — '
+      _status =
+          'Disconnected. Copies already in Drive are still there — '
           'remove them from Drive’s storage settings if you want them gone.';
     });
   }
@@ -154,9 +170,11 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
       }
       final problem = await _service.verifyNow(engine);
       if (mounted) {
-        setState(() => _status = problem == null
-            ? 'Verified: every object in Drive reads back intact.'
-            : 'Verify found a problem: $problem');
+        setState(
+          () => _status = problem == null
+              ? 'Verified: every object in Drive reads back intact.'
+              : 'Verify found a problem: $problem',
+        );
       }
     } catch (e) {
       if (mounted) setState(() => _status = 'Verify failed: $e');
@@ -174,18 +192,25 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('RESTORE FROM DRIVE?'),
-        content: const Text(
-            'The backup in Drive will replace what is on this phone the next '
-            'time the app starts. The current database is kept aside, and '
-            'nothing changes until the backup has been read back whole and '
-            'checked.'),
+        content: Text(
+          widget.intake
+              ? 'The copy in Drive becomes this computer\'s record the next time '
+                    'Field Notes opens. Nothing changes until the copy has been '
+                    'read back whole and checked.'
+              : 'The backup in Drive will replace what is on this device the '
+                    'next time the app starts. The current database is kept '
+                    'aside, and nothing changes until the backup has been read '
+                    'back whole and checked.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('CANCEL')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('CANCEL'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('RESTORE')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('RESTORE'),
+          ),
         ],
       ),
     );
@@ -210,7 +235,12 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
       final pipeline = RestorePipeline(docs);
       try {
         final summary = await pipeline.stageFromTarget(target);
-        if (mounted) setState(() => _status = summary);
+        if (mounted) {
+          setState(() {
+            _status = summary;
+            _staged = true;
+          });
+        }
       } on StateError catch (e) {
         if (!e.toString().contains('encrypted')) rethrow;
         final secret = await _askPassphrase(context);
@@ -220,7 +250,12 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
         }
         if (mounted) setState(() => _status = 'Unlocking and staging…');
         final summary = await pipeline.stageFromTarget(target, secret: secret);
-        if (mounted) setState(() => _status = summary);
+        if (mounted) {
+          setState(() {
+            _status = summary;
+            _staged = true;
+          });
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _status = 'Restore failed: $e');
@@ -244,10 +279,13 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: Text('CANCEL')),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, controller.text),
-              child: Text('CONTINUE')),
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: Text('CONTINUE'),
+          ),
         ],
       ),
     );
@@ -257,33 +295,62 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
   Widget build(BuildContext context) {
     final connected = _email != null;
     return Scaffold(
-      appBar: AppBar(title: Text('Back up to Google Drive')),
+      appBar: AppBar(
+        title: Text(
+          widget.intake
+              ? 'Bring the record from Drive'
+              : 'Back up to Google Drive',
+        ),
+      ),
       body: ListView(
         padding: EdgeInsets.all(Metrics.gutter),
         children: [
-          Text(
-            'A copy goes to a hidden folder in your own Drive — one this app '
-            'creates for itself, which nothing else can open and which does '
-            'not appear alongside your files. The phone encrypts everything '
-            'before it leaves, so Google stores the copy and cannot read it.',
-            style:
-                TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
-          ),
-          SizedBox(height: 14),
-          Text(
-            'This is the convenient option, not the private one. Backing up '
-            'to your own computer over your own network keeps the copy in '
-            'the house. Both work; you can use both.',
-            style:
-                TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
-          ),
+          if (widget.intake) ...[
+            Text(
+              'If the phone backs up to Google Drive, this computer can fetch '
+              'that copy. Connect with the same Google account, restore, and '
+              'reopen Field Notes. The copy is encrypted; you will be asked '
+              'for the passphrase or recovery phrase to open it.',
+              style: TextStyle(
+                fontFamily: Type.serif,
+                fontSize: 15.5,
+                height: 1.45,
+              ),
+            ),
+          ] else ...[
+            Text(
+              'A copy goes to a hidden folder in your own Drive — one this app '
+              'creates for itself, which nothing else can open and which does '
+              'not appear alongside your files. The phone encrypts everything '
+              'before it leaves, so Google stores the copy and cannot read it.',
+              style: TextStyle(
+                fontFamily: Type.serif,
+                fontSize: 15.5,
+                height: 1.45,
+              ),
+            ),
+            SizedBox(height: 14),
+            Text(
+              'This is the convenient option, not the private one. Backing up '
+              'to your own computer over your own network keeps the copy in '
+              'the house. Both work; you can use both.',
+              style: TextStyle(
+                fontFamily: Type.serif,
+                fontSize: 15.5,
+                height: 1.45,
+              ),
+            ),
+          ],
           SizedBox(height: 20),
           if (!_supported)
             Text(
               'Google sign-in isn’t available in this build. The LAN backup '
               'and the local copy both still work.',
               style: TextStyle(
-                  fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
+                fontFamily: Type.serif,
+                fontSize: 15.5,
+                height: 1.45,
+              ),
             )
           else ...[
             MonoLabel('Account', size: 9, spacing: 1.8),
@@ -291,7 +358,10 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
             Text(
               connected ? _email! : 'Not connected',
               style: TextStyle(
-                  fontFamily: Type.serif, fontSize: 16, height: 1.35),
+                fontFamily: Type.serif,
+                fontSize: 16,
+                height: 1.35,
+              ),
             ),
             SizedBox(height: 14),
             Row(
@@ -300,7 +370,9 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
                   child: SizedBox(
                     height: 56,
                     child: OutlinedButton(
-                      onPressed: _busy ? null : (connected ? _disconnect : _connect),
+                      onPressed: _busy
+                          ? null
+                          : (connected ? _disconnect : _connect),
                       child: Text(connected ? 'DISCONNECT' : 'CONNECT'),
                     ),
                   ),
@@ -310,51 +382,80 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
                   child: SizedBox(
                     height: 56,
                     child: FilledButton(
-                      onPressed: _busy ? null : _backup,
-                      child: Text(_busy ? 'WORKING…' : 'BACK UP NOW'),
+                      // Intake: the one thing a fresh computer does here.
+                      onPressed: _busy
+                          ? null
+                          : widget.intake
+                          ? (connected ? _restore : null)
+                          : _backup,
+                      child: Text(
+                        _busy
+                            ? 'WORKING…'
+                            : widget.intake
+                            ? 'RESTORE FROM DRIVE'
+                            : 'BACK UP NOW',
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: _busy ? null : _verify,
-                      child: const Text('VERIFY'),
+            if (!widget.intake) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 56,
+                      child: OutlinedButton(
+                        onPressed: _busy ? null : _verify,
+                        child: const Text('VERIFY'),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: _busy ? null : _restore,
-                      child: const Text('RESTORE FROM DRIVE'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SizedBox(
+                      height: 56,
+                      child: OutlinedButton(
+                        onPressed: _busy ? null : _restore,
+                        child: const Text('RESTORE FROM DRIVE'),
+                      ),
                     ),
                   ),
+                ],
+              ),
+            ],
+            if (_staged && canRelaunch) ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 56,
+                child: FilledButton(
+                  onPressed: relaunchApp,
+                  child: const Text('QUIT & REOPEN'),
                 ),
-              ],
-            ),
+              ),
+            ],
           ],
           if (_status != null)
             Padding(
               padding: EdgeInsets.only(top: 16),
-              child: Text(_status!,
-                  style: TextStyle(
-                      fontFamily: Type.serif, fontSize: 15.5, height: 1.4)),
+              child: Text(
+                _status!,
+                style: TextStyle(
+                  fontFamily: Type.serif,
+                  fontSize: 15.5,
+                  height: 1.4,
+                ),
+              ),
             ),
           SizedBox(height: 20),
           MonoLabel(
-              'You can revoke this at myaccount.google.com/permissions at any '
-              'time. The app keeps working; it just stops uploading.',
-              size: 9,
-              opacity: 0.7),
+            'You can revoke this at myaccount.google.com/permissions at any '
+            'time. The app keeps working; it just stops uploading.',
+            size: 9,
+            opacity: 0.7,
+          ),
         ],
       ),
     );

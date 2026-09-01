@@ -48,6 +48,20 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
     super.dispose();
   }
 
+  /// A scanned or pasted pairing link becomes the two plain fields —
+  /// `address:port` and the code — so what's on screen is what's used.
+  void _fillFromLink(String raw) {
+    final pairing = LanTarget.decodePairing(raw);
+    setState(() {
+      if (pairing != null) {
+        _hostController.text = '${pairing.host}:${pairing.port}';
+        _codeController.text = pairing.token;
+      } else {
+        _hostController.text = raw.trim();
+      }
+    });
+  }
+
   ({String host, int port})? _parseHost() {
     final raw = _hostController.text.trim();
     if (raw.isEmpty) return null;
@@ -80,9 +94,7 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
       MaterialPageRoute(builder: (_) => const ScanPairingScreen()),
     );
     if (raw == null || !mounted) return;
-    setState(() => _hostController.text = raw.trim());
-    _parseHost();
-    setState(() {});
+    _fillFromLink(raw);
     await _test();
   }
 
@@ -224,7 +236,7 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
           TextField(
             controller: _hostController,
             decoration: InputDecoration(
-              labelText: 'Address (e.g. 192.168.1.42)',
+              labelText: 'Address and port (e.g. 192.168.1.42:47391)',
               isDense: true,
             ),
           ),
@@ -245,9 +257,7 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
               final data = await Clipboard.getData(Clipboard.kTextPlain);
               final text = data?.text;
               if (text == null) return;
-              setState(() => _hostController.text = text.trim());
-              _parseHost();
-              setState(() {});
+              _fillFromLink(text);
             },
           ),
           SizedBox(height: 8),

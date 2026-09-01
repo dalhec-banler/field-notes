@@ -31,7 +31,7 @@ import 'target.dart';
 /// know this.
 class DriveTarget implements BackupTarget {
   DriveTarget({required this.accessToken, http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   /// A short-lived OAuth access token for scope `drive.appdata`.
   final String accessToken;
@@ -66,9 +66,9 @@ class DriveTarget implements BackupTarget {
         'pageSize': '1000',
         if (pageToken != null) 'pageToken': pageToken,
       });
-      final res = await _client.get(uri, headers: _auth).timeout(
-            const Duration(seconds: 30),
-          );
+      final res = await _client
+          .get(uri, headers: _auth)
+          .timeout(const Duration(seconds: 30));
       if (res.statusCode != 200) {
         throw DriveException(_explain(res.statusCode, res.body));
       }
@@ -92,8 +92,10 @@ class DriveTarget implements BackupTarget {
     final id = (await _ensureIndex())[_encode(path)];
     if (id == null) throw DriveException('Not in Drive: $path');
     final res = await _client
-        .get(Uri.https(_api, '/drive/v3/files/$id', {'alt': 'media'}),
-            headers: _auth)
+        .get(
+          Uri.https(_api, '/drive/v3/files/$id', {'alt': 'media'}),
+          headers: _auth,
+        )
         .timeout(const Duration(minutes: 2));
     if (res.statusCode != 200) {
       throw DriveException(_explain(res.statusCode, res.body));
@@ -113,18 +115,27 @@ class DriveTarget implements BackupTarget {
 
     final boundary = 'fieldnotes-${DateTime.now().microsecondsSinceEpoch}';
     final metadata = existing == null
-        ? {'name': name, 'parents': [_space]}
+        ? {
+            'name': name,
+            'parents': [_space],
+          }
         : {'name': name};
-    final head = utf8.encode('--$boundary\r\n'
-        'Content-Type: application/json; charset=UTF-8\r\n\r\n'
-        '${jsonEncode(metadata)}\r\n'
-        '--$boundary\r\n'
-        'Content-Type: application/octet-stream\r\n\r\n');
+    final head = utf8.encode(
+      '--$boundary\r\n'
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n'
+      '${jsonEncode(metadata)}\r\n'
+      '--$boundary\r\n'
+      'Content-Type: application/octet-stream\r\n\r\n',
+    );
     final tail = utf8.encode('\r\n--$boundary--\r\n');
     final body = Uint8List(head.length + bytes.length + tail.length)
       ..setRange(0, head.length, head)
       ..setRange(head.length, head.length + bytes.length, bytes)
-      ..setRange(head.length + bytes.length, head.length + bytes.length + tail.length, tail);
+      ..setRange(
+        head.length + bytes.length,
+        head.length + bytes.length + tail.length,
+        tail,
+      );
 
     final uri = Uri.https(
       _api,
@@ -140,8 +151,9 @@ class DriveTarget implements BackupTarget {
       })
       ..bodyBytes = body;
 
-    final streamed =
-        await _client.send(request).timeout(const Duration(minutes: 5));
+    final streamed = await _client
+        .send(request)
+        .timeout(const Duration(minutes: 5));
     final text = await streamed.stream.bytesToString();
     if (streamed.statusCode != 200) {
       throw DriveException(_explain(streamed.statusCode, text));
@@ -157,7 +169,7 @@ class DriveTarget implements BackupTarget {
     final want = _encode(prefix.endsWith('/') ? prefix : '$prefix/');
     return [
       for (final name in (await _ensureIndex()).keys)
-        if (name.startsWith(want)) _decode(name)
+        if (name.startsWith(want)) _decode(name),
     ];
   }
 
@@ -170,7 +182,8 @@ class DriveTarget implements BackupTarget {
     final res = await _client
         .delete(Uri.https(_api, '/drive/v3/files/$id'), headers: _auth)
         .timeout(const Duration(seconds: 30));
-    if (res.statusCode == 200 || res.statusCode == 204 ||
+    if (res.statusCode == 200 ||
+        res.statusCode == 204 ||
         res.statusCode == 404) {
       index.remove(name);
       return;

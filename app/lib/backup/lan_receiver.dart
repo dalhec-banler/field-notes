@@ -80,7 +80,9 @@ class LanReceiver extends ChangeNotifier {
   Future<String?> _lanAddress() async {
     try {
       final interfaces = await NetworkInterface.list(
-          type: InternetAddressType.IPv4, includeLoopback: false);
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+      );
       for (final i in interfaces) {
         for (final a in i.addresses) {
           if (!a.isLoopback) return a.address;
@@ -98,8 +100,10 @@ class LanReceiver extends ChangeNotifier {
     final segments = req.url.pathSegments;
 
     if (segments.isNotEmpty && segments.first == 'hello') {
-      return Response.ok(jsonEncode({'app': 'field_notes', 'role': 'receiver'}),
-          headers: {'content-type': 'application/json'});
+      return Response.ok(
+        jsonEncode({'app': 'field_notes', 'role': 'receiver'}),
+        headers: {'content-type': 'application/json'},
+      );
     }
 
     if (segments.isNotEmpty && segments.first == 'list') {
@@ -110,10 +114,12 @@ class LanReceiver extends ChangeNotifier {
       }
       final out = [
         for (final e in dir.listSync(recursive: true))
-          if (e is File) p.relative(e.path, from: storeDir.path)
+          if (e is File) p.relative(e.path, from: storeDir.path),
       ];
-      return Response.ok(jsonEncode(out),
-          headers: {'content-type': 'application/json'});
+      return Response.ok(
+        jsonEncode(out),
+        headers: {'content-type': 'application/json'},
+      );
     }
 
     if (segments.length < 2 || segments.first != 'backup') {
@@ -128,11 +134,15 @@ class LanReceiver extends ChangeNotifier {
 
     switch (req.method) {
       case 'HEAD':
-        return target.existsSync() ? Response.ok(null) : Response.notFound(null);
+        return target.existsSync()
+            ? Response.ok(null)
+            : Response.notFound(null);
       case 'GET':
         if (!target.existsSync()) return Response.notFound('missing');
-        return Response.ok(target.readAsBytesSync(),
-            headers: {'content-type': 'application/octet-stream'});
+        return Response.ok(
+          target.readAsBytesSync(),
+          headers: {'content-type': 'application/octet-stream'},
+        );
       case 'PUT':
         final bytes = await req.read().expand((c) => c).toList();
         target.parent.createSync(recursive: true);

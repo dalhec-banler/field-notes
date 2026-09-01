@@ -41,9 +41,9 @@ class BackupEngine {
   Future<String> backup() async {
     // 1. Consistent DB snapshot via VACUUM INTO (spec §11.7).
     final tmp = File(
-        '${Directory.systemTemp.createTempSync('fnbk').path}/dump.sqlite');
-    await db.customStatement(
-        "VACUUM INTO '${tmp.path.replaceAll("'", "''")}'");
+      '${Directory.systemTemp.createTempSync('fnbk').path}/dump.sqlite',
+    );
+    await db.customStatement("VACUUM INTO '${tmp.path.replaceAll("'", "''")}'");
     final dbBytes = tmp.readAsBytesSync();
     tmp.parent.deleteSync(recursive: true);
 
@@ -57,10 +57,11 @@ class BackupEngine {
 
     // 4. Media blobs: write-once by content hash (spec §11.3). Only blobs
     //    absent from the target are uploaded — this is the incremental part.
-    final media = await (db.select(db.media)
-          ..where((m) => m.deletedAt.isNull())
-          ..where((m) => m.sha256.isNotNull()))
-        .get();
+    final media =
+        await (db.select(db.media)
+              ..where((m) => m.deletedAt.isNull())
+              ..where((m) => m.sha256.isNotNull()))
+            .get();
     var uploaded = 0;
     var skipped = 0;
     var missing = 0;
@@ -84,7 +85,9 @@ class BackupEngine {
         continue;
       }
       await target.write(
-          blobPath, await cipher.seal(File(src).readAsBytesSync()));
+        blobPath,
+        await cipher.seal(File(src).readAsBytesSync()),
+      );
       uploaded++;
     }
 
@@ -104,10 +107,13 @@ class BackupEngine {
       'generation': generation,
       'created_at': body['created_at'],
       'body': base64Encode(
-          await cipher.seal(Uint8List.fromList(utf8.encode(jsonEncode(body))))),
+        await cipher.seal(Uint8List.fromList(utf8.encode(jsonEncode(body)))),
+      ),
     };
-    await target.write('$root/manifest.json',
-        Uint8List.fromList(utf8.encode(jsonEncode(envelope))));
+    await target.write(
+      '$root/manifest.json',
+      Uint8List.fromList(utf8.encode(jsonEncode(envelope))),
+    );
 
     // 6. Keep the last N DB generations (spec §11.7). Blobs are never
     //    touched here — a separate, user-initiated prune handles those.
@@ -138,9 +144,9 @@ class BackupEngine {
 
   Future<Map<String, Object?>?> _readManifest() async {
     if (!await target.exists('$root/manifest.json')) return null;
-    final envelope =
-        jsonDecode(utf8.decode(await target.read('$root/manifest.json')))
-            as Map<String, dynamic>;
+    final envelope = jsonDecode(
+      utf8.decode(await target.read('$root/manifest.json')),
+    ) as Map<String, dynamic>;
     return envelope;
   }
 
@@ -161,7 +167,9 @@ class BackupEngine {
     required Directory mediaRestoreDir,
   }) async {
     final body = await readManifestBody();
-    final dbBytes = await cipher.open(await target.read(body['db_path'] as String));
+    final dbBytes = await cipher.open(
+      await target.read(body['db_path'] as String),
+    );
     dbOut.parent.createSync(recursive: true);
     dbOut.writeAsBytesSync(dbBytes);
 
@@ -171,8 +179,7 @@ class BackupEngine {
       final path = blob['blob'] as String;
       if (!await target.exists(path)) continue;
       final plain = await cipher.open(await target.read(path));
-      final out = File(
-          '${mediaRestoreDir.path}/${blob['sha256']}.bin');
+      final out = File('${mediaRestoreDir.path}/${blob['sha256']}.bin');
       out.parent.createSync(recursive: true);
       out.writeAsBytesSync(plain);
       restored++;
@@ -201,9 +208,7 @@ class BackupEngine {
 
   Future<String> _sha256Hex(Uint8List bytes) async {
     final digest = await Sha256().hash(bytes);
-    return digest.bytes
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
+    return digest.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
   String _fmt(int b) => b > 1 << 20

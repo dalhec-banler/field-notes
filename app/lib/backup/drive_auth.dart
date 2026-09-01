@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'drive_desktop_auth.dart';
 import 'drive_target.dart';
 
 /// Google sign-in, kept to the smallest surface that gets a Drive token.
@@ -28,6 +31,11 @@ class DriveAuth {
 
   bool _initialised = false;
 
+  /// On a computer there is no Google Sign-In SDK to lean on; the desk uses
+  /// the installed-app flow instead (D-024).
+  static bool get _isDesk =>
+      Platform.isMacOS || Platform.isLinux || Platform.isWindows;
+
   Future<void> _init() async {
     if (_initialised) return;
     await GoogleSignIn.instance.initialize(serverClientId: serverClientId);
@@ -38,6 +46,7 @@ class DriveAuth {
   /// fingerprint isn't registered, or a platform with no client configured,
   /// we want the Backup screen to say so rather than throw at tap time.
   Future<bool> get isSupported async {
+    if (_isDesk) return true;
     try {
       await _init();
       return GoogleSignIn.instance.supportsAuthenticate();
@@ -60,6 +69,12 @@ class DriveAuth {
   String? get lastKnownEmail => _lastEmail;
   String? _lastEmail;
 
+  /// The desk remembers the address in the keychain; prime the label
+  /// without contacting Google.
+  Future<void> primeDeskEmail() async {
+    if (_isDesk) _lastEmail = await DriveDesktopAuth.instance.email;
+  }
+
   /// Get a token for the Drive app folder.
   ///
   /// [interactive] false is the automatic-backup path: it will reuse an
@@ -68,26 +83,33 @@ class DriveAuth {
   ///
   /// Returns null when the user declines or has not connected.
   Future<String?> accessToken({required bool interactive}) async {
+    if (_isDesk) {
+      final token = await DriveDesktopAuth.instance.accessToken(
+        interactive: interactive,
+      );
+      _lastEmail = await DriveDesktopAuth.instance.email;
+      return token;
+    }
     await _init();
     final signIn = GoogleSignIn.instance;
 
-    GoogleSignInAccount? account =
-        await signIn.attemptLightweightAuthentication();
+    GoogleSignInAccount? account = await signIn
+        .attemptLightweightAuthentication();
     if (account == null) {
       // Only past this line does a Google dialog become possible, and only
       // because the user asked for one.
       if (!interactive) return null;
       if (!signIn.supportsAuthenticate()) {
         throw const DriveException(
-            'Google sign-in is not available on this device.');
+          'Google sign-in is not available on this device.',
+        );
       }
       account = await signIn.authenticate(scopeHint: const [DriveTarget.scope]);
     }
     _lastEmail = account.email;
 
     final client = account.authorizationClient;
-    var authz =
-        await client.authorizationForScopes(const [DriveTarget.scope]);
+    var authz = await client.authorizationForScopes(const [DriveTarget.scope]);
     if (authz == null) {
       if (!interactive) return null;
       authz = await client.authorizeScopes(const [DriveTarget.scope]);
@@ -99,6 +121,11 @@ class DriveAuth {
   /// so "Disconnect" means what the word means. Backups already in Drive stay
   /// where they are; the user can delete them from Drive's storage settings.
   Future<void> disconnect() async {
+    if (_isDesk) {
+      await DriveDesktopAuth.instance.disconnect();
+      _lastEmail = null;
+      return;
+    }
     try {
       await _init();
       await GoogleSignIn.instance.disconnect();

@@ -12,7 +12,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// backup asks for the passphrase again.
 class BackupKeyCache {
   BackupKeyCache({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
   static const _key = 'backup_data_key_v1';

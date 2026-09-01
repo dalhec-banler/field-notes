@@ -31,7 +31,7 @@ import 'target.dart';
 ///    not treated as "never set up".
 class BackupService {
   BackupService(this.db, {BackupKeyCache? keyCache})
-      : _keyCache = keyCache ?? BackupKeyCache();
+    : _keyCache = keyCache ?? BackupKeyCache();
 
   final FieldNotesDb db;
   final BackupKeyCache _keyCache;
@@ -97,16 +97,16 @@ class BackupService {
   }
 
   /// Is a backup configured at all (plain or encrypted)?
-  Future<bool> get isConfigured async =>
-      (await loadConfig())['scheme'] != null;
+  Future<bool> get isConfigured async => (await loadConfig())['scheme'] != null;
 
   /// Can the encrypted engine be built without asking for the passphrase?
   Future<bool> get hasCachedKey async => (await _keyCache.read()) != null;
 
   /// Scheme of the manifest actually on disk, or null if there is none.
   Future<String?> storeScheme() async {
-    final f = File(p.join((await backupDir()).path, BackupEngine.root,
-        'manifest.json'));
+    final f = File(
+      p.join((await backupDir()).path, BackupEngine.root, 'manifest.json'),
+    );
     if (!f.existsSync()) return null;
     try {
       return (jsonDecode(f.readAsStringSync()) as Map)['scheme'] as String?;
@@ -134,8 +134,8 @@ class BackupService {
       onStatus?.call('Backup settings file is damaged — see Settings.');
       return null;
     }
-    final encrypted = config['scheme'] == 'keyring-v1' ||
-        config['wrap_pass'] != null;
+    final encrypted =
+        config['scheme'] == 'keyring-v1' || config['wrap_pass'] != null;
     if (!encrypted) {
       return BackupEngine(db, target, const PlainCipher());
     }
@@ -149,8 +149,10 @@ class BackupService {
     if (passphrase == null || passphrase.isEmpty) return null;
     onStatus?.call('Unlocking…');
     try {
-      final keyring =
-          await BackupKeyring.unlockWithPassphrase(config, passphrase);
+      final keyring = await BackupKeyring.unlockWithPassphrase(
+        config,
+        passphrase,
+      );
       await _keyCache.write(await keyring.dataKeyBytes());
       return BackupEngine(db, target, keyring.cipher, envelopeExtra: fields);
     } catch (_) {
@@ -190,8 +192,10 @@ class BackupService {
       if (passphrase == null || passphrase.isEmpty) return null;
       onStatus?.call('Unlocking… (a second or two)');
       try {
-        final keyring =
-            await BackupKeyring.unlockWithPassphrase(config, passphrase);
+        final keyring = await BackupKeyring.unlockWithPassphrase(
+          config,
+          passphrase,
+        );
         await _keyCache.write(await keyring.dataKeyBytes());
         return BackupEngine(db, target, keyring.cipher, envelopeExtra: fields);
       } catch (_) {
@@ -212,8 +216,12 @@ class BackupService {
     if (onRecoveryPhrase != null) {
       await onRecoveryPhrase(keyring.recoveryPhrase!);
     }
-    return BackupEngine(db, target, keyring.cipher,
-        envelopeExtra: keyring.envelopeFields);
+    return BackupEngine(
+      db,
+      target,
+      keyring.cipher,
+      envelopeExtra: keyring.envelopeFields,
+    );
   }
 
   /// Forget the cached key: next encrypted backup asks for the passphrase.
@@ -221,20 +229,20 @@ class BackupService {
 
   /// Runs a backup (serialized). Records the scheme only on success.
   Future<String> backupNow(BackupEngine engine) => _serialized(() async {
-        final summary = await engine.backup();
-        await saveConfig({
-          'last_backup': nowUtcIso(),
-          'scheme': engine.cipher.scheme,
-        });
-        return summary;
-      });
+    final summary = await engine.backup();
+    await saveConfig({
+      'last_backup': nowUtcIso(),
+      'scheme': engine.cipher.scheme,
+    });
+    return summary;
+  });
 
   /// Returns null on success, else the problem. Serialized.
   Future<String?> verifyNow(BackupEngine engine) => _serialized(() async {
-        final problem = await engine.verify();
-        if (problem == null) await saveConfig({'last_verify': nowUtcIso()});
-        return problem;
-      });
+    final problem = await engine.verify();
+    if (problem == null) await saveConfig({'last_verify': nowUtcIso()});
+    return problem;
+  });
 
   /// The automatic runner. Call on launch and on resume; it decides.
   /// Local-folder target needs no network, so the only gates are the
@@ -265,14 +273,15 @@ class BackupService {
     // stop and say so.
     final onDisk = await storeScheme();
     if (onDisk != null && onDisk != scheme) {
-      return _note('Backup paused: the store is $onDisk but settings say '
-          '$scheme. Open Backup and run one by hand.');
+      return _note(
+        'Backup paused: the store is $onDisk but settings say '
+        '$scheme. Open Backup and run one by hand.',
+      );
     }
 
     final encrypted = scheme == 'keyring-v1';
     if (encrypted && !await hasCachedKey) {
-      return _note(
-          'Automatic backup needs the passphrase once — open Backup.');
+      return _note('Automatic backup needs the passphrase once — open Backup.');
     }
 
     final notes = <String>[];
