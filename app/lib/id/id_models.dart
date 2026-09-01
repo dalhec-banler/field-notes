@@ -35,16 +35,15 @@ class IdCandidate {
     String? taxonId,
     int? rank,
     String? commonName,
-  }) =>
-      IdCandidate(
-        name: name,
-        commonName: commonName ?? this.commonName,
-        source: source ?? this.source,
-        score: score ?? this.score,
-        reasoning: reasoning ?? this.reasoning,
-        taxonId: taxonId ?? this.taxonId,
-        rank: rank ?? this.rank,
-      );
+  }) => IdCandidate(
+    name: name,
+    commonName: commonName ?? this.commonName,
+    source: source ?? this.source,
+    score: score ?? this.score,
+    reasoning: reasoning ?? this.reasoning,
+    taxonId: taxonId ?? this.taxonId,
+    rank: rank ?? this.rank,
+  );
 
   String get displayName => commonName == null ? name : '$commonName ($name)';
 }
@@ -88,8 +87,18 @@ class IdContext {
   final List<String> plantedHere;
 
   static const _months = [
-    'January', 'February', 'March', 'April', 'May', 'June', 'July',
-    'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   /// Plain prose for the model. Coordinates are rounded to ~1 km: the
@@ -99,18 +108,24 @@ class IdContext {
     final b = StringBuffer();
     b.writeln('Place: $propertyName');
     if (county != null || state != null) {
-      b.writeln('County/state: ${[county, state].whereType<String>().join(", ")}');
+      b.writeln(
+        'County/state: ${[county, state].whereType<String>().join(", ")}',
+      );
     }
     if (lat != null && lng != null) {
-      b.writeln('Approximate location: '
-          '${lat!.toStringAsFixed(2)}, ${lng!.toStringAsFixed(2)}');
+      b.writeln(
+        'Approximate location: '
+        '${lat!.toStringAsFixed(2)}, ${lng!.toStringAsFixed(2)}',
+      );
     }
     if (zoneName != null) {
       b.writeln('Zone: $zoneName${zoneType != null ? " ($zoneType)" : ""}');
     }
     if (soilSeries != null) {
-      b.writeln('Soil: $soilSeries'
-          '${soilDrainage != null ? ", $soilDrainage" : ""}');
+      b.writeln(
+        'Soil: $soilSeries'
+        '${soilDrainage != null ? ", $soilDrainage" : ""}',
+      );
     }
     if (month != null && month! >= 1 && month! <= 12) {
       b.writeln('Month: ${_months[month! - 1]}');
@@ -119,8 +134,10 @@ class IdContext {
       b.writeln('Planted on this property: ${plantedHere.join(", ")}');
     }
     if (recordedHere.isNotEmpty) {
-      b.writeln('Already recorded on this property: '
-          '${recordedHere.take(60).join(", ")}');
+      b.writeln(
+        'Already recorded on this property: '
+        '${recordedHere.take(60).join(", ")}',
+      );
     }
     return b.toString();
   }

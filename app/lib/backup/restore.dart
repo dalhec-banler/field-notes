@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
+
+import '../id/id_keys.dart';
+
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 import '../db/database.dart';
@@ -124,6 +127,12 @@ class RestorePipeline {
         dbOut: stagedDb,
         mediaRestoreDir: Directory(p.join(_staging.path, 'media')),
       );
+      // Keys that rode inside the sealed body go straight to this device's
+      // keystore — they don't wait for the DB swap and never touch disk.
+      final secrets = engine.restoredSecrets;
+      if (secrets != null && secrets.isNotEmpty) {
+        await IdKeys().importAll(secrets);
+      }
     } finally {
       await dummy.close();
     }

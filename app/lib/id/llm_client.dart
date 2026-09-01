@@ -39,7 +39,7 @@ class LlmClient {
             'scientific_name',
             'common_name',
             'confidence',
-            'reasoning'
+            'reasoning',
           ],
           'additionalProperties': false,
         },
@@ -79,8 +79,13 @@ class LlmClient {
     final bytes = await photo.readAsBytes();
     final prompt = _prompt(context, priors);
     final raw = switch (provider) {
-      LlmProvider.anthropic =>
-        await _anthropic(bytes, prompt, apiKey, model, baseUrl),
+      LlmProvider.anthropic => await _anthropic(
+        bytes,
+        prompt,
+        apiKey,
+        model,
+        baseUrl,
+      ),
       _ => await _openAiCompatible(bytes, prompt, apiKey, model, baseUrl),
     };
     return _parse(raw);
@@ -103,8 +108,10 @@ class LlmClient {
     } else {
       b
         ..writeln()
-        ..writeln('No other identifier was available; work from the '
-            'photograph and the context alone.');
+        ..writeln(
+          'No other identifier was available; work from the '
+          'photograph and the context alone.',
+        );
     }
     b
       ..writeln()
@@ -112,48 +119,57 @@ class LlmClient {
     return b.toString();
   }
 
-  Future<String> _anthropic(Uint8List image, String prompt, String key,
-      String model, String baseUrl) async {
+  Future<String> _anthropic(
+    Uint8List image,
+    String prompt,
+    String key,
+    String model,
+    String baseUrl,
+  ) async {
     final uri = Uri.parse('${_trim(baseUrl)}/v1/messages');
     final res = await _client
-        .post(uri,
-            headers: {
-              'content-type': 'application/json',
-              'x-api-key': key,
-              'anthropic-version': '2023-06-01',
+        .post(
+          uri,
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+          },
+          body: jsonEncode({
+            'model': model,
+            'max_tokens': 4000,
+            'system': _system,
+            // Adaptive thinking: this is a judgement call about evidence,
+            // and the reasoning is the part the user actually reads.
+            'thinking': {'type': 'adaptive'},
+            'output_config': {
+              'effort': 'medium',
+              'format': {'type': 'json_schema', 'schema': _schema},
             },
-            body: jsonEncode({
-              'model': model,
-              'max_tokens': 4000,
-              'system': _system,
-              // Adaptive thinking: this is a judgement call about evidence,
-              // and the reasoning is the part the user actually reads.
-              'thinking': {'type': 'adaptive'},
-              'output_config': {
-                'effort': 'medium',
-                'format': {'type': 'json_schema', 'schema': _schema},
-              },
-              'messages': [
-                {
-                  'role': 'user',
-                  'content': [
-                    {
-                      'type': 'image',
-                      'source': {
-                        'type': 'base64',
-                        'media_type': 'image/jpeg',
-                        'data': base64Encode(image),
-                      },
+            'messages': [
+              {
+                'role': 'user',
+                'content': [
+                  {
+                    'type': 'image',
+                    'source': {
+                      'type': 'base64',
+                      'media_type': 'image/jpeg',
+                      'data': base64Encode(image),
                     },
-                    {'type': 'text', 'text': prompt},
-                  ],
-                }
-              ],
-            }))
+                  },
+                  {'type': 'text', 'text': prompt},
+                ],
+              },
+            ],
+          }),
+        )
         .timeout(const Duration(seconds: 90));
 
     if (res.statusCode == 401 || res.statusCode == 403) {
-      throw const LlmException('That API key was rejected. Check it in Settings.');
+      throw const LlmException(
+        'That API key was rejected. Check it in Settings.',
+      );
     }
     if (res.statusCode != 200) {
       throw LlmException(_errorFrom(res.body, res.statusCode));
@@ -163,7 +179,8 @@ class LlmClient {
     // reading content.
     if (body['stop_reason'] == 'refusal') {
       throw const LlmException(
-          'The model declined to answer this one. Try another photo.');
+        'The model declined to answer this one. Try another photo.',
+      );
     }
     final content = (body['content'] as List?) ?? const [];
     for (final block in content) {
@@ -174,45 +191,54 @@ class LlmClient {
     return '';
   }
 
-  Future<String> _openAiCompatible(Uint8List image, String prompt, String key,
-      String model, String baseUrl) async {
+  Future<String> _openAiCompatible(
+    Uint8List image,
+    String prompt,
+    String key,
+    String model,
+    String baseUrl,
+  ) async {
     final uri = Uri.parse('${_trim(baseUrl)}/v1/chat/completions');
     final res = await _client
-        .post(uri,
-            headers: {
-              'content-type': 'application/json',
-              'authorization': 'Bearer $key',
-            },
-            body: jsonEncode({
-              'model': model,
-              'messages': [
-                {'role': 'system', 'content': _system},
-                {
-                  'role': 'user',
-                  'content': [
-                    {
-                      'type': 'image_url',
-                      'image_url': {
-                        'url': 'data:image/jpeg;base64,${base64Encode(image)}'
-                      },
+        .post(
+          uri,
+          headers: {
+            'content-type': 'application/json',
+            'authorization': 'Bearer $key',
+          },
+          body: jsonEncode({
+            'model': model,
+            'messages': [
+              {'role': 'system', 'content': _system},
+              {
+                'role': 'user',
+                'content': [
+                  {
+                    'type': 'image_url',
+                    'image_url': {
+                      'url': 'data:image/jpeg;base64,${base64Encode(image)}',
                     },
-                    {'type': 'text', 'text': prompt},
-                  ],
-                }
-              ],
-              'response_format': {
-                'type': 'json_schema',
-                'json_schema': {
-                  'name': 'candidates',
-                  'schema': _schema,
-                  'strict': true,
-                },
+                  },
+                  {'type': 'text', 'text': prompt},
+                ],
               },
-            }))
+            ],
+            'response_format': {
+              'type': 'json_schema',
+              'json_schema': {
+                'name': 'candidates',
+                'schema': _schema,
+                'strict': true,
+              },
+            },
+          }),
+        )
         .timeout(const Duration(seconds: 90));
 
     if (res.statusCode == 401 || res.statusCode == 403) {
-      throw const LlmException('That API key was rejected. Check it in Settings.');
+      throw const LlmException(
+        'That API key was rejected. Check it in Settings.',
+      );
     }
     if (res.statusCode != 200) {
       throw LlmException(_errorFrom(res.body, res.statusCode));
@@ -248,8 +274,8 @@ class LlmClient {
       final end = raw.lastIndexOf('}');
       if (start >= 0 && end > start) {
         try {
-          decoded = jsonDecode(raw.substring(start, end + 1))
-              as Map<String, dynamic>;
+          decoded =
+              jsonDecode(raw.substring(start, end + 1)) as Map<String, dynamic>;
         } catch (_) {}
       }
     }
@@ -261,14 +287,16 @@ class LlmClient {
       final name = c['scientific_name'] as String?;
       if (name == null || name.trim().isEmpty) continue;
       final common = (c['common_name'] as String?)?.trim();
-      out.add(IdCandidate(
-        name: name.trim(),
-        commonName: (common == null || common.isEmpty) ? null : common,
-        source: 'llm_rerank',
-        score: (c['confidence'] as num?)?.toDouble(),
-        reasoning: (c['reasoning'] as String?)?.trim(),
-        rank: i + 1,
-      ));
+      out.add(
+        IdCandidate(
+          name: name.trim(),
+          commonName: (common == null || common.isEmpty) ? null : common,
+          source: 'llm_rerank',
+          score: (c['confidence'] as num?)?.toDouble(),
+          reasoning: (c['reasoning'] as String?)?.trim(),
+          rank: i + 1,
+        ),
+      );
     }
     return out;
   }

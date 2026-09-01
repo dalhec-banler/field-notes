@@ -77,12 +77,17 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
   Future<void> _openPlantNet() async {
     setState(() => _watchingClipboard = true);
     try {
-      await launchUrl(Uri.parse('https://my.plantnet.org/account/settings'),
-          mode: LaunchMode.externalApplication);
+      await launchUrl(
+        Uri.parse('https://my.plantnet.org/account/settings'),
+        mode: LaunchMode.externalApplication,
+      );
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('COULD NOT OPEN THE BROWSER · GO TO MY.PLANTNET.ORG')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('COULD NOT OPEN THE BROWSER · GO TO MY.PLANTNET.ORG'),
+          ),
+        );
       }
     }
   }
@@ -99,13 +104,15 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
       if (text == null || text.isEmpty) return;
       // Pl@ntNet keys are a single opaque token — no spaces, no punctuation
       // beyond the odd dash, and long enough not to be a stray word.
-      final looksLikeKey = text.length >= 16 &&
+      final looksLikeKey =
+          text.length >= 16 &&
           text.length <= 128 &&
           !text.contains(RegExp(r'[\s@/]'));
       if (!looksLikeKey || !mounted) return;
       setState(() => _plantNetController.text = text);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('KEY PASTED FROM CLIPBOARD · CHECKING IT')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('KEY PASTED FROM CLIPBOARD · CHECKING IT')),
+      );
       await _savePlantNet(validateFirst: true);
     } catch (_) {}
   }
@@ -122,8 +129,11 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
       if (!mounted) return;
       setState(() => _checking = false);
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('THAT KEY WAS REFUSED · CHECK YOU COPIED ALL OF IT')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('THAT KEY WAS REFUSED · CHECK YOU COPIED ALL OF IT'),
+          ),
+        );
         return;
       }
     }
@@ -131,8 +141,9 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
     _plantNetController.clear();
     await _load();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('PL@NTNET KEY SAVED AND WORKING')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('PL@NTNET KEY SAVED AND WORKING')));
     }
   }
 
@@ -150,8 +161,10 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
   }
 
   Future<int> _probe(String key) async {
-    final uri = Uri.https(PlantNetClient.host, '/v2/identify/k-world-flora',
-        {'api-key': key, 'nb-results': '1'});
+    final uri = Uri.https(PlantNetClient.host, '/v2/identify/k-world-flora', {
+      'api-key': key,
+      'nb-results': '1',
+    });
     final res = await _http.post(uri).timeout(Duration(seconds: 15));
     return res.statusCode;
   }
@@ -172,22 +185,20 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
   }
 
   Widget _step(int n, String text) => Padding(
-        padding: EdgeInsets.only(bottom: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 22,
-              child: MonoLabel('$n.', size: 10, spacing: 1.2),
-            ),
-            Expanded(
-              child: Text(text,
-                  style: TextStyle(
-                      fontFamily: Type.serif, fontSize: 15, height: 1.4)),
-            ),
-          ],
+    padding: EdgeInsets.only(bottom: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 22, child: MonoLabel('$n.', size: 10, spacing: 1.2)),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.4),
+          ),
         ),
-      );
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -203,13 +214,16 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
             'The app never names a plant for you. It can offer suggestions, '
             'with its reasons, and you decide. Nothing is sent anywhere until '
             'you ask for an identification on a specific photo.',
-            style: TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 15.5,
+              height: 1.45,
+            ),
           ),
           SizedBox(height: 22),
 
           // ── Pl@ntNet ────────────────────────────────────────────────
-          MonoLabel('Pl@ntNet · photo identification',
-              size: 9, spacing: 1.8),
+          MonoLabel('Pl@ntNet · photo identification', size: 9, spacing: 1.8),
           SizedBox(height: 6),
           Container(
             padding: EdgeInsets.all(12),
@@ -223,12 +237,16 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
                 Row(
                   children: [
                     Diamond(
-                        size: 11,
-                        color: _hasPlantNet ? Press.sage : Press.inkSoft,
-                        filled: _hasPlantNet),
+                      size: 11,
+                      color: _hasPlantNet ? Press.sage : Press.inkSoft,
+                      filled: _hasPlantNet,
+                    ),
                     SizedBox(width: 8),
-                    MonoLabel(_hasPlantNet ? 'Key saved' : 'No key yet',
-                        size: 10, spacing: 1.4),
+                    MonoLabel(
+                      _hasPlantNet ? 'Key saved' : 'No key yet',
+                      size: 10,
+                      spacing: 1.4,
+                    ),
                     Spacer(),
                     if (_hasPlantNet)
                       TextButton(
@@ -245,17 +263,24 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
                   'Pl@ntNet is a non-profit run by French research '
                   'institutes. It identifies from the photograph alone.',
                   style: TextStyle(
-                      fontFamily: Type.serif, fontSize: 15, height: 1.45),
+                    fontFamily: Type.serif,
+                    fontSize: 15,
+                    height: 1.45,
+                  ),
                 ),
                 SizedBox(height: 12),
                 MonoLabel('Getting a key', size: 9, spacing: 1.6),
                 SizedBox(height: 6),
-                _step(1,
-                    'Tap below. Pl@ntNet opens — sign in with Google, or make '
-                    'an account.'),
+                _step(
+                  1,
+                  'Tap below. Pl@ntNet opens — sign in with Google, or make '
+                  'an account.',
+                ),
                 _step(2, 'Copy the API key it shows you.'),
-                _step(3,
-                    'Come back here. It gets pasted and checked on its own.'),
+                _step(
+                  3,
+                  'Come back here. It gets pasted and checked on its own.',
+                ),
                 SizedBox(height: 10),
                 SizedBox(
                   height: 56,
@@ -271,14 +296,19 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
                   'far more than a person walking their own land will use. '
                   'Commercial use beyond that needs a contract with them.',
                   style: TextStyle(
-                      fontFamily: Type.serif, fontSize: 14, height: 1.4),
+                    fontFamily: Type.serif,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
                 ),
                 SizedBox(height: 12),
                 TextField(
                   controller: _plantNetController,
                   obscureText: true,
                   decoration: InputDecoration(
-                      labelText: 'Pl@ntNet API key', isDense: true),
+                    labelText: 'Pl@ntNet API key',
+                    isDense: true,
+                  ),
                 ),
                 SizedBox(height: 10),
                 SizedBox(
@@ -294,8 +324,11 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
           SizedBox(height: 24),
 
           // ── LLM re-rank ─────────────────────────────────────────────
-          MonoLabel('Second opinion · your own AI account',
-              size: 9, spacing: 1.8),
+          MonoLabel(
+            'Second opinion · your own AI account',
+            size: 9,
+            spacing: 1.8,
+          ),
           SizedBox(height: 6),
           Container(
             padding: EdgeInsets.all(12),
@@ -309,12 +342,16 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
                 Row(
                   children: [
                     Diamond(
-                        size: 11,
-                        color: _hasLlm ? Press.sage : Press.inkSoft,
-                        filled: _hasLlm),
+                      size: 11,
+                      color: _hasLlm ? Press.sage : Press.inkSoft,
+                      filled: _hasLlm,
+                    ),
                     SizedBox(width: 8),
-                    MonoLabel(_hasLlm ? 'Key saved' : 'No key yet',
-                        size: 10, spacing: 1.4),
+                    MonoLabel(
+                      _hasLlm ? 'Key saved' : 'No key yet',
+                      size: 10,
+                      spacing: 1.4,
+                    ),
                     Spacer(),
                     if (_hasLlm)
                       TextButton(
@@ -334,27 +371,35 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
                   'planted here — then ranks the candidates and tells you '
                   'why, so you can disagree with it.',
                   style: TextStyle(
-                      fontFamily: Type.serif, fontSize: 15, height: 1.45),
+                    fontFamily: Type.serif,
+                    fontSize: 15,
+                    height: 1.45,
+                  ),
                 ),
                 SizedBox(height: 12),
                 MonoLabel('Getting a key', size: 9, spacing: 1.6),
                 SizedBox(height: 6),
-                _step(1,
-                    'Anthropic: console.anthropic.com → API keys → Create key. '
-                    'OpenAI: platform.openai.com → API keys.'),
+                _step(
+                  1,
+                  'Anthropic: console.anthropic.com → API keys → Create key. '
+                  'OpenAI: platform.openai.com → API keys.',
+                ),
                 _step(2, 'You pay that provider directly for what you use.'),
                 _step(3, 'Paste the key below and pick the provider.'),
                 SizedBox(height: 8),
                 RailNote(
                   color: Press.oxblood,
-                  body: 'A Claude Pro or ChatGPT Plus subscription is not API '
+                  body:
+                      'A Claude Pro or ChatGPT Plus subscription is not API '
                       'access. API keys are billed separately, by usage.',
                 ),
                 SizedBox(height: 12),
                 DropdownButtonFormField<LlmProvider>(
                   initialValue: _provider,
-                  decoration:
-                      InputDecoration(labelText: 'Provider', isDense: true),
+                  decoration: InputDecoration(
+                    labelText: 'Provider',
+                    isDense: true,
+                  ),
                   items: [
                     for (final p in LlmProvider.values)
                       DropdownMenuItem(value: p, child: Text(p.label)),
@@ -375,31 +420,32 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
                   controller: _llmKeyController,
                   obscureText: true,
                   decoration: InputDecoration(
-                      labelText: _hasLlm ? 'Replace API key' : 'API key',
-                      isDense: true),
+                    labelText: _hasLlm ? 'Replace API key' : 'API key',
+                    isDense: true,
+                  ),
                 ),
                 SizedBox(height: 10),
                 TextField(
                   controller: _modelController,
-                  decoration:
-                      InputDecoration(labelText: 'Model', isDense: true),
+                  decoration: InputDecoration(
+                    labelText: 'Model',
+                    isDense: true,
+                  ),
                 ),
                 if (_provider == LlmProvider.custom) ...[
                   SizedBox(height: 10),
                   TextField(
                     controller: _baseUrlController,
                     decoration: InputDecoration(
-                        labelText: 'Base URL (OpenAI-compatible)',
-                        isDense: true),
+                      labelText: 'Base URL (OpenAI-compatible)',
+                      isDense: true,
+                    ),
                   ),
                 ],
                 SizedBox(height: 12),
                 SizedBox(
                   height: 52,
-                  child: FilledButton(
-                    onPressed: _saveLlm,
-                    child: Text('SAVE'),
-                  ),
+                  child: FilledButton(onPressed: _saveLlm, child: Text('SAVE')),
                 ),
               ],
             ),
@@ -411,14 +457,20 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
             'soil, month, and the species list for this property. Coordinates '
             'are rounded to about a kilometre. Nothing else, and nothing at '
             'all unless you ask.',
-            style: TextStyle(fontFamily: Type.serif, fontSize: 14, height: 1.45),
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 14,
+              height: 1.45,
+            ),
           ),
           SizedBox(height: 8),
           MonoLabel(
-              'Keys are held in the phone\'s keystore — never in the '
-              'database, a backup, or an export.',
-              size: 9,
-              opacity: 0.7),
+            'Keys are held in this device\'s keystore — never in the '
+            'database or an export. They travel to a paired computer only '
+            'inside an encrypted backup, never a plain one.',
+            size: 9,
+            opacity: 0.7,
+          ),
         ],
       ),
     );

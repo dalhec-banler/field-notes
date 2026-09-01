@@ -47,13 +47,14 @@ class PlantNetClient {
       ..fields['organs'] = organ
       ..files.add(await http.MultipartFile.fromPath('images', photo.path));
 
-    final streamed = await _client.send(request).timeout(
-          const Duration(seconds: 45),
-        );
+    final streamed = await _client
+        .send(request)
+        .timeout(const Duration(seconds: 45));
     final body = await streamed.stream.bytesToString();
     if (streamed.statusCode == 401 || streamed.statusCode == 403) {
       throw const PlantNetException(
-          'Pl@ntNet rejected the key. Check it in Settings.');
+        'Pl@ntNet rejected the key. Check it in Settings.',
+      );
     }
     if (streamed.statusCode == 404) {
       // Their "no match" response, not a failure.
@@ -61,7 +62,8 @@ class PlantNetClient {
     }
     if (streamed.statusCode == 429) {
       throw const PlantNetException(
-          'Pl@ntNet daily limit reached on this key. Try again tomorrow.');
+        'Pl@ntNet daily limit reached on this key. Try again tomorrow.',
+      );
     }
     if (streamed.statusCode != 200) {
       throw PlantNetException('Pl@ntNet error ${streamed.statusCode}');
@@ -76,13 +78,17 @@ class PlantNetClient {
       final name = species?['scientificNameWithoutAuthor'] as String?;
       if (name == null) continue;
       final commons = (species?['commonNames'] as List?)?.cast<String>();
-      out.add(IdCandidate(
-        name: name,
-        commonName: (commons != null && commons.isNotEmpty) ? commons.first : null,
-        source: 'plantnet',
-        score: (r['score'] as num?)?.toDouble(),
-        rank: i + 1,
-      ));
+      out.add(
+        IdCandidate(
+          name: name,
+          commonName: (commons != null && commons.isNotEmpty)
+              ? commons.first
+              : null,
+          source: 'plantnet',
+          score: (r['score'] as num?)?.toDouble(),
+          rank: i + 1,
+        ),
+      );
     }
     return out;
   }

@@ -6,33 +6,35 @@ enum LlmProvider { anthropic, openai, custom }
 
 extension LlmProviderLabel on LlmProvider {
   String get label => switch (this) {
-        LlmProvider.anthropic => 'Anthropic (Claude)',
-        LlmProvider.openai => 'OpenAI',
-        LlmProvider.custom => 'Custom (OpenAI-compatible)',
-      };
+    LlmProvider.anthropic => 'Anthropic (Claude)',
+    LlmProvider.openai => 'OpenAI',
+    LlmProvider.custom => 'Custom (OpenAI-compatible)',
+  };
 
   String get storageValue => name;
 
   /// A sensible current model for each, editable by the user.
   String get defaultModel => switch (this) {
-        LlmProvider.anthropic => 'claude-opus-5',
-        LlmProvider.openai => 'gpt-5',
-        LlmProvider.custom => '',
-      };
+    LlmProvider.anthropic => 'claude-opus-5',
+    LlmProvider.openai => 'gpt-5',
+    LlmProvider.custom => '',
+  };
 
   String get defaultBaseUrl => switch (this) {
-        LlmProvider.anthropic => 'https://api.anthropic.com',
-        LlmProvider.openai => 'https://api.openai.com',
-        LlmProvider.custom => '',
-      };
+    LlmProvider.anthropic => 'https://api.anthropic.com',
+    LlmProvider.openai => 'https://api.openai.com',
+    LlmProvider.custom => '',
+  };
 }
 
 /// Identification credentials, in the platform keystore — never in the
-/// database, never in a backup, never in an export. Losing the phone loses
-/// the keys, which is the correct outcome for someone else's API account.
+/// database, never in an export, never in a PLAIN backup. They do ride in
+/// the sealed body of an encrypted backup (see [exportAll]), which is how a
+/// paired computer ends up with the same keys as the phone: only someone
+/// holding the passphrase or recovery phrase can get them out.
 class IdKeys {
   IdKeys({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
 
@@ -68,8 +70,10 @@ class IdKeys {
 
   Future<LlmProvider> get llmProvider async {
     final raw = await _read(_llmProvider);
-    return LlmProvider.values.firstWhere((p) => p.name == raw,
-        orElse: () => LlmProvider.anthropic);
+    return LlmProvider.values.firstWhere(
+      (p) => p.name == raw,
+      orElse: () => LlmProvider.anthropic,
+    );
   }
 
   Future<void> setLlmProvider(LlmProvider p) =>
@@ -91,6 +95,38 @@ class IdKeys {
 
   Future<void> setLlmBaseUrl(String? v) => _write(_llmBaseUrl, v?.trim());
 
-  Future<bool> get hasPlantNet async => (await plantNetKey)?.isNotEmpty ?? false;
+  Future<bool> get hasPlantNet async =>
+      (await plantNetKey)?.isNotEmpty ?? false;
   Future<bool> get hasLlm async => (await llmKey)?.isNotEmpty ?? false;
+
+  static const _all = [
+    _plantNet,
+    _llmKey,
+    _llmProvider,
+    _llmModel,
+    _llmBaseUrl,
+  ];
+
+  /// Every stored key/setting, for the sealed body of an ENCRYPTED backup
+  /// (the engine never asks for a plain one). A paired computer restoring
+  /// with the passphrase gets the same Pl@ntNet and AI account as the phone.
+  Future<Map<String, String>> exportAll() async {
+    final out = <String, String>{};
+    for (final k in _all) {
+      final v = await _read(k);
+      if (v != null && v.isNotEmpty) out[k] = v;
+    }
+    return out;
+  }
+
+  /// Default provider for the backup engine: this device's keystore.
+  static Future<Map<String, String>> exportForBackup() => IdKeys().exportAll();
+
+  /// Store keys that arrived in a restored backup. Only known names are
+  /// accepted; an empty value clears the key.
+  Future<void> importAll(Map<String, String> secrets) async {
+    for (final k in _all) {
+      if (secrets.containsKey(k)) await _write(k, secrets[k]);
+    }
+  }
 }

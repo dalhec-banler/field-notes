@@ -7,6 +7,7 @@ import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:drift/drift.dart';
 
 import '../db/database.dart';
+import '../id/id_keys.dart';
 import 'backup_crypto.dart';
 import 'target.dart';
 
@@ -21,11 +22,28 @@ import 'target.dart';
 /// derive the key); the sensitive inner manifest (blob inventory, property
 /// names) is sealed with the same cipher as everything else.
 class BackupEngine {
-  BackupEngine(this.db, this.target, this.cipher, {this.envelopeExtra});
+  BackupEngine(
+    this.db,
+    this.target,
+    this.cipher, {
+    this.envelopeExtra,
+    Future<Map<String, String>> Function()? secretsProvider,
+  }) : _secretsProvider = secretsProvider ?? IdKeys.exportForBackup;
 
   final FieldNotesDb db;
   final BackupTarget target;
   final BackupCipher cipher;
+
+  /// The identification keys (Pl@ntNet, the user's AI account). They ride
+  /// inside the SEALED manifest body of an encrypted backup — so a paired
+  /// computer that restores with the passphrase gets them too — and are
+  /// left out of a plain backup entirely, where they would sit in clear on
+  /// Drive. Never in the database, never in an export.
+  final Future<Map<String, String>> Function() _secretsProvider;
+
+  /// Set by [restore] when the manifest carried keys; the caller stores
+  /// them in the keystore.
+  Map<String, String>? restoredSecrets;
 
   /// Extra plaintext envelope fields — KDF salts and wrapped keys for
   /// keyring-v1, or a bare salt for direct passphrase mode. Never secret.
@@ -98,6 +116,8 @@ class BackupEngine {
       'db_path': dbPath,
       'db_bytes': dbBytes.length,
       'blobs': inventory,
+      // Keys only where the body is sealed: a plain backup never carries them.
+      if (cipher.scheme != 'plain') 'secrets': await _secretsProvider(),
     };
     final envelope = {
       'app': 'field_notes',
@@ -172,6 +192,10 @@ class BackupEngine {
     );
     dbOut.parent.createSync(recursive: true);
     dbOut.writeAsBytesSync(dbBytes);
+    final secrets = body['secrets'];
+    if (secrets is Map) {
+      restoredSecrets = secrets.map((k, v) => MapEntry('$k', '$v'));
+    }
 
     var restored = 0;
     final blobs = (body['blobs'] as List).cast<Map<String, dynamic>>();

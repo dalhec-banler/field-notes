@@ -21,9 +21,9 @@ class IdentificationService {
     IdKeys? keys,
     PlantNetClient? plantNet,
     LlmClient? llm,
-  })  : _keys = keys ?? IdKeys(),
-        _plantNet = plantNet ?? PlantNetClient(),
-        _llm = llm ?? LlmClient();
+  }) : _keys = keys ?? IdKeys(),
+       _plantNet = plantNet ?? PlantNetClient(),
+       _llm = llm ?? LlmClient();
 
   final FieldNotesDb db;
   final IdKeys _keys;
@@ -87,43 +87,50 @@ class IdentificationService {
 
   /// What this place is, for the re-ranker.
   Future<IdContext> buildContext(
-      Observation observation, Property property) async {
+    Observation observation,
+    Property property,
+  ) async {
     String? zoneName;
     String? zoneType;
     if (observation.zoneId != null) {
-      final z = await (db.select(db.zones)
-            ..where((x) => x.id.equals(observation.zoneId!)))
-          .getSingleOrNull();
+      final z = await (db.select(
+        db.zones,
+      )..where((x) => x.id.equals(observation.zoneId!))).getSingleOrNull();
       zoneName = z?.name;
       zoneType = z?.zoneType;
     }
     String? soilSeries;
     String? soilDrainage;
     if (observation.envContextId != null) {
-      final e = await (db.select(db.envContexts)
-            ..where((x) => x.id.equals(observation.envContextId!)))
-          .getSingleOrNull();
+      final e =
+          await (db.select(db.envContexts)
+                ..where((x) => x.id.equals(observation.envContextId!)))
+              .getSingleOrNull();
       soilSeries = e?.soilSeries;
       soilDrainage = e?.soilDrainageClass;
     }
 
     // What's been seen here, and what was deliberately planted here — the
     // strongest priors the app owns.
-    final recorded = await db.customSelect(
-      'SELECT DISTINCT COALESCE(t.common_name || \' (\' || t.scientific_name || \')\', '
-      't.scientific_name) AS n FROM observations o '
-      'JOIN taxa t ON t.id = o.taxon_id '
-      'WHERE o.property_id = ? AND o.deleted_at IS NULL LIMIT 80',
-      variables: [Variable.withString(property.id)],
-      readsFrom: {db.observations, db.taxa},
-    ).get();
-    final planted = await db.customSelect(
-      'SELECT DISTINCT t.scientific_name AS n FROM planting_events p '
-      'JOIN taxa t ON t.id = p.taxon_id '
-      'WHERE p.property_id = ? AND p.deleted_at IS NULL LIMIT 40',
-      variables: [Variable.withString(property.id)],
-      readsFrom: {db.plantingEvents, db.taxa},
-    ).get();
+    final recorded = await db
+        .customSelect(
+          'SELECT DISTINCT COALESCE(t.common_name || \' (\' || t.scientific_name || \')\', '
+          't.scientific_name) AS n FROM observations o '
+          'JOIN taxa t ON t.id = o.taxon_id '
+          'WHERE o.property_id = ? AND o.deleted_at IS NULL LIMIT 80',
+          variables: [Variable.withString(property.id)],
+          readsFrom: {db.observations, db.taxa},
+        )
+        .get();
+    final planted = await db
+        .customSelect(
+          'SELECT DISTINCT t.scientific_name AS n FROM planting_events p '
+          'JOIN taxa t ON t.id = p.taxon_id '
+          'WHERE p.property_id = ? AND p.deleted_at IS NULL LIMIT 40',
+          variables: [Variable.withString(property.id)],
+          readsFrom: {db.plantingEvents, db.taxa},
+        )
+        .get();
 
     final when = DateTime.tryParse(observation.observedAt)?.toLocal();
     return IdContext(
@@ -146,22 +153,30 @@ class IdentificationService {
   /// Link candidates to taxa already in the library, so accepting one
   /// doesn't create a duplicate species.
   Future<List<IdCandidate>> _matchToLibrary(
-      List<IdCandidate> candidates, String propertyId) async {
+    List<IdCandidate> candidates,
+    String propertyId,
+  ) async {
     final out = <IdCandidate>[];
     for (final c in candidates) {
-      final match = await (db.select(db.taxa)
-            ..where((t) =>
-                t.scientificName.lower().equals(c.name.toLowerCase()) &
-                t.deletedAt.isNull())
-            ..limit(1))
-          .getSingleOrNull();
+      final match =
+          await (db.select(db.taxa)
+                ..where(
+                  (t) =>
+                      t.scientificName.lower().equals(c.name.toLowerCase()) &
+                      t.deletedAt.isNull(),
+                )
+                ..limit(1))
+              .getSingleOrNull();
       out.add(match == null ? c : c.copyWith(taxonId: match.id));
     }
     return out;
   }
 
-  Future<void> _record(List<IdCandidate> candidates, Observation observation,
-      String project) async {
+  Future<void> _record(
+    List<IdCandidate> candidates,
+    Observation observation,
+    String project,
+  ) async {
     if (candidates.isEmpty) return;
     final now = nowUtcIso();
     await db.transaction(() async {
@@ -169,26 +184,30 @@ class IdentificationService {
         final c = candidates[i];
         await db
             .into(db.identificationSuggestions)
-            .insert(IdentificationSuggestionsCompanion.insert(
-              id: newId(),
-              propertyId: observation.propertyId,
-              observationId: observation.id,
-              source: c.source,
-              sourceDetail: Value(c.source == 'plantnet' ? project : null),
-              suggestedTaxonId: Value(c.taxonId),
-              suggestedName: c.name,
-              score: Value(c.score),
-              rankPosition: Value(i + 1),
-              reasoning: Value(c.reasoning),
-              rawResponseJson: Value(jsonEncode({
-                'name': c.name,
-                'common_name': c.commonName,
-                'score': c.score,
-              })),
-              createdBy: const Value('local'),
-              createdAt: now,
-              updatedAt: now,
-            ));
+            .insert(
+              IdentificationSuggestionsCompanion.insert(
+                id: newId(),
+                propertyId: observation.propertyId,
+                observationId: observation.id,
+                source: c.source,
+                sourceDetail: Value(c.source == 'plantnet' ? project : null),
+                suggestedTaxonId: Value(c.taxonId),
+                suggestedName: c.name,
+                score: Value(c.score),
+                rankPosition: Value(i + 1),
+                reasoning: Value(c.reasoning),
+                rawResponseJson: Value(
+                  jsonEncode({
+                    'name': c.name,
+                    'common_name': c.commonName,
+                    'score': c.score,
+                  }),
+                ),
+                createdBy: const Value('local'),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
       }
     });
   }
@@ -205,44 +224,57 @@ class IdentificationService {
     return db.transaction(() async {
       if (taxonId == null) {
         // A species new to this library: add it, scoped to this property.
-        final existing = await (db.select(db.taxa)
-              ..where((t) =>
-                  t.scientificName.lower().equals(candidate.name.toLowerCase()))
-              ..limit(1))
-            .getSingleOrNull();
+        final existing =
+            await (db.select(db.taxa)
+                  ..where(
+                    (t) => t.scientificName.lower().equals(
+                      candidate.name.toLowerCase(),
+                    ),
+                  )
+                  ..limit(1))
+                .getSingleOrNull();
         if (existing != null) {
           taxonId = existing.id;
         } else {
           taxonId = newId();
-          await db.into(db.taxa).insert(TaxaCompanion.insert(
-                id: taxonId!,
-                propertyId: Value(propertyId),
-                scientificName: candidate.name,
-                commonName: Value(candidate.commonName),
-                createdBy: const Value('identification'),
-                createdAt: now,
-                updatedAt: now,
-              ));
+          await db
+              .into(db.taxa)
+              .insert(
+                TaxaCompanion.insert(
+                  id: taxonId!,
+                  propertyId: Value(propertyId),
+                  scientificName: candidate.name,
+                  commonName: Value(candidate.commonName),
+                  createdBy: const Value('identification'),
+                  createdAt: now,
+                  updatedAt: now,
+                ),
+              );
         }
       }
-      await (db.update(db.observations)
-            ..where((o) => o.id.equals(observationId)))
-          .write(ObservationsCompanion(
-        taxonId: Value(taxonId),
-        // Accepted from a suggestion, not seen with your own eyes.
-        taxonConfidence: const Value('probable'),
-        observationType: const Value('plant'),
-        updatedAt: Value(now),
-      ));
-      await (db.update(db.identificationSuggestions)
-            ..where((s) =>
+      await (db.update(
+        db.observations,
+      )..where((o) => o.id.equals(observationId))).write(
+        ObservationsCompanion(
+          taxonId: Value(taxonId),
+          // Accepted from a suggestion, not seen with your own eyes.
+          taxonConfidence: const Value('probable'),
+          observationType: const Value('plant'),
+          updatedAt: Value(now),
+        ),
+      );
+      await (db.update(db.identificationSuggestions)..where(
+            (s) =>
                 s.observationId.equals(observationId) &
-                s.suggestedName.equals(candidate.name)))
-          .write(IdentificationSuggestionsCompanion(
-        accepted: const Value(1),
-        suggestedTaxonId: Value(taxonId),
-        updatedAt: Value(now),
-      ));
+                s.suggestedName.equals(candidate.name),
+          ))
+          .write(
+            IdentificationSuggestionsCompanion(
+              accepted: const Value(1),
+              suggestedTaxonId: Value(taxonId),
+              updatedAt: Value(now),
+            ),
+          );
       return taxonId!;
     });
   }
