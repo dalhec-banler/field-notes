@@ -209,28 +209,32 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
           ]),
         _group('About', [
           _row('Version', 'Field Notes', _version, _versionTapped),
-          _principle(
+        ]),
+        _heading('How this desk works'),
+        _principleGrid(const [
+          (
             'Source of truth',
             'The phone is where records are born. This desk works on a copy '
                 'of that record — editing, reviewing, exporting — and invents '
                 'nothing of its own.',
           ),
-          _principle(
+          (
             'Permissions',
             'Roles are enforced in the data, not just the buttons. A greyed '
                 'button is a courtesy; the permission system is underneath.',
           ),
-          _principle(
+          (
             'Suggestions',
             'Species suggestions accumulate quietly. Nothing enters the '
                 'record without your acceptance.',
           ),
-          _principle(
+          (
             'Numbers',
             'Nothing here is a new number. Every figure — survival, counts, '
                 'acreage — derives from rows the field device wrote.',
           ),
         ]),
+        SizedBox(height: 18),
         _group('Privacy', [
           _row(
             'Account',
@@ -327,22 +331,57 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
   Widget _toggle(String title, String sub, String value, VoidCallback onTap) =>
       _row(title, sub, value, onTap);
 
-  Widget _principle(String title, String body) => Padding(
-    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        MonoLabel(title, size: 9, spacing: 1.8),
-        SizedBox(height: 4),
-        Text(
-          body,
-          style: TextStyle(
-            fontFamily: Type.serif,
-            fontSize: 14.5,
-            height: 1.45,
-          ),
-        ),
-      ],
-    ),
+  Widget _heading(String label) => Padding(
+    padding: EdgeInsets.only(bottom: 8),
+    child: MonoLabel(label, size: 9, spacing: 1.8, color: Press.oxblood),
   );
+
+  /// The four principles as a 2×2 grid of cards — the old cells under every
+  /// workspace, now in the one place they belong.
+  Widget _principleGrid(List<(String, String)> items) {
+    Widget card((String, String) it) => Container(
+      padding: EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Press.paperRaised,
+        border: Border.all(color: Press.borderInk, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MonoLabel(it.$1, size: 9, spacing: 1.8, color: Press.oxblood),
+          SizedBox(height: 6),
+          Text(
+            it.$2,
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 14.5,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+    return Column(
+      children: [
+        for (var i = 0; i < items.length; i += 2)
+          Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: card(items[i])),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: i + 1 < items.length
+                        ? card(items[i + 1])
+                        : SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
