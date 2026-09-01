@@ -12,11 +12,12 @@ import '../widgets/press.dart';
 /// Ledger (design README §3.2): the feed as a record of entries. Rows scale
 /// off one density root — 16 px glove, 13.5 px dense.
 class LedgerTab extends StatefulWidget {
-  const LedgerTab(
-      {super.key,
-      required this.db,
-      required this.property,
-      required this.prefs});
+  const LedgerTab({
+    super.key,
+    required this.db,
+    required this.property,
+    required this.prefs,
+  });
 
   final FieldNotesDb db;
   final Property property;
@@ -67,11 +68,12 @@ class _LedgerTabState extends State<LedgerTab> {
 
   Future<void> _loadZones() async {
     final propertyId = widget.property.id;
-    final zones = await (widget.db.select(widget.db.zones)
-          ..where((z) => z.propertyId.equals(propertyId))
-          ..where((z) => z.deletedAt.isNull())
-          ..orderBy([(z) => OrderingTerm.asc(z.name)]))
-        .get();
+    final zones =
+        await (widget.db.select(widget.db.zones)
+              ..where((z) => z.propertyId.equals(propertyId))
+              ..where((z) => z.deletedAt.isNull())
+              ..orderBy([(z) => OrderingTerm.asc(z.name)]))
+            .get();
     // A slower load for the previous place must not overwrite the new one.
     if (mounted && widget.property.id == propertyId) {
       setState(() => _zones = zones);
@@ -94,18 +96,23 @@ class _LedgerTabState extends State<LedgerTab> {
     final range = _dateFilter;
     if (range != null) {
       // observed_at is ISO-8601 UTC; day bounds in local time → UTC.
-      final from = DateTime(range.start.year, range.start.month,
-              range.start.day)
-          .toUtc()
-          .toIso8601String();
+      final from = DateTime(
+        range.start.year,
+        range.start.month,
+        range.start.day,
+      ).toUtc().toIso8601String();
       // day + 1 (not +24h): Dart normalizes the overflow and keeps local
       // midnight across a DST change.
-      final to = DateTime(range.end.year, range.end.month, range.end.day + 1)
-          .toUtc()
-          .toIso8601String();
-      query.where((o) =>
-          o.observedAt.isBiggerOrEqual(Constant(from)) &
-          o.observedAt.isSmallerThan(Constant(to)));
+      final to = DateTime(
+        range.end.year,
+        range.end.month,
+        range.end.day + 1,
+      ).toUtc().toIso8601String();
+      query.where(
+        (o) =>
+            o.observedAt.isBiggerOrEqual(Constant(from)) &
+            o.observedAt.isSmallerThan(Constant(to)),
+      );
     }
 
     return SafeArea(
@@ -115,95 +122,105 @@ class _LedgerTabState extends State<LedgerTab> {
         builder: (context, snapshot) {
           final obs = snapshot.data ?? const [];
           return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ScreenHeader(
-                    kicker: 'Record of entries',
-                    title: 'Ledger',
-                    trailing: MonoLabel(
-                        '${obs.length} ${obs.length == 1 ? 'entry' : 'entries'}',
-                        size: 9.5,
-                        opacity: 0.7),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ScreenHeader(
+                kicker: 'Record of entries',
+                title: 'Ledger',
+                trailing: MonoLabel(
+                  '${obs.length} ${obs.length == 1 ? 'entry' : 'entries'}',
+                  size: 9.5,
+                  opacity: 0.7,
+                ),
+              ),
+              SizedBox(
+                height: 60, // 44 dp chips + padding (glove target)
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Metrics.gutter,
+                    vertical: 8,
                   ),
-                  SizedBox(
-                    height: 60, // 44 dp chips + padding (glove target)
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: Metrics.gutter, vertical: 8),
-                      children: [
-                        _chip(
-                          _zoneFilter == null
-                              ? 'All zones'
-                              : _zones
-                                  .firstWhere((z) => z.id == _zoneFilter)
-                                  .name,
-                          active: _zoneFilter != null,
-                          onTap: _pickZone,
-                        ),
-                        const SizedBox(width: 7),
-                        _chip(
-                          _typeFilter ?? 'Type',
-                          active: _typeFilter != null,
-                          onTap: _pickType,
-                        ),
-                        const SizedBox(width: 7),
-                        _chip(
-                          _speciesLabel ?? 'Species',
-                          active: _speciesFilter != null,
-                          onTap: _pickSpecies,
-                        ),
-                        const SizedBox(width: 7),
-                        _chip(
-                          _dateFilter == null
-                              ? 'Dates'
-                              : _fmtRange(_dateFilter!),
-                          active: _dateFilter != null,
-                          onTap: _pickDates,
-                        ),
-                        if (_anyFilter) ...[
-                          const SizedBox(width: 7),
-                          _chip('× Clear',
-                              active: false,
-                              onTap: () => setState(() {
-                                    _zoneFilter = null;
-                                    _typeFilter = null;
-                                    _speciesFilter = null;
-                                    _speciesLabel = null;
-                                    _dateFilter = null;
-                                  })),
-                        ],
-                      ],
+                  children: [
+                    _chip(
+                      _zoneFilter == null
+                          ? 'All zones'
+                          : _zones.firstWhere((z) => z.id == _zoneFilter).name,
+                      active: _zoneFilter != null,
+                      onTap: _pickZone,
                     ),
-                  ),
-                  Expanded(
-                    child: obs.isEmpty
-                        ? Center(
-                            child: MonoLabel(
-                                _anyFilter
-                                    ? '— nothing matches this filter —'
-                                    : '— no entries yet · tap the camera —',
-                                size: 9,
-                                spacing: 2,
-                                opacity: 0.5))
-                        : ListView.builder(
-                            padding: const EdgeInsets.only(bottom: 110),
-                            itemCount: obs.length + 1,
-                            itemBuilder: (context, i) {
-                              if (i == obs.length) {
-                                return Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 22),
-                                  child: Center(
-                                    child: MonoLabel('— that\'s everything —',
-                                        size: 9, spacing: 2, opacity: 0.5),
-                                  ),
-                                );
-                              }
-                              return _LedgerRow(
-                                  db: widget.db, obs: obs[i], em: _em);
-                            },
-                          ),
-                  ),
+                    const SizedBox(width: 7),
+                    _chip(
+                      _typeFilter ?? 'Type',
+                      active: _typeFilter != null,
+                      onTap: _pickType,
+                    ),
+                    const SizedBox(width: 7),
+                    _chip(
+                      _speciesLabel ?? 'Species',
+                      active: _speciesFilter != null,
+                      onTap: _pickSpecies,
+                    ),
+                    const SizedBox(width: 7),
+                    _chip(
+                      _dateFilter == null ? 'Dates' : _fmtRange(_dateFilter!),
+                      active: _dateFilter != null,
+                      onTap: _pickDates,
+                    ),
+                    if (_anyFilter) ...[
+                      const SizedBox(width: 7),
+                      _chip(
+                        '× Clear',
+                        active: false,
+                        onTap: () => setState(() {
+                          _zoneFilter = null;
+                          _typeFilter = null;
+                          _speciesFilter = null;
+                          _speciesLabel = null;
+                          _dateFilter = null;
+                        }),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Expanded(
+                child: obs.isEmpty
+                    ? Center(
+                        child: MonoLabel(
+                          _anyFilter
+                              ? '— nothing matches this filter —'
+                              : '— no entries yet · tap the camera —',
+                          size: 9,
+                          spacing: 2,
+                          opacity: 0.5,
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 110),
+                        itemCount: obs.length + 1,
+                        itemBuilder: (context, i) {
+                          if (i == obs.length) {
+                            return Padding(
+                              padding: EdgeInsets.symmetric(vertical: 22),
+                              child: Center(
+                                child: MonoLabel(
+                                  '— that\'s everything —',
+                                  size: 9,
+                                  spacing: 2,
+                                  opacity: 0.5,
+                                ),
+                              ),
+                            );
+                          }
+                          return _LedgerRow(
+                            db: widget.db,
+                            obs: obs[i],
+                            em: _em,
+                          );
+                        },
+                      ),
+              ),
             ],
           );
         },
@@ -245,8 +262,16 @@ class _LedgerTabState extends State<LedgerTab> {
 
   Future<void> _pickType() async {
     const types = [
-      'general', 'plant', 'wildlife', 'problem', 'water', 'soil',
-      'phenology', 'sign', 'weather', 'maintenance'
+      'general',
+      'plant',
+      'wildlife',
+      'problem',
+      'water',
+      'soil',
+      'phenology',
+      'sign',
+      'weather',
+      'maintenance',
     ];
     final picked = await _pickSheet<String?>(
       title: 'Type',
@@ -259,15 +284,17 @@ class _LedgerTabState extends State<LedgerTab> {
   /// Species that actually have records on this place — not the whole
   /// library.
   Future<void> _pickSpecies() async {
-    final rows = await widget.db.customSelect(
-      'SELECT t.id AS id, t.common_name AS common, t.scientific_name AS sci, '
-      'COUNT(o.id) AS n FROM taxa t '
-      'JOIN observations o ON o.taxon_id = t.id '
-      'WHERE o.property_id = ? AND o.deleted_at IS NULL '
-      'GROUP BY t.id ORDER BY n DESC, common',
-      variables: [Variable.withString(widget.property.id)],
-      readsFrom: {widget.db.taxa, widget.db.observations},
-    ).get();
+    final rows = await widget.db
+        .customSelect(
+          'SELECT t.id AS id, t.common_name AS common, t.scientific_name AS sci, '
+          'COUNT(o.id) AS n FROM taxa t '
+          'JOIN observations o ON o.taxon_id = t.id '
+          'WHERE o.property_id = ? AND o.deleted_at IS NULL '
+          'GROUP BY t.id ORDER BY n DESC, common',
+          variables: [Variable.withString(widget.property.id)],
+          readsFrom: {widget.db.taxa, widget.db.observations},
+        )
+        .get();
     if (!mounted) return;
     final picked = await _pickSheet<String?>(
       title: 'Species',
@@ -276,7 +303,7 @@ class _LedgerTabState extends State<LedgerTab> {
         for (final r in rows)
           (
             r.data['id'] as String,
-            '${(r.data['common'] as String?) ?? (r.data['sci'] as String)} · ${r.data['n']}'
+            '${(r.data['common'] as String?) ?? (r.data['sci'] as String)} · ${r.data['n']}',
           ),
       ],
     );
@@ -322,11 +349,14 @@ class _LedgerTabState extends State<LedgerTab> {
             for (final item in items)
               ListTile(
                 minTileHeight: 56,
-                title: Text(item.$2.toUpperCase(),
-                    style: TextStyle(
-                        fontFamily: Type.mono,
-                        fontSize: 11,
-                        letterSpacing: 1.4)),
+                title: Text(
+                  item.$2.toUpperCase(),
+                  style: TextStyle(
+                    fontFamily: Type.mono,
+                    fontSize: 11,
+                    letterSpacing: 1.4,
+                  ),
+                ),
                 onTap: () => Navigator.pop(context, item),
               ),
           ],
@@ -347,22 +377,24 @@ class _LedgerRow extends StatelessWidget {
   Future<(TaxaData?, String?, bool)> _details() async {
     TaxaData? species;
     if (obs.taxonId != null) {
-      species = await (db.select(db.taxa)
-            ..where((x) => x.id.equals(obs.taxonId!)))
-          .getSingleOrNull();
+      species = await (db.select(
+        db.taxa,
+      )..where((x) => x.id.equals(obs.taxonId!))).getSingleOrNull();
     }
     String? thumb;
     var hasVoice = false;
-    final links = await (db.select(db.mediaLinks)
-          ..where((l) =>
-              l.entityType.equals('observation') &
-              l.entityId.equals(obs.id) &
-              l.deletedAt.isNull()))
-        .get();
+    final links =
+        await (db.select(db.mediaLinks)..where(
+              (l) =>
+                  l.entityType.equals('observation') &
+                  l.entityId.equals(obs.id) &
+                  l.deletedAt.isNull(),
+            ))
+            .get();
     for (final link in links) {
-      final m = await (db.select(db.media)
-            ..where((x) => x.id.equals(link.mediaId)))
-          .getSingleOrNull();
+      final m = await (db.select(
+        db.media,
+      )..where((x) => x.id.equals(link.mediaId))).getSingleOrNull();
       if (m == null) continue;
       if (m.mediaType == 'audio') {
         hasVoice = true;
@@ -389,8 +421,7 @@ class _LedgerRow extends StatelessWidget {
     return FutureBuilder<(TaxaData?, String?, bool)>(
       future: _details(),
       builder: (context, snapshot) {
-        final (species, thumb, hasVoice) =
-            snapshot.data ?? (null, null, false);
+        final (species, thumb, hasVoice) = snapshot.data ?? (null, null, false);
         return InkWell(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
@@ -399,9 +430,13 @@ class _LedgerRow extends StatelessWidget {
           ),
           child: Container(
             padding: EdgeInsets.symmetric(
-                horizontal: Metrics.gutter, vertical: em * 0.75),
+              horizontal: Metrics.gutter,
+              vertical: em * 0.75,
+            ),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Press.divider, width: 1)),
+              border: Border(
+                bottom: BorderSide(color: Press.divider, width: 1),
+              ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,7 +454,9 @@ class _LedgerRow extends StatelessWidget {
                     border: Border.all(color: Press.borderInk, width: 1),
                     image: thumb != null && File(thumb).existsSync()
                         ? DecorationImage(
-                            image: FileImage(File(thumb)), fit: BoxFit.cover)
+                            image: FileImage(File(thumb)),
+                            fit: BoxFit.cover,
+                          )
                         : null,
                   ),
                   child: thumb == null
@@ -435,17 +472,26 @@ class _LedgerRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(children: [
-                        Diamond(size: 7, color: typeColor),
-                        const SizedBox(width: 5),
-                        MonoLabel(obs.observationType,
-                            size: em * 0.66, spacing: 1.6, color: typeColor),
-                        if (hasVoice) ...[
-                          SizedBox(width: em * 0.4),
-                          Icon(Icons.mic,
-                              size: em * 0.8, color: Press.inkSoft),
+                      Row(
+                        children: [
+                          Diamond(size: 7, color: typeColor),
+                          const SizedBox(width: 5),
+                          MonoLabel(
+                            obs.observationType,
+                            size: em * 0.66,
+                            spacing: 1.6,
+                            color: typeColor,
+                          ),
+                          if (hasVoice) ...[
+                            SizedBox(width: em * 0.4),
+                            Icon(
+                              Icons.mic,
+                              size: em * 0.8,
+                              color: Press.inkSoft,
+                            ),
+                          ],
                         ],
-                      ]),
+                      ),
                       SizedBox(height: em * 0.25),
                       // Common name leads — it's what was typed and what
                       // gets said out loud; the Latin sits under it.
@@ -461,19 +507,25 @@ class _LedgerRow extends StatelessWidget {
                             color: Press.ink,
                           ),
                         ),
-                        TaxonName(species.scientificName,
-                            size: em * 0.85, maxLines: 1),
+                        TaxonName(
+                          species.scientificName,
+                          size: em * 0.85,
+                          maxLines: 1,
+                        ),
                       ] else if (species != null)
-                        TaxonName(species.scientificName,
-                            size: em * 1.28, maxLines: 1)
+                        TaxonName(
+                          species.scientificName,
+                          size: em * 1.28,
+                          maxLines: 1,
+                        )
                       else
                         Text(
                           obs.notes != null
                               ? 'Note'
                               : hasVoice
-                                  ? 'Voice note'
-                                  : '${obs.observationType[0].toUpperCase()}'
-                                      '${obs.observationType.substring(1)} record',
+                              ? 'Voice note'
+                              : '${obs.observationType[0].toUpperCase()}'
+                                    '${obs.observationType.substring(1)} record',
                           style: TextStyle(
                             fontFamily: Type.slab,
                             fontWeight: FontWeight.w700,
@@ -507,8 +559,7 @@ class _LedgerRow extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: em * 0.5),
-                MonoLabel(_relativeTime(),
-                    size: em * 0.64, opacity: 0.6),
+                MonoLabel(_relativeTime(), size: em * 0.64, opacity: 0.6),
               ],
             ),
           ),

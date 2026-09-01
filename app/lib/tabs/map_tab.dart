@@ -11,6 +11,7 @@ import '../services/app_prefs.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../widgets/feature_sheet.dart';
 import '../widgets/records_here_sheet.dart';
 
 /// Map home (design README §3.1): full-bleed map with card chrome — property
@@ -118,6 +119,7 @@ class _MapTabState extends State<MapTab> {
   SitePresence _presence = SitePresence.unknown;
   bool _showZones = true;
   bool _showTracks = true;
+  bool _showFeatures = true;
 
   /// Satellite imagery draws over the offline vector map. The standard view
   /// (on by default, remembered): imagery is what the ground actually looks
@@ -131,6 +133,7 @@ class _MapTabState extends State<MapTab> {
       _hiddenGrowth.isNotEmpty ||
       !_showZones ||
       !_showTracks ||
+      !_showFeatures ||
       !_showSatellite;
 
   Future<void> _applyLayers() async {
@@ -143,6 +146,9 @@ class _MapTabState extends State<MapTab> {
     }
     try {
       await c.setLayerVisibility('tracks-line', _showTracks);
+      for (final id in ['features-fill', 'features-line', 'features-pt']) {
+        await c.setLayerVisibility(id, _showFeatures);
+      }
     } catch (_) {}
     try {
       await c.setLayerVisibility('satellite', _showSatellite);
@@ -212,6 +218,11 @@ class _MapTabState extends State<MapTab> {
                     setState(() {});
                     _applyLayers();
                   }),
+                  _pill('features', _showFeatures, () {
+                    setSheet(() => _showFeatures = !_showFeatures);
+                    setState(() {});
+                    _applyLayers();
+                  }),
                   _pill('satellite', _showSatellite, () {
                     setSheet(() => _showSatellite = !_showSatellite);
                     widget.prefs.mapSatellite = _showSatellite;
@@ -225,6 +236,7 @@ class _MapTabState extends State<MapTab> {
                         _hiddenGrowth.clear();
                         _showZones = true;
                         _showTracks = true;
+                        _showFeatures = true;
                         _showSatellite = true;
                         widget.prefs.mapSatellite = true;
                       });
@@ -477,6 +489,12 @@ class _MapTabState extends State<MapTab> {
               onLongPress: _captureMode ? null : widget.onDropRecord,
               visible: widget.active,
               onRecordTap: widget.onRecordTap,
+              onFeatureTap: (fid) => showFeatureSheet(
+                context,
+                db: widget.db,
+                property: widget.property,
+                featureId: fid,
+              ),
               onClusterTap: (ids) => showRecordsHereSheet(
                 context,
                 db: widget.db,

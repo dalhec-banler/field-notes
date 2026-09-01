@@ -16,6 +16,7 @@ import '../main.dart' show locationHub;
 import 'area_downloader.dart';
 import 'basemap_style.dart';
 import 'cluster_badge.dart';
+import 'map_markers.dart';
 import 'record_clusters.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
@@ -39,6 +40,7 @@ class MapScreen extends StatefulWidget {
     this.visible = true,
     this.onRecordTap,
     this.onClusterTap,
+    this.onFeatureTap,
     this.onLayersReady,
     this.onPresence,
     this.onRecordCount,
@@ -70,6 +72,9 @@ class MapScreen extends StatefulWidget {
   /// Tap on a cluster that can't split (or long-press on any dot): the
   /// records under it, for the "what's here" sheet.
   final ValueChanged<List<String>>? onClusterTap;
+
+  /// Tap on a feature marker → its id.
+  final ValueChanged<String>? onFeatureTap;
 
   /// Fired once the style and every overlay layer exist — the moment chrome
   /// can safely apply filters/visibility.
@@ -389,6 +394,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _recordSub?.cancel();
+    _featureSub?.cancel();
     _fixSub?.cancel();
     _server?.close();
     _mbtiles?.close();
@@ -440,7 +446,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     // renderer what's under it so we get the feature's properties back.
     controller.onFeatureTapped.add((point, latLng, id, layerId, _) async {
       final hit = await _hitAt(point);
-      if (hit == null) return;
+      if (hit == null) {
+        final fid = await _featureAt(point);
+        if (fid != null) widget.onFeatureTap?.call(fid);
+        return;
+      }
       if (!hit.isCluster) {
         widget.onRecordTap?.call(hit.ids.single);
         return;
@@ -459,6 +469,21 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       }
     });
     widget.onController?.call(controller);
+  }
+
+  Future<String?> _featureAt(Point<double> point) async {
+    final controller = _controller;
+    if (controller == null) return null;
+    try {
+      final hits = await controller.queryRenderedFeatures(point, [
+        'features-pt',
+      ], null);
+      for (final h in hits) {
+        final fid = ((h as Map)['properties'] as Map?)?['fid'] as String?;
+        if (fid != null) return fid;
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// What is under a screen point: a single record or a cluster, or null.
@@ -577,23 +602,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           ? _positionGeoJson(seed)
           : {'type': 'FeatureCollection', 'features': []},
     );
-    await controller.addCircleLayer(
+    await controller.addImage('me-reticle', await positionReticle());
+    await controller.addSymbolLayer(
       'me',
-      'me-ring',
-      const CircleLayerProperties(
-        circleRadius: 14,
-        circleColor: '#3F5957',
-        circleOpacity: 0.28,
-      ),
-    );
-    await controller.addCircleLayer(
-      'me',
-      'me-dot',
-      const CircleLayerProperties(
-        circleRadius: 7.5,
-        circleColor: '#3F5957',
-        circleStrokeColor: '#ECE3CE',
-        circleStrokeWidth: 2.5,
+      'me-reticle',
+      const SymbolLayerProperties(
+        iconImage: 'me-reticle',
+        iconSize: 1 / 3,
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
       ),
     );
     _positionLayerReady = true;
@@ -681,6 +698,60 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       );
     }
 
+    // Features (springs, guzzlers, headcuts…): silhouettes by class, so
+    // they never read as records. Points are icons; lines and polygons
+    // draw in the class colour.
+    for (final cls in ['natural', 'infrastructure', 'problem']) {
+      await controller.addImage('feature-$cls', await featureMarker(cls));
+    }
+    await controller.addGeoJsonSource('features', _emptyCollection);
+    await controller.addFillLayer(
+      'features',
+      'features-fill',
+      const FillLayerProperties(fillColor: ['get', 'color'], fillOpacity: 0.22),
+      filter: [
+        '==',
+        ['geometry-type'],
+        'Polygon',
+      ],
+    );
+    await controller.addLineLayer(
+      'features',
+      'features-line',
+      const LineLayerProperties(lineColor: ['get', 'color'], lineWidth: 2.5),
+      filter: [
+        'in',
+        ['geometry-type'],
+        [
+          'literal',
+          ['LineString', 'Polygon'],
+        ],
+      ],
+    );
+    await controller.addSymbolLayer(
+      'features',
+      'features-pt',
+      const SymbolLayerProperties(
+        iconImage: ['get', 'icon'],
+        iconSize: 1 / 3,
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+      ),
+      filter: [
+        '==',
+        ['geometry-type'],
+        'Point',
+      ],
+      enableInteraction: true,
+    );
+    _featureLayerReady = true;
+    await _refreshFeatures();
+    _featureSub?.cancel();
+    _featureSub = db
+        .customSelect('SELECT 1', readsFrom: {db.features})
+        .watch()
+        .listen((_) => _refreshFeatures());
+
     // Record pins. The source is created empty and then kept in step with
     // the database by [_watchRecords] — a record saved five minutes from now
     // has to appear without restarting the app.
@@ -758,6 +829,60 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _recordLayersReady = true;
     await _refreshRecords();
     _watchRecords();
+  }
+
+  bool _featureLayerReady = false;
+  StreamSubscription<void>? _featureSub;
+
+  /// Every live feature on this property, coloured and iconed by class.
+  Future<void> _refreshFeatures() async {
+    final db = widget.db;
+    final property = widget.property;
+    final controller = _controller;
+    if (db == null || property == null || controller == null) return;
+    if (!_featureLayerReady) return;
+    try {
+      final rows = await db
+          .customSelect(
+            'SELECT f.id AS id, f.name AS name, f.geojson AS geojson, '
+            't.feature_class AS cls, t.label AS label '
+            'FROM features f JOIN feature_types t ON t.id = f.feature_type_id '
+            'WHERE f.property_id = ? AND f.deleted_at IS NULL',
+            variables: [Variable.withString(property.id)],
+            readsFrom: {db.features, db.featureTypes},
+          )
+          .get();
+      final out = <Map<String, dynamic>>[];
+      for (final r in rows) {
+        final cls = r.data['cls'] as String? ?? 'natural';
+        Map<String, dynamic> geometry;
+        try {
+          geometry =
+              jsonDecode(r.data['geojson'] as String) as Map<String, dynamic>;
+        } catch (_) {
+          continue;
+        }
+        out.add({
+          'type': 'Feature',
+          'geometry': geometry,
+          'properties': {
+            'fid': r.data['id'],
+            'name': r.data['name'] ?? r.data['label'],
+            'cls': cls,
+            'icon': 'feature-$cls',
+            'color': switch (cls) {
+              'problem' => '#8B2E22',
+              'infrastructure' => '#1B1813',
+              _ => '#2F5D8A',
+            },
+          },
+        });
+      }
+      await controller.setGeoJsonSource('features', {
+        'type': 'FeatureCollection',
+        'features': out,
+      });
+    } catch (_) {}
   }
 
   static const _emptyCollection = {

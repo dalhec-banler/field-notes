@@ -56,15 +56,19 @@ class _SpeciesTabState extends State<SpeciesTab> {
   }
 
   Future<void> _loadMeta() async {
-    final favorites = await (widget.db.selectOnly(widget.db.taxa)
-          ..addColumns([widget.db.taxa.id.count()])
-          ..where(widget.db.taxa.isFavorite.equals(1) &
-              widget.db.taxa.deletedAt.isNull()))
-        .getSingle();
-    final total = await (widget.db.selectOnly(widget.db.taxa)
-          ..addColumns([widget.db.taxa.id.count()])
-          ..where(widget.db.taxa.deletedAt.isNull()))
-        .getSingle();
+    final favorites =
+        await (widget.db.selectOnly(widget.db.taxa)
+              ..addColumns([widget.db.taxa.id.count()])
+              ..where(
+                widget.db.taxa.isFavorite.equals(1) &
+                    widget.db.taxa.deletedAt.isNull(),
+              ))
+            .getSingle();
+    final total =
+        await (widget.db.selectOnly(widget.db.taxa)
+              ..addColumns([widget.db.taxa.id.count()])
+              ..where(widget.db.taxa.deletedAt.isNull()))
+            .getSingle();
     if (mounted) {
       setState(() {
         _favoriteCount = favorites.read(widget.db.taxa.id.count()) ?? 0;
@@ -86,33 +90,48 @@ class _SpeciesTabState extends State<SpeciesTab> {
           readsFrom: {widget.db.observations},
         )
         .watch()
-        .map((rows) => {
-              for (final r in rows)
-                r.data['taxon_id'] as String: _Seen(
-                  r.data['n'] as int,
-                  r.data['first_at'] as String?,
-                  r.data['last_at'] as String?,
-                )
-            });
+        .map(
+          (rows) => {
+            for (final r in rows)
+              r.data['taxon_id'] as String: _Seen(
+                r.data['n'] as int,
+                r.data['first_at'] as String?,
+                r.data['last_at'] as String?,
+              ),
+          },
+        );
   }
 
   String _short(String? iso) {
     final d = iso == null ? null : DateTime.tryParse(iso)?.toLocal();
     if (d == null) return '';
     const m = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${m[d.month - 1]} ${d.day}';
   }
 
   /// Tap a row to star it: favourites lead the capture picker.
   Future<void> _toggleFavorite(TaxaData t) async {
-    await (widget.db.update(widget.db.taxa)..where((x) => x.id.equals(t.id)))
-        .write(TaxaCompanion(
-      isFavorite: Value(t.isFavorite == 1 ? 0 : 1),
-      updatedAt: Value(nowUtcIso()),
-    ));
+    await (widget.db.update(
+      widget.db.taxa,
+    )..where((x) => x.id.equals(t.id))).write(
+      TaxaCompanion(
+        isFavorite: Value(t.isFavorite == 1 ? 0 : 1),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
     _loadMeta();
   }
 
@@ -129,8 +148,10 @@ class _SpeciesTabState extends State<SpeciesTab> {
       ]));
     if (_query.isNotEmpty) {
       final q = '%$_query%';
-      query.where((t) =>
-          t.scientificName.like(q) | t.commonName.like(q) | t.family.like(q));
+      query.where(
+        (t) =>
+            t.scientificName.like(q) | t.commonName.like(q) | t.family.like(q),
+      );
     }
 
     return SafeArea(
@@ -138,11 +159,14 @@ class _SpeciesTabState extends State<SpeciesTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ScreenHeader(
-              kicker: 'Property library · taxa', title: 'Species'),
+          ScreenHeader(kicker: 'Property library · taxa', title: 'Species'),
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                Metrics.gutter, 10, Metrics.gutter, 0),
+              Metrics.gutter,
+              10,
+              Metrics.gutter,
+              0,
+            ),
             child: TextField(
               controller: _searchController,
               onChanged: (v) => setState(() => _query = v.trim()),
@@ -151,12 +175,19 @@ class _SpeciesTabState extends State<SpeciesTab> {
                 isDense: true,
               ),
               style: TextStyle(
-                  fontFamily: Type.mono, fontSize: 11, color: Press.ink),
+                fontFamily: Type.mono,
+                fontSize: 11,
+                color: Press.ink,
+              ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                Metrics.gutter, 8, Metrics.gutter, 8),
+              Metrics.gutter,
+              8,
+              Metrics.gutter,
+              8,
+            ),
             child: MonoLabel(
               '$_favoriteCount starred · '
               '${_totalCount - _favoriteCount} more regional · '
@@ -176,8 +207,13 @@ class _SpeciesTabState extends State<SpeciesTab> {
                     final taxa = snapshot.data ?? const [];
                     if (taxa.isEmpty) {
                       return Center(
-                          child: MonoLabel('— no matches —',
-                              size: 9, spacing: 2, opacity: 0.5));
+                        child: MonoLabel(
+                          '— no matches —',
+                          size: 9,
+                          spacing: 2,
+                          opacity: 0.5,
+                        ),
+                      );
                     }
                     return ListView.builder(
                       padding: const EdgeInsets.only(bottom: 110),
@@ -191,17 +227,26 @@ class _SpeciesTabState extends State<SpeciesTab> {
                         return InkWell(
                           // Row → the species itself (sightings, photos);
                           // the star is its own target.
-                          onTap: () => showSpeciesDetailSheet(context,
-                              db: widget.db,
-                              property: widget.property,
-                              taxon: t),
+                          onTap: () => showSpeciesDetailSheet(
+                            context,
+                            db: widget.db,
+                            property: widget.property,
+                            taxon: t,
+                          ),
                           child: Container(
                             padding: const EdgeInsets.fromLTRB(
-                                4, 4, Metrics.gutter, 4),
+                              4,
+                              4,
+                              Metrics.gutter,
+                              4,
+                            ),
                             decoration: BoxDecoration(
                               border: Border(
-                                  bottom: BorderSide(
-                                      color: Press.divider, width: 1)),
+                                bottom: BorderSide(
+                                  color: Press.divider,
+                                  width: 1,
+                                ),
+                              ),
                             ),
                             child: Row(
                               children: [
@@ -237,15 +282,24 @@ class _SpeciesTabState extends State<SpeciesTab> {
                                           ),
                                         ),
                                         const SizedBox(height: 2),
-                                        TaxonName(t.scientificName,
-                                            size: 13, maxLines: 1),
+                                        TaxonName(
+                                          t.scientificName,
+                                          size: 13,
+                                          maxLines: 1,
+                                        ),
                                       ] else
-                                        TaxonName(t.scientificName,
-                                            size: 17, maxLines: 1),
+                                        TaxonName(
+                                          t.scientificName,
+                                          size: 17,
+                                          maxLines: 1,
+                                        ),
                                       if (t.growthForm != null) ...[
                                         const SizedBox(height: 3),
-                                        MonoLabel(t.growthForm!,
-                                            size: 9, opacity: 0.72),
+                                        MonoLabel(
+                                          t.growthForm!,
+                                          size: 9,
+                                          opacity: 0.72,
+                                        ),
                                       ],
                                     ],
                                   ),

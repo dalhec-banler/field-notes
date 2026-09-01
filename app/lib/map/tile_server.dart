@@ -39,8 +39,11 @@ class TileServer {
   /// Deepest zoom the fallback archive carries, if any.
   int? get fallbackMaxZoom => _fallback?.header.maxZoom;
 
-  static Future<TileServer> start(Directory root,
-      {MbTilesStore? mbtiles, File? pmtilesFallback}) async {
+  static Future<TileServer> start(
+    Directory root, {
+    MbTilesStore? mbtiles,
+    File? pmtilesFallback,
+  }) async {
     PmTilesReader? fallback;
     if (pmtilesFallback != null && pmtilesFallback.existsSync()) {
       try {
@@ -72,13 +75,14 @@ class TileServer {
         }
         if (data == null) return Response.notFound('no tile');
         // Tiles are stored gzip'd; declare it so MapLibre inflates.
-        final gzipped = data.length >= 2 &&
-            data[0] == 0x1f &&
-            data[1] == 0x8b;
-        return Response.ok(data, headers: {
-          'Content-Type': 'application/x-protobuf',
-          if (gzipped) 'Content-Encoding': 'gzip',
-        });
+        final gzipped = data.length >= 2 && data[0] == 0x1f && data[1] == 0x8b;
+        return Response.ok(
+          data,
+          headers: {
+            'Content-Type': 'application/x-protobuf',
+            if (gzipped) 'Content-Encoding': 'gzip',
+          },
+        );
       }
       return static(req);
     }

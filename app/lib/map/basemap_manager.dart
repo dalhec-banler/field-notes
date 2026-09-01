@@ -60,11 +60,13 @@ class BasemapManager extends ChangeNotifier {
       }
       final resuming = res.statusCode == 206;
       final total =
-          (resuming ? existing : 0) + (res.contentLength > 0 ? res.contentLength : 0);
+          (resuming ? existing : 0) +
+          (res.contentLength > 0 ? res.contentLength : 0);
       var received = resuming ? existing : 0;
 
       final sink = part.openSync(
-          mode: resuming ? FileMode.writeOnlyAppend : FileMode.writeOnly);
+        mode: resuming ? FileMode.writeOnlyAppend : FileMode.writeOnly,
+      );
       try {
         await for (final chunk in res) {
           sink.writeFromSync(chunk);

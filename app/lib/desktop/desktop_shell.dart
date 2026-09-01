@@ -28,7 +28,11 @@ class DesktopShell extends StatefulWidget {
     required this.db,
     required this.property,
     required this.prefs,
+    required this.onSwitchProperty,
   });
+
+  /// The desk holds every place the phone knows; the title bar switches.
+  final ValueChanged<Property> onSwitchProperty;
 
   final FieldNotesDb db;
   final Property property;
@@ -50,6 +54,7 @@ class _DesktopShellState extends State<DesktopShell> {
 
   int _dbBytes = 0;
   int _mediaCount = 0;
+  List<Property> _properties = const [];
 
   @override
   void initState() {
@@ -63,10 +68,16 @@ class _DesktopShellState extends State<DesktopShell> {
     final media = await (widget.db.selectOnly(
       widget.db.media,
     )..addColumns([widget.db.media.id.count()])).getSingle();
+    final properties =
+        await (widget.db.select(widget.db.properties)
+              ..where((p) => p.deletedAt.isNull())
+              ..orderBy([(p) => OrderingTerm.asc(p.name)]))
+            .get();
     if (mounted) {
       setState(() {
         _dbBytes = dbFile.existsSync() ? dbFile.lengthSync() : 0;
         _mediaCount = media.read(widget.db.media.id.count()) ?? 0;
+        _properties = properties;
       });
     }
   }
@@ -137,11 +148,40 @@ class _DesktopShellState extends State<DesktopShell> {
               ),
             ),
           SizedBox(width: 8),
-          MonoLabel(
-            'Field Notes · ${widget.property.name}',
-            size: 10.5,
-            spacing: 1.6,
+          // The place switcher lives in the title: every property the phone
+          // knows is here, and the desk is never stuck on the first one.
+          PopupMenuButton<Property>(
+            tooltip: 'Switch place',
             color: Press.paper,
+            onSelected: widget.onSwitchProperty,
+            itemBuilder: (_) => [
+              for (final p in _properties)
+                PopupMenuItem(
+                  value: p,
+                  child: Text(
+                    p.name,
+                    style: TextStyle(
+                      fontFamily: Type.serif,
+                      fontSize: 15,
+                      fontWeight: p.id == widget.property.id
+                          ? FontWeight.w700
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ),
+            ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MonoLabel(
+                  'Field Notes · ${widget.property.name}',
+                  size: 10.5,
+                  spacing: 1.6,
+                  color: Press.paper,
+                ),
+                Icon(Icons.arrow_drop_down, size: 18, color: Press.paper),
+              ],
+            ),
           ),
           SizedBox(width: 16),
           Flexible(
@@ -1318,7 +1358,7 @@ class _DataWorkspaceBody extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      MonoLabel('Take it all', size: 9, spacing: 1.8),
+                      MonoLabel('Export all data', size: 9, spacing: 1.8),
                       const SizedBox(height: 8),
                       Text(
                         tree,
@@ -1335,7 +1375,7 @@ class _DataWorkspaceBody extends StatelessWidget {
                         child: FilledButton(
                           onPressed: () =>
                               exportAndShare(context, db, property),
-                          child: const Text('TAKE MY DATA'),
+                          child: const Text('EXPORT ALL DATA'),
                         ),
                       ),
                     ],

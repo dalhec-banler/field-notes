@@ -31,7 +31,7 @@ class FileRangeSource implements RangeSource {
 
 class HttpRangeSource implements RangeSource {
   HttpRangeSource(this.url, {http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
   final String url;
   final http.Client _client;
 
@@ -48,7 +48,8 @@ class HttpRangeSource implements RangeSource {
       final bytes = await _collect(res.stream, length);
       if (bytes.length != length) {
         throw http.ClientException(
-            'short range read: ${bytes.length} of $length bytes');
+          'short range read: ${bytes.length} of $length bytes',
+        );
       }
       return bytes;
     }
@@ -60,7 +61,8 @@ class HttpRangeSource implements RangeSource {
       final total = res.contentLength;
       if (total != null && total < offset + length) {
         throw http.ClientException(
-            'server ignored Range and the body is too short ($total bytes)');
+          'server ignored Range and the body is too short ($total bytes)',
+        );
       }
       final bytes = await _collect(res.stream, offset + length);
       if (bytes.length < offset + length) {
@@ -72,8 +74,7 @@ class HttpRangeSource implements RangeSource {
   }
 
   /// Read at most [want] bytes from [stream], then cancel it.
-  static Future<Uint8List> _collect(
-      http.ByteStream stream, int want) async {
+  static Future<Uint8List> _collect(http.ByteStream stream, int want) async {
     final out = BytesBuilder(copy: false);
     late StreamSubscription<List<int>> sub;
     final done = Completer<void>();
@@ -93,10 +94,13 @@ class HttpRangeSource implements RangeSource {
       },
       cancelOnError: true,
     );
-    await done.future.timeout(timeout, onTimeout: () {
-      sub.cancel();
-      throw TimeoutException('range read stalled');
-    });
+    await done.future.timeout(
+      timeout,
+      onTimeout: () {
+        sub.cancel();
+        throw TimeoutException('range read stalled');
+      },
+    );
     final bytes = out.takeBytes();
     return bytes.length > want ? Uint8List.sublistView(bytes, 0, want) : bytes;
   }
@@ -162,12 +166,7 @@ class PmTilesReader {
       tileCompression: h[98],
       minZoom: h[100],
       maxZoom: h[101],
-      bounds: [
-        i32(102) / 1e7,
-        i32(106) / 1e7,
-        i32(110) / 1e7,
-        i32(114) / 1e7,
-      ],
+      bounds: [i32(102) / 1e7, i32(106) / 1e7, i32(110) / 1e7, i32(114) / 1e7],
     );
     return PmTilesReader._(source, header);
   }
@@ -178,23 +177,31 @@ class PmTilesReader {
   /// gzip'd MVT), or null when the archive has no such tile.
   Future<Uint8List?> getTile(int z, int x, int y) async {
     final target = zxyToTileId(z, x, y);
-    _rootDir ??= _parseDirectory(await _inflate(
-        await _source.read(header.rootDirOffset, header.rootDirLength)));
+    _rootDir ??= _parseDirectory(
+      await _inflate(
+        await _source.read(header.rootDirOffset, header.rootDirLength),
+      ),
+    );
     var dir = _rootDir!;
     for (var depth = 0; depth < 4; depth++) {
       final entry = _find(dir, target);
       if (entry == null) return null;
       if (entry.runLength > 0) {
-        return _source.read(
-            header.tileDataOffset + entry.offset, entry.length);
+        return _source.read(header.tileDataOffset + entry.offset, entry.length);
       }
       // Leaf directory.
       final cached = _leafCache[entry.offset];
       if (cached != null) {
         dir = cached;
       } else {
-        dir = _parseDirectory(await _inflate(await _source.read(
-            header.leafDirsOffset + entry.offset, entry.length)));
+        dir = _parseDirectory(
+          await _inflate(
+            await _source.read(
+              header.leafDirsOffset + entry.offset,
+              entry.length,
+            ),
+          ),
+        );
         if (_leafCache.length > 32) _leafCache.clear();
         _leafCache[entry.offset] = dir;
       }
@@ -250,12 +257,11 @@ class PmTilesReader {
     final offsets = List<int>.filled(n, 0);
     for (var i = 0; i < n; i++) {
       final v = varint();
-      offsets[i] =
-          v == 0 ? offsets[i - 1] + lengths[i - 1] : v - 1;
+      offsets[i] = v == 0 ? offsets[i - 1] + lengths[i - 1] : v - 1;
     }
     return [
       for (var i = 0; i < n; i++)
-        _Entry(ids[i], offsets[i], lengths[i], runs[i])
+        _Entry(ids[i], offsets[i], lengths[i], runs[i]),
     ];
   }
 }

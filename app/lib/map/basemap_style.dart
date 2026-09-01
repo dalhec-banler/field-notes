@@ -4,8 +4,7 @@ import 'dart:convert';
 /// loopback tile server. No glyphs or sprites — every layer here renders
 /// without font/icon assets, so the style is fully offline from day one.
 /// Labels come later with bundled glyphs.
-String basemapStyle(
-    {String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
+String basemapStyle({String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
   // No offline archive yet: imagery alone still gives a usable map wherever
   // there's signal, and every overlay (boundary, zones, pins) still draws.
   final satelliteOnly = pmtilesUrl == null && tilesUrl == null;
@@ -21,7 +20,7 @@ String basemapStyle(
       'satellite': {
         'type': 'raster',
         'tiles': [
-          'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}'
+          'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',
         ],
         'tileSize': 256,
         'maxzoom': 16,
@@ -78,7 +77,7 @@ String basemapStyle(
         'filter': [
           '==',
           ['geometry-type'],
-          'LineString'
+          'LineString',
         ],
         'paint': {'line-color': '#a8c8dc', 'line-width': 1.2},
       },
@@ -98,7 +97,7 @@ String basemapStyle(
             14,
             2.0,
             18,
-            6.0
+            6.0,
           ],
         },
       },
@@ -138,30 +137,30 @@ String basemapStyle(
 /// Same source id and layer id as the full style, so the Layers toggle
 /// works identically.
 String _satelliteOnlyStyle() => jsonEncode({
-      'version': 8,
-      'name': 'Field Notes imagery',
-      'sources': {
-        'satellite': {
-          'type': 'raster',
-          'tiles': [
-            'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}'
-          ],
-          'tileSize': 256,
-          'maxzoom': 16,
-          'attribution': 'USGS The National Map',
-        },
-      },
-      'layers': [
-        {
-          'id': 'background',
-          'type': 'background',
-          'paint': {'background-color': '#ede8e0'},
-        },
-        {
-          'id': 'satellite',
-          'type': 'raster',
-          'source': 'satellite',
-          'layout': {'visibility': 'visible'},
-        },
+  'version': 8,
+  'name': 'Field Notes imagery',
+  'sources': {
+    'satellite': {
+      'type': 'raster',
+      'tiles': [
+        'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',
       ],
-    });
+      'tileSize': 256,
+      'maxzoom': 16,
+      'attribution': 'USGS The National Map',
+    },
+  },
+  'layers': [
+    {
+      'id': 'background',
+      'type': 'background',
+      'paint': {'background-color': '#ede8e0'},
+    },
+    {
+      'id': 'satellite',
+      'type': 'raster',
+      'source': 'satellite',
+      'layout': {'visibility': 'visible'},
+    },
+  ],
+});

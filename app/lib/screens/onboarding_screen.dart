@@ -40,103 +40,103 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   List<_Page> get _pages => const [
-        _Page(
-          kicker: 'Local-first field journal',
-          title: 'FIELD\nNOTES',
-          body:
-              'A record of your land that lives on this phone. It works with '
-              'the radio off, in a pasture, in the rain. Nothing leaves the '
-              'device unless you send it.',
-          points: [
-            'Every record is a place, a time, a photograph and your words.',
-            'The valuable record is the same plant, eight times, over four '
-                'years — not eight thousand one-off notes.',
-          ],
-        ),
-        _Page(
-          kicker: 'The one thing to know',
-          title: 'THE RED\nBUTTON',
-          body:
-              'The camera button is on every screen. Tap it, shoot, save — '
-              'about fifteen seconds. Everything after the photograph is '
-              'optional.',
-          points: [
-            'A record with no species, no notes and no signal is still a '
-                'good record.',
-            'Saving never waits for GPS, network, or an identification.',
-            'No fix? The record is marked "no GPS" — never given a made-up '
-                'location.',
-          ],
-        ),
-        _Page(
-          kicker: 'Map',
-          title: 'WHERE YOU\nARE',
-          body:
-              'On your land, the map follows you. Away from it, the map stays '
-              'on the land and tells you how far off you are.',
-          points: [
-            'Long-press anywhere to drop a record at that spot instead of at '
-                'your feet.',
-            'Layers filters what you see — record types, or plants by kind: '
-                'trees, shrubs, grasses, forbs.',
-            '⌗ Capture area downloads the map for offline use while you have '
-                'signal. Do it before you need it.',
-          ],
-        ),
-        _Page(
-          kicker: 'Getting it off the phone',
-          title: 'BACKUP',
-          body:
-              'A phone in the creek is a total loss until a backup runs. It '
-              'runs itself once a day, and you choose how far the copy '
-              'travels — each option trades privacy against convenience '
-              'differently.',
-          points: [
-            'On this phone, encrypted: a passphrase you '
-                'choose plus a 12-word recovery kit. Strongest, and nobody '
-                'but you can open it, including us. Share the file wherever '
-                'you like from there.',
-            'Google Drive: signing in with Google is used for one thing, '
-                'permission to write to a hidden folder in your own Drive. '
-                'Convenient — the copy survives a lost phone without you '
-                'remembering anything. Google holds the file and no key.',
-            'Your own computer, over your own network: run Field Notes on a '
-                'machine at home, switch on Pair with your phone, and the phone '
-                'pushes to it across the LAN. Nothing touches the internet '
-                'and no account exists.',
-          ],
-        ),
-        _Page(
-          kicker: 'Optional',
-          title: 'NAMING\nPLANTS',
-          body:
-              'The app will never name a plant for you. It can offer '
-              'suggestions with its reasons, and you decide.',
-          points: [
-            'Two optional keys, both yours: Pl@ntNet for photo '
-                'identification, and an AI provider of your choosing for a '
-                'second opinion.',
-            'The second opinion is the useful one — it weighs the photo '
-                'against your county, your soil, the season, and what you '
-                'have already recorded here.',
-            'A suggestion is never written to a record until you tap it. '
-                'Settings → Species ID has the setup steps.',
-          ],
-        ),
-        _Page(
-          kicker: 'That\'s the tour',
-          title: 'GO AND\nWALK IT',
-          body:
-              'Start by adding the land you walk, then import a boundary if '
-              'you have one — Settings → Import boundary & zones takes KML, '
-              'KMZ, GeoJSON or GPX.',
-          points: [
-            'This walkthrough is always in Settings → Getting started.',
-            'Take my data — full export gives you everything in open '
-                'formats, any time, no account.',
-          ],
-        ),
-      ];
+    _Page(
+      kicker: 'Local-first field journal',
+      title: 'FIELD\nNOTES',
+      body:
+          'A record of your land that lives on this phone. It works with '
+          'the radio off, in a pasture, in the rain. Nothing leaves the '
+          'device unless you send it.',
+      points: [
+        'Every record is a place, a time, a photograph and your words.',
+        'The valuable record is the same plant, eight times, over four '
+            'years — not eight thousand one-off notes.',
+      ],
+    ),
+    _Page(
+      kicker: 'The one thing to know',
+      title: 'THE RED\nBUTTON',
+      body:
+          'The camera button is on every screen. Tap it, shoot, save — '
+          'about fifteen seconds. Everything after the photograph is '
+          'optional.',
+      points: [
+        'A record with no species, no notes and no signal is still a '
+            'good record.',
+        'Saving never waits for GPS, network, or an identification.',
+        'No fix? The record is marked "no GPS" — never given a made-up '
+            'location.',
+      ],
+    ),
+    _Page(
+      kicker: 'Map',
+      title: 'WHERE YOU\nARE',
+      body:
+          'On your land, the map follows you. Away from it, the map stays '
+          'on the land and tells you how far off you are.',
+      points: [
+        'Long-press anywhere to drop a record at that spot instead of at '
+            'your feet.',
+        'Layers filters what you see — record types, or plants by kind: '
+            'trees, shrubs, grasses, forbs.',
+        '⌗ Capture area downloads the map for offline use while you have '
+            'signal. Do it before you need it.',
+      ],
+    ),
+    _Page(
+      kicker: 'Getting it off the phone',
+      title: 'BACKUP',
+      body:
+          'A phone in the creek is a total loss until a backup runs. It '
+          'runs itself once a day, and you choose how far the copy '
+          'travels — each option trades privacy against convenience '
+          'differently.',
+      points: [
+        'On this phone, encrypted: a passphrase you '
+            'choose plus a 12-word recovery kit. Strongest, and nobody '
+            'but you can open it, including us. Share the file wherever '
+            'you like from there.',
+        'Google Drive: signing in with Google is used for one thing, '
+            'permission to write to a hidden folder in your own Drive. '
+            'Convenient — the copy survives a lost phone without you '
+            'remembering anything. Google holds the file and no key.',
+        'Your own computer, over your own network: run Field Notes on a '
+            'machine at home, switch on Pair with your phone, and the phone '
+            'pushes to it across the LAN. Nothing touches the internet '
+            'and no account exists.',
+      ],
+    ),
+    _Page(
+      kicker: 'Optional',
+      title: 'NAMING\nPLANTS',
+      body:
+          'The app will never name a plant for you. It can offer '
+          'suggestions with its reasons, and you decide.',
+      points: [
+        'Two optional keys, both yours: Pl@ntNet for photo '
+            'identification, and an AI provider of your choosing for a '
+            'second opinion.',
+        'The second opinion is the useful one — it weighs the photo '
+            'against your county, your soil, the season, and what you '
+            'have already recorded here.',
+        'A suggestion is never written to a record until you tap it. '
+            'Settings → Species ID has the setup steps.',
+      ],
+    ),
+    _Page(
+      kicker: 'That\'s the tour',
+      title: 'GO AND\nWALK IT',
+      body:
+          'Start by adding the land you walk, then import a boundary if '
+          'you have one — Settings → Import boundary & zones takes KML, '
+          'KMZ, GeoJSON or GPX.',
+      points: [
+        'This walkthrough is always in Settings → Getting started.',
+        'Export all data gives you everything in open '
+            'formats, any time, no account.',
+      ],
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +156,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                  Metrics.gutter, 6, Metrics.gutter, 12),
+                Metrics.gutter,
+                6,
+                Metrics.gutter,
+                12,
+              ),
               child: Row(
                 children: [
                   // Progress as diamonds, like the tab bar.
@@ -185,9 +189,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       onPressed: last
                           ? _finish
                           : () => _controller.nextPage(
-                                duration: const Duration(milliseconds: 220),
-                                curve: Curves.easeOut,
-                              ),
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOut,
+                            ),
                       child: Text(last ? 'START' : 'NEXT'),
                     ),
                   ),
@@ -238,8 +242,7 @@ class _PageView extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           page.body,
-          style: TextStyle(
-              fontFamily: Type.serif, fontSize: 17, height: 1.5),
+          style: TextStyle(fontFamily: Type.serif, fontSize: 17, height: 1.5),
         ),
         const SizedBox(height: 22),
         for (final p in page.points)
@@ -257,7 +260,10 @@ class _PageView extends StatelessWidget {
                   child: Text(
                     p,
                     style: TextStyle(
-                        fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
+                      fontFamily: Type.serif,
+                      fontSize: 15.5,
+                      height: 1.45,
+                    ),
                   ),
                 ),
               ],

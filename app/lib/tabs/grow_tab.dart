@@ -33,14 +33,18 @@ class _GrowTabState extends State<GrowTab> {
   @override
   Widget build(BuildContext context) {
     final bodies = [
-      PlantingsScreen(
-          db: widget.db, property: widget.property, embedded: true),
+      PlantingsScreen(db: widget.db, property: widget.property, embedded: true),
       PropagationScreen(
-          db: widget.db, property: widget.property, embedded: true),
+        db: widget.db,
+        property: widget.property,
+        embedded: true,
+      ),
       PhotoPointsScreen(
-          db: widget.db, property: widget.property, embedded: true),
-      FeaturesScreen(
-          db: widget.db, property: widget.property, embedded: true),
+        db: widget.db,
+        property: widget.property,
+        embedded: true,
+      ),
+      FeaturesScreen(db: widget.db, property: widget.property, embedded: true),
     ];
 
     return SafeArea(
@@ -71,8 +75,12 @@ class _GrowTabState extends State<GrowTab> {
                         ),
                         child: Opacity(
                           opacity: i == _sub ? 1 : 0.55,
-                          child: MonoLabel(_subs[i].$2,
-                              size: 9.5, spacing: 1.4, color: Press.ink),
+                          child: MonoLabel(
+                            _subs[i].$2,
+                            size: 9.5,
+                            spacing: 1.4,
+                            color: Press.ink,
+                          ),
                         ),
                       ),
                     ),
@@ -80,7 +88,9 @@ class _GrowTabState extends State<GrowTab> {
               ],
             ),
           ),
-          Expanded(child: IndexedStack(index: _sub, children: bodies)),
+          Expanded(
+            child: IndexedStack(index: _sub, children: bodies),
+          ),
         ],
       ),
     );

@@ -451,7 +451,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
           SizedBox(height: 10),
 
-          // 4. Take my data.
+          // 4. Export all data.
           Padding(
             padding: EdgeInsets.symmetric(horizontal: Metrics.gutter),
             child: Column(
@@ -462,7 +462,7 @@ class _SettingsTabState extends State<SettingsTab> {
                   child: OutlinedButton(
                     onPressed: () => _export(context),
                     child: Text(
-                      'TAKE MY DATA — FULL EXPORT',
+                      'EXPORT ALL DATA',
                       style: TextStyle(
                         fontFamily: Type.slab,
                         fontWeight: FontWeight.w900,

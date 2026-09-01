@@ -39,8 +39,10 @@ class AreaDownloader extends ChangeNotifier {
         final name =
             '${day.year}${day.month.toString().padLeft(2, '0')}${day.day.toString().padLeft(2, '0')}';
         final url = 'https://build.protomaps.com/$name.pmtiles';
-        final res = await c.get(Uri.parse(url),
-            headers: {'Range': 'bytes=0-13'});
+        final res = await c.get(
+          Uri.parse(url),
+          headers: {'Range': 'bytes=0-13'},
+        );
         if ((res.statusCode == 206 || res.statusCode == 200) &&
             res.bodyBytes.length >= 8 &&
             String.fromCharCodes(res.bodyBytes.sublist(0, 7)) == 'PMTiles') {
@@ -56,11 +58,21 @@ class AreaDownloader extends ChangeNotifier {
 
   /// Estimated tile count for a bbox at the standard zoom range.
   static (int count, int maxZ) estimate(
-      double minLon, double minLat, double maxLon, double maxLat) {
+    double minLon,
+    double minLat,
+    double maxLon,
+    double maxLat,
+  ) {
     // Deepest zoom that stays under the cap; never below 12, never above 15.
     for (var maxZ = 15; maxZ >= 12; maxZ--) {
-      final n = TileMath.coverCount(minLon, minLat, maxLon, maxLat,
-          minZ: 0, maxZ: maxZ);
+      final n = TileMath.coverCount(
+        minLon,
+        minLat,
+        maxLon,
+        maxLat,
+        minZ: 0,
+        maxZ: maxZ,
+      );
       if (n <= maxTiles || maxZ == 12) return (n, maxZ);
     }
     return (0, 12);
@@ -91,17 +103,26 @@ class AreaDownloader extends ChangeNotifier {
         final url = sourceUrl ?? await findLatestBuildUrl();
         if (url == null) {
           throw const SocketException(
-              'Could not reach build.protomaps.com — try on Wi-Fi');
+            'Could not reach build.protomaps.com — try on Wi-Fi',
+          );
         }
         rangeSource = HttpRangeSource(url);
       }
       reader = await PmTilesReader.open(rangeSource);
 
       final (_, maxZ) = estimate(minLon, minLat, maxLon, maxLat);
-      final wantedMaxZ =
-          maxZ.clamp(reader.header.minZoom, reader.header.maxZoom);
-      final tiles = TileMath.cover(minLon, minLat, maxLon, maxLat,
-          minZ: 0, maxZ: wantedMaxZ);
+      final wantedMaxZ = maxZ.clamp(
+        reader.header.minZoom,
+        reader.header.maxZoom,
+      );
+      final tiles = TileMath.cover(
+        minLon,
+        minLat,
+        maxLon,
+        maxLat,
+        minZ: 0,
+        maxZ: wantedMaxZ,
+      );
 
       final file = await target();
       final createdNew = !file.existsSync();
