@@ -204,35 +204,40 @@ Wording rule: **Backup** is *yours alone* (appdata, invisible in Drive);
 folder and is shared like any folder. Never present sharing as "backup to
 a shared place" — the trust models differ and the copy must not blur them.
 
-## Owner review: "proposed edits" (Austin, 2026-09-01)
+## Owner review: pending-visible (Austin's model, 2026-09-01 — FINAL)
 
-The ask: contributor changes surface in the owner's app as proposals, so
-the lead steward always has final say. The oplog gives us two honest ways
-to deliver that, and they differ in what *other* contributors see:
+Austin resolved the two-mode question with a better third model:
 
-**Review-after (ships first).** Everyone's ops apply everywhere
-immediately; the owner gets a **review feed** — every contributor op,
-newest first, with one-tap **revert** (which emits a countermanding op that
-wins by HLC). Final say is real: the owner can undo anything, with
-attribution and history. Consistency is trivial because there is only ever
-one applied state. This is the family-ranch default.
+> "The edit shows up for Wylder, but has a pending tag so they know it
+> could be removed, but it would stay until I say so. As the steward, I
+> should be able to hide their edits if I want, even after I approve them."
 
-**Review-before (the gate, layered on later).** Contributor ops are
-quarantined: devices apply owner ops always, their *own* ops immediately
-(offline-first demands optimism about yourself), and other contributors'
-ops **only once an owner approval op lists them**. Rejection emits a
-rejection op; the author's device rolls its optimistic change back and
-tells them why. This is real machinery — approval ops, a pending state,
-divergence-until-approved — and it is what "proposed edit" strictly means.
+**Pending-visible review:** every contributor edit applies everywhere
+immediately — so all devices stay consistent, offline-first stays intact,
+and nobody's work vanishes into a queue — but it wears a **PENDING** tag
+until the owner rules on it. The owner can:
 
-**Design decision: a per-property switch, defaulting to review-after.**
-"Edits apply right away, and I can undo anyone's" covers the trusted-family
-case with a tenth of the moving parts; "edits wait for my OK" is the
-contractor/volunteer case and justifies the extra state machine when a real
-property needs it. Both modes are the same log format — the gate only
-changes *when* an op is applied, so shipping review-after first forecloses
-nothing. The desktop shell's Review workspace is the natural home for the
-owner's feed either way.
+- **Approve** — the tag clears, everywhere.
+- **Remove** — the edit is reverted/tombstoned, everywhere, with the
+  author able to see it was removed (not silently vanished).
+- **Remove later** — approval is not final; the steward can hide any
+  contributor edit at any time afterwards. Final say has no expiry.
+
+Owner edits are born approved. Review state is ordinary synced data — an
+`review_items` row per contributor-authored entity (entity_type +
+entity_id, state pending/approved/removed, decided_by/at), which makes the
+whole system nothing but rows and the merge rule it already obeys: the
+owner's decision is just a later op that wins.
+
+Consistency stays trivial (one applied state everywhere; the tag is
+metadata, not a fork), the author gets honesty (their work is visible,
+labelled provisional), and the steward gets permanent final say. The
+review feed lives in the app now and in the desktop Review workspace
+later; PENDING chips render on ledger rows, record detail, and map pins.
+
+Built ahead of sync itself (2026-09-01): the table, service, feed UI and
+chips ship inert-for-one-user — a solo owner sees nothing pending, ever —
+and come alive the day M4b makes contributors possible.
 
 ## What deliberately does not sync
 

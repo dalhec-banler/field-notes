@@ -20,11 +20,18 @@ class FieldNotesDb extends _$FieldNotesDb {
   FieldNotesDb.fromFile(File file) : super(NativeDatabase(file));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          // v2: review_items — pending-visible owner review (SYNC-DESIGN).
+          if (from < 2) {
+            await m.createTable(reviewItems);
+            await m.createIndex(idxReviewPending);
+          }
+        },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },

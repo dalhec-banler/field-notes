@@ -11,6 +11,7 @@ import '../db/database.dart';
 import '../screens/backup_screen.dart';
 import '../screens/kml_import_screen.dart';
 import '../screens/drive_backup_screen.dart';
+import '../screens/review_feed_screen.dart';
 import '../screens/lan_backup_screen.dart';
 import '../screens/offline_maps_screen.dart';
 import '../screens/onboarding_screen.dart';
@@ -298,6 +299,16 @@ class _SettingsTabState extends State<SettingsTab> {
               () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) =>
                       DriveBackupScreen(db: widget.db, prefs: widget.prefs))),
+            ),
+          ]),
+          _group('Sharing', [
+            (
+              'Review',
+              'edits by other stewards wait here for your say · final, always',
+              '',
+              () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => ReviewFeedScreen(
+                      db: widget.db, property: widget.property))),
             ),
           ]),
           _group('Help', [

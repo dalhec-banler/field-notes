@@ -27142,6 +27142,722 @@ class PracticeActivitiesCompanion extends UpdateCompanion<PracticeActivity> {
   }
 }
 
+class ReviewItems extends Table with TableInfo<ReviewItems, ReviewItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  ReviewItems(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'PRIMARY KEY NOT NULL',
+  );
+  static const VerificationMeta _propertyIdMeta = const VerificationMeta(
+    'propertyId',
+  );
+  late final GeneratedColumn<String> propertyId = GeneratedColumn<String>(
+    'property_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL CHECK (entity_type IN (\'observation\', \'plant_checkin\', \'planting_event\', \'feature\', \'feature_condition_log\', \'photo_point_visit\', \'propagation_batch\', \'batch_event\', \'collection_event\', \'zone\', \'plant\', \'practice\', \'practice_activity\'))',
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _authorMeta = const VerificationMeta('author');
+  late final GeneratedColumn<String> author = GeneratedColumn<String>(
+    'author',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT \'pending\' CHECK (state IN (\'pending\', \'approved\', \'removed\'))',
+    defaultValue: const CustomExpression('\'pending\''),
+  );
+  static const VerificationMeta _decidedByMeta = const VerificationMeta(
+    'decidedBy',
+  );
+  late final GeneratedColumn<String> decidedBy = GeneratedColumn<String>(
+    'decided_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _decidedAtMeta = const VerificationMeta(
+    'decidedAt',
+  );
+  late final GeneratedColumn<String> decidedAt = GeneratedColumn<String>(
+    'decided_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  late final GeneratedColumn<String> updatedAt = GeneratedColumn<String>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  late final GeneratedColumn<String> deletedAt = GeneratedColumn<String>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    propertyId,
+    entityType,
+    entityId,
+    author,
+    state,
+    decidedBy,
+    decidedAt,
+    note,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'review_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReviewItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('property_id')) {
+      context.handle(
+        _propertyIdMeta,
+        propertyId.isAcceptableOrUnknown(data['property_id']!, _propertyIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_propertyIdMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('author')) {
+      context.handle(
+        _authorMeta,
+        author.isAcceptableOrUnknown(data['author']!, _authorMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_authorMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    }
+    if (data.containsKey('decided_by')) {
+      context.handle(
+        _decidedByMeta,
+        decidedBy.isAcceptableOrUnknown(data['decided_by']!, _decidedByMeta),
+      );
+    }
+    if (data.containsKey('decided_at')) {
+      context.handle(
+        _decidedAtMeta,
+        decidedAt.isAcceptableOrUnknown(data['decided_at']!, _decidedAtMeta),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {entityType, entityId},
+  ];
+  @override
+  ReviewItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReviewItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      propertyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}property_id'],
+      )!,
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      author: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      decidedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}decided_by'],
+      ),
+      decidedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}decided_at'],
+      ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  ReviewItems createAlias(String alias) {
+    return ReviewItems(attachedDatabase, alias);
+  }
+
+  @override
+  List<String> get customConstraints => const [
+    'UNIQUE(entity_type, entity_id)',
+  ];
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class ReviewItem extends DataClass implements Insertable<ReviewItem> {
+  final String id;
+  final String propertyId;
+  final String entityType;
+  final String entityId;
+  final String author;
+
+  /// created_by of the edit under review
+  final String state;
+  final String? decidedBy;
+  final String? decidedAt;
+  final String? note;
+
+  /// optional word from the steward
+  final String createdAt;
+  final String updatedAt;
+  final String? deletedAt;
+  const ReviewItem({
+    required this.id,
+    required this.propertyId,
+    required this.entityType,
+    required this.entityId,
+    required this.author,
+    required this.state,
+    this.decidedBy,
+    this.decidedAt,
+    this.note,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['property_id'] = Variable<String>(propertyId);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    map['author'] = Variable<String>(author);
+    map['state'] = Variable<String>(state);
+    if (!nullToAbsent || decidedBy != null) {
+      map['decided_by'] = Variable<String>(decidedBy);
+    }
+    if (!nullToAbsent || decidedAt != null) {
+      map['decided_at'] = Variable<String>(decidedAt);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    map['created_at'] = Variable<String>(createdAt);
+    map['updated_at'] = Variable<String>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<String>(deletedAt);
+    }
+    return map;
+  }
+
+  ReviewItemsCompanion toCompanion(bool nullToAbsent) {
+    return ReviewItemsCompanion(
+      id: Value(id),
+      propertyId: Value(propertyId),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      author: Value(author),
+      state: Value(state),
+      decidedBy: decidedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decidedBy),
+      decidedAt: decidedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decidedAt),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory ReviewItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReviewItem(
+      id: serializer.fromJson<String>(json['id']),
+      propertyId: serializer.fromJson<String>(json['property_id']),
+      entityType: serializer.fromJson<String>(json['entity_type']),
+      entityId: serializer.fromJson<String>(json['entity_id']),
+      author: serializer.fromJson<String>(json['author']),
+      state: serializer.fromJson<String>(json['state']),
+      decidedBy: serializer.fromJson<String?>(json['decided_by']),
+      decidedAt: serializer.fromJson<String?>(json['decided_at']),
+      note: serializer.fromJson<String?>(json['note']),
+      createdAt: serializer.fromJson<String>(json['created_at']),
+      updatedAt: serializer.fromJson<String>(json['updated_at']),
+      deletedAt: serializer.fromJson<String?>(json['deleted_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'property_id': serializer.toJson<String>(propertyId),
+      'entity_type': serializer.toJson<String>(entityType),
+      'entity_id': serializer.toJson<String>(entityId),
+      'author': serializer.toJson<String>(author),
+      'state': serializer.toJson<String>(state),
+      'decided_by': serializer.toJson<String?>(decidedBy),
+      'decided_at': serializer.toJson<String?>(decidedAt),
+      'note': serializer.toJson<String?>(note),
+      'created_at': serializer.toJson<String>(createdAt),
+      'updated_at': serializer.toJson<String>(updatedAt),
+      'deleted_at': serializer.toJson<String?>(deletedAt),
+    };
+  }
+
+  ReviewItem copyWith({
+    String? id,
+    String? propertyId,
+    String? entityType,
+    String? entityId,
+    String? author,
+    String? state,
+    Value<String?> decidedBy = const Value.absent(),
+    Value<String?> decidedAt = const Value.absent(),
+    Value<String?> note = const Value.absent(),
+    String? createdAt,
+    String? updatedAt,
+    Value<String?> deletedAt = const Value.absent(),
+  }) => ReviewItem(
+    id: id ?? this.id,
+    propertyId: propertyId ?? this.propertyId,
+    entityType: entityType ?? this.entityType,
+    entityId: entityId ?? this.entityId,
+    author: author ?? this.author,
+    state: state ?? this.state,
+    decidedBy: decidedBy.present ? decidedBy.value : this.decidedBy,
+    decidedAt: decidedAt.present ? decidedAt.value : this.decidedAt,
+    note: note.present ? note.value : this.note,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  ReviewItem copyWithCompanion(ReviewItemsCompanion data) {
+    return ReviewItem(
+      id: data.id.present ? data.id.value : this.id,
+      propertyId: data.propertyId.present
+          ? data.propertyId.value
+          : this.propertyId,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      author: data.author.present ? data.author.value : this.author,
+      state: data.state.present ? data.state.value : this.state,
+      decidedBy: data.decidedBy.present ? data.decidedBy.value : this.decidedBy,
+      decidedAt: data.decidedAt.present ? data.decidedAt.value : this.decidedAt,
+      note: data.note.present ? data.note.value : this.note,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReviewItem(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('author: $author, ')
+          ..write('state: $state, ')
+          ..write('decidedBy: $decidedBy, ')
+          ..write('decidedAt: $decidedAt, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    propertyId,
+    entityType,
+    entityId,
+    author,
+    state,
+    decidedBy,
+    decidedAt,
+    note,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReviewItem &&
+          other.id == this.id &&
+          other.propertyId == this.propertyId &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.author == this.author &&
+          other.state == this.state &&
+          other.decidedBy == this.decidedBy &&
+          other.decidedAt == this.decidedAt &&
+          other.note == this.note &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class ReviewItemsCompanion extends UpdateCompanion<ReviewItem> {
+  final Value<String> id;
+  final Value<String> propertyId;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String> author;
+  final Value<String> state;
+  final Value<String?> decidedBy;
+  final Value<String?> decidedAt;
+  final Value<String?> note;
+  final Value<String> createdAt;
+  final Value<String> updatedAt;
+  final Value<String?> deletedAt;
+  final Value<int> rowid;
+  const ReviewItemsCompanion({
+    this.id = const Value.absent(),
+    this.propertyId = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.author = const Value.absent(),
+    this.state = const Value.absent(),
+    this.decidedBy = const Value.absent(),
+    this.decidedAt = const Value.absent(),
+    this.note = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReviewItemsCompanion.insert({
+    required String id,
+    required String propertyId,
+    required String entityType,
+    required String entityId,
+    required String author,
+    this.state = const Value.absent(),
+    this.decidedBy = const Value.absent(),
+    this.decidedAt = const Value.absent(),
+    this.note = const Value.absent(),
+    required String createdAt,
+    required String updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       propertyId = Value(propertyId),
+       entityType = Value(entityType),
+       entityId = Value(entityId),
+       author = Value(author),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<ReviewItem> custom({
+    Expression<String>? id,
+    Expression<String>? propertyId,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? author,
+    Expression<String>? state,
+    Expression<String>? decidedBy,
+    Expression<String>? decidedAt,
+    Expression<String>? note,
+    Expression<String>? createdAt,
+    Expression<String>? updatedAt,
+    Expression<String>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (propertyId != null) 'property_id': propertyId,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (author != null) 'author': author,
+      if (state != null) 'state': state,
+      if (decidedBy != null) 'decided_by': decidedBy,
+      if (decidedAt != null) 'decided_at': decidedAt,
+      if (note != null) 'note': note,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReviewItemsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? propertyId,
+    Value<String>? entityType,
+    Value<String>? entityId,
+    Value<String>? author,
+    Value<String>? state,
+    Value<String?>? decidedBy,
+    Value<String?>? decidedAt,
+    Value<String?>? note,
+    Value<String>? createdAt,
+    Value<String>? updatedAt,
+    Value<String?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return ReviewItemsCompanion(
+      id: id ?? this.id,
+      propertyId: propertyId ?? this.propertyId,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      author: author ?? this.author,
+      state: state ?? this.state,
+      decidedBy: decidedBy ?? this.decidedBy,
+      decidedAt: decidedAt ?? this.decidedAt,
+      note: note ?? this.note,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (propertyId.present) {
+      map['property_id'] = Variable<String>(propertyId.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (author.present) {
+      map['author'] = Variable<String>(author.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (decidedBy.present) {
+      map['decided_by'] = Variable<String>(decidedBy.value);
+    }
+    if (decidedAt.present) {
+      map['decided_at'] = Variable<String>(decidedAt.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<String>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<String>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReviewItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('author: $author, ')
+          ..write('state: $state, ')
+          ..write('decidedBy: $decidedBy, ')
+          ..write('decidedAt: $decidedAt, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$FieldNotesDb extends GeneratedDatabase {
   _$FieldNotesDb(QueryExecutor e) : super(e);
   $FieldNotesDbManager get managers => $FieldNotesDbManager(this);
@@ -27207,6 +27923,11 @@ abstract class _$FieldNotesDb extends GeneratedDatabase {
   late final Programs programs = Programs(this);
   late final Practices practices = Practices(this);
   late final PracticeActivities practiceActivities = PracticeActivities(this);
+  late final ReviewItems reviewItems = ReviewItems(this);
+  late final Index idxReviewPending = Index(
+    'idx_review_pending',
+    'CREATE INDEX idx_review_pending ON review_items (property_id, state)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -27250,6 +27971,8 @@ abstract class _$FieldNotesDb extends GeneratedDatabase {
     programs,
     practices,
     practiceActivities,
+    reviewItems,
+    idxReviewPending,
   ];
 }
 
@@ -48015,6 +48738,334 @@ typedef $PracticeActivitiesProcessedTableManager =
       PracticeActivity,
       PrefetchHooks Function({bool practiceId})
     >;
+typedef $ReviewItemsCreateCompanionBuilder = ReviewItemsCompanion Function({
+  required String id,
+  required String propertyId,
+  required String entityType,
+  required String entityId,
+  required String author,
+  Value<String> state,
+  Value<String?> decidedBy,
+  Value<String?> decidedAt,
+  Value<String?> note,
+  required String createdAt,
+  required String updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+typedef $ReviewItemsUpdateCompanionBuilder = ReviewItemsCompanion Function({
+  Value<String> id,
+  Value<String> propertyId,
+  Value<String> entityType,
+  Value<String> entityId,
+  Value<String> author,
+  Value<String> state,
+  Value<String?> decidedBy,
+  Value<String?> decidedAt,
+  Value<String?> note,
+  Value<String> createdAt,
+  Value<String> updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+
+class $ReviewItemsFilterComposer extends Composer<_$FieldNotesDb, ReviewItems> {
+  $ReviewItemsFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get propertyId => $composableBuilder(
+    column: $table.propertyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get author => $composableBuilder(
+    column: $table.author,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get decidedBy => $composableBuilder(
+    column: $table.decidedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get decidedAt => $composableBuilder(
+    column: $table.decidedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $ReviewItemsOrderingComposer
+    extends Composer<_$FieldNotesDb, ReviewItems> {
+  $ReviewItemsOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get propertyId => $composableBuilder(
+    column: $table.propertyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get author => $composableBuilder(
+    column: $table.author,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get decidedBy => $composableBuilder(
+    column: $table.decidedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get decidedAt => $composableBuilder(
+    column: $table.decidedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $ReviewItemsAnnotationComposer
+    extends Composer<_$FieldNotesDb, ReviewItems> {
+  $ReviewItemsAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get propertyId => $composableBuilder(
+    column: $table.propertyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get author =>
+      $composableBuilder(column: $table.author, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<String> get decidedBy =>
+      $composableBuilder(column: $table.decidedBy, builder: (column) => column);
+
+  GeneratedColumn<String> get decidedAt =>
+      $composableBuilder(column: $table.decidedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $ReviewItemsTableManager
+    extends
+        RootTableManager<
+          _$FieldNotesDb,
+          ReviewItems,
+          ReviewItem,
+          $ReviewItemsFilterComposer,
+          $ReviewItemsOrderingComposer,
+          $ReviewItemsAnnotationComposer,
+          $ReviewItemsCreateCompanionBuilder,
+          $ReviewItemsUpdateCompanionBuilder,
+          (ReviewItem, BaseReferences<_$FieldNotesDb, ReviewItems, ReviewItem>),
+          ReviewItem,
+          PrefetchHooks Function()
+        > {
+  $ReviewItemsTableManager(_$FieldNotesDb db, ReviewItems table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $ReviewItemsFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $ReviewItemsOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $ReviewItemsAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> propertyId = const Value.absent(),
+                Value<String> entityType = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> author = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<String?> decidedBy = const Value.absent(),
+                Value<String?> decidedAt = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<String> updatedAt = const Value.absent(),
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReviewItemsCompanion(
+                id: id,
+                propertyId: propertyId,
+                entityType: entityType,
+                entityId: entityId,
+                author: author,
+                state: state,
+                decidedBy: decidedBy,
+                decidedAt: decidedAt,
+                note: note,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String propertyId,
+                required String entityType,
+                required String entityId,
+                required String author,
+                Value<String> state = const Value.absent(),
+                Value<String?> decidedBy = const Value.absent(),
+                Value<String?> decidedAt = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                required String createdAt,
+                required String updatedAt,
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReviewItemsCompanion.insert(
+                id: id,
+                propertyId: propertyId,
+                entityType: entityType,
+                entityId: entityId,
+                author: author,
+                state: state,
+                decidedBy: decidedBy,
+                decidedAt: decidedAt,
+                note: note,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $ReviewItemsProcessedTableManager =
+    ProcessedTableManager<
+      _$FieldNotesDb,
+      ReviewItems,
+      ReviewItem,
+      $ReviewItemsFilterComposer,
+      $ReviewItemsOrderingComposer,
+      $ReviewItemsAnnotationComposer,
+      $ReviewItemsCreateCompanionBuilder,
+      $ReviewItemsUpdateCompanionBuilder,
+      (ReviewItem, BaseReferences<_$FieldNotesDb, ReviewItems, ReviewItem>),
+      ReviewItem,
+      PrefetchHooks Function()
+    >;
 
 class $FieldNotesDbManager {
   final _$FieldNotesDb _db;
@@ -48077,4 +49128,6 @@ class $FieldNotesDbManager {
       $PracticesTableManager(_db, _db.practices);
   $PracticeActivitiesTableManager get practiceActivities =>
       $PracticeActivitiesTableManager(_db, _db.practiceActivities);
+  $ReviewItemsTableManager get reviewItems =>
+      $ReviewItemsTableManager(_db, _db.reviewItems);
 }

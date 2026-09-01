@@ -570,3 +570,29 @@ CREATE TABLE practice_activities (
   created_by TEXT NOT NULL, created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL, deleted_at TEXT
 );
+
+-- Review state for shared properties (SYNC-DESIGN.md, Austin's
+-- pending-visible model): a contributor-authored entity applies everywhere
+-- immediately but carries a row here until the owner rules on it. Owner
+-- edits are born approved (no row at all). The owner's decision syncs as an
+-- ordinary row update; "remove later" is just a later update — final say
+-- has no expiry. One row per reviewed entity.
+CREATE TABLE review_items (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  entity_type   TEXT NOT NULL CHECK (entity_type IN
+                 ('observation','plant_checkin','planting_event','feature',
+                  'feature_condition_log','photo_point_visit',
+                  'propagation_batch','batch_event','collection_event',
+                  'zone','plant','practice','practice_activity')),
+  entity_id     TEXT NOT NULL,
+  author        TEXT NOT NULL,       -- created_by of the edit under review
+  state         TEXT NOT NULL DEFAULT 'pending' CHECK (state IN
+                 ('pending','approved','removed')),
+  decided_by    TEXT,
+  decided_at    TEXT,
+  note          TEXT,                -- optional word from the steward
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
+  UNIQUE (entity_type, entity_id)
+);
+CREATE INDEX idx_review_pending ON review_items(property_id, state);

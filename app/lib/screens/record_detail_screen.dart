@@ -12,6 +12,7 @@ import '../widgets/species_field.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../geo/zone_assignment.dart';
+import '../services/review.dart';
 import 'identify_sheet.dart';
 import 'move_pin_screen.dart';
 import 'species_detail_sheet.dart';
@@ -53,6 +54,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   TaxaData? _taxon;
   Zone? _zone;
   EnvContext? _env;
+  ReviewItem? _review;
   List<MediaData> _photos = [];
   List<MediaData> _audio = [];
   List<(Observation, double)> _nearby = [];
@@ -149,8 +151,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       }
       nearby.sort((a, b) => a.$2.compareTo(b.$2));
     }
+    final review =
+        await ReviewService(widget.db).forEntity('observation', widget.obsId);
     if (mounted) {
       setState(() {
+        _review = review;
         _obs = obs;
         _taxon = taxon;
         _zone = zone;
@@ -659,6 +664,13 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       color: Press.ink,
                     ),
                   ),
+                // Pending-visible review (SYNC-DESIGN): the tag rides the
+                // record so a contributor's edit is never mistaken for a
+                // settled fact — and never hidden either.
+                if (_review != null && _review!.state == 'pending') ...[
+                  SizedBox(height: 8),
+                  StatusPill('pending review', color: Press.ochre),
+                ],
               ],
             ),
           ),
