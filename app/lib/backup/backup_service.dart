@@ -6,8 +6,11 @@ import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
 import '../services/app_prefs.dart';
+import '../services/network_policy.dart';
 import 'backup_crypto.dart';
 import 'backup_engine.dart';
+import 'drive_auth.dart';
+import 'drive_target.dart';
 import 'key_cache.dart';
 import 'keyring.dart';
 import 'target.dart';
@@ -301,8 +304,40 @@ class BackupService {
         notes.add(problem == null ? 'verified' : 'verify problem: $problem');
       }
     }
+    // Drive, when connected: the same daily cadence, the cached key only,
+    // never a prompt, and only on an unmetered network (D-016). Until this
+    // ran, Drive held whatever the last hand-pressed backup left there.
+    // Phone only: the desk holds a copy, and two devices writing one Drive
+    // folder without sync would let the older copy overwrite the newer
+    // (D-025 decides how the desk shares that folder).
+    final isFieldDevice = Platform.isAndroid || Platform.isIOS;
+    if (isFieldDevice &&
+        prefs.driveEmail != null &&
+        due('last_drive_backup', autoInterval)) {
+      notes.add(await _autoDrive(prefs));
+    }
     if (notes.isEmpty) return null;
     return _note(notes.join(' · '));
+  }
+
+  Future<String> _autoDrive(AppPrefs prefs) async {
+    final verdict = await NetworkPolicy().bulkVerdict(prefs);
+    if (verdict != BulkVerdict.ok) return 'Drive: waiting for Wi-Fi';
+    DriveTarget? target;
+    try {
+      final token = await DriveAuth.instance.accessToken(interactive: false);
+      if (token == null) return 'Drive: not connected';
+      target = DriveTarget(accessToken: token);
+      final engine = await engineForTarget(target);
+      if (engine == null) return 'Drive: needs the passphrase once';
+      final summary = await backupNow(engine);
+      await saveConfig({'last_drive_backup': nowUtcIso()});
+      return 'Drive: $summary';
+    } catch (e) {
+      return 'Drive backup failed: $e';
+    } finally {
+      target?.close();
+    }
   }
 
   Future<String> _note(String text) async {
