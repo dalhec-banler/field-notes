@@ -188,6 +188,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 subtitle: MonoLabel(property.landTenure.replaceAll('_', ' '),
                     size: 8.5, opacity: 0.7),
                 onTap: () => Navigator.pop(context, property),
+                // Rename / remove (Austin, 2026-08-31: "you cannot delete,
+                // edit"). Kept off the main tap path — switching stays the
+                // one-tap action.
+                trailing: IconButton(
+                  tooltip: 'Edit place',
+                  icon: Icon(Icons.edit_outlined, size: 20, color: Press.inkSoft),
+                  onPressed: () => Navigator.pop(context, _EditPlace(property)),
+                ),
               ),
             // D-003: more than one place from day one — owned, leased,
             // public land, a collection site. This is the only way in after
@@ -217,8 +225,111 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (created != null) widget.onSwitchProperty(created);
       return;
     }
+    if (picked is _EditPlace) {
+      if (!mounted) return;
+      await _editPlace(picked.property);
+      return;
+    }
     if (picked is Property && picked.id != widget.property.id) {
       widget.onSwitchProperty(picked);
+    }
+  }
+
+  /// Rename or soft-delete a place. Deleting keeps every record (soft
+  /// delete, like everything else in the schema) and never orphans the UI:
+  /// the last remaining place can't be removed, and removing the active one
+  /// switches you to another first.
+  Future<void> _editPlace(Property property) async {
+    final controller = TextEditingController(text: property.name);
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('EDIT PLACE'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'delete'),
+            child: Text('REMOVE…',
+                style: TextStyle(color: Press.oxblood)),
+          ),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, 'save'),
+              child: const Text('SAVE')),
+        ],
+      ),
+    );
+    if (action == 'save') {
+      final name = controller.text.trim();
+      if (name.isEmpty || name == property.name) return;
+      await (widget.db.update(widget.db.properties)
+            ..where((x) => x.id.equals(property.id)))
+          .write(PropertiesCompanion(
+        name: Value(name),
+        updatedAt: Value(nowUtcIso()),
+      ));
+      if (property.id == widget.property.id && mounted) {
+        final fresh = await (widget.db.select(widget.db.properties)
+              ..where((x) => x.id.equals(property.id)))
+            .getSingle();
+        widget.onSwitchProperty(fresh);
+      }
+      return;
+    }
+    if (action != 'delete' || !mounted) return;
+
+    final others = await (widget.db.select(widget.db.properties)
+          ..where((x) => x.deletedAt.isNull())
+          ..where((x) => x.id.equals(property.id).not()))
+        .get();
+    if (others.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('This is your only place — add another before '
+              'removing it.')));
+      return;
+    }
+    final obsCount = await (widget.db.selectOnly(widget.db.observations)
+          ..addColumns([widget.db.observations.id.count()])
+          ..where(widget.db.observations.propertyId.equals(property.id) &
+              widget.db.observations.deletedAt.isNull()))
+        .map((r) => r.read(widget.db.observations.id.count()) ?? 0)
+        .getSingle();
+    if (!mounted) return;
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('REMOVE THIS PLACE?'),
+        content: Text(
+            '"${property.name}" and its $obsCount record'
+            '${obsCount == 1 ? '' : 's'} will be removed from your lists. '
+            'Nothing is destroyed — it all stays in the database and in '
+            'backups, and can be brought back later.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('KEEP IT')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('REMOVE')),
+        ],
+      ),
+    );
+    if (sure != true) return;
+    await (widget.db.update(widget.db.properties)
+          ..where((x) => x.id.equals(property.id)))
+        .write(PropertiesCompanion(
+      deletedAt: Value(nowUtcIso()),
+      updatedAt: Value(nowUtcIso()),
+    ));
+    if (property.id == widget.property.id && mounted) {
+      widget.onSwitchProperty(others.first);
     }
   }
 
@@ -289,34 +400,45 @@ class _TabBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 68, // glove-mode height
+          // Taller bar, bigger type (Austin, 2026-08-31: "bottom menu too
+          // small / illegible on map"). This is the most-hit control in the
+          // app and it's hit in sunlight; it gets legibility before style.
+          height: 74,
           child: Row(
             children: [
               for (var i = 0; i < tabs.length; i++)
                 Expanded(
-                  child: InkWell(
-                    onTap: () => onTap(i),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Diamond(
-                          size: 12,
-                          color: i == current ? Press.oxblood : Press.inkSoft,
-                          filled: i == current,
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          tabs[i].toUpperCase(),
-                          style: TextStyle(
-                            fontFamily: Type.mono,
-                            fontSize: 8.5,
-                            letterSpacing: 1.2,
-                            color: i == current
-                                ? Press.ink
-                                : Press.inkSoft.withValues(alpha: 0.6),
+                  child: Semantics(
+                    label: '${tabs[i]} tab',
+                    selected: i == current,
+                    button: true,
+                    child: InkWell(
+                      onTap: () => onTap(i),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Diamond(
+                            size: 13,
+                            color: i == current ? Press.oxblood : Press.inkSoft,
+                            filled: i == current,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 6),
+                          Text(
+                            skin.label(tabs[i]),
+                            style: TextStyle(
+                              fontFamily: Type.mono,
+                              fontSize: skin.upperLabels ? 11 : 12.5,
+                              fontWeight: i == current
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              letterSpacing: skin.upperLabels ? 1.1 : 0.2,
+                              color: i == current
+                                  ? Press.ink
+                                  : Press.inkSoft.withValues(alpha: 0.75),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -326,4 +448,11 @@ class _TabBar extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Switcher-sheet result meaning "edit this one", distinct from picking it.
+class _EditPlace {
+  const _EditPlace(this.property);
+  final Property property;
 }

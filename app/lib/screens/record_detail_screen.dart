@@ -9,7 +9,11 @@ import '../geo/simplify.dart' show distanceM;
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 import '../widgets/species_field.dart';
+import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
+
+import '../geo/zone_assignment.dart';
 import 'identify_sheet.dart';
+import 'move_pin_screen.dart';
 import 'species_detail_sheet.dart';
 
 const _kTypes = [
@@ -210,7 +214,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     String? confidence = obs.taxonConfidence;
     if (confidence == 'unidentified') confidence = null;
 
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showModalBottomSheet<Object>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Press.paper,
@@ -275,6 +279,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                   ],
                 ),
                 SizedBox(height: 14),
+                // A wrong fix is forever until you can move it (batch 1).
+                SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    icon: Icon(Icons.place_outlined, size: 18),
+                    label: Text('MOVE THE PIN'),
+                    onPressed: () => Navigator.pop(ctx, _movePinSentinel),
+                  ),
+                ),
+                SizedBox(height: 14),
                 MonoLabel('Notes', size: 9, spacing: 1.8),
                 SizedBox(height: 6),
                 TextField(
@@ -322,6 +336,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     );
     final text = notes.text.trim();
     notes.dispose();
+    if (saved == _movePinSentinel) {
+      await _movePin(obs);
+      return;
+    }
     if (saved != true) return;
     await (widget.db.update(
       widget.db.observations,
@@ -334,6 +352,36 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         updatedAt: Value(nowUtcIso()),
       ),
     );
+    _load();
+  }
+
+  static const _movePinSentinel = '__move_pin__';
+
+  /// Hand-adjust the record's location, then keep the derived facts honest:
+  /// accuracy becomes "placed by hand" (null — the same meaning the capture
+  /// flow gives a map-drop), and the zone is re-derived from the new point,
+  /// including clearing it when the pin moves outside every zone.
+  Future<void> _movePin(Observation obs) async {
+    final moved = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        builder: (_) => MovePinScreen(lat: obs.lat, lng: obs.lng),
+      ),
+    );
+    if (moved == null) return;
+    await (widget.db.update(widget.db.observations)
+          ..where((o) => o.id.equals(obs.id)))
+        .write(ObservationsCompanion(
+      lat: Value(moved.latitude),
+      lng: Value(moved.longitude),
+      gpsAccuracyM: const Value(null),
+      zoneId: const Value(null),
+      updatedAt: Value(nowUtcIso()),
+    ));
+    await assignZone(widget.db,
+        observationId: obs.id,
+        propertyId: obs.propertyId,
+        lat: moved.latitude,
+        lng: moved.longitude);
     _load();
   }
 

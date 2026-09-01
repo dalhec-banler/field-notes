@@ -446,7 +446,12 @@ class CaptureFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    // Semantics: this was the one naked control in the app (audit U5) —
+    // TalkBack read nothing for the most important button on screen.
+    return Semantics(
+      label: 'New capture',
+      button: true,
+      child: GestureDetector(
       onTap: onPressed,
       child: Container(
         width: Metrics.fabSize,
@@ -461,6 +466,7 @@ class CaptureFab extends StatelessWidget {
         ),
         child: Icon(Icons.add_a_photo_outlined,
             color: Press.paper, size: 26),
+      ),
       ),
     );
   }
