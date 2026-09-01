@@ -204,6 +204,36 @@ Wording rule: **Backup** is *yours alone* (appdata, invisible in Drive);
 folder and is shared like any folder. Never present sharing as "backup to
 a shared place" — the trust models differ and the copy must not blur them.
 
+## Owner review: "proposed edits" (Austin, 2026-09-01)
+
+The ask: contributor changes surface in the owner's app as proposals, so
+the lead steward always has final say. The oplog gives us two honest ways
+to deliver that, and they differ in what *other* contributors see:
+
+**Review-after (ships first).** Everyone's ops apply everywhere
+immediately; the owner gets a **review feed** — every contributor op,
+newest first, with one-tap **revert** (which emits a countermanding op that
+wins by HLC). Final say is real: the owner can undo anything, with
+attribution and history. Consistency is trivial because there is only ever
+one applied state. This is the family-ranch default.
+
+**Review-before (the gate, layered on later).** Contributor ops are
+quarantined: devices apply owner ops always, their *own* ops immediately
+(offline-first demands optimism about yourself), and other contributors'
+ops **only once an owner approval op lists them**. Rejection emits a
+rejection op; the author's device rolls its optimistic change back and
+tells them why. This is real machinery — approval ops, a pending state,
+divergence-until-approved — and it is what "proposed edit" strictly means.
+
+**Design decision: a per-property switch, defaulting to review-after.**
+"Edits apply right away, and I can undo anyone's" covers the trusted-family
+case with a tenth of the moving parts; "edits wait for my OK" is the
+contractor/volunteer case and justifies the extra state machine when a real
+property needs it. Both modes are the same log format — the gate only
+changes *when* an op is applied, so shipping review-after first forecloses
+nothing. The desktop shell's Review workspace is the natural home for the
+owner's feed either way.
+
 ## What deliberately does not sync
 
 Prefs, API keys, the key cache, skin choice, map downloads, and
