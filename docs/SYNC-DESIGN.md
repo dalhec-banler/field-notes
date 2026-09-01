@@ -185,6 +185,25 @@ not", which is honest for that trust model.
 - Per-member wrapped keys (no shared passphrase) is the v2 upgrade path;
   `members.json` reserves the slot.
 
+## UI: the two-folder truth, said plainly (Austin, 2026-09-01)
+
+The appdata/shared split must be visible in the UI, not discovered.
+Settings consolidates into one **Data** section (this also settles audit
+U4's "backup lives in three homes"):
+
+```
+DATA
+  Backup            private · encrypted · only this account can see it
+    → this phone · Google Drive (hidden app folder) · a computer (LAN)
+  Shared property   a Drive folder you share · everyone in it syncs
+    → share this property… / join a shared property…
+```
+
+Wording rule: **Backup** is *yours alone* (appdata, invisible in Drive);
+**Sharing** is *a normal folder in your Drive* that shows up like any
+folder and is shared like any folder. Never present sharing as "backup to
+a shared place" — the trust models differ and the copy must not blur them.
+
 ## What deliberately does not sync
 
 Prefs, API keys, the key cache, skin choice, map downloads, and
