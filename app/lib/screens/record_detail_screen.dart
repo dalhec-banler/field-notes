@@ -22,10 +22,22 @@ import 'species_detail_sheet.dart';
 /// keyed by the actual schema field names — the app and the schema stay
 /// honest with each other.
 class RecordDetailScreen extends StatefulWidget {
-  RecordDetailScreen({super.key, required this.db, required this.obsId});
+  RecordDetailScreen({
+    super.key,
+    required this.db,
+    required this.obsId,
+    this.embedded = false,
+  });
 
   final FieldNotesDb db;
   final String obsId;
+
+  /// Living inside the desk's pane (D-024): no back chip, and the photo
+  /// header fits the photo rather than cropping it to a phone plate.
+  final bool embedded;
+
+  static bool get isDesk =>
+      Platform.isMacOS || Platform.isLinux || Platform.isWindows;
 
   @override
   State<RecordDetailScreen> createState() => _RecordDetailScreenState();
@@ -200,6 +212,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       db: widget.db,
       obs: obs,
       taxon: _taxon,
+      // The pin moves on a map, and the desk has none yet.
+      allowMovePin: !RecordDetailScreen.isDesk,
     );
     if (!mounted) return;
     if (outcome == EditOutcome.movePin) {
@@ -300,17 +314,29 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           // 1. Photo header — full plate with a photo, a slim bar without
           // one (a voice note or a jotted line shouldn't cost a third of
           // the screen in blank paper).
+          // On a wide pane the plate is taller and the photo is shown whole
+          // on ink, not cropped to a phone's strip.
           SizedBox(
             height:
-                (_photos.isEmpty ? 64 : 238) +
+                (_photos.isEmpty
+                    ? 64
+                    : widget.embedded
+                    ? (MediaQuery.sizeOf(context).height * 0.42).clamp(
+                        260.0,
+                        520.0,
+                      )
+                    : 238) +
                 MediaQuery.of(context).padding.top,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 _photos.isNotEmpty
-                    ? Image.file(
-                        File(_photos[_photoIndex].localPath!),
-                        fit: BoxFit.cover,
+                    ? Container(
+                        color: widget.embedded ? Press.ink : null,
+                        child: Image.file(
+                          File(_photos[_photoIndex].localPath!),
+                          fit: widget.embedded ? BoxFit.contain : BoxFit.cover,
+                        ),
                       )
                     : Container(color: Press.paper),
                 if (_photos.isNotEmpty)
@@ -327,40 +353,41 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       ),
                     ),
                   ),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 8,
-                  left: 8,
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: _photos.isEmpty
-                            ? Press.paper
-                            : Color(0x991B1813),
-                        border: Border.all(
+                if (!widget.embedded)
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 8,
+                    left: 8,
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
                           color: _photos.isEmpty
-                              ? Press.ink
-                              : Press.paperRaised,
-                          width: 1.5,
+                              ? Press.paper
+                              : Color(0x991B1813),
+                          border: Border.all(
+                            color: _photos.isEmpty
+                                ? Press.ink
+                                : Press.paperRaised,
+                            width: 1.5,
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        '‹',
-                        style: TextStyle(
-                          fontFamily: Type.slab,
-                          fontSize: 26,
-                          height: 1,
-                          color: _photos.isEmpty
-                              ? Press.ink
-                              : Press.paperRaised,
+                        child: Text(
+                          '‹',
+                          style: TextStyle(
+                            fontFamily: Type.slab,
+                            fontSize: 26,
+                            height: 1,
+                            color: _photos.isEmpty
+                                ? Press.ink
+                                : Press.paperRaised,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
                 // Bottom-left ink plate — a caption for the frame.
                 if (_photos.isNotEmpty)
                   Positioned(

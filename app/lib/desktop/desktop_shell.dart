@@ -14,6 +14,7 @@ import '../theme/tokens.dart';
 import '../widgets/press.dart';
 import '../backup/restore.dart';
 import '../screens/drive_backup_screen.dart';
+import '../screens/record_detail_screen.dart';
 import 'drive_watch.dart';
 import 'export_workspace.dart';
 import 'settings_workspace.dart';
@@ -646,6 +647,9 @@ class _QueueToggle extends StatelessWidget {
 
 /// The desk's record view: the facts, and the two things a desk is for
 /// (D-024) — editing the record and ruling on a contributor's edit.
+/// The desk's record view IS the phone's record screen (D-024: same
+/// capabilities, minus the mobile affordances), with the steward's ruling
+/// strip above it — approve or remove a contributor's edit.
 class _Inspector extends StatefulWidget {
   _Inspector({required this.db, required this.obsId, this.onChanged});
   final FieldNotesDb db;
@@ -656,79 +660,31 @@ class _Inspector extends StatefulWidget {
   State<_Inspector> createState() => _InspectorState();
 }
 
-typedef _InspectorData = (Observation, TaxaData?, Zone?, String?, ReviewItem?);
-
 class _InspectorState extends State<_Inspector> {
-  late Future<_InspectorData> _future = _load();
   late final _review = ReviewService(widget.db);
+  ReviewItem? _item;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadItem();
+  }
 
   @override
   void didUpdateWidget(covariant _Inspector old) {
     super.didUpdateWidget(old);
-    if (old.obsId != widget.obsId) _reload();
+    if (old.obsId != widget.obsId) _loadItem();
   }
 
-  void _reload() {
-    final next = _load();
-    setState(() => _future = next);
-    widget.onChanged?.call();
-  }
-
-  Future<_InspectorData> _load() async {
-    final db = widget.db;
-    final obsId = widget.obsId;
-    final obs = await (db.select(
-      db.observations,
-    )..where((o) => o.id.equals(obsId))).getSingle();
-    TaxaData? taxon;
-    if (obs.taxonId != null) {
-      taxon = await (db.select(
-        db.taxa,
-      )..where((t) => t.id.equals(obs.taxonId!))).getSingleOrNull();
-    }
-    Zone? zone;
-    if (obs.zoneId != null) {
-      zone = await (db.select(
-        db.zones,
-      )..where((z) => z.id.equals(obs.zoneId!))).getSingleOrNull();
-    }
-    String? photo;
-    final link =
-        await (db.select(db.mediaLinks)
-              ..where(
-                (l) =>
-                    l.entityType.equals('observation') &
-                    l.entityId.equals(obsId),
-              )
-              ..limit(1))
-            .getSingleOrNull();
-    if (link != null) {
-      final m = await (db.select(
-        db.media,
-      )..where((x) => x.id.equals(link.mediaId))).getSingleOrNull();
-      if (m?.localPath != null && File(m!.localPath!).existsSync()) {
-        photo = m.localPath;
-      }
-    }
-    final item = await _review.forEntity('observation', obsId);
-    return (obs, taxon, zone, photo, item);
-  }
-
-  Future<void> _edit(Observation obs, TaxaData? taxon) async {
-    // No map on the desk yet: the pin moves on the phone.
-    final outcome = await showEditRecordSheet(
-      context,
-      db: widget.db,
-      obs: obs,
-      taxon: taxon,
-      allowMovePin: false,
-    );
-    if (outcome == EditOutcome.saved) _reload();
+  Future<void> _loadItem() async {
+    final item = await _review.forEntity('observation', widget.obsId);
+    if (mounted) setState(() => _item = item);
   }
 
   Future<void> _approve(ReviewItem item) async {
     await _review.approve(item.id, by: 'owner');
-    _reload();
+    await _loadItem();
+    widget.onChanged?.call();
   }
 
   Future<void> _remove(ReviewItem item) async {
@@ -755,128 +711,74 @@ class _InspectorState extends State<_Inspector> {
     );
     if (sure != true) return;
     await _review.remove(item.id, by: 'owner');
-    _reload();
+    await _loadItem();
+    widget.onChanged?.call();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_InspectorData>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Center(child: CircularProgressIndicator());
-        }
-        final (obs, taxon, zone, photo, item) = snapshot.data!;
-        final pending = item?.state == 'pending';
-        return ListView(
-          padding: EdgeInsets.all(16),
-          children: [
-            Container(
-              height: 216,
-              decoration: BoxDecoration(
-                color: Press.photoPlaceholder,
-                border: Border.all(color: Press.borderInk, width: 1.5),
-                image: photo != null
-                    ? DecorationImage(
-                        image: FileImage(File(photo)),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
+    final item = _item;
+    final pending = item?.state == 'pending';
+    return Column(
+      children: [
+        if (item != null)
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: pending ? Press.ochreLight : Press.paperEdge,
+              border: Border(
+                bottom: BorderSide(color: Press.borderInk, width: 1.5),
               ),
             ),
-            SizedBox(height: 12),
-            Row(
+            child: Row(
               children: [
-                Expanded(child: Kicker(obs.observationType)),
-                if (item != null)
-                  StatusPill(
-                    pending
-                        ? 'PENDING · ${item.author}'
-                        : item.state.toUpperCase(),
-                    color: pending ? Press.ochre : Press.inkSoft,
-                    filled: pending,
-                  ),
-              ],
-            ),
-            SizedBox(height: 6),
-            taxon != null
-                ? TaxonName(taxon.scientificName, size: 26)
-                : Text(
-                    obs.observationType.toUpperCase(),
-                    style: TextStyle(
-                      fontFamily: Type.slab,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                    ),
-                  ),
-            SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: Press.paperRaised,
-                border: Border.all(color: Press.borderInk, width: 1.5),
-              ),
-              child: Column(
-                children: [
-                  FactRow(
-                    'Observed',
-                    obs.observedAt.replaceFirst('T', ' ').substring(0, 16),
-                  ),
-                  FactRow(
-                    'Location',
-                    '${obs.lat.toStringAsFixed(5)}, ${obs.lng.toStringAsFixed(5)}',
-                  ),
-                  FactRow('Zone', zone?.name ?? '—'),
-                  FactRow(
-                    'Sure?',
-                    kConfidenceLabels[obs.taxonConfidence] ?? '—',
-                  ),
-                  FactRow('Notes', obs.notes ?? '—', last: true),
-                ],
-              ),
-            ),
-            SizedBox(height: 14),
-            Row(
-              children: [
-                SizedBox(
-                  height: 44,
-                  child: FilledButton.icon(
-                    icon: Icon(Icons.edit_outlined, size: 18),
-                    label: Text('EDIT'),
-                    onPressed: () => _edit(obs, taxon),
-                  ),
+                StatusPill(
+                  pending
+                      ? 'PENDING · ${item.author}'
+                      : '${item.state.toUpperCase()} · ${item.author}',
+                  color: pending ? Press.ochre : Press.inkSoft,
+                  filled: pending,
                 ),
-                if (item != null) ...[
+                Spacer(),
+                if (pending)
+                  SizedBox(
+                    height: 36,
+                    child: FilledButton(
+                      onPressed: () => _approve(item),
+                      child: Text('APPROVE'),
+                    ),
+                  ),
+                if (item.state != 'removed') ...[
                   SizedBox(width: 8),
-                  if (pending)
-                    SizedBox(
-                      height: 44,
-                      child: OutlinedButton(
-                        onPressed: () => _approve(item),
-                        child: Text('APPROVE'),
-                      ),
+                  SizedBox(
+                    height: 36,
+                    child: OutlinedButton(
+                      onPressed: () => _remove(item),
+                      child: Text('REMOVE'),
                     ),
-                  if (item.state != 'removed') ...[
-                    SizedBox(width: 8),
-                    SizedBox(
-                      height: 44,
-                      child: OutlinedButton(
-                        onPressed: () => _remove(item),
-                        child: Text('REMOVE'),
-                      ),
-                    ),
-                  ],
+                  ),
                 ],
               ],
             ),
-            SizedBox(height: 10),
-            MonoLabel(
-              'Edits made here stay on this computer until sync arrives (M4).',
-              size: 8.5,
-              opacity: 0.6,
-            ),
-          ],
-        );
-      },
+          ),
+        Expanded(
+          child: RecordDetailScreen(
+            key: ValueKey(widget.obsId),
+            db: widget.db,
+            obsId: widget.obsId,
+            embedded: true,
+          ),
+        ),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          alignment: Alignment.centerLeft,
+          child: MonoLabel(
+            'Edits made here stay on this computer until sync arrives (M4).',
+            size: 8.5,
+            opacity: 0.6,
+          ),
+        ),
+      ],
     );
   }
 }
