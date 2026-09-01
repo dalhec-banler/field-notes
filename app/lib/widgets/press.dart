@@ -32,7 +32,11 @@ class Diamond extends StatelessWidget {
         ),
       ),
     );
-    final sized = SizedBox(width: size, height: size, child: Center(child: square));
+    final sized = SizedBox(
+      width: size,
+      height: size,
+      child: Center(child: square),
+    );
     return blink ? _Blink(child: sized) : sized;
   }
 }
@@ -47,8 +51,9 @@ class _Blink extends StatefulWidget {
 
 class _BlinkState extends State<_Blink> with SingleTickerProviderStateMixin {
   late final _controller = AnimationController(
-      vsync: this, duration: Duration(milliseconds: 2000))
-    ..repeat(reverse: true);
+    vsync: this,
+    duration: Duration(milliseconds: 2000),
+  )..repeat(reverse: true);
 
   @override
   void dispose() {
@@ -58,11 +63,12 @@ class _BlinkState extends State<_Blink> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) => FadeTransition(
-        opacity:
-            Tween(begin: 0.35, end: 1.0).animate(CurvedAnimation(
-                parent: _controller, curve: Curves.easeInOut)),
-        child: widget.child,
-      );
+    opacity: Tween(
+      begin: 0.35,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
+    child: widget.child,
+  );
 }
 
 /// Kicker: 14×2 px oxblood rule + Mono 9 uppercase label.
@@ -109,12 +115,14 @@ class ScreenHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(
-          Metrics.gutter, 10, Metrics.gutter, 10),
+      padding: EdgeInsets.fromLTRB(Metrics.gutter, 10, Metrics.gutter, 10),
       decoration: BoxDecoration(
         border: Border(
-            bottom:
-                BorderSide(color: Press.borderInk, width: Metrics.borderStructural)),
+          bottom: BorderSide(
+            color: Press.borderInk,
+            width: Metrics.borderStructural,
+          ),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -171,8 +179,10 @@ class InkCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: color ?? Press.paperRaised,
-        border:
-            Border.all(color: borderColor ?? Press.borderInk, width: Metrics.borderCard),
+        border: Border.all(
+          color: borderColor ?? Press.borderInk,
+          width: Metrics.borderCard,
+        ),
         boxShadow: shadow ? Metrics.shadowCard : null,
       ),
       child: child,
@@ -253,28 +263,30 @@ class BigNumber extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text.rich(
-      TextSpan(children: [
-        TextSpan(
-          text: value,
-          style: TextStyle(
-            fontFamily: Type.slab,
-            fontWeight: FontWeight.w900,
-            fontSize: size,
-            height: 1,
-            color: color ?? Press.ink,
-          ),
-        ),
-        if (unit != null)
+      TextSpan(
+        children: [
           TextSpan(
-            text: ' ${unit!.toUpperCase()}',
+            text: value,
             style: TextStyle(
-              fontFamily: Type.mono,
-              fontSize: size * 0.4,
-              letterSpacing: 1.2,
-              color: (color ?? Press.ink).withValues(alpha: 0.7),
+              fontFamily: Type.slab,
+              fontWeight: FontWeight.w900,
+              fontSize: size,
+              height: 1,
+              color: color ?? Press.ink,
             ),
           ),
-      ]),
+          if (unit != null)
+            TextSpan(
+              text: ' ${unit!.toUpperCase()}',
+              style: TextStyle(
+                fontFamily: Type.mono,
+                fontSize: size * 0.4,
+                letterSpacing: 1.2,
+                color: (color ?? Press.ink).withValues(alpha: 0.7),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -282,8 +294,12 @@ class BigNumber extends StatelessWidget {
 /// Status pill: 999 px radius, 1 px border, Mono uppercase. `filled` is
 /// reserved for critical states readable at arm's length.
 class StatusPill extends StatelessWidget {
-  const StatusPill(this.text,
-      {super.key, required this.color, this.filled = false});
+  const StatusPill(
+    this.text, {
+    super.key,
+    required this.color,
+    this.filled = false,
+  });
   final String text;
   final Color color;
   final bool filled;
@@ -365,8 +381,9 @@ class StatCells extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration:
-          BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
+      decoration: BoxDecoration(
+        border: Border.all(color: Press.borderInk, width: 1.5),
+      ),
       child: IntrinsicHeight(
         child: Row(
           children: [
@@ -375,8 +392,10 @@ class StatCells extends StatelessWidget {
               Expanded(
                 child: Container(
                   color: Press.paperRaised,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -397,8 +416,13 @@ class StatCells extends StatelessWidget {
 
 /// Key/value fact row: schema field names as keys, Mono values.
 class FactRow extends StatelessWidget {
-  const FactRow(this.fieldName, this.value,
-      {super.key, this.valueWidget, this.last = false});
+  const FactRow(
+    this.fieldName,
+    this.value, {
+    super.key,
+    this.valueWidget,
+    this.last = false,
+  });
   final String fieldName;
   final String value;
   final Widget? valueWidget;
@@ -422,7 +446,8 @@ class FactRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: valueWidget ??
+            child:
+                valueWidget ??
                 Text(
                   value,
                   style: TextStyle(
@@ -452,21 +477,24 @@ class CaptureFab extends StatelessWidget {
       label: 'New capture',
       button: true,
       child: GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: Metrics.fabSize,
-        height: Metrics.fabSize,
-        decoration: BoxDecoration(
-          color: Press.oxblood,
-          shape: BoxShape.circle,
-          border: Border.all(color: Press.paperEdge, width: 3),
-          boxShadow: const [
-            BoxShadow(color: Color(0x551B1813), offset: Offset(0, 3), blurRadius: 8),
-          ],
+        onTap: onPressed,
+        child: Container(
+          width: Metrics.fabSize,
+          height: Metrics.fabSize,
+          decoration: BoxDecoration(
+            color: Press.oxblood,
+            shape: BoxShape.circle,
+            border: Border.all(color: Press.paperEdge, width: 3),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x551B1813),
+                offset: Offset(0, 3),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+          child: Icon(Icons.add_a_photo_outlined, color: Press.paper, size: 26),
         ),
-        child: Icon(Icons.add_a_photo_outlined,
-            color: Press.paper, size: 26),
-      ),
       ),
     );
   }

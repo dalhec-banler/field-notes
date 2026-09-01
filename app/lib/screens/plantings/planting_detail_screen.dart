@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../db/database.dart';
 import '../../services/survival.dart';
 import '../../services/tag_codes.dart';
+import '../../widgets/plant_checkin_dialog.dart';
+import 'plant_dossier_screen.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/press.dart';
 
@@ -267,117 +269,12 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
   }
 
   Future<void> _checkinIndividual(Plant plant) async {
-    var status = plant.currentStatus;
-    final heightController = TextEditingController();
-    String? vigor;
-    String? browse;
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialog) => AlertDialog(
-          title: Text('Check in ${plant.tagCode ?? 'plant'}'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: status,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                  items: const [
-                    DropdownMenuItem(value: 'alive', child: Text('Alive')),
-                    DropdownMenuItem(value: 'dead', child: Text('Dead')),
-                    DropdownMenuItem(value: 'missing', child: Text('Missing')),
-                    DropdownMenuItem(value: 'dormant', child: Text('Dormant')),
-                    DropdownMenuItem(value: 'browsed', child: Text('Browsed')),
-                    DropdownMenuItem(
-                      value: 'declining',
-                      child: Text('Declining'),
-                    ),
-                    DropdownMenuItem(value: 'removed', child: Text('Removed')),
-                  ],
-                  onChanged: (v) => setDialog(() => status = v ?? status),
-                ),
-                TextField(
-                  controller: heightController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Height (cm)'),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: vigor,
-                  decoration: const InputDecoration(labelText: 'Vigor'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'excellent',
-                      child: Text('Excellent'),
-                    ),
-                    DropdownMenuItem(value: 'good', child: Text('Good')),
-                    DropdownMenuItem(value: 'fair', child: Text('Fair')),
-                    DropdownMenuItem(value: 'poor', child: Text('Poor')),
-                    DropdownMenuItem(value: 'dead', child: Text('Dead')),
-                  ],
-                  onChanged: (v) => setDialog(() => vigor = v),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: browse,
-                  decoration: const InputDecoration(
-                    labelText: 'Browse pressure',
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'none', child: Text('None')),
-                    DropdownMenuItem(value: 'light', child: Text('Light')),
-                    DropdownMenuItem(
-                      value: 'moderate',
-                      child: Text('Moderate'),
-                    ),
-                    DropdownMenuItem(value: 'severe', child: Text('Severe')),
-                  ],
-                  onChanged: (v) => setDialog(() => browse = v),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
+    final wrote = await showPlantCheckinDialog(
+      context,
+      db: widget.db,
+      plant: plant,
     );
-    if (saved != true) return;
-    final now = nowUtcIso();
-    await widget.db
-        .into(widget.db.plantCheckins)
-        .insert(
-          PlantCheckinsCompanion.insert(
-            id: newId(),
-            propertyId: plant.propertyId,
-            plantId: Value(plant.id),
-            checkedAt: now,
-            status: status,
-            heightCm: Value(double.tryParse(heightController.text.trim())),
-            vigor: Value(vigor),
-            browsePressure: Value(browse),
-            createdBy: 'local',
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-    await (widget.db.update(
-      widget.db.plants,
-    )..where((p) => p.id.equals(plant.id))).write(
-      PlantsCompanion(
-        currentStatus: Value(status),
-        lastCheckedAt: Value(now),
-        updatedAt: Value(now),
-      ),
-    );
-    _load();
+    if (wrote) _load();
   }
 
   @override
@@ -507,7 +404,18 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                 children: [
                   for (var i = 0; i < _individuals.length; i++)
                     InkWell(
-                      onTap: () => _checkinIndividual(_individuals[i]),
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PlantDossierScreen(
+                              db: widget.db,
+                              plantId: _individuals[i].id,
+                            ),
+                          ),
+                        );
+                        _load();
+                      },
+                      onLongPress: () => _checkinIndividual(_individuals[i]),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 11,

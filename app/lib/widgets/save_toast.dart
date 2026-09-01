@@ -51,7 +51,8 @@ class SaveToast {
           } catch (e) {
             // The record is still there; say so rather than fail silently.
             messenger?.showSnackBar(
-                SnackBar(content: Text('Undo failed — record kept. $e')));
+              SnackBar(content: Text('Undo failed — record kept. $e')),
+            );
           }
         },
       ),
@@ -104,9 +105,10 @@ class _ToastBody extends StatelessWidget {
             color: Press.ink,
             boxShadow: const [
               BoxShadow(
-                  color: Color(0x40000000),
-                  blurRadius: 12,
-                  offset: Offset(0, 4)),
+                color: Color(0x40000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
             ],
           ),
           child: Row(
@@ -116,24 +118,40 @@ class _ToastBody extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    MonoLabel(title,
-                        size: 10, spacing: 1.2, color: Press.paperRaised),
+                    MonoLabel(
+                      title,
+                      size: 10,
+                      spacing: 1.2,
+                      color: Press.paperRaised,
+                    ),
                     const SizedBox(height: 4),
-                    MonoLabel(detail,
-                        size: 9.5, spacing: 1.0, color: Press.sageLight),
+                    MonoLabel(
+                      detail,
+                      size: 9.5,
+                      spacing: 1.0,
+                      color: Press.sageLight,
+                    ),
                   ],
                 ),
               ),
               if (actionLabel != null && onAction != null)
                 TextButton(
                   onPressed: onAction,
-                  child: MonoLabel(actionLabel!,
-                      size: 10.5, spacing: 1.6, color: Press.sageLight),
+                  child: MonoLabel(
+                    actionLabel!,
+                    size: 10.5,
+                    spacing: 1.6,
+                    color: Press.sageLight,
+                  ),
                 ),
               TextButton(
                 onPressed: onUndo,
-                child: MonoLabel('UNDO',
-                    size: 10.5, spacing: 1.6, color: Press.gold),
+                child: MonoLabel(
+                  'UNDO',
+                  size: 10.5,
+                  spacing: 1.6,
+                  color: Press.gold,
+                ),
               ),
             ],
           ),

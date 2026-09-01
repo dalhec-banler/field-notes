@@ -31,8 +31,11 @@ class SitePresence {
   final bool hasBoundary;
 
   /// Unknown position or placeless property: don't claim either way.
-  static const unknown =
-      SitePresence(onSite: false, distanceM: null, hasBoundary: false);
+  static const unknown = SitePresence(
+    onSite: false,
+    distanceM: null,
+    hasBoundary: false,
+  );
 
   /// A property with no boundary is "here" within this radius of its
   /// centroid — a generous stand-in for a fence line we don't have.
@@ -69,7 +72,10 @@ List<double>? propertyBounds(Property property) {
     void walk(Object? node) {
       if (node is List) {
         if (node.length >= 2 && node[0] is num && node[1] is num) {
-          coords.add([(node[0] as num).toDouble(), (node[1] as num).toDouble()]);
+          coords.add([
+            (node[0] as num).toDouble(),
+            (node[1] as num).toDouble(),
+          ]);
         } else {
           for (final child in node) {
             walk(child);
@@ -101,21 +107,26 @@ SitePresence presenceFor(Property property, double? lat, double? lng) {
   if (lat == null || lng == null) return SitePresence.unknown;
   final centre = propertyCentre(property);
   final boundary = property.boundaryGeojson;
-  final distance =
-      centre == null ? null : distanceM([lng, lat], centre);
+  final distance = centre == null ? null : distanceM([lng, lat], centre);
 
   if (boundary != null) {
     try {
       final geometry = turf.GeometryObject.deserialize(
-          jsonDecode(boundary) as Map<String, dynamic>);
+        jsonDecode(boundary) as Map<String, dynamic>,
+      );
       final feature = turf.Feature(geometry: _asPolygon(geometry));
-      final inside =
-          turf.booleanPointInPolygon(turf.Position(lng, lat), feature);
+      final inside = turf.booleanPointInPolygon(
+        turf.Position(lng, lat),
+        feature,
+      );
       // Just outside a fence line is still "here" — GPS is ±5 m and people
       // walk the road side of a boundary.
       final near = distance != null && distance <= 250;
       return SitePresence(
-          onSite: inside || near, distanceM: distance, hasBoundary: true);
+        onSite: inside || near,
+        distanceM: distance,
+        hasBoundary: true,
+      );
     } catch (_) {
       // Unparseable boundary: fall through to the radius test.
     }

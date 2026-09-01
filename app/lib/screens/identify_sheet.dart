@@ -8,6 +8,7 @@ import '../id/identification_service.dart';
 import '../id/llm_client.dart';
 import '../id/plantnet_client.dart';
 import '../theme/tokens.dart';
+import '../widgets/nativity_chip.dart';
 import '../widgets/press.dart';
 import 'species_id_settings_screen.dart';
 
@@ -71,6 +72,7 @@ class _IdentifySheet extends StatefulWidget {
 class _IdentifySheetState extends State<_IdentifySheet> {
   late final _service = IdentificationService(widget.db);
   List<IdCandidate> _candidates = [];
+  Map<String, String> _nativity = const {};
   String? _status;
   String? _error;
   bool _running = false;
@@ -129,7 +131,24 @@ class _IdentifySheetState extends State<_IdentifySheet> {
       );
       if (!mounted) return;
       widget.onCandidates?.call(results);
+      // Nativity for candidates already in the library — the chip that says
+      // whether you're about to celebrate or pull it.
+      final ids = [
+        for (final c in results)
+          if (c.taxonId != null) c.taxonId!,
+      ];
+      final nat = <String, String>{};
+      if (ids.isNotEmpty) {
+        final taxa = await (widget.db.select(
+          widget.db.taxa,
+        )..where((t) => t.id.isIn(ids))).get();
+        for (final t in taxa) {
+          if (t.nativity != null) nat[t.id] = t.nativity!;
+        }
+      }
+      if (!mounted) return;
       setState(() {
+        _nativity = nat;
         _candidates = results;
         _status = results.isEmpty ? 'No confident match.' : null;
       });
@@ -372,6 +391,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
     final pct = c.score == null
         ? null
         : '${(c.score! * 100).clamp(0, 100).toStringAsFixed(0)}%';
+    final nativity = c.taxonId == null ? null : _nativity[c.taxonId];
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
@@ -403,6 +423,11 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                             ),
                           ),
                         TaxonName(c.name, size: 14),
+                        if (nativity != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 5),
+                            child: NativityChip(nativity),
+                          ),
                       ],
                     ),
                   ),

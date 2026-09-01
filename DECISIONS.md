@@ -332,3 +332,30 @@ map plate is therefore our own renderer — imagery tiles composited with
 the property's GeoJSON on a Canvas — which doubles as the desk's on-screen
 map. Every export that carries coordinates says so at the point of export
 (hard rule 3: nothing leaves without explicit action).
+
+### D-025 · Pairing is a relationship; backup is a destination
+Austin's call (2026-09-01), landed piecewise through the day and recorded
+here as one decision.
+
+**Pairing** links a phone and a computer as two devices of one record —
+one-time, by QR. What it means today: the desk receives the record (LAN
+push, Drive restore, or a backup file) and reopens on the copy; the
+identification keys ride along inside the sealed body of an encrypted
+backup, so one passphrase gives every paired device the same Pl@ntNet and
+AI account; the desk watches the shared Drive folder and offers BRING IT
+OVER when the phone's generation is newer. Until M4 sync, the desk is a
+ONE-WAY MIRROR: it never writes to Drive (a desk backup overwrote the
+phone's lineage once — 2026-09-01, generation 4 — and that class of
+accident is now structurally impossible), and desk edits stay on the desk.
+
+**Backup to a computer** stays what it was: a destination, not a
+relationship. Any computer on the network can receive encrypted files it
+cannot open; no pairing, no keys, nothing readable.
+
+**Automatic backups**: the phone (the field device — the only writer)
+backs up daily to its local store and, when connected and on Wi-Fi, to
+Drive. The desk auto-backs-up locally only.
+
+Deferred to M4b: the desk writing to the shared folder (as oplog, not
+backup generations), a Devices section in Settings distinct from Backup,
+and key handoff at pairing time over the LAN channel.

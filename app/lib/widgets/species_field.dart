@@ -24,7 +24,8 @@ class SpeciesField extends StatefulWidget {
 
 class _SpeciesFieldState extends State<SpeciesField> {
   late final TextEditingController _controller = TextEditingController(
-      text: widget.initial?.commonName ?? widget.initial?.scientificName ?? '');
+    text: widget.initial?.commonName ?? widget.initial?.scientificName ?? '',
+  );
   List<TaxaData> _suggestions = const [];
 
   @override
@@ -54,11 +55,12 @@ class _SpeciesFieldState extends State<SpeciesField> {
 
   Future<void> _showFavourites() async {
     final mine = ++_seq;
-    final rows = await (widget.db.select(widget.db.taxa)
-          ..where((t) => t.deletedAt.isNull() & t.isFavorite.equals(1))
-          ..orderBy([(t) => OrderingTerm.asc(t.commonName)])
-          ..limit(8))
-        .get();
+    final rows =
+        await (widget.db.select(widget.db.taxa)
+              ..where((t) => t.deletedAt.isNull() & t.isFavorite.equals(1))
+              ..orderBy([(t) => OrderingTerm.asc(t.commonName)])
+              ..limit(8))
+            .get();
     if (mounted && mine == _seq && _controller.text.trim().isEmpty) {
       setState(() => _suggestions = rows);
     }
@@ -72,18 +74,21 @@ class _SpeciesFieldState extends State<SpeciesField> {
     }
     final mine = ++_seq;
     final q = '%${query.trim()}%';
-    final rows = await (widget.db.select(widget.db.taxa)
-          ..where((t) =>
-              t.deletedAt.isNull() &
-              (t.commonName.like(q) |
-                  t.scientificName.like(q) |
-                  t.family.like(q)))
-          ..orderBy([
-            (t) => OrderingTerm.desc(t.isFavorite),
-            (t) => OrderingTerm.asc(t.scientificName),
-          ])
-          ..limit(10))
-        .get();
+    final rows =
+        await (widget.db.select(widget.db.taxa)
+              ..where(
+                (t) =>
+                    t.deletedAt.isNull() &
+                    (t.commonName.like(q) |
+                        t.scientificName.like(q) |
+                        t.family.like(q)),
+              )
+              ..orderBy([
+                (t) => OrderingTerm.desc(t.isFavorite),
+                (t) => OrderingTerm.asc(t.scientificName),
+              ])
+              ..limit(10))
+            .get();
     if (mounted && mine == _seq) setState(() => _suggestions = rows);
   }
 

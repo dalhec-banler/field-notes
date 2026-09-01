@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 /// Douglas-Peucker simplification for track polylines (spec §4.13, ~5 m
 /// tolerance). Points are (lng, lat) GeoJSON order.
-List<List<double>> simplifyTrack(List<List<double>> points,
-    {double toleranceM = 5}) {
+List<List<double>> simplifyTrack(
+  List<List<double>> points, {
+  double toleranceM = 5,
+}) {
   if (points.length <= 2) return points;
   final keep = List<bool>.filled(points.length, false);
   keep[0] = true;
@@ -11,12 +13,17 @@ List<List<double>> simplifyTrack(List<List<double>> points,
   _dp(points, 0, points.length - 1, toleranceM, keep);
   return [
     for (var i = 0; i < points.length; i++)
-      if (keep[i]) points[i]
+      if (keep[i]) points[i],
   ];
 }
 
-void _dp(List<List<double>> pts, int start, int end, double tolM,
-    List<bool> keep) {
+void _dp(
+  List<List<double>> pts,
+  int start,
+  int end,
+  double tolM,
+  List<bool> keep,
+) {
   if (end <= start + 1) return;
   var maxDist = 0.0;
   var maxIdx = start;
@@ -59,7 +66,8 @@ double distanceM(List<double> a, List<double> b) {
   final dLng = (b[0] - a[0]) * math.pi / 180;
   final la1 = a[1] * math.pi / 180;
   final la2 = b[1] * math.pi / 180;
-  final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+  final h =
+      math.sin(dLat / 2) * math.sin(dLat / 2) +
       math.cos(la1) * math.cos(la2) * math.sin(dLng / 2) * math.sin(dLng / 2);
   return 2 * r * math.asin(math.sqrt(h));
 }
@@ -79,7 +87,8 @@ double bearingDeg(List<double> a, List<double> b) {
   final la2 = b[1] * math.pi / 180;
   final dLng = (b[0] - a[0]) * math.pi / 180;
   final y = math.sin(dLng) * math.cos(la2);
-  final x = math.cos(la1) * math.sin(la2) -
+  final x =
+      math.cos(la1) * math.sin(la2) -
       math.sin(la1) * math.cos(la2) * math.cos(dLng);
   return (math.atan2(y, x) * 180 / math.pi + 360) % 360;
 }

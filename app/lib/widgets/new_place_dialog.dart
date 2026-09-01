@@ -15,7 +15,9 @@ const kTenureLabels = {
 /// the dialog — CREATE stays disabled until there is a name — and returns the
 /// inserted property, or null if cancelled.
 Future<Property?> showNewPlaceDialog(
-    BuildContext context, FieldNotesDb db) async {
+  BuildContext context,
+  FieldNotesDb db,
+) async {
   final nameController = TextEditingController();
   var tenure = 'owned';
   final created = await showDialog<bool>(
@@ -31,7 +33,9 @@ Future<Property?> showNewPlaceDialog(
               autofocus: true,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
-                  labelText: 'NAME', hintText: 'Home place, North pasture…'),
+                labelText: 'NAME',
+                hintText: 'Home place, North pasture…',
+              ),
               onChanged: (_) => setDialog(() {}),
             ),
             const SizedBox(height: 12),
@@ -48,13 +52,15 @@ Future<Property?> showNewPlaceDialog(
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('CANCEL')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
           FilledButton(
-              onPressed: nameController.text.trim().isEmpty
-                  ? null
-                  : () => Navigator.pop(context, true),
-              child: const Text('CREATE')),
+            onPressed: nameController.text.trim().isEmpty
+                ? null
+                : () => Navigator.pop(context, true),
+            child: const Text('CREATE'),
+          ),
         ],
       ),
     ),
@@ -64,7 +70,9 @@ Future<Property?> showNewPlaceDialog(
   if (created != true || name.isEmpty) return null;
   final now = nowUtcIso();
   final id = newId();
-  await db.into(db.properties).insert(
+  await db
+      .into(db.properties)
+      .insert(
         PropertiesCompanion.insert(
           id: id,
           name: name,
@@ -74,6 +82,5 @@ Future<Property?> showNewPlaceDialog(
           updatedAt: now,
         ),
       );
-  return (db.select(db.properties)..where((p) => p.id.equals(id)))
-      .getSingle();
+  return (db.select(db.properties)..where((p) => p.id.equals(id))).getSingle();
 }

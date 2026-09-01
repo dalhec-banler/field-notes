@@ -21,10 +21,11 @@ class ZoneAssigner {
     required double lat,
     required double lng,
   }) async {
-    final zones = await (db.select(db.zones)
-          ..where((z) => z.propertyId.equals(propertyId))
-          ..where((z) => z.deletedAt.isNull()))
-        .get();
+    final zones =
+        await (db.select(db.zones)
+              ..where((z) => z.propertyId.equals(propertyId))
+              ..where((z) => z.deletedAt.isNull()))
+            .get();
     if (zones.isEmpty) return null;
 
     final point = turf.Position(lng, lat);
@@ -83,18 +84,46 @@ Future<String?> assignZone(
   required double lat,
   required double lng,
 }) async {
-  final zoneId = await ZoneAssigner(db).zoneIdFor(
-    propertyId: propertyId,
-    lat: lat,
-    lng: lng,
-  );
+  final zoneId = await ZoneAssigner(db)
+      .zoneIdFor(propertyId: propertyId, lat: lat, lng: lng);
   if (zoneId != null) {
-    await (db.update(db.observations)
-          ..where((o) => o.id.equals(observationId)))
-        .write(ObservationsCompanion(
-      zoneId: Value(zoneId),
-      updatedAt: Value(nowUtcIso()),
-    ));
+    await (db.update(
+      db.observations,
+    )..where((o) => o.id.equals(observationId))).write(
+      ObservationsCompanion(
+        zoneId: Value(zoneId),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
   }
   return zoneId;
+}
+
+/// Re-derive zone_id for every located record on the property — the zones
+/// just moved (polygon editor), and the ledger must follow the new lines.
+Future<int> reassignAllZones(FieldNotesDb db, String propertyId) async {
+  final assigner = ZoneAssigner(db);
+  final rows =
+      await (db.select(db.observations)
+            ..where((o) => o.propertyId.equals(propertyId))
+            ..where((o) => o.deletedAt.isNull())
+            ..where(
+              (o) => o.gpsAccuracyM.equals(-1).not() | o.gpsAccuracyM.isNull(),
+            ))
+          .get();
+  var changed = 0;
+  final now = nowUtcIso();
+  for (final o in rows) {
+    final zoneId = await assigner.zoneIdFor(
+      propertyId: propertyId,
+      lat: o.lat,
+      lng: o.lng,
+    );
+    if (zoneId == o.zoneId) continue;
+    await (db.update(db.observations)..where((x) => x.id.equals(o.id))).write(
+      ObservationsCompanion(zoneId: Value(zoneId), updatedAt: Value(now)),
+    );
+    changed++;
+  }
+  return changed;
 }

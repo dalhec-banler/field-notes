@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart' show Position;
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -11,6 +12,7 @@ import '../services/app_prefs.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../screens/polygon_editor_screen.dart';
 import '../widgets/feature_sheet.dart';
 import '../widgets/records_here_sheet.dart';
 
@@ -135,6 +137,78 @@ class _MapTabState extends State<MapTab> {
       !_showTracks ||
       !_showFeatures ||
       !_showSatellite;
+
+  /// Draw and adjust the boundary and zones on the imagery — the polygon
+  /// editor (D-024 batch 1). Every save re-derives zone assignment.
+  Future<void> _editShapes() async {
+    final zones =
+        await (widget.db.select(widget.db.zones)
+              ..where((z) => z.propertyId.equals(widget.property.id))
+              ..where((z) => z.deletedAt.isNull())
+              ..orderBy([(z) => OrderingTerm.asc(z.name)]))
+            .get();
+    if (!mounted) return;
+    final choice = await showModalBottomSheet<Object>(
+      context: context,
+      backgroundColor: Press.paper,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.symmetric(vertical: 8),
+          children: [
+            ListTile(
+              leading: Icon(Icons.crop_square_outlined),
+              title: Text('Property boundary'),
+              subtitle: Text(
+                widget.property.boundaryGeojson == null
+                    ? 'Not drawn yet'
+                    : 'Adjust the outline',
+              ),
+              onTap: () => Navigator.pop(ctx, 'boundary'),
+            ),
+            for (final z in zones)
+              ListTile(
+                leading: Icon(Icons.hexagon_outlined),
+                title: Text(z.name),
+                subtitle: Text(
+                  z.areaAcres == null
+                      ? 'Zone'
+                      : '${z.areaAcres!.toStringAsFixed(1)} ac',
+                ),
+                onTap: () => Navigator.pop(ctx, z),
+              ),
+            ListTile(
+              leading: Icon(Icons.add),
+              title: Text('New zone'),
+              subtitle: Text('Tap three corners on the imagery to start'),
+              onTap: () => Navigator.pop(ctx, 'new'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => choice == 'boundary'
+            ? PolygonEditorScreen.boundary(
+                db: widget.db,
+                property: widget.property,
+              )
+            : choice == 'new'
+            ? PolygonEditorScreen.newZone(
+                db: widget.db,
+                property: widget.property,
+              )
+            : PolygonEditorScreen.zone(
+                db: widget.db,
+                property: widget.property,
+                zone: choice as Zone,
+              ),
+      ),
+    );
+    if (saved == true && mounted) setState(() {});
+  }
 
   Future<void> _applyLayers() async {
     final c = _controller;
@@ -635,6 +709,29 @@ class _MapTabState extends State<MapTab> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         _TrackToggle(propertyId: widget.property.id),
+                        const SizedBox(height: 7),
+                        GestureDetector(
+                          onTap: _editShapes,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Press.paper,
+                              border: Border.all(
+                                color: Press.borderInk,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: MonoLabel(
+                              '✎ Zones',
+                              size: 9.5,
+                              spacing: 1.2,
+                              color: Press.ink,
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 7),
                         GestureDetector(
                           onTap: () =>
