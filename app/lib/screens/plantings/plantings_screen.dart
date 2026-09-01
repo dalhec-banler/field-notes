@@ -10,11 +10,12 @@ import 'planting_detail_screen.dart';
 
 /// Plantings (spec §7.5): events with survival %, drill into cohorts.
 class PlantingsScreen extends StatelessWidget {
-  PlantingsScreen(
-      {super.key,
-      required this.db,
-      required this.property,
-      this.embedded = false});
+  PlantingsScreen({
+    super.key,
+    required this.db,
+    required this.property,
+    this.embedded = false,
+  });
 
   final FieldNotesDb db;
   final Property property;
@@ -38,8 +39,7 @@ class PlantingsScreen extends StatelessWidget {
         builder: (context, snapshot) {
           final events = snapshot.data ?? [];
           if (events.isEmpty) {
-            return Center(
-                child: Text('No plantings recorded yet.'));
+            return Center(child: Text('No plantings recorded yet.'));
           }
           return ListView.builder(
             itemCount: events.length,
@@ -79,11 +79,16 @@ class PlantingsScreen extends StatelessWidget {
           child: ListView(
             shrinkWrap: true,
             children: [
-              Text('New planting',
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'New planting',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               SizedBox(height: 12),
               SpeciesField(
-                  db: db, label: 'Species', onSelected: (t) => taxon = t),
+                db: db,
+                label: 'Species',
+                onSelected: (t) => taxon = t,
+              ),
               SizedBox(height: 12),
               TextField(
                 controller: countController,
@@ -92,7 +97,8 @@ class PlantingsScreen extends StatelessWidget {
                 decoration: InputDecoration(
                   labelText: 'Count planted',
                   border: OutlineInputBorder(),
-                  errorText: countController.text.trim().isNotEmpty &&
+                  errorText:
+                      countController.text.trim().isNotEmpty &&
                           parsedCount() == null
                       ? 'Enter how many went in the ground'
                       : null,
@@ -102,24 +108,34 @@ class PlantingsScreen extends StatelessWidget {
               DropdownButtonFormField<String>(
                 initialValue: stockSource,
                 decoration: InputDecoration(
-                    labelText: 'Stock source', border: OutlineInputBorder()),
+                  labelText: 'Stock source',
+                  border: OutlineInputBorder(),
+                ),
                 items: [
                   DropdownMenuItem(
-                      value: 'own_propagation',
-                      child: Text('Own propagation')),
+                    value: 'own_propagation',
+                    child: Text('Own propagation'),
+                  ),
                   DropdownMenuItem(
-                      value: 'purchased_container',
-                      child: Text('Purchased container')),
+                    value: 'purchased_container',
+                    child: Text('Purchased container'),
+                  ),
                   DropdownMenuItem(
-                      value: 'purchased_bareroot',
-                      child: Text('Purchased bareroot')),
+                    value: 'purchased_bareroot',
+                    child: Text('Purchased bareroot'),
+                  ),
                   DropdownMenuItem(
-                      value: 'direct_seed', child: Text('Direct seed')),
+                    value: 'direct_seed',
+                    child: Text('Direct seed'),
+                  ),
                   DropdownMenuItem(
-                      value: 'volunteer', child: Text('Volunteer')),
+                    value: 'volunteer',
+                    child: Text('Volunteer'),
+                  ),
                   DropdownMenuItem(
-                      value: 'transplant_onsite',
-                      child: Text('Transplant on-site')),
+                    value: 'transplant_onsite',
+                    child: Text('Transplant on-site'),
+                  ),
                 ],
                 onChanged: (v) => stockSource = v ?? stockSource,
               ),
@@ -127,17 +143,24 @@ class PlantingsScreen extends StatelessWidget {
               DropdownButtonFormField<String>(
                 initialValue: protection,
                 decoration: InputDecoration(
-                    labelText: 'Protection', border: OutlineInputBorder()),
+                  labelText: 'Protection',
+                  border: OutlineInputBorder(),
+                ),
                 items: [
                   DropdownMenuItem(value: 'none', child: Text('None')),
                   DropdownMenuItem(
-                      value: 'welded_wire_cage',
-                      child: Text('Welded wire cage')),
+                    value: 'welded_wire_cage',
+                    child: Text('Welded wire cage'),
+                  ),
                   DropdownMenuItem(
-                      value: 'tree_tube', child: Text('Tree tube')),
+                    value: 'tree_tube',
+                    child: Text('Tree tube'),
+                  ),
                   DropdownMenuItem(value: 'fencing', child: Text('Fencing')),
                   DropdownMenuItem(
-                      value: 'mulch_only', child: Text('Mulch only')),
+                    value: 'mulch_only',
+                    child: Text('Mulch only'),
+                  ),
                   DropdownMenuItem(value: 'other', child: Text('Other')),
                 ],
                 onChanged: (v) => protection = v ?? protection,
@@ -146,8 +169,10 @@ class PlantingsScreen extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.event),
-                title: Text('Planted on '
-                    '${plantedOn.toIso8601String().substring(0, 10)}'),
+                title: Text(
+                  'Planted on '
+                  '${plantedOn.toIso8601String().substring(0, 10)}',
+                ),
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
@@ -161,7 +186,9 @@ class PlantingsScreen extends StatelessWidget {
               TextField(
                 controller: notesController,
                 decoration: InputDecoration(
-                    labelText: 'Notes', border: OutlineInputBorder()),
+                  labelText: 'Notes',
+                  border: OutlineInputBorder(),
+                ),
               ),
               SizedBox(height: 16),
               SizedBox(
@@ -182,21 +209,27 @@ class PlantingsScreen extends StatelessWidget {
     final count = parsedCount();
     if (count == null) return; // unreachable: the button was disabled
     final now = nowUtcIso();
-    await db.into(db.plantingEvents).insert(PlantingEventsCompanion.insert(
-          id: newId(),
-          propertyId: property.id,
-          taxonId: Value(taxon?.id),
-          plantedOn: plantedOn.toIso8601String().substring(0, 10),
-          stockSource: stockSource,
-          countPlanted: count,
-          protection: Value(protection),
-          plantingNotes: Value(notesController.text.trim().isEmpty
-              ? null
-              : notesController.text.trim()),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.plantingEvents)
+        .insert(
+          PlantingEventsCompanion.insert(
+            id: newId(),
+            propertyId: property.id,
+            taxonId: Value(taxon?.id),
+            plantedOn: plantedOn.toIso8601String().substring(0, 10),
+            stockSource: stockSource,
+            countPlanted: count,
+            protection: Value(protection),
+            plantingNotes: Value(
+              notesController.text.trim().isEmpty
+                  ? null
+                  : notesController.text.trim(),
+            ),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
   }
 }
 
@@ -209,9 +242,9 @@ class _PlantingTile extends StatelessWidget {
   Future<(String, SurvivalResult?)> _load() async {
     var species = 'Unknown species';
     if (event.taxonId != null) {
-      final t = await (db.select(db.taxa)
-            ..where((x) => x.id.equals(event.taxonId!)))
-          .getSingleOrNull();
+      final t = await (db.select(
+        db.taxa,
+      )..where((x) => x.id.equals(event.taxonId!))).getSingleOrNull();
       species = t?.scientificName ?? t?.commonName ?? species;
     }
     return (species, await survivalFor(db, event));
@@ -223,8 +256,9 @@ class _PlantingTile extends StatelessWidget {
       future: _load(),
       builder: (context, snapshot) {
         final (species, survival) = snapshot.data ?? ('…', null);
-        final band =
-            survival == null ? Press.inkSoft : survivalBandColor(survival.rate);
+        final band = survival == null
+            ? Press.inkSoft
+            : survivalBandColor(survival.rate);
         return InkWell(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
@@ -233,9 +267,13 @@ class _PlantingTile extends StatelessWidget {
           ),
           child: Container(
             padding: EdgeInsets.symmetric(
-                horizontal: Metrics.gutter, vertical: 13),
+              horizontal: Metrics.gutter,
+              vertical: 13,
+            ),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Press.divider, width: 1)),
+              border: Border(
+                bottom: BorderSide(color: Press.divider, width: 1),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,24 +287,24 @@ class _PlantingTile extends StatelessWidget {
                     // is over the tagged set only, so it is labelled as such
                     // and never shown as a bare percent (audit M13).
                     survival == null
-                        ? MonoLabel('no check-ins',
-                            size: 9, opacity: 0.6)
+                        ? MonoLabel('no check-ins', size: 9, opacity: 0.6)
                         : survival.fromTags
-                            ? MonoLabel(
-                                '${survival.alive}/${survival.total} tagged',
-                                size: 9.5,
-                                color: band,
-                                weight: FontWeight.w600)
-                            : Text(
-                                '${(survival.rate * 100).toStringAsFixed(0)}%',
-                                style: TextStyle(
-                                  fontFamily: Type.slab,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 20,
-                                  height: 1,
-                                  color: band,
-                                ),
-                              ),
+                        ? MonoLabel(
+                            '${survival.alive}/${survival.total} tagged',
+                            size: 9.5,
+                            color: band,
+                            weight: FontWeight.w600,
+                          )
+                        : Text(
+                            '${(survival.rate * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              fontFamily: Type.slab,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 20,
+                              height: 1,
+                              color: band,
+                            ),
+                          ),
                   ],
                 ),
                 const SizedBox(height: 5),
@@ -285,7 +323,10 @@ class _PlantingTile extends StatelessWidget {
                           height: 9,
                           decoration: BoxDecoration(
                             color: const Color(0x121B1813),
-                            border: Border.all(color: Press.borderInk, width: 1),
+                            border: Border.all(
+                              color: Press.borderInk,
+                              width: 1,
+                            ),
                           ),
                           child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,

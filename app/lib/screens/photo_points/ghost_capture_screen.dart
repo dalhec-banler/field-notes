@@ -51,9 +51,9 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
     if (refId == null) {
       _isFirstVisit = true;
     } else {
-      final media = await (widget.db.select(widget.db.media)
-            ..where((m) => m.id.equals(refId)))
-          .getSingleOrNull();
+      final media = await (widget.db.select(
+        widget.db.media,
+      )..where((m) => m.id.equals(refId))).getSingleOrNull();
       final path = media?.localPath;
       if (path != null && File(path).existsSync()) {
         _referencePath = path;
@@ -189,18 +189,22 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
     );
 
     final visitId = newId();
-    await db.into(db.photoPointVisits).insert(PhotoPointVisitsCompanion.insert(
-          id: visitId,
-          propertyId: point.propertyId,
-          photoPointId: point.id,
-          visitedAt: now,
-          actualLat: Value(fix?.latitude),
-          actualLng: Value(fix?.longitude),
-          actualBearingDeg: Value(heading),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.photoPointVisits)
+        .insert(
+          PhotoPointVisitsCompanion.insert(
+            id: visitId,
+            propertyId: point.propertyId,
+            photoPointId: point.id,
+            visitedAt: now,
+            actualLat: Value(fix?.latitude),
+            actualLng: Value(fix?.longitude),
+            actualBearingDeg: Value(heading),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     await MediaStore(db).linkTo(
       media.id,
       propertyId: point.propertyId,
@@ -215,25 +219,33 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
     final updates = PhotoPointsCompanion(
       updatedAt: Value(now),
       nextDueOn: point.cadenceDays != null
-          ? Value(DateTime.now()
-              .add(Duration(days: point.cadenceDays!))
-              .toIso8601String()
-              .substring(0, 10))
+          ? Value(
+              DateTime.now()
+                  .add(Duration(days: point.cadenceDays!))
+                  .toIso8601String()
+                  .substring(0, 10),
+            )
           : const Value.absent(),
       referenceMediaId: anchor ? Value(media.id) : const Value.absent(),
       lat: anchor ? Value(fix.latitude) : const Value.absent(),
       lng: anchor ? Value(fix.longitude) : const Value.absent(),
       bearingDeg: anchor ? Value(heading) : const Value.absent(),
     );
-    await (db.update(db.photoPoints)..where((p) => p.id.equals(point.id)))
-        .write(updates);
+    await (db.update(
+      db.photoPoints,
+    )..where((p) => p.id.equals(point.id))).write(updates);
 
     if (mounted) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_isFirstVisit
-              ? 'Photo point anchored — this frame is the reference'
-              : 'Visit captured')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isFirstVisit
+                ? 'Photo point anchored — this frame is the reference'
+                : 'Visit captured',
+          ),
+        ),
+      );
     }
   }
 
@@ -251,64 +263,69 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
       ),
       body: _error != null
           ? Center(
-              child: Text(_error!,
-                  style: const TextStyle(color: Colors.white70)))
+              child: Text(
+                _error!,
+                style: const TextStyle(color: Colors.white70),
+              ),
+            )
           : camera == null
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  children: [
-                    Expanded(
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          CameraPreview(camera),
-                          if (_referencePath != null)
-                            Opacity(
-                              opacity: 0.35,
-                              child: Image.file(File(_referencePath!),
-                                  fit: BoxFit.cover),
-                            ),
-                          Positioned(
-                            top: 12,
-                            left: 12,
-                            right: 12,
-                            child: _isFirstVisit
-                                ? _readout(
-                                    _anchorWaiting != null
-                                        ? 'First visit — ${_anchorWaiting!} '
-                                            'Position and bearing are needed '
-                                            'to anchor the point.'
-                                        : 'First visit — aim at the subject '
-                                            'and capture. This anchors the '
-                                            'point.',
-                                    _anchorWaiting != null
-                                        ? Colors.black54
-                                        : Colors.blueGrey.shade700)
-                                : _readout(
-                                    '${distance == null ? '— m' : '${distance.toStringAsFixed(1)} m'} from point   ·   '
-                                    '${bearingOff == null ? '—°' : '${bearingOff > 0 ? '+' : ''}${bearingOff.toStringAsFixed(0)}°'} off bearing',
-                                    _aligned
-                                        ? Colors.green.shade700
-                                        : Colors.black54),
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CameraPreview(camera),
+                      if (_referencePath != null)
+                        Opacity(
+                          opacity: 0.35,
+                          child: Image.file(
+                            File(_referencePath!),
+                            fit: BoxFit.cover,
                           ),
-                        ],
-                      ),
-                    ),
-                    SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: FloatingActionButton.large(
-                          backgroundColor:
-                              _aligned ? Colors.green.shade600 : null,
-                          onPressed:
-                              _saving || !_anchorReady ? null : _capture,
-                          child: const Icon(Icons.camera_alt, size: 36),
                         ),
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        right: 12,
+                        child: _isFirstVisit
+                            ? _readout(
+                                _anchorWaiting != null
+                                    ? 'First visit — ${_anchorWaiting!} '
+                                          'Position and bearing are needed '
+                                          'to anchor the point.'
+                                    : 'First visit — aim at the subject '
+                                          'and capture. This anchors the '
+                                          'point.',
+                                _anchorWaiting != null
+                                    ? Colors.black54
+                                    : Colors.blueGrey.shade700,
+                              )
+                            : _readout(
+                                '${distance == null ? '— m' : '${distance.toStringAsFixed(1)} m'} from point   ·   '
+                                '${bearingOff == null ? '—°' : '${bearingOff > 0 ? '+' : ''}${bearingOff.toStringAsFixed(0)}°'} off bearing',
+                                _aligned
+                                    ? Colors.green.shade700
+                                    : Colors.black54,
+                              ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: FloatingActionButton.large(
+                      backgroundColor: _aligned ? Colors.green.shade600 : null,
+                      onPressed: _saving || !_anchorReady ? null : _capture,
+                      child: const Icon(Icons.camera_alt, size: 36),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -323,7 +340,9 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
         text,
         textAlign: TextAlign.center,
         style: const TextStyle(
-            color: Colors.white, fontWeight: FontWeight.w600),
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

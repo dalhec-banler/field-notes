@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' hide Column;
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -54,8 +55,8 @@ class ProgramsScreen extends StatelessWidget {
               program: programs[i],
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => ProgramDetailScreen(
-                      db: db, programId: programs[i].id),
+                  builder: (_) =>
+                      ProgramDetailScreen(db: db, programId: programs[i].id),
                 ),
               ),
             ),
@@ -82,7 +83,8 @@ class ProgramsScreen extends StatelessWidget {
                 autofocus: true,
                 onChanged: (_) => setDialog(() {}),
                 decoration: const InputDecoration(
-                    labelText: 'Name (e.g. USDA-NRCS EQIP)'),
+                  labelText: 'Name (e.g. USDA-NRCS EQIP)',
+                ),
               ),
               TextField(
                 controller: agencyController,
@@ -96,50 +98,64 @@ class ProgramsScreen extends StatelessWidget {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-                // Validated inside the dialog (audit M12): a name is needed.
-                onPressed: nameController.text.trim().isEmpty
-                    ? null
-                    : () => Navigator.pop(context, true),
-                child: const Text('Create')),
+              // Validated inside the dialog (audit M12): a name is needed.
+              onPressed: nameController.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(context, true),
+              child: const Text('Create'),
+            ),
           ],
         ),
       ),
     );
     if (created != true || nameController.text.trim().isEmpty) return;
     final now = nowUtcIso();
-    await db.into(db.programs).insert(ProgramsCompanion.insert(
-          id: newId(),
-          propertyId: property.id,
-          name: nameController.text.trim(),
-          agency: Value(agencyController.text.trim().isEmpty
-              ? null
-              : agencyController.text.trim()),
-          contractRef: Value(contractController.text.trim().isEmpty
-              ? null
-              : contractController.text.trim()),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.programs)
+        .insert(
+          ProgramsCompanion.insert(
+            id: newId(),
+            propertyId: property.id,
+            name: nameController.text.trim(),
+            agency: Value(
+              agencyController.text.trim().isEmpty
+                  ? null
+                  : agencyController.text.trim(),
+            ),
+            contractRef: Value(
+              contractController.text.trim().isEmpty
+                  ? null
+                  : contractController.text.trim(),
+            ),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
   }
 }
 
 class _ProgramTile extends StatelessWidget {
-  const _ProgramTile(
-      {required this.db, required this.program, required this.onTap});
+  const _ProgramTile({
+    required this.db,
+    required this.program,
+    required this.onTap,
+  });
 
   final FieldNotesDb db;
   final Program program;
   final VoidCallback onTap;
 
   Future<(int, int)> _progress() async {
-    final practices = await (db.select(db.practices)
-          ..where((x) => x.programId.equals(program.id))
-          ..where((x) => x.deletedAt.isNull()))
-        .get();
+    final practices =
+        await (db.select(db.practices)
+              ..where((x) => x.programId.equals(program.id))
+              ..where((x) => x.deletedAt.isNull()))
+            .get();
     final done = practices
         .where((x) => x.status == 'complete' || x.status == 'certified')
         .length;
@@ -156,11 +172,13 @@ class _ProgramTile extends StatelessWidget {
           minTileHeight: 64,
           leading: const CircleAvatar(child: Icon(Icons.assignment_outlined)),
           title: Text(program.name),
-          subtitle: Text([
-            if (program.agency != null) program.agency!,
-            if (program.contractRef != null) '#${program.contractRef}',
-            if (total > 0) '$done of $total practices complete',
-          ].join(' · ')),
+          subtitle: Text(
+            [
+              if (program.agency != null) program.agency!,
+              if (program.contractRef != null) '#${program.contractRef}',
+              if (total > 0) '$done of $total practices complete',
+            ].join(' · '),
+          ),
           onTap: onTap,
         );
       },
@@ -170,8 +188,11 @@ class _ProgramTile extends StatelessWidget {
 
 /// Practices within a program: planned amounts, completion, activities.
 class ProgramDetailScreen extends StatefulWidget {
-  const ProgramDetailScreen(
-      {super.key, required this.db, required this.programId});
+  const ProgramDetailScreen({
+    super.key,
+    required this.db,
+    required this.programId,
+  });
 
   final FieldNotesDb db;
   final String programId;
@@ -191,15 +212,16 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
   }
 
   Future<void> _load() async {
-    final program = await (widget.db.select(widget.db.programs)
-          ..where((x) => x.id.equals(widget.programId)))
-        .getSingleOrNull();
+    final program = await (widget.db.select(
+      widget.db.programs,
+    )..where((x) => x.id.equals(widget.programId))).getSingleOrNull();
     if (program == null) return;
-    final practices = await (widget.db.select(widget.db.practices)
-          ..where((x) => x.programId.equals(program.id))
-          ..where((x) => x.deletedAt.isNull())
-          ..orderBy([(x) => OrderingTerm.asc(x.dueOn)]))
-        .get();
+    final practices =
+        await (widget.db.select(widget.db.practices)
+              ..where((x) => x.programId.equals(program.id))
+              ..where((x) => x.deletedAt.isNull())
+              ..orderBy([(x) => OrderingTerm.asc(x.dueOn)]))
+            .get();
     if (mounted) {
       setState(() {
         _program = program;
@@ -216,11 +238,12 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
     if (program == null) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
-        const SnackBar(content: Text('Building the evidence packet…')));
+      const SnackBar(content: Text('Building the evidence packet…')),
+    );
     try {
-      final property = await (widget.db.select(widget.db.properties)
-            ..where((x) => x.id.equals(program.propertyId)))
-          .getSingle();
+      final property = await (widget.db.select(
+        widget.db.properties,
+      )..where((x) => x.id.equals(program.propertyId))).getSingle();
       final bytes = await EvidencePacket(widget.db).build(property, program);
       final docs = await getApplicationDocumentsDirectory();
       final reports = Directory(p.join(docs.path, 'reports'))
@@ -228,17 +251,25 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
       final safeName = program.name
           .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
           .toLowerCase();
-      final file = File(p.join(reports.path,
-          'evidence-$safeName-${nowUtcIso().substring(0, 10)}.pdf'));
+      final file = File(
+        p.join(
+          reports.path,
+          'evidence-$safeName-${nowUtcIso().substring(0, 10)}.pdf',
+        ),
+      );
       file.writeAsBytesSync(bytes);
       messenger.hideCurrentSnackBar();
-      await SharePlus.instance.share(ShareParams(
+      await SharePlus.instance.share(
+        ShareParams(
           files: [XFile(file.path)],
-          text: 'Evidence packet — ${program.name}'));
+          text: 'Evidence packet — ${program.name}',
+        ),
+      );
     } catch (e) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
-          SnackBar(content: Text('Could not build the packet: $e')));
+        SnackBar(content: Text('Could not build the packet: $e')),
+      );
     }
   }
 
@@ -261,31 +292,37 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
                 TextField(
                   controller: codeController,
                   decoration: const InputDecoration(
-                      labelText: 'NRCS code (e.g. 315, 338, 645)'),
+                    labelText: 'NRCS code (e.g. 315, 338, 645)',
+                  ),
                 ),
                 TextField(
                   controller: nameController,
                   onChanged: (_) => setDialog(() {}),
                   decoration: const InputDecoration(
-                      labelText: 'Name (e.g. Brush management)'),
+                    labelText: 'Name (e.g. Brush management)',
+                  ),
                 ),
                 TextField(
                   controller: amountController,
                   keyboardType: TextInputType.number,
-                  decoration:
-                      const InputDecoration(labelText: 'Planned amount'),
+                  decoration: const InputDecoration(
+                    labelText: 'Planned amount',
+                  ),
                 ),
                 TextField(
                   controller: unitController,
                   decoration: const InputDecoration(
-                      labelText: 'Unit (acres, feet, each)'),
+                    labelText: 'Unit (acres, feet, each)',
+                  ),
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event),
-                  title: Text(dueOn == null
-                      ? 'Due date (optional)'
-                      : 'Due ${dueOn!.toIso8601String().substring(0, 10)}'),
+                  title: Text(
+                    dueOn == null
+                        ? 'Due date (optional)'
+                        : 'Due ${dueOn!.toIso8601String().substring(0, 10)}',
+                  ),
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
@@ -301,14 +338,16 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-                // Validated inside the dialog (audit M12): a name is needed.
-                onPressed: nameController.text.trim().isEmpty
-                    ? null
-                    : () => Navigator.pop(context, true),
-                child: const Text('Add')),
+              // Validated inside the dialog (audit M12): a name is needed.
+              onPressed: nameController.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(context, true),
+              child: const Text('Add'),
+            ),
           ],
         ),
       ),
@@ -316,24 +355,29 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
     if (created != true || nameController.text.trim().isEmpty) return;
     final now = nowUtcIso();
     final unit = unitController.text.trim();
-    await widget.db.into(widget.db.practices).insert(PracticesCompanion.insert(
-          id: newId(),
-          propertyId: program.propertyId,
-          programId: Value(program.id),
-          practiceCode: Value(codeController.text.trim().isEmpty
-              ? null
-              : codeController.text.trim()),
-          name: nameController.text.trim(),
-          plannedAmount:
-              Value(double.tryParse(amountController.text.trim())),
-          // Blank unit is "none", not an empty string.
-          unit: Value(unit.isEmpty ? null : unit),
-          dueOn: Value(dueOn?.toIso8601String().substring(0, 10)),
-          status: const Value('planned'),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await widget.db
+        .into(widget.db.practices)
+        .insert(
+          PracticesCompanion.insert(
+            id: newId(),
+            propertyId: program.propertyId,
+            programId: Value(program.id),
+            practiceCode: Value(
+              codeController.text.trim().isEmpty
+                  ? null
+                  : codeController.text.trim(),
+            ),
+            name: nameController.text.trim(),
+            plannedAmount: Value(double.tryParse(amountController.text.trim())),
+            // Blank unit is "none", not an empty string.
+            unit: Value(unit.isEmpty ? null : unit),
+            dueOn: Value(dueOn?.toIso8601String().substring(0, 10)),
+            status: const Value('planned'),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     _load();
   }
 
@@ -354,13 +398,15 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
                 controller: typeController,
                 autofocus: true,
                 decoration: const InputDecoration(
-                    labelText: 'What was done (herbicide, seeding…)'),
+                  labelText: 'What was done (herbicide, seeding…)',
+                ),
               ),
               TextField(
                 controller: amountController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                    labelText: 'Amount (${practice.unit ?? 'units'})'),
+                  labelText: 'Amount (${practice.unit ?? 'units'})',
+                ),
               ),
               TextField(
                 controller: costController,
@@ -377,11 +423,13 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Log')),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Log'),
+            ),
           ],
         ),
       ),
@@ -391,21 +439,25 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
     final amount = double.tryParse(amountController.text.trim());
     await widget.db
         .into(widget.db.practiceActivities)
-        .insert(PracticeActivitiesCompanion.insert(
-          id: newId(),
-          propertyId: practice.propertyId,
-          practiceId: practice.id,
-          occurredOn: now.substring(0, 10),
-          activityType: Value(typeController.text.trim().isEmpty
-              ? null
-              : typeController.text.trim()),
-          amount: Value(amount),
-          unit: Value(practice.unit),
-          costUsd: Value(double.tryParse(costController.text.trim())),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+        .insert(
+          PracticeActivitiesCompanion.insert(
+            id: newId(),
+            propertyId: practice.propertyId,
+            practiceId: practice.id,
+            occurredOn: now.substring(0, 10),
+            activityType: Value(
+              typeController.text.trim().isEmpty
+                  ? null
+                  : typeController.text.trim(),
+            ),
+            amount: Value(amount),
+            unit: Value(practice.unit),
+            costUsd: Value(double.tryParse(costController.text.trim())),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     final newCompleted = (practice.completedAmount ?? 0) + (amount ?? 0);
     // A finished practice stays finished: logging a follow-up activity on a
     // complete/certified practice must not drag it back to in-progress.
@@ -414,25 +466,29 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
     final Value<String?> status = complete
         ? const Value('complete')
         : alreadyDone
-            ? const Value.absent()
-            : const Value('in_progress');
-    await (widget.db.update(widget.db.practices)
-          ..where((x) => x.id.equals(practice.id)))
-        .write(PracticesCompanion(
-      completedAmount: Value(newCompleted),
-      completedOn: complete ? Value(now.substring(0, 10)) : const Value.absent(),
-      status: status,
-      updatedAt: Value(now),
-    ));
+        ? const Value.absent()
+        : const Value('in_progress');
+    await (widget.db.update(
+      widget.db.practices,
+    )..where((x) => x.id.equals(practice.id))).write(
+      PracticesCompanion(
+        completedAmount: Value(newCompleted),
+        completedOn: complete
+            ? Value(now.substring(0, 10))
+            : const Value.absent(),
+        status: status,
+        updatedAt: Value(now),
+      ),
+    );
     _load();
   }
 
   Color _statusColor(String? s) => switch (s) {
-        'complete' || 'certified' => Colors.green.shade700,
-        'in_progress' => Colors.orange.shade800,
-        'cancelled' => Colors.grey,
-        _ => Colors.blueGrey,
-      };
+    'complete' || 'certified' => Colors.green.shade700,
+    'in_progress' => Colors.orange.shade800,
+    'cancelled' => Colors.grey,
+    _ => Colors.blueGrey,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -473,18 +529,22 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
                     child: Text(
                       pr.practiceCode ?? '—',
                       style: TextStyle(
-                          fontSize: 12, color: _statusColor(pr.status)),
+                        fontSize: 12,
+                        color: _statusColor(pr.status),
+                      ),
                     ),
                   ),
                   title: Text(pr.name),
-                  subtitle: Text([
-                    if (planned != null)
-                      '${completed.toStringAsFixed(completed % 1 == 0 ? 0 : 1)}'
-                          '/${planned.toStringAsFixed(planned % 1 == 0 ? 0 : 1)} '
-                          '${pr.unit ?? ''}',
-                    pr.status ?? 'planned',
-                    if (pr.dueOn != null) 'due ${pr.dueOn}',
-                  ].join(' · ')),
+                  subtitle: Text(
+                    [
+                      if (planned != null)
+                        '${completed.toStringAsFixed(completed % 1 == 0 ? 0 : 1)}'
+                            '/${planned.toStringAsFixed(planned % 1 == 0 ? 0 : 1)} '
+                            '${pr.unit ?? ''}',
+                      pr.status ?? 'planned',
+                      if (pr.dueOn != null) 'due ${pr.dueOn}',
+                    ].join(' · '),
+                  ),
                   trailing: const Icon(Icons.add_circle_outline),
                   onTap: () => _logActivity(pr),
                 );

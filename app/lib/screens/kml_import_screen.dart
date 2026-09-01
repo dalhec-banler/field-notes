@@ -35,30 +35,31 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
 
   Future<void> _pick() async {
     setState(() => _error = null);
-    final file = await openFile(acceptedTypeGroups: [
-      const XTypeGroup(
+    final file = await openFile(
+      acceptedTypeGroups: [
+        const XTypeGroup(
           label: 'KML / KMZ / GeoJSON / GPX',
-          extensions: ['kml', 'kmz', 'geojson', 'json', 'gpx']),
-    ]);
+          extensions: ['kml', 'kmz', 'geojson', 'json', 'gpx'],
+        ),
+      ],
+    );
     if (file == null) return;
     try {
       final lower = file.name.toLowerCase();
       final placemarks = lower.endsWith('.kmz')
           ? parseKmz(await file.readAsBytes())
           : lower.endsWith('.geojson') || lower.endsWith('.json')
-              ? parseGeoJson(await file.readAsString())
-              : lower.endsWith('.gpx')
-                  ? parseGpx(await file.readAsString())
-                  : parseKml(await file.readAsString());
+          ? parseGeoJson(await file.readAsString())
+          : lower.endsWith('.gpx')
+          ? parseGpx(await file.readAsString())
+          : parseKml(await file.readAsString());
       if (!mounted) return;
       if (placemarks.isEmpty) {
         setState(() => _error = 'No placemarks found in ${file.name}');
         return;
       }
       setState(() {
-        _rows = [
-          for (final pm in placemarks) _Row(pm, _suggest(pm)),
-        ];
+        _rows = [for (final pm in placemarks) _Row(pm, _suggest(pm))];
       });
     } catch (e) {
       if (!mounted) return;
@@ -87,19 +88,24 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
 
     // Imported features need a type; use/create a generic one per property.
     Future<String> importedTypeId() async {
-      final existing = await (db.select(db.featureTypes)
-            ..where((t) => t.typeKey.equals('imported'))
-            ..limit(1))
-          .getSingleOrNull();
+      final existing =
+          await (db.select(db.featureTypes)
+                ..where((t) => t.typeKey.equals('imported'))
+                ..limit(1))
+              .getSingleOrNull();
       if (existing != null) return existing.id;
       final id = newId();
-      await db.into(db.featureTypes).insert(FeatureTypesCompanion.insert(
-            id: id,
-            typeKey: 'imported',
-            label: 'Imported',
-            featureClass: 'natural',
-            createdAt: now,
-          ));
+      await db
+          .into(db.featureTypes)
+          .insert(
+            FeatureTypesCompanion.insert(
+              id: id,
+              typeKey: 'imported',
+              label: 'Imported',
+              featureClass: 'natural',
+              createdAt: now,
+            ),
+          );
       return id;
     }
 
@@ -114,50 +120,60 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
               break;
             case _Destination.boundary:
               final centroid = _centroidOf(pm.geojson);
-              await (db.update(db.properties)
-                    ..where((p) => p.id.equals(widget.property.id)))
-                  .write(PropertiesCompanion(
-                boundaryGeojson: Value(pm.geojson),
-                centroidLat: Value(centroid?.lat.toDouble()),
-                centroidLng: Value(centroid?.lng.toDouble()),
-                updatedAt: Value(now),
-              ));
+              await (db.update(
+                db.properties,
+              )..where((p) => p.id.equals(widget.property.id))).write(
+                PropertiesCompanion(
+                  boundaryGeojson: Value(pm.geojson),
+                  centroidLat: Value(centroid?.lat.toDouble()),
+                  centroidLng: Value(centroid?.lng.toDouble()),
+                  updatedAt: Value(now),
+                ),
+              );
               boundarySet = pm.name;
             case _Destination.zone:
-              await db.into(db.zones).insert(ZonesCompanion.insert(
-                    id: newId(),
-                    propertyId: widget.property.id,
-                    name: pm.name,
-                    geojson: pm.geojson,
-                    notes: Value(pm.description),
-                    createdBy: 'local',
-                    createdAt: now,
-                    updatedAt: now,
-                  ));
+              await db
+                  .into(db.zones)
+                  .insert(
+                    ZonesCompanion.insert(
+                      id: newId(),
+                      propertyId: widget.property.id,
+                      name: pm.name,
+                      geojson: pm.geojson,
+                      notes: Value(pm.description),
+                      createdBy: 'local',
+                      createdAt: now,
+                      updatedAt: now,
+                    ),
+                  );
               zones++;
             case _Destination.feature:
               final centroid = _centroidOf(pm.geojson);
-              await db.into(db.features).insert(FeaturesCompanion.insert(
-                    id: newId(),
-                    propertyId: widget.property.id,
-                    featureTypeId: await importedTypeId(),
-                    name: Value(pm.name),
-                    geojson: pm.geojson,
-                    lat: Value(centroid?.lat.toDouble()),
-                    lng: Value(centroid?.lng.toDouble()),
-                    notes: Value(pm.description),
-                    createdBy: 'local',
-                    createdAt: now,
-                    updatedAt: now,
-                  ));
+              await db
+                  .into(db.features)
+                  .insert(
+                    FeaturesCompanion.insert(
+                      id: newId(),
+                      propertyId: widget.property.id,
+                      featureTypeId: await importedTypeId(),
+                      name: Value(pm.name),
+                      geojson: pm.geojson,
+                      lat: Value(centroid?.lat.toDouble()),
+                      lng: Value(centroid?.lng.toDouble()),
+                      notes: Value(pm.description),
+                      createdBy: 'local',
+                      createdAt: now,
+                      updatedAt: now,
+                    ),
+                  );
               features++;
           }
         }
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Nothing was imported — $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Nothing was imported — $e')));
       return;
     } finally {
       if (mounted) setState(() => _committing = false);
@@ -165,21 +181,26 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
 
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text([
-        if (boundarySet != null) 'Boundary set from "$boundarySet"',
-        if (zones > 0) '$zones zone${zones == 1 ? '' : 's'}',
-        if (features > 0) '$features feature${features == 1 ? '' : 's'}',
-        if (boundarySet == null && zones == 0 && features == 0)
-          'Nothing selected to import',
-      ].join(' · ')),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          [
+            if (boundarySet != null) 'Boundary set from "$boundarySet"',
+            if (zones > 0) '$zones zone${zones == 1 ? '' : 's'}',
+            if (features > 0) '$features feature${features == 1 ? '' : 's'}',
+            if (boundarySet == null && zones == 0 && features == 0)
+              'Nothing selected to import',
+          ].join(' · '),
+        ),
+      ),
+    );
   }
 
   turf.Position? _centroidOf(String geojson) {
     try {
       final g = turf.GeometryObject.deserialize(
-          jsonDecode(geojson) as Map<String, dynamic>);
+        jsonDecode(geojson) as Map<String, dynamic>,
+      );
       final c = turf.centroid(turf.Feature(geometry: g as turf.GeometryType));
       return c.geometry?.coordinates;
     } catch (_) {
@@ -228,26 +249,35 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
                           _ => Icons.pentagon_outlined,
                         }),
                         title: Text(row.placemark.name),
-                        subtitle: Text([
-                          row.placemark.geometryType,
-                          if (row.placemark.folder != null)
-                            row.placemark.folder!,
-                        ].join(' · ')),
+                        subtitle: Text(
+                          [
+                            row.placemark.geometryType,
+                            if (row.placemark.folder != null)
+                              row.placemark.folder!,
+                          ].join(' · '),
+                        ),
                         trailing: DropdownButton<_Destination>(
                           value: row.destination,
                           onChanged: (d) => setState(
-                              () => row.destination = d ?? _Destination.skip),
+                            () => row.destination = d ?? _Destination.skip,
+                          ),
                           items: const [
                             DropdownMenuItem(
-                                value: _Destination.boundary,
-                                child: Text('Boundary')),
+                              value: _Destination.boundary,
+                              child: Text('Boundary'),
+                            ),
                             DropdownMenuItem(
-                                value: _Destination.zone, child: Text('Zone')),
+                              value: _Destination.zone,
+                              child: Text('Zone'),
+                            ),
                             DropdownMenuItem(
-                                value: _Destination.feature,
-                                child: Text('Feature')),
+                              value: _Destination.feature,
+                              child: Text('Feature'),
+                            ),
                             DropdownMenuItem(
-                                value: _Destination.skip, child: Text('Skip')),
+                              value: _Destination.skip,
+                              child: Text('Skip'),
+                            ),
                           ],
                         ),
                       );

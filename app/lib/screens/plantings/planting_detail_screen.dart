@@ -9,8 +9,11 @@ import '../../widgets/press.dart';
 
 /// Cohort detail (spec §7.5): survival, tagged individuals, check-ins.
 class PlantingDetailScreen extends StatefulWidget {
-  const PlantingDetailScreen(
-      {super.key, required this.db, required this.eventId});
+  const PlantingDetailScreen({
+    super.key,
+    required this.db,
+    required this.eventId,
+  });
 
   final FieldNotesDb db;
   final String eventId;
@@ -34,26 +37,28 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
 
   Future<void> _load() async {
     final db = widget.db;
-    final event = await (db.select(db.plantingEvents)
-          ..where((e) => e.id.equals(widget.eventId)))
-        .getSingleOrNull();
+    final event = await (db.select(
+      db.plantingEvents,
+    )..where((e) => e.id.equals(widget.eventId))).getSingleOrNull();
     if (event == null) return;
     TaxaData? taxon;
     if (event.taxonId != null) {
-      taxon = await (db.select(db.taxa)
-            ..where((t) => t.id.equals(event.taxonId!)))
-          .getSingleOrNull();
+      taxon = await (db.select(
+        db.taxa,
+      )..where((t) => t.id.equals(event.taxonId!))).getSingleOrNull();
     }
-    final individuals = await (db.select(db.plants)
-          ..where((p) => p.plantingEventId.equals(event.id))
-          ..where((p) => p.deletedAt.isNull())
-          ..orderBy([(p) => OrderingTerm.asc(p.tagCode)]))
-        .get();
-    final checkins = await (db.select(db.plantCheckins)
-          ..where((c) => c.plantingEventId.equals(event.id))
-          ..where((c) => c.deletedAt.isNull())
-          ..orderBy([(c) => OrderingTerm.desc(c.checkedAt)]))
-        .get();
+    final individuals =
+        await (db.select(db.plants)
+              ..where((p) => p.plantingEventId.equals(event.id))
+              ..where((p) => p.deletedAt.isNull())
+              ..orderBy([(p) => OrderingTerm.asc(p.tagCode)]))
+            .get();
+    final checkins =
+        await (db.select(db.plantCheckins)
+              ..where((c) => c.plantingEventId.equals(event.id))
+              ..where((c) => c.deletedAt.isNull())
+              ..orderBy([(c) => OrderingTerm.desc(c.checkedAt)]))
+            .get();
     final survival = await survivalFor(db, event);
     if (mounted) {
       setState(() {
@@ -115,15 +120,18 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                 autofocus: true,
                 onChanged: (_) => setDialog(() {}),
                 decoration: InputDecoration(
-                    labelText: 'Alive (of $planted)',
-                    errorText: aliveError()),
+                  labelText: 'Alive (of $planted)',
+                  errorText: aliveError(),
+                ),
               ),
               TextField(
                 controller: deadController,
                 keyboardType: TextInputType.number,
                 onChanged: (_) => setDialog(() {}),
                 decoration: InputDecoration(
-                    labelText: 'Dead (optional)', errorText: deadError()),
+                  labelText: 'Dead (optional)',
+                  errorText: deadError(),
+                ),
               ),
               TextField(
                 controller: notesController,
@@ -133,12 +141,13 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-                onPressed:
-                    valid() ? () => Navigator.pop(context, true) : null,
-                child: const Text('Save')),
+              onPressed: valid() ? () => Navigator.pop(context, true) : null,
+              child: const Text('Save'),
+            ),
           ],
         ),
       ),
@@ -148,40 +157,44 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     final now = nowUtcIso();
     await widget.db
         .into(widget.db.plantCheckins)
-        .insert(PlantCheckinsCompanion.insert(
-          id: newId(),
-          propertyId: event.propertyId,
-          plantingEventId: Value(event.id),
-          checkedAt: now,
-          status: 'alive',
-          countAlive: Value(alive),
-          countDead: Value(int.tryParse(deadController.text.trim())),
-          notes: Value(notesController.text.trim().isEmpty
-              ? null
-              : notesController.text.trim()),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+        .insert(
+          PlantCheckinsCompanion.insert(
+            id: newId(),
+            propertyId: event.propertyId,
+            plantingEventId: Value(event.id),
+            checkedAt: now,
+            status: 'alive',
+            countAlive: Value(alive),
+            countDead: Value(int.tryParse(deadController.text.trim())),
+            notes: Value(
+              notesController.text.trim().isEmpty
+                  ? null
+                  : notesController.text.trim(),
+            ),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     _load();
   }
 
   Future<void> _addIndividual() async {
     final event = _event!;
     final last = await lastTagCode(widget.db, event.propertyId);
-    final controller =
-        TextEditingController(text: nextTagCode(last) ?? '');
+    final controller = TextEditingController(text: nextTagCode(last) ?? '');
     if (!mounted) return;
 
     // A tag code identifies one plant on a place (spec §4.8 UNIQUE
     // (property_id, tag_code)); check for a live duplicate before accepting.
     Future<bool> tagInUse(String code) async {
-      final hit = await (widget.db.select(widget.db.plants)
-            ..where((p) => p.propertyId.equals(event.propertyId))
-            ..where((p) => p.tagCode.equals(code))
-            ..where((p) => p.deletedAt.isNull())
-            ..limit(1))
-          .getSingleOrNull();
+      final hit =
+          await (widget.db.select(widget.db.plants)
+                ..where((p) => p.propertyId.equals(event.propertyId))
+                ..where((p) => p.tagCode.equals(code))
+                ..where((p) => p.deletedAt.isNull())
+                ..limit(1))
+              .getSingleOrNull();
       return hit != null;
     }
 
@@ -222,11 +235,13 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
             ),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel')),
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
               FilledButton(
-                  onPressed: code.isEmpty || checking ? null : submit,
-                  child: Text(checking ? 'Checking…' : 'Add')),
+                onPressed: code.isEmpty || checking ? null : submit,
+                child: Text(checking ? 'Checking…' : 'Add'),
+              ),
             ],
           );
         },
@@ -235,15 +250,19 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     final code = controller.text.trim();
     if (saved != true || code.isEmpty) return;
     final now = nowUtcIso();
-    await widget.db.into(widget.db.plants).insert(PlantsCompanion.insert(
-          id: newId(),
-          propertyId: event.propertyId,
-          plantingEventId: event.id,
-          tagCode: Value(code),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await widget.db
+        .into(widget.db.plants)
+        .insert(
+          PlantsCompanion.insert(
+            id: newId(),
+            propertyId: event.propertyId,
+            plantingEventId: event.id,
+            tagCode: Value(code),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     _load();
   }
 
@@ -271,7 +290,9 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                     DropdownMenuItem(value: 'dormant', child: Text('Dormant')),
                     DropdownMenuItem(value: 'browsed', child: Text('Browsed')),
                     DropdownMenuItem(
-                        value: 'declining', child: Text('Declining')),
+                      value: 'declining',
+                      child: Text('Declining'),
+                    ),
                     DropdownMenuItem(value: 'removed', child: Text('Removed')),
                   ],
                   onChanged: (v) => setDialog(() => status = v ?? status),
@@ -279,15 +300,16 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                 TextField(
                   controller: heightController,
                   keyboardType: TextInputType.number,
-                  decoration:
-                      const InputDecoration(labelText: 'Height (cm)'),
+                  decoration: const InputDecoration(labelText: 'Height (cm)'),
                 ),
                 DropdownButtonFormField<String>(
                   initialValue: vigor,
                   decoration: const InputDecoration(labelText: 'Vigor'),
                   items: const [
                     DropdownMenuItem(
-                        value: 'excellent', child: Text('Excellent')),
+                      value: 'excellent',
+                      child: Text('Excellent'),
+                    ),
                     DropdownMenuItem(value: 'good', child: Text('Good')),
                     DropdownMenuItem(value: 'fair', child: Text('Fair')),
                     DropdownMenuItem(value: 'poor', child: Text('Poor')),
@@ -297,13 +319,16 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                 ),
                 DropdownButtonFormField<String>(
                   initialValue: browse,
-                  decoration:
-                      const InputDecoration(labelText: 'Browse pressure'),
+                  decoration: const InputDecoration(
+                    labelText: 'Browse pressure',
+                  ),
                   items: const [
                     DropdownMenuItem(value: 'none', child: Text('None')),
                     DropdownMenuItem(value: 'light', child: Text('Light')),
                     DropdownMenuItem(
-                        value: 'moderate', child: Text('Moderate')),
+                      value: 'moderate',
+                      child: Text('Moderate'),
+                    ),
                     DropdownMenuItem(value: 'severe', child: Text('Severe')),
                   ],
                   onChanged: (v) => setDialog(() => browse = v),
@@ -313,11 +338,13 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Save')),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save'),
+            ),
           ],
         ),
       ),
@@ -326,26 +353,30 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     final now = nowUtcIso();
     await widget.db
         .into(widget.db.plantCheckins)
-        .insert(PlantCheckinsCompanion.insert(
-          id: newId(),
-          propertyId: plant.propertyId,
-          plantId: Value(plant.id),
-          checkedAt: now,
-          status: status,
-          heightCm: Value(double.tryParse(heightController.text.trim())),
-          vigor: Value(vigor),
-          browsePressure: Value(browse),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
-    await (widget.db.update(widget.db.plants)
-          ..where((p) => p.id.equals(plant.id)))
-        .write(PlantsCompanion(
-      currentStatus: Value(status),
-      lastCheckedAt: Value(now),
-      updatedAt: Value(now),
-    ));
+        .insert(
+          PlantCheckinsCompanion.insert(
+            id: newId(),
+            propertyId: plant.propertyId,
+            plantId: Value(plant.id),
+            checkedAt: now,
+            status: status,
+            heightCm: Value(double.tryParse(heightController.text.trim())),
+            vigor: Value(vigor),
+            browsePressure: Value(browse),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await (widget.db.update(
+      widget.db.plants,
+    )..where((p) => p.id.equals(plant.id))).write(
+      PlantsCompanion(
+        currentStatus: Value(status),
+        lastCheckedAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
     _load();
   }
 
@@ -357,16 +388,18 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     }
     final species = _taxon?.scientificName ?? 'Unknown';
     final survival = _survival;
-    final band =
-        survival == null ? Press.inkSoft : survivalBandColor(survival.rate);
+    final band = survival == null
+        ? Press.inkSoft
+        : survivalBandColor(survival.rate);
     return Scaffold(
       appBar: AppBar(
         title: Text(
           (_taxon?.commonName ?? species).toUpperCase(),
           style: TextStyle(
-              fontFamily: Type.slab,
-              fontWeight: FontWeight.w900,
-              fontSize: 20),
+            fontFamily: Type.slab,
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+          ),
         ),
       ),
       body: ListView(
@@ -403,21 +436,26 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                 ),
                 const SizedBox(height: 8),
                 MonoLabel(
-                    'planted ${event.plantedOn} · ${event.countPlanted} '
-                    '${event.stockSource.replaceAll('_', ' ')}',
-                    size: 9.5,
-                    opacity: 0.8),
+                  'planted ${event.plantedOn} · ${event.countPlanted} '
+                  '${event.stockSource.replaceAll('_', ' ')}',
+                  size: 9.5,
+                  opacity: 0.8,
+                ),
                 if (event.protection != null)
-                  MonoLabel(event.protection!.replaceAll('_', ' '),
-                      size: 9.5, opacity: 0.8),
+                  MonoLabel(
+                    event.protection!.replaceAll('_', ' '),
+                    size: 9.5,
+                    opacity: 0.8,
+                  ),
                 if (survival != null) ...[
                   const SizedBox(height: 6),
                   MonoLabel(
-                      survival.fromTags
-                          ? '${survival.summary} · of ${survival.countPlanted} planted'
-                          : '${survival.summary} · latest cohort check-in',
-                      size: 9.5,
-                      color: band),
+                    survival.fromTags
+                        ? '${survival.summary} · of ${survival.countPlanted} planted'
+                        : '${survival.summary} · latest cohort check-in',
+                    size: 9.5,
+                    color: band,
+                  ),
                 ],
               ],
             ),
@@ -456,13 +494,15 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
           if (_individuals.isNotEmpty) ...[
             const SizedBox(height: 18),
             MonoLabel(
-                'Tagged individuals · identity is the tag, not the pin',
-                size: 9,
-                spacing: 1.6),
+              'Tagged individuals · identity is the tag, not the pin',
+              size: 9,
+              spacing: 1.6,
+            ),
             const SizedBox(height: 6),
             Container(
-              decoration:
-                  BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
+              decoration: BoxDecoration(
+                border: Border.all(color: Press.borderInk, width: 1.5),
+              ),
               child: Column(
                 children: [
                   for (var i = 0; i < _individuals.length; i++)
@@ -470,47 +510,55 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                       onTap: () => _checkinIndividual(_individuals[i]),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 11, vertical: 10),
+                          horizontal: 11,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: Press.paperRaised,
                           border: i < _individuals.length - 1
                               ? Border(
                                   bottom: BorderSide(
-                                      color: Press.divider, width: 1))
+                                    color: Press.divider,
+                                    width: 1,
+                                  ),
+                                )
                               : null,
                         ),
                         child: Row(
                           children: [
                             Diamond(
-                                size: 15,
-                                color: plantStatusColor(
-                                    _individuals[i].currentStatus)),
+                              size: 15,
+                              color: plantStatusColor(
+                                _individuals[i].currentStatus,
+                              ),
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   MonoLabel(
-                                      _individuals[i].tagCode ?? 'untagged',
-                                      size: 11.5,
-                                      spacing: 1.2,
-                                      color: Press.ink,
-                                      weight: FontWeight.w500),
+                                    _individuals[i].tagCode ?? 'untagged',
+                                    size: 11.5,
+                                    spacing: 1.2,
+                                    color: Press.ink,
+                                    weight: FontWeight.w500,
+                                  ),
                                   if (_individuals[i].lastCheckedAt != null)
                                     MonoLabel(
-                                        'checked ${_individuals[i].lastCheckedAt!.substring(0, 10)}',
-                                        size: 8.5,
-                                        opacity: 0.65),
+                                      'checked ${_individuals[i].lastCheckedAt!.substring(0, 10)}',
+                                      size: 8.5,
+                                      opacity: 0.65,
+                                    ),
                                 ],
                               ),
                             ),
                             StatusPill(
                               _individuals[i].currentStatus,
                               color: plantStatusColor(
-                                  _individuals[i].currentStatus),
-                              filled:
-                                  _individuals[i].currentStatus == 'dead',
+                                _individuals[i].currentStatus,
+                              ),
+                              filled: _individuals[i].currentStatus == 'dead',
                             ),
                           ],
                         ),
@@ -529,14 +577,18 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Row(
                   children: [
-                    MonoLabel(c.checkedAt.substring(0, 10),
-                        size: 9.5, color: Press.oxblood),
+                    MonoLabel(
+                      c.checkedAt.substring(0, 10),
+                      size: 9.5,
+                      color: Press.oxblood,
+                    ),
                     const SizedBox(width: 10),
                     MonoLabel(
-                        '${c.countAlive} alive'
-                        '${c.countDead != null ? ' · ${c.countDead} dead' : ''}',
-                        size: 9.5,
-                        opacity: 0.85),
+                      '${c.countAlive} alive'
+                      '${c.countDead != null ? ' · ${c.countDead} dead' : ''}',
+                      size: 9.5,
+                      opacity: 0.85,
+                    ),
                   ],
                 ),
               ),

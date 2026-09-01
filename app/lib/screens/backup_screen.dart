@@ -70,16 +70,18 @@ class _BackupScreenState extends State<BackupScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-                'These 12 words can unlock your backup if you forget the '
-                'passphrase. Write them down or save them in a password '
-                'manager. They are shown exactly once.'),
+              'These 12 words can unlock your backup if you forget the '
+              'passphrase. Write them down or save them in a password '
+              'manager. They are shown exactly once.',
+            ),
             const SizedBox(height: 12),
             SelectableText(
               phrase,
               style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600),
+                fontFamily: 'monospace',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -100,7 +102,8 @@ class _BackupScreenState extends State<BackupScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialog) {
-          final mismatch = confirm &&
+          final mismatch =
+              confirm &&
               confirmController.text.isNotEmpty &&
               confirmController.text != controller.text;
           return AlertDialog(
@@ -138,14 +141,17 @@ class _BackupScreenState extends State<BackupScreen> {
             ),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL')),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CANCEL'),
+              ),
               FilledButton(
-                  onPressed: controller.text.isEmpty ||
-                          (confirm && confirmController.text != controller.text)
-                      ? null
-                      : () => Navigator.pop(context, controller.text),
-                  child: const Text('CONTINUE')),
+                onPressed:
+                    controller.text.isEmpty ||
+                        (confirm && confirmController.text != controller.text)
+                    ? null
+                    : () => Navigator.pop(context, controller.text),
+                child: const Text('CONTINUE'),
+              ),
             ],
           );
         },
@@ -174,48 +180,49 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   Future<void> _backupNow() => _run('Backing up…', () async {
-        final config = await _service.loadConfig();
-        final firstSetup = _encrypted && config['wrap_pass'] == null;
-        final engine = await _service.engine(
-          encrypted: _encrypted,
-          setupIfNeeded: true,
-          askPassphrase: () => _askPassphrase(confirm: firstSetup),
-          onRecoveryPhrase: _showRecoveryKit,
-          onStatus: (s) => setState(() => _status = s),
-        );
-        if (engine == null) return _status == 'Wrong passphrase.' ? _status : null;
-        return _service.backupNow(engine);
-      });
+    final config = await _service.loadConfig();
+    final firstSetup = _encrypted && config['wrap_pass'] == null;
+    final engine = await _service.engine(
+      encrypted: _encrypted,
+      setupIfNeeded: true,
+      askPassphrase: () => _askPassphrase(confirm: firstSetup),
+      onRecoveryPhrase: _showRecoveryKit,
+      onStatus: (s) => setState(() => _status = s),
+    );
+    if (engine == null) return _status == 'Wrong passphrase.' ? _status : null;
+    return _service.backupNow(engine);
+  });
 
   Future<void> _verifyNow() => _run('Verifying…', () async {
-        final engine = await _service.engine(
-          encrypted: _encrypted,
-          askPassphrase: _askPassphrase,
-          onStatus: (s) => setState(() => _status = s),
-        );
-        if (engine == null) return 'Run a backup first.';
-        final problem = await _service.verifyNow(engine);
-        return problem == null ? 'Backup verified ✓' : 'Problem: $problem';
-      });
+    final engine = await _service.engine(
+      encrypted: _encrypted,
+      askPassphrase: _askPassphrase,
+      onStatus: (s) => setState(() => _status = s),
+    );
+    if (engine == null) return 'Run a backup first.';
+    final problem = await _service.verifyNow(engine);
+    return problem == null ? 'Backup verified ✓' : 'Problem: $problem';
+  });
 
   /// Zips the whole backup store and hands it to the share sheet — one tap to
   /// get the backup off the phone (Drive, email, a computer).
   Future<void> _shareZip() => _run('Zipping backup…', () async {
-        final dir = await _service.backupDir();
-        if (!Directory('${dir.path}/fieldnotes').existsSync()) {
-          return 'Run a backup first.';
-        }
-        final docs = await getApplicationDocumentsDirectory();
-        final date = nowUtcIso().substring(0, 10);
-        final zipPath = p.join(docs.path, 'fieldnotes-backup-$date.zip');
-        final encoder = ZipFileEncoder();
-        encoder.create(zipPath);
-        await encoder.addDirectory(Directory('${dir.path}/fieldnotes'));
-        await encoder.close();
-        await SharePlus.instance.share(
-            ShareParams(files: [XFile(zipPath)], text: 'Field Notes backup'));
-        return 'Backup shared.';
-      });
+    final dir = await _service.backupDir();
+    if (!Directory('${dir.path}/fieldnotes').existsSync()) {
+      return 'Run a backup first.';
+    }
+    final docs = await getApplicationDocumentsDirectory();
+    final date = nowUtcIso().substring(0, 10);
+    final zipPath = p.join(docs.path, 'fieldnotes-backup-$date.zip');
+    final encoder = ZipFileEncoder();
+    encoder.create(zipPath);
+    await encoder.addDirectory(Directory('${dir.path}/fieldnotes'));
+    await encoder.close();
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(zipPath)], text: 'Field Notes backup'),
+    );
+    return 'Backup shared.';
+  });
 
   String _ago(String? iso) {
     if (iso == null) return 'never';
@@ -240,13 +247,17 @@ class _BackupScreenState extends State<BackupScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Last backup: ${_ago(_lastBackup)}',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Last backup: ${_ago(_lastBackup)}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   Text('Last verified: ${_ago(_lastVerify)}'),
                   if (_autoNote != null) ...[
                     const SizedBox(height: 6),
-                    Text('Automatic: $_autoNote',
-                        style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      'Automatic: $_autoNote',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ],
               ),
@@ -255,21 +266,25 @@ class _BackupScreenState extends State<BackupScreen> {
           const SizedBox(height: 16),
           SwitchListTile(
             title: const Text('Encrypt with a passphrase'),
-            subtitle: Text(_encrypted
-                ? 'Backups are unreadable without your passphrase. Losing it '
-                    'means losing the backup.'
-                : 'Convenience mode: backups are stored unencrypted. Anyone '
-                    'with the files can read your records and locations.'),
+            subtitle: Text(
+              _encrypted
+                  ? 'Backups are unreadable without your passphrase. Losing it '
+                        'means losing the backup.'
+                  : 'Convenience mode: backups are stored unencrypted. Anyone '
+                        'with the files can read your records and locations.',
+            ),
             value: _encrypted,
             onChanged: _busy ? null : (v) => setState(() => _encrypted = v),
           ),
           SwitchListTile(
             title: const Text('Back up automatically'),
-            subtitle: Text(_encrypted && !_keyCached
-                ? 'Once a day. Needs the passphrase once on this phone — '
-                    'run "Back up now" to unlock it.'
-                : 'Once a day while you use the app, plus a weekly check '
-                    'that the backup still opens.'),
+            subtitle: Text(
+              _encrypted && !_keyCached
+                  ? 'Once a day. Needs the passphrase once on this phone — '
+                        'run "Back up now" to unlock it.'
+                  : 'Once a day while you use the app, plus a weekly check '
+                        'that the backup still opens.',
+            ),
             value: _prefs?.autoBackup ?? true,
             onChanged: _busy || _prefs == null
                 ? null
@@ -311,9 +326,11 @@ class _BackupScreenState extends State<BackupScreen> {
                       await _service.forgetKey();
                       _loadConfig();
                       if (mounted) {
-                        setState(() => _status =
-                            'Passphrase forgotten on this phone. The next '
-                            'backup will ask for it.');
+                        setState(
+                          () => _status =
+                              'Passphrase forgotten on this phone. The next '
+                              'backup will ask for it.',
+                        );
                       }
                     },
               child: const Text('FORGET PASSPHRASE ON THIS PHONE'),
@@ -322,8 +339,10 @@ class _BackupScreenState extends State<BackupScreen> {
           if (_status != null)
             Padding(
               padding: const EdgeInsets.only(top: 16),
-              child: Text(_status!,
-                  style: Theme.of(context).textTheme.bodyLarge),
+              child: Text(
+                _status!,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
             ),
           const SizedBox(height: 24),
           Text(

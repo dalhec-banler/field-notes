@@ -39,12 +39,15 @@ class IdentificationService {
   /// local context. Either layer alone still produces an answer — if only
   /// the LLM is configured it works from the photograph and context.
   Future<List<IdCandidate>> identify({
-    required File photo,
+    required List<File> photos,
     required Observation observation,
     required Property property,
     String organ = 'auto',
     String plantNetProject = 'k-world-flora',
     void Function(String status)? onStatus,
+    // False while the record isn't saved yet (capture time): the caller
+    // persists the list itself once the row exists — rule 7 still holds.
+    bool persist = true,
   }) async {
     var priors = <IdCandidate>[];
 
@@ -52,7 +55,7 @@ class IdentificationService {
       onStatus?.call('Asking Pl@ntNet…');
       try {
         priors = await _plantNet.identify(
-          photo: photo,
+          photos: photos,
           apiKey: (await _keys.plantNetKey)!,
           project: plantNetProject,
           organ: organ,
@@ -69,7 +72,7 @@ class IdentificationService {
       onStatus?.call('Weighing it against this place…');
       final context = await buildContext(observation, property);
       final reranked = await _llm.rerank(
-        photo: photo,
+        photo: photos.first,
         context: context,
         priors: priors,
         provider: await _keys.llmProvider,
@@ -81,7 +84,7 @@ class IdentificationService {
     }
 
     candidates = await _matchToLibrary(candidates, property.id);
-    await _record(candidates, observation, plantNetProject);
+    if (persist) await _record(candidates, observation, plantNetProject);
     return candidates;
   }
 
@@ -170,6 +173,46 @@ class IdentificationService {
       out.add(match == null ? c : c.copyWith(taxonId: match.id));
     }
     return out;
+  }
+
+  /// Persist suggestions for a record that now exists (capture-time IDs).
+  Future<void> recordSuggestions(
+    List<IdCandidate> candidates,
+    Observation observation, {
+    String project = 'k-world-flora',
+  }) => _record(candidates, observation, project);
+
+  /// The taxon for a candidate, creating it in this property's library if
+  /// the name is new. Used by accept, and by capture when the user picks a
+  /// suggestion before the record is saved.
+  Future<String> ensureTaxon(IdCandidate candidate, String propertyId) async {
+    if (candidate.taxonId != null) return candidate.taxonId!;
+    final now = nowUtcIso();
+    final existing =
+        await (db.select(db.taxa)
+              ..where(
+                (t) => t.scientificName.lower().equals(
+                  candidate.name.toLowerCase(),
+                ),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    if (existing != null) return existing.id;
+    final id = newId();
+    await db
+        .into(db.taxa)
+        .insert(
+          TaxaCompanion.insert(
+            id: id,
+            propertyId: Value(propertyId),
+            scientificName: candidate.name,
+            commonName: Value(candidate.commonName),
+            createdBy: const Value('identification'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    return id;
   }
 
   Future<void> _record(

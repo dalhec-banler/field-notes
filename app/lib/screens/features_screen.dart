@@ -10,11 +10,12 @@ import '../main.dart' show locationHub;
 /// Features & infrastructure (spec §7.9): map-worthy things with condition
 /// history — springs, guzzlers, headcuts, gates.
 class FeaturesScreen extends StatefulWidget {
-  const FeaturesScreen(
-      {super.key,
-      required this.db,
-      required this.property,
-      this.embedded = false});
+  const FeaturesScreen({
+    super.key,
+    required this.db,
+    required this.property,
+    this.embedded = false,
+  });
 
   final FieldNotesDb db;
   final Property property;
@@ -38,9 +39,9 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
   }
 
   Future<void> _loadTypes() async {
-    final types = await (widget.db.select(widget.db.featureTypes)
-          ..orderBy([(t) => OrderingTerm.asc(t.label)]))
-        .get();
+    final types = await (widget.db.select(
+      widget.db.featureTypes,
+    )..orderBy([(t) => OrderingTerm.asc(t.label)])).get();
     if (mounted) setState(() => _types = types);
   }
 
@@ -66,13 +67,17 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              Text('New feature',
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'New feature',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 12),
               DropdownButtonFormField<FeatureType>(
                 initialValue: type,
                 decoration: const InputDecoration(
-                    labelText: 'Type', border: OutlineInputBorder()),
+                  labelText: 'Type',
+                  border: OutlineInputBorder(),
+                ),
                 items: [
                   for (final t in _types)
                     DropdownMenuItem(value: t, child: Text(t.label)),
@@ -91,13 +96,17 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
               TextField(
                 controller: notesController,
                 decoration: const InputDecoration(
-                    labelText: 'Notes', border: OutlineInputBorder()),
+                  labelText: 'Notes',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 8),
-              Text(type == null
-                  ? 'Pick a type to continue. Your current GPS position '
-                      'is used for the location.'
-                  : 'Location: your current GPS position is used.'),
+              Text(
+                type == null
+                    ? 'Pick a type to continue. Your current GPS position '
+                          'is used for the location.'
+                    : 'Location: your current GPS position is used.',
+              ),
               const SizedBox(height: 16),
               SizedBox(
                 height: 56,
@@ -130,9 +139,11 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
         try {
           if (await locationHub.ensurePermission()) {
             final fix = await Geolocator.getCurrentPosition(
-                locationSettings: const LocationSettings(
-                    accuracy: LocationAccuracy.best,
-                    timeLimit: Duration(seconds: 5)));
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.best,
+                timeLimit: Duration(seconds: 5),
+              ),
+            );
             lat = fix.latitude;
             lng = fix.longitude;
           }
@@ -144,31 +155,38 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
       final now = nowUtcIso();
       await widget.db
           .into(widget.db.features)
-          .insert(FeaturesCompanion.insert(
-            id: newId(),
-            propertyId: widget.property.id,
-            featureTypeId: chosen.id,
-            name: Value(nameController.text.trim().isEmpty
-                ? null
-                : nameController.text.trim()),
-            geojson: jsonEncode({
-              'type': 'Point',
-              'coordinates': [lng ?? 0, lat ?? 0],
-            }),
-            lat: Value(lat),
-            lng: Value(lng),
-            currentCondition: const Value('unknown'),
-            notes: Value(notesController.text.trim().isEmpty
-                ? null
-                : notesController.text.trim()),
-            createdBy: 'local',
-            createdAt: now,
-            updatedAt: now,
-          ));
+          .insert(
+            FeaturesCompanion.insert(
+              id: newId(),
+              propertyId: widget.property.id,
+              featureTypeId: chosen.id,
+              name: Value(
+                nameController.text.trim().isEmpty
+                    ? null
+                    : nameController.text.trim(),
+              ),
+              geojson: jsonEncode({
+                'type': 'Point',
+                'coordinates': [lng ?? 0, lat ?? 0],
+              }),
+              lat: Value(lat),
+              lng: Value(lng),
+              currentCondition: const Value('unknown'),
+              notes: Value(
+                notesController.text.trim().isEmpty
+                    ? null
+                    : notesController.text.trim(),
+              ),
+              createdBy: 'local',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Couldn\'t save the feature: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Couldn\'t save the feature: $e')));
     } finally {
       if (mounted) setState(() => _adding = false);
     }
@@ -182,7 +200,9 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialog) => AlertDialog(
-          title: Text('Condition — ${feature.name ?? _typeLabel(feature.featureTypeId)}'),
+          title: Text(
+            'Condition — ${feature.name ?? _typeLabel(feature.featureTypeId)}',
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -200,8 +220,7 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
               ),
               TextField(
                 controller: actionController,
-                decoration:
-                    const InputDecoration(labelText: 'Action taken'),
+                decoration: const InputDecoration(labelText: 'Action taken'),
               ),
               TextField(
                 controller: notesController,
@@ -211,11 +230,13 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Log')),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Log'),
+            ),
           ],
         ),
       ),
@@ -224,37 +245,45 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
     final now = nowUtcIso();
     await widget.db
         .into(widget.db.featureConditionLogs)
-        .insert(FeatureConditionLogsCompanion.insert(
-          id: newId(),
-          propertyId: feature.propertyId,
-          featureId: feature.id,
-          observedAt: now,
-          condition: condition,
-          actionTaken: Value(actionController.text.trim().isEmpty
-              ? null
-              : actionController.text.trim()),
-          notes: Value(notesController.text.trim().isEmpty
-              ? null
-              : notesController.text.trim()),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
-    await (widget.db.update(widget.db.features)
-          ..where((f) => f.id.equals(feature.id)))
-        .write(FeaturesCompanion(
-      currentCondition: Value(condition),
-      updatedAt: Value(now),
-    ));
+        .insert(
+          FeatureConditionLogsCompanion.insert(
+            id: newId(),
+            propertyId: feature.propertyId,
+            featureId: feature.id,
+            observedAt: now,
+            condition: condition,
+            actionTaken: Value(
+              actionController.text.trim().isEmpty
+                  ? null
+                  : actionController.text.trim(),
+            ),
+            notes: Value(
+              notesController.text.trim().isEmpty
+                  ? null
+                  : notesController.text.trim(),
+            ),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await (widget.db.update(
+      widget.db.features,
+    )..where((f) => f.id.equals(feature.id))).write(
+      FeaturesCompanion(
+        currentCondition: Value(condition),
+        updatedAt: Value(now),
+      ),
+    );
   }
 
   Color _conditionColor(String? c) => switch (c) {
-        'good' => Colors.green.shade700,
-        'fair' => Colors.orange.shade700,
-        'poor' => Colors.deepOrange.shade700,
-        'critical' => Colors.red.shade700,
-        _ => Colors.grey,
-      };
+    'good' => Colors.green.shade700,
+    'fair' => Colors.orange.shade700,
+    'poor' => Colors.deepOrange.shade700,
+    'critical' => Colors.red.shade700,
+    _ => Colors.grey,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -269,7 +298,8 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2))
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             : const Icon(Icons.add_location_alt_outlined),
         label: Text(_adding ? 'Finding position…' : 'Add feature'),
         onPressed: _adding ? null : _addFeature,
@@ -280,9 +310,11 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
           final features = snapshot.data ?? const [];
           if (features.isEmpty) {
             return const Center(
-                child: Text(
-                    'No features yet.\nSprings, guzzlers, headcuts, gates…',
-                    textAlign: TextAlign.center));
+              child: Text(
+                'No features yet.\nSprings, guzzlers, headcuts, gates…',
+                textAlign: TextAlign.center,
+              ),
+            );
           }
           return ListView.builder(
             itemCount: features.length,
@@ -291,16 +323,20 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
               return ListTile(
                 minTileHeight: 64,
                 leading: CircleAvatar(
-                  backgroundColor:
-                      _conditionColor(f.currentCondition).withAlpha(40),
-                  child: Icon(Icons.place_outlined,
-                      color: _conditionColor(f.currentCondition)),
+                  backgroundColor: _conditionColor(f.currentCondition)
+                      .withAlpha(40),
+                  child: Icon(
+                    Icons.place_outlined,
+                    color: _conditionColor(f.currentCondition),
+                  ),
                 ),
                 title: Text(f.name ?? _typeLabel(f.featureTypeId)),
-                subtitle: Text([
-                  _typeLabel(f.featureTypeId),
-                  f.currentCondition ?? 'unknown',
-                ].join(' · ')),
+                subtitle: Text(
+                  [
+                    _typeLabel(f.featureTypeId),
+                    f.currentCondition ?? 'unknown',
+                  ].join(' · '),
+                ),
                 trailing: const Icon(Icons.fact_check_outlined),
                 onTap: () => _logCondition(f),
               );

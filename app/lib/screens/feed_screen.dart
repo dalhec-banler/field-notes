@@ -29,11 +29,12 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _loadZones() async {
-    final zones = await (widget.db.select(widget.db.zones)
-          ..where((z) => z.propertyId.equals(widget.property.id))
-          ..where((z) => z.deletedAt.isNull())
-          ..orderBy([(z) => OrderingTerm.asc(z.name)]))
-        .get();
+    final zones =
+        await (widget.db.select(widget.db.zones)
+              ..where((z) => z.propertyId.equals(widget.property.id))
+              ..where((z) => z.deletedAt.isNull())
+              ..orderBy([(z) => OrderingTerm.asc(z.name)]))
+            .get();
     if (mounted) setState(() => _zones = zones);
   }
 
@@ -66,9 +67,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     child: _dropdownChip<String>(
                       label: _zoneFilter == null
                           ? 'Zone'
-                          : _zones
-                              .firstWhere((z) => z.id == _zoneFilter)
-                              .name,
+                          : _zones.firstWhere((z) => z.id == _zoneFilter).name,
                       selected: _zoneFilter != null,
                       items: [
                         for (final z in _zones)
@@ -84,19 +83,34 @@ class _FeedScreenState extends State<FeedScreen> {
                     label: _typeFilter ?? 'Type',
                     selected: _typeFilter != null,
                     items: const [
-                      DropdownMenuItem(value: 'general', child: Text('general')),
+                      DropdownMenuItem(
+                        value: 'general',
+                        child: Text('general'),
+                      ),
                       DropdownMenuItem(value: 'plant', child: Text('plant')),
                       DropdownMenuItem(
-                          value: 'wildlife', child: Text('wildlife')),
-                      DropdownMenuItem(value: 'problem', child: Text('problem')),
+                        value: 'wildlife',
+                        child: Text('wildlife'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'problem',
+                        child: Text('problem'),
+                      ),
                       DropdownMenuItem(value: 'water', child: Text('water')),
                       DropdownMenuItem(value: 'soil', child: Text('soil')),
                       DropdownMenuItem(
-                          value: 'phenology', child: Text('phenology')),
+                        value: 'phenology',
+                        child: Text('phenology'),
+                      ),
                       DropdownMenuItem(value: 'sign', child: Text('sign')),
-                      DropdownMenuItem(value: 'weather', child: Text('weather')),
                       DropdownMenuItem(
-                          value: 'maintenance', child: Text('maintenance')),
+                        value: 'weather',
+                        child: Text('weather'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'maintenance',
+                        child: Text('maintenance'),
+                      ),
                     ],
                     onChanged: (v) => setState(() => _typeFilter = v),
                     onCleared: () => setState(() => _typeFilter = null),
@@ -120,8 +134,8 @@ class _FeedScreenState extends State<FeedScreen> {
                     obs: obs[i],
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => RecordDetailScreen(
-                            db: widget.db, obsId: obs[i].id),
+                        builder: (_) =>
+                            RecordDetailScreen(db: widget.db, obsId: obs[i].id),
                       ),
                     ),
                   ),
@@ -169,8 +183,11 @@ class _FeedScreenState extends State<FeedScreen> {
 }
 
 class _ObservationTile extends StatelessWidget {
-  const _ObservationTile(
-      {required this.db, required this.obs, required this.onTap});
+  const _ObservationTile({
+    required this.db,
+    required this.obs,
+    required this.onTap,
+  });
 
   final FieldNotesDb db;
   final Observation obs;
@@ -179,21 +196,25 @@ class _ObservationTile extends StatelessWidget {
   Future<(String?, String?)> _details() async {
     String? species;
     if (obs.taxonId != null) {
-      final t = await (db.select(db.taxa)
-            ..where((x) => x.id.equals(obs.taxonId!)))
-          .getSingleOrNull();
+      final t = await (db.select(
+        db.taxa,
+      )..where((x) => x.id.equals(obs.taxonId!))).getSingleOrNull();
       species = t?.commonName ?? t?.scientificName;
     }
     String? thumb;
-    final link = await (db.select(db.mediaLinks)
-          ..where((l) =>
-              l.entityType.equals('observation') & l.entityId.equals(obs.id))
-          ..limit(1))
-        .getSingleOrNull();
+    final link =
+        await (db.select(db.mediaLinks)
+              ..where(
+                (l) =>
+                    l.entityType.equals('observation') &
+                    l.entityId.equals(obs.id),
+              )
+              ..limit(1))
+            .getSingleOrNull();
     if (link != null) {
-      final m = await (db.select(db.media)
-            ..where((x) => x.id.equals(link.mediaId)))
-          .getSingleOrNull();
+      final m = await (db.select(
+        db.media,
+      )..where((x) => x.id.equals(link.mediaId))).getSingleOrNull();
       thumb = m?.thumbPath;
     }
     return (species, thumb);
@@ -212,8 +233,12 @@ class _ObservationTile extends StatelessWidget {
           leading: thumb != null && File(thumb).existsSync()
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(6),
-                  child: Image.file(File(thumb),
-                      width: 48, height: 48, fit: BoxFit.cover),
+                  child: Image.file(
+                    File(thumb),
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                  ),
                 )
               : CircleAvatar(child: Icon(_iconFor(obs.observationType))),
           title: Text(species ?? obs.observationType),
@@ -228,10 +253,10 @@ class _ObservationTile extends StatelessWidget {
   }
 
   IconData _iconFor(String type) => switch (type) {
-        'plant' => Icons.local_florist_outlined,
-        'wildlife' => Icons.pets_outlined,
-        'water' => Icons.water_drop_outlined,
-        'problem' => Icons.report_problem_outlined,
-        _ => Icons.note_outlined,
-      };
+    'plant' => Icons.local_florist_outlined,
+    'wildlife' => Icons.pets_outlined,
+    'water' => Icons.water_drop_outlined,
+    'problem' => Icons.report_problem_outlined,
+    _ => Icons.note_outlined,
+  };
 }

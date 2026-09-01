@@ -30,7 +30,7 @@ class PlantNetClient {
   static const organs = ['leaf', 'flower', 'fruit', 'bark', 'habit', 'auto'];
 
   Future<List<IdCandidate>> identify({
-    required File photo,
+    required List<File> photos,
     required String apiKey,
     String project = 'k-world-flora',
     String organ = 'auto',
@@ -43,9 +43,16 @@ class PlantNetClient {
       'nb-results': '$maxResults',
       'lang': 'en',
     });
-    final request = http.MultipartRequest('POST', uri)
-      ..fields['organs'] = organ
-      ..files.add(await http.MultipartFile.fromPath('images', photo.path));
+    final request = http.MultipartRequest('POST', uri);
+    // Up to five images of the same plant in one request — a leaf, the
+    // flower, the bark — is how Pl@ntNet gets confident. Organs are
+    // optional; when one is chosen it applies to every image.
+    for (final f in photos.take(5)) {
+      request.files.add(await http.MultipartFile.fromPath('images', f.path));
+      if (organ != 'auto') {
+        request.files.add(http.MultipartFile.fromString('organs', organ));
+      }
+    }
 
     final streamed = await _client
         .send(request)

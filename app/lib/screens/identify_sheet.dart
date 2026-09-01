@@ -20,7 +20,10 @@ Future<bool> showIdentifySheet(
   required FieldNotesDb db,
   required Observation observation,
   required Property property,
-  required File photo,
+  required List<File> photos,
+  bool persist = true,
+  Future<void> Function(IdCandidate)? onChoose,
+  void Function(List<IdCandidate>)? onCandidates,
 }) async {
   final accepted = await showModalBottomSheet<bool>(
     context: context,
@@ -30,7 +33,10 @@ Future<bool> showIdentifySheet(
       db: db,
       observation: observation,
       property: property,
-      photo: photo,
+      photos: photos,
+      persist: persist,
+      onChoose: onChoose,
+      onCandidates: onCandidates,
     ),
   );
   return accepted ?? false;
@@ -41,13 +47,19 @@ class _IdentifySheet extends StatefulWidget {
     required this.db,
     required this.observation,
     required this.property,
-    required this.photo,
+    required this.photos,
+    this.persist = true,
+    this.onChoose,
+    this.onCandidates,
   });
 
   final FieldNotesDb db;
   final Observation observation;
   final Property property;
-  final File photo;
+  final List<File> photos;
+  final bool persist;
+  final Future<void> Function(IdCandidate)? onChoose;
+  final void Function(List<IdCandidate>)? onCandidates;
 
   @override
   State<_IdentifySheet> createState() => _IdentifySheetState();
@@ -98,15 +110,17 @@ class _IdentifySheetState extends State<_IdentifySheet> {
     });
     try {
       final results = await _service.identify(
-        photo: widget.photo,
+        photos: widget.photos,
         observation: widget.observation,
         property: widget.property,
         organ: _organ,
+        persist: widget.persist,
         onStatus: (s) {
           if (mounted) setState(() => _status = s);
         },
       );
       if (!mounted) return;
+      widget.onCandidates?.call(results);
       setState(() {
         _candidates = results;
         _status = results.isEmpty ? 'No confident match.' : null;
@@ -124,6 +138,11 @@ class _IdentifySheetState extends State<_IdentifySheet> {
 
   Future<void> _accept(IdCandidate c) async {
     try {
+      if (widget.onChoose != null) {
+        await widget.onChoose!(c);
+        if (mounted) Navigator.pop(context, true);
+        return;
+      }
       await _service.accept(
         candidate: c,
         observationId: widget.observation.id,
@@ -144,24 +163,28 @@ class _IdentifySheetState extends State<_IdentifySheet> {
       maxChildSize: 0.95,
       builder: (context, scroll) => ListView(
         controller: scroll,
-        padding: EdgeInsets.fromLTRB(
-            Metrics.gutter, 14, Metrics.gutter, 32),
+        padding: EdgeInsets.fromLTRB(Metrics.gutter, 14, Metrics.gutter, 32),
         children: [
           MonoLabel('What is it?', size: 10, spacing: 2),
           SizedBox(height: 12),
 
           if (!_loaded)
-            Center(child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ))
+            Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ),
+            )
           else if (!_configured) ...[
             Text(
               'Photo identification needs a key from you first — Pl@ntNet, '
               'an AI provider, or both. Your account, your key, and nothing '
               'is sent until you ask.',
-              style:
-                  TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
+              style: TextStyle(
+                fontFamily: Type.serif,
+                fontSize: 15.5,
+                height: 1.45,
+              ),
             ),
             SizedBox(height: 14),
             SizedBox(
@@ -169,8 +192,11 @@ class _IdentifySheetState extends State<_IdentifySheet> {
               child: FilledButton(
                 onPressed: () {
                   Navigator.pop(context, false);
-                  Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => SpeciesIdSettingsScreen()));
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SpeciesIdSettingsScreen(),
+                    ),
+                  );
                 },
                 child: Text('SET IT UP'),
               ),
@@ -179,15 +205,15 @@ class _IdentifySheetState extends State<_IdentifySheet> {
             AspectRatio(
               aspectRatio: 16 / 9,
               child: Container(
-                decoration:
-                    BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
-                child: Image.file(widget.photo, fit: BoxFit.cover),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Press.borderInk, width: 1.5),
+                ),
+                child: Image.file(widget.photos.first, fit: BoxFit.cover),
               ),
             ),
             SizedBox(height: 12),
             if (_candidates.isEmpty && !_running) ...[
-              MonoLabel('What does the photo show?',
-                  size: 9, spacing: 1.6),
+              MonoLabel('What does the photo show?', size: 9, spacing: 1.6),
               SizedBox(height: 6),
               Wrap(
                 spacing: 7,
@@ -212,8 +238,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                               fontFamily: Type.mono,
                               fontSize: 9.5,
                               letterSpacing: 1.4,
-                              color:
-                                  _organ == e.key ? Press.paper : Press.ink,
+                              color: _organ == e.key ? Press.paper : Press.ink,
                             ),
                           ),
                         ),
@@ -247,22 +272,29 @@ class _IdentifySheetState extends State<_IdentifySheet> {
             ],
             if (_error != null) ...[
               SizedBox(height: 12),
-              Text(_error!,
-                  style: TextStyle(
-                      fontFamily: Type.serif,
-                      fontSize: 15,
-                      color: Press.oxblood)),
+              Text(
+                _error!,
+                style: TextStyle(
+                  fontFamily: Type.serif,
+                  fontSize: 15,
+                  color: Press.oxblood,
+                ),
+              ),
             ],
             if (_candidates.isNotEmpty) ...[
               SizedBox(height: 14),
-              MonoLabel('Suggestions · tap the one you agree with',
-                  size: 9, spacing: 1.6),
+              MonoLabel(
+                'Suggestions · tap the one you agree with',
+                size: 9,
+                spacing: 1.6,
+              ),
               const SizedBox(height: 8),
               for (final c in _candidates) _candidateTile(c),
               const SizedBox(height: 14),
               RailNote(
                 color: Press.sage,
-                body: 'Nothing has been written to this record. A suggestion '
+                body:
+                    'Nothing has been written to this record. A suggestion '
                     'only becomes the species when you tap it.',
               ),
               const SizedBox(height: 10),
@@ -305,13 +337,15 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (c.commonName != null)
-                          Text(c.commonName!,
-                              style: TextStyle(
-                                fontFamily: Type.slab,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                                color: Press.ink,
-                              )),
+                          Text(
+                            c.commonName!,
+                            style: TextStyle(
+                              fontFamily: Type.slab,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: Press.ink,
+                            ),
+                          ),
                         TaxonName(c.name, size: 14),
                       ],
                     ),
@@ -324,19 +358,25 @@ class _IdentifySheetState extends State<_IdentifySheet> {
               ),
               if (c.reasoning != null) ...[
                 const SizedBox(height: 8),
-                Text(c.reasoning!,
-                    style: TextStyle(
-                        fontFamily: Type.serif, fontSize: 14.5, height: 1.4)),
+                Text(
+                  c.reasoning!,
+                  style: TextStyle(
+                    fontFamily: Type.serif,
+                    fontSize: 14.5,
+                    height: 1.4,
+                  ),
+                ),
               ],
               const SizedBox(height: 6),
               MonoLabel(
-                  c.source == 'plantnet'
-                      ? 'Pl@ntNet'
-                      : c.source == 'llm_rerank'
-                          ? 'weighed against this place'
-                          : c.source,
-                  size: 8.5,
-                  opacity: 0.65),
+                c.source == 'plantnet'
+                    ? 'Pl@ntNet'
+                    : c.source == 'llm_rerank'
+                    ? 'weighed against this place'
+                    : c.source,
+                size: 8.5,
+                opacity: 0.65,
+              ),
             ],
           ),
         ),

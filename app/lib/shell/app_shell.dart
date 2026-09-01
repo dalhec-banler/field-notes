@@ -94,7 +94,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     // toast — the privacy promise restated at every write.
     setState(() => _tab = 1);
     final ms = result.elapsed.inMilliseconds;
-    final speed = ms < 1000 ? 'INSTANTLY' : 'IN ${(ms / 1000).toStringAsFixed(1)} S';
+    final speed = ms < 1000
+        ? 'INSTANTLY'
+        : 'IN ${(ms / 1000).toStringAsFixed(1)} S';
     // Identify belongs at the moment of saving (audit U1) — but only when
     // the record actually has a photo and a key is on file; a dead-end
     // button teaches people to ignore the toast.
@@ -117,16 +119,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// The record's first photo, if identification could actually run on it.
   Future<File?> _identifyPhotoFor(String observationId) async {
     try {
-      final links = await (widget.db.select(widget.db.mediaLinks)
-            ..where((l) => l.entityType.equals('observation'))
-            ..where((l) => l.entityId.equals(observationId))
-            ..where((l) => l.deletedAt.isNull()))
-          .get();
+      final links =
+          await (widget.db.select(widget.db.mediaLinks)
+                ..where((l) => l.entityType.equals('observation'))
+                ..where((l) => l.entityId.equals(observationId))
+                ..where((l) => l.deletedAt.isNull()))
+              .get();
       if (links.isEmpty) return null;
-      final media = await (widget.db.select(widget.db.media)
-            ..where((m) => m.id.isIn([for (final l in links) l.mediaId]))
-            ..where((m) => m.mediaType.equals('photo')))
-          .get();
+      final media =
+          await (widget.db.select(widget.db.media)
+                ..where((m) => m.id.isIn([for (final l in links) l.mediaId]))
+                ..where((m) => m.mediaType.equals('photo')))
+              .get();
       for (final m in media) {
         final path = m.localPath;
         if (path != null && File(path).existsSync()) return File(path);
@@ -138,9 +142,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   Future<void> _identifyJustSaved(String observationId, File photo) async {
-    final obs = await (widget.db.select(widget.db.observations)
-          ..where((o) => o.id.equals(observationId)))
-        .getSingleOrNull();
+    final obs = await (widget.db.select(
+      widget.db.observations,
+    )..where((o) => o.id.equals(observationId))).getSingleOrNull();
     if (obs == null || !mounted) return;
     await showIdentifySheet(
       context,
@@ -152,10 +156,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   Future<void> _switchProperty() async {
-    final properties = await (widget.db.select(widget.db.properties)
-          ..where((x) => x.deletedAt.isNull())
-          ..orderBy([(x) => OrderingTerm.asc(x.name)]))
-        .get();
+    final properties =
+        await (widget.db.select(widget.db.properties)
+              ..where((x) => x.deletedAt.isNull())
+              ..orderBy([(x) => OrderingTerm.asc(x.name)]))
+            .get();
     if (!mounted) return;
     final picked = await showModalBottomSheet<Object>(
       context: context,
@@ -185,15 +190,22 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     fontSize: 15,
                   ),
                 ),
-                subtitle: MonoLabel(property.landTenure.replaceAll('_', ' '),
-                    size: 8.5, opacity: 0.7),
+                subtitle: MonoLabel(
+                  property.landTenure.replaceAll('_', ' '),
+                  size: 8.5,
+                  opacity: 0.7,
+                ),
                 onTap: () => Navigator.pop(context, property),
                 // Rename / remove (Austin, 2026-08-31: "you cannot delete,
                 // edit"). Kept off the main tap path — switching stays the
                 // one-tap action.
                 trailing: IconButton(
                   tooltip: 'Edit place',
-                  icon: Icon(Icons.edit_outlined, size: 20, color: Press.inkSoft),
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: Press.inkSoft,
+                  ),
                   onPressed: () => Navigator.pop(context, _EditPlace(property)),
                 ),
               ),
@@ -254,80 +266,95 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'delete'),
-            child: Text('REMOVE…',
-                style: TextStyle(color: Press.oxblood)),
+            child: Text('REMOVE…', style: TextStyle(color: Press.oxblood)),
           ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCEL'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, 'save'),
-              child: const Text('SAVE')),
+            onPressed: () => Navigator.pop(ctx, 'save'),
+            child: const Text('SAVE'),
+          ),
         ],
       ),
     );
     if (action == 'save') {
       final name = controller.text.trim();
       if (name.isEmpty || name == property.name) return;
-      await (widget.db.update(widget.db.properties)
-            ..where((x) => x.id.equals(property.id)))
-          .write(PropertiesCompanion(
-        name: Value(name),
-        updatedAt: Value(nowUtcIso()),
-      ));
+      await (widget.db.update(
+        widget.db.properties,
+      )..where((x) => x.id.equals(property.id))).write(
+        PropertiesCompanion(name: Value(name), updatedAt: Value(nowUtcIso())),
+      );
       if (property.id == widget.property.id && mounted) {
-        final fresh = await (widget.db.select(widget.db.properties)
-              ..where((x) => x.id.equals(property.id)))
-            .getSingle();
+        final fresh = await (widget.db.select(
+          widget.db.properties,
+        )..where((x) => x.id.equals(property.id))).getSingle();
         widget.onSwitchProperty(fresh);
       }
       return;
     }
     if (action != 'delete' || !mounted) return;
 
-    final others = await (widget.db.select(widget.db.properties)
-          ..where((x) => x.deletedAt.isNull())
-          ..where((x) => x.id.equals(property.id).not()))
-        .get();
+    final others =
+        await (widget.db.select(widget.db.properties)
+              ..where((x) => x.deletedAt.isNull())
+              ..where((x) => x.id.equals(property.id).not()))
+            .get();
     if (others.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('This is your only place — add another before '
-              'removing it.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This is your only place — add another before '
+            'removing it.',
+          ),
+        ),
+      );
       return;
     }
-    final obsCount = await (widget.db.selectOnly(widget.db.observations)
-          ..addColumns([widget.db.observations.id.count()])
-          ..where(widget.db.observations.propertyId.equals(property.id) &
-              widget.db.observations.deletedAt.isNull()))
-        .map((r) => r.read(widget.db.observations.id.count()) ?? 0)
-        .getSingle();
+    final obsCount =
+        await (widget.db.selectOnly(widget.db.observations)
+              ..addColumns([widget.db.observations.id.count()])
+              ..where(
+                widget.db.observations.propertyId.equals(property.id) &
+                    widget.db.observations.deletedAt.isNull(),
+              ))
+            .map((r) => r.read(widget.db.observations.id.count()) ?? 0)
+            .getSingle();
     if (!mounted) return;
     final sure = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('REMOVE THIS PLACE?'),
         content: Text(
-            '"${property.name}" and its $obsCount record'
-            '${obsCount == 1 ? '' : 's'} will be removed from your lists. '
-            'Nothing is destroyed — it all stays in the database and in '
-            'backups, and can be brought back later.'),
+          '"${property.name}" and its $obsCount record'
+          '${obsCount == 1 ? '' : 's'} will be removed from your lists. '
+          'Nothing is destroyed — it all stays in the database and in '
+          'backups, and can be brought back later.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('KEEP IT')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('KEEP IT'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('REMOVE')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('REMOVE'),
+          ),
         ],
       ),
     );
     if (sure != true) return;
-    await (widget.db.update(widget.db.properties)
-          ..where((x) => x.id.equals(property.id)))
-        .write(PropertiesCompanion(
-      deletedAt: Value(nowUtcIso()),
-      updatedAt: Value(nowUtcIso()),
-    ));
+    await (widget.db.update(
+      widget.db.properties,
+    )..where((x) => x.id.equals(property.id))).write(
+      PropertiesCompanion(
+        deletedAt: Value(nowUtcIso()),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
     if (property.id == widget.property.id && mounted) {
       widget.onSwitchProperty(others.first);
     }
@@ -348,15 +375,24 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           active: _tab == 0,
           onPropertyCardTap: _switchProperty,
           onDropRecord: (latLng) => _openCapture(placedAt: latLng),
-          onRecordTap: (id) => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => RecordDetailScreen(db: widget.db, obsId: id))),
+          onRecordTap: (id) => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => RecordDetailScreen(db: widget.db, obsId: id),
+            ),
+          ),
         ),
-        LedgerTab(db: widget.db, property: widget.property,
-            prefs: widget.prefs),
+        LedgerTab(
+          db: widget.db,
+          property: widget.property,
+          prefs: widget.prefs,
+        ),
         GrowTab(db: widget.db, property: widget.property),
         SpeciesTab(db: widget.db, property: widget.property),
         SettingsTab(
-            db: widget.db, property: widget.property, prefs: widget.prefs),
+          db: widget.db,
+          property: widget.property,
+          prefs: widget.prefs,
+        ),
       ],
     );
 
@@ -382,8 +418,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 }
 
 class _TabBar extends StatelessWidget {
-  const _TabBar(
-      {required this.tabs, required this.current, required this.onTap});
+  const _TabBar({
+    required this.tabs,
+    required this.current,
+    required this.onTap,
+  });
 
   final List<String> tabs;
   final int current;
@@ -395,7 +434,11 @@ class _TabBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: Press.paperEdge,
         border: Border(
-            top: BorderSide(color: Press.borderInk, width: Metrics.borderStructural)),
+          top: BorderSide(
+            color: Press.borderInk,
+            width: Metrics.borderStructural,
+          ),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -449,7 +492,6 @@ class _TabBar extends StatelessWidget {
     );
   }
 }
-
 
 /// Switcher-sheet result meaning "edit this one", distinct from picking it.
 class _EditPlace {

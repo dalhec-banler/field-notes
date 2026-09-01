@@ -13,8 +13,7 @@ import 'record_detail_screen.dart';
 ///
 /// Solo property: this screen is honestly empty and says why.
 class ReviewFeedScreen extends StatefulWidget {
-  const ReviewFeedScreen(
-      {super.key, required this.db, required this.property});
+  const ReviewFeedScreen({super.key, required this.db, required this.property});
 
   final FieldNotesDb db;
   final Property property;
@@ -43,9 +42,9 @@ class _ReviewFeedScreenState extends State<ReviewFeedScreen> {
     for (final item in [...pending, ...decided]) {
       if (item.entityType == 'observation' &&
           !_observations.containsKey(item.entityId)) {
-        final obs = await (widget.db.select(widget.db.observations)
-              ..where((o) => o.id.equals(item.entityId)))
-            .getSingleOrNull();
+        final obs = await (widget.db.select(
+          widget.db.observations,
+        )..where((o) => o.id.equals(item.entityId))).getSingleOrNull();
         if (obs != null) _observations[item.entityId] = obs;
       }
     }
@@ -68,16 +67,19 @@ class _ReviewFeedScreenState extends State<ReviewFeedScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('REMOVE THIS EDIT?'),
         content: Text(
-            'The ${item.entityType.replaceAll('_', ' ')} by ${item.author} '
-            'will be removed for everyone. They will be able to see that it '
-            'was removed — nothing vanishes silently.'),
+          'The ${item.entityType.replaceAll('_', ' ')} by ${item.author} '
+          'will be removed for everyone. They will be able to see that it '
+          'was removed — nothing vanishes silently.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('KEEP')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('KEEP'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('REMOVE')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('REMOVE'),
+          ),
         ],
       ),
     );
@@ -96,52 +98,63 @@ class _ReviewFeedScreenState extends State<ReviewFeedScreen> {
       onTap: obs == null
           ? null
           : () => Navigator.of(context)
-              .push(MaterialPageRoute(
-                  builder: (_) => RecordDetailScreen(
-                      db: widget.db, obsId: obs.id)))
-              .then((_) => _load()),
+                .push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        RecordDetailScreen(db: widget.db, obsId: obs.id),
+                  ),
+                )
+                .then((_) => _load()),
       leading: Diamond(
         size: 13,
         color: pending
             ? Press.ochre
             : item.state == 'approved'
-                ? Press.sage
-                : Press.oxblood,
+            ? Press.sage
+            : Press.oxblood,
         filled: true,
       ),
-      title: Text(what,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontFamily: Type.serif, fontSize: 15.5)),
+      title: Text(
+        what,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontFamily: Type.serif, fontSize: 15.5),
+      ),
       subtitle: MonoLabel(
         pending
             ? '${item.author} · ${item.createdAt.substring(0, 10)}'
             : '${item.state} by ${item.decidedBy ?? '—'} · '
-                '${(item.decidedAt ?? '').split('T').first}',
+                  '${(item.decidedAt ?? '').split('T').first}',
         size: 8.5,
         opacity: 0.75,
       ),
       trailing: pending
-          ? Row(mainAxisSize: MainAxisSize.min, children: [
-              IconButton(
-                tooltip: 'Approve',
-                icon: Icon(Icons.check, color: Press.sage),
-                onPressed: () => _approve(item),
-              ),
-              IconButton(
-                tooltip: 'Remove',
-                icon: Icon(Icons.close, color: Press.oxblood),
-                onPressed: () => _remove(item),
-              ),
-            ])
-          : item.state == 'approved'
-              ? IconButton(
-                  tooltip: 'Remove anyway',
-                  icon: Icon(Icons.visibility_off_outlined,
-                      size: 20, color: Press.inkSoft),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Approve',
+                  icon: Icon(Icons.check, color: Press.sage),
+                  onPressed: () => _approve(item),
+                ),
+                IconButton(
+                  tooltip: 'Remove',
+                  icon: Icon(Icons.close, color: Press.oxblood),
                   onPressed: () => _remove(item),
-                )
-              : null,
+                ),
+              ],
+            )
+          : item.state == 'approved'
+          ? IconButton(
+              tooltip: 'Remove anyway',
+              icon: Icon(
+                Icons.visibility_off_outlined,
+                size: 20,
+                color: Press.inkSoft,
+              ),
+              onPressed: () => _remove(item),
+            )
+          : null,
     );
   }
 
@@ -157,7 +170,11 @@ class _ReviewFeedScreenState extends State<ReviewFeedScreen> {
             if (_pending.isEmpty && _decided.isEmpty)
               Padding(
                 padding: EdgeInsets.fromLTRB(
-                    Metrics.gutter, 40, Metrics.gutter, 0),
+                  Metrics.gutter,
+                  40,
+                  Metrics.gutter,
+                  0,
+                ),
                 child: Text(
                   'Nothing to review. When this place is shared, edits from '
                   'other people land here wearing a pending tag — visible to '
@@ -165,14 +182,20 @@ class _ReviewFeedScreenState extends State<ReviewFeedScreen> {
                   'approve or remove. Even after approving, you can remove '
                   'an edit later. The steward\'s say is final, always.',
                   style: TextStyle(
-                      fontFamily: Type.serif, fontSize: 15.5, height: 1.5),
+                    fontFamily: Type.serif,
+                    fontSize: 15.5,
+                    height: 1.5,
+                  ),
                 ),
               ),
             if (_pending.isNotEmpty) ...[
               Padding(
                 padding: EdgeInsets.fromLTRB(Metrics.gutter, 4, 0, 4),
-                child: MonoLabel('Awaiting your say · ${_pending.length}',
-                    size: 9, spacing: 1.8),
+                child: MonoLabel(
+                  'Awaiting your say · ${_pending.length}',
+                  size: 9,
+                  spacing: 1.8,
+                ),
               ),
               for (final item in _pending) _row(item, pending: true),
             ],

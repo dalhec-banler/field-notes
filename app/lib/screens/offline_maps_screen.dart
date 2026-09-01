@@ -38,8 +38,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
   Future<void> _refresh() async {
     final bytes = await _manager.installedBytes();
     final captured = await AreaDownloader.target();
-    final capturedBytes =
-        captured.existsSync() ? captured.lengthSync() : null;
+    final capturedBytes = captured.existsSync() ? captured.lengthSync() : null;
     if (mounted) {
       setState(() {
         _installedBytes = bytes;
@@ -58,9 +57,11 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
   /// Copy a .pmtiles picked via the system file picker into the basemap
   /// slot — works on release builds and needs no cable or server.
   Future<void> _importFile() async {
-    final file = await openFile(acceptedTypeGroups: [
-      XTypeGroup(label: 'PMTiles', extensions: ['pmtiles']),
-    ]);
+    final file = await openFile(
+      acceptedTypeGroups: [
+        XTypeGroup(label: 'PMTiles', extensions: ['pmtiles']),
+      ],
+    );
     if (file == null) return;
     final docs = await getApplicationDocumentsDirectory();
     final dir = Directory(p.join(docs.path, 'basemap'))
@@ -69,8 +70,8 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     await File(file.path).copy(dest.path);
     _refresh();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('BASEMAP INSTALLED')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('BASEMAP INSTALLED')));
     }
   }
 
@@ -80,15 +81,18 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('REMOVE CAPTURED AREAS?'),
         content: Text(
-            'Every area you captured from the map goes. Your records stay. '
-            'You can capture again any time you have signal.'),
+          'Every area you captured from the map goes. Your records stay. '
+          'You can capture again any time you have signal.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text('KEEP')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('KEEP'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text('REMOVE')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('REMOVE'),
+          ),
         ],
       ),
     );
@@ -120,20 +124,24 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
       child: Row(
         children: [
           Diamond(
-              size: 12,
-              color: present ? Press.sage : Press.inkSoft,
-              filled: present),
+            size: 12,
+            color: present ? Press.sage : Press.inkSoft,
+            filled: present,
+          ),
           SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: TextStyle(
-                        fontFamily: Type.slab,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: Press.ink)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: Type.slab,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: Press.ink,
+                  ),
+                ),
                 SizedBox(height: 3),
                 MonoLabel(detail, size: 9, spacing: 1.2, opacity: 0.75),
               ],
@@ -185,7 +193,11 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
           Text(
             'Captured areas draw first; the regional file fills in around '
             'them. Both live only on this phone and never need signal to use.',
-            style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.45),
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 15,
+              height: 1.45,
+            ),
           ),
           SizedBox(height: 26),
           MonoLabel('Add a regional basemap file', size: 9, spacing: 1.8),
@@ -194,7 +206,11 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
             'Easiest: tap ⌗ Capture area on the map while you have signal. '
             'For a whole county in one go, import a .pmtiles file someone '
             'made for you, or paste a link to one.',
-            style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.45),
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 15,
+              height: 1.45,
+            ),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -221,8 +237,9 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                 LinearProgressIndicator(value: _manager.progress),
                 const SizedBox(height: 8),
                 Text(
-                    '${((_manager.progress ?? 0) * 100).toStringAsFixed(0)}% — '
-                    'safe to leave this screen'),
+                  '${((_manager.progress ?? 0) * 100).toStringAsFixed(0)}% — '
+                  'safe to leave this screen',
+                ),
               ],
             )
           else
@@ -239,15 +256,22 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                   final verdict = await NetworkPolicy().bulkVerdict(prefs);
                   if (!context.mounted) return;
                   if (verdict == BulkVerdict.offline) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('NO SIGNAL — TRY AGAIN ON WI-FI')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('NO SIGNAL — TRY AGAIN ON WI-FI'),
+                      ),
+                    );
                     return;
                   }
                   if (verdict == BulkVerdict.cellularBlocked) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
                         content: Text(
-                            'WAITING FOR WI-FI · allow cellular downloads in '
-                            'Settings → Network to use mobile data')));
+                          'WAITING FOR WI-FI · allow cellular downloads in '
+                          'Settings → Network to use mobile data',
+                        ),
+                      ),
+                    );
                     return;
                   }
                   _manager.download(url);
@@ -257,8 +281,10 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
           if (_manager.error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Text('Download failed: ${_manager.error}',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              child: Text(
+                'Download failed: ${_manager.error}',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
         ],
       ),

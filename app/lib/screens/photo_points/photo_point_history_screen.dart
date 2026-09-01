@@ -12,8 +12,11 @@ import 'ghost_capture_screen.dart';
 /// frame in date order, a slider to move through them, the anchor frame
 /// beside the current one so change reads at a glance.
 class PhotoPointHistoryScreen extends StatefulWidget {
-  const PhotoPointHistoryScreen(
-      {super.key, required this.db, required this.point});
+  const PhotoPointHistoryScreen({
+    super.key,
+    required this.db,
+    required this.point,
+  });
 
   final FieldNotesDb db;
   final PhotoPoint point;
@@ -42,24 +45,28 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
 
   Future<void> _load() async {
     final db = widget.db;
-    final visits = await (db.select(db.photoPointVisits)
-          ..where((v) => v.photoPointId.equals(widget.point.id))
-          ..where((v) => v.deletedAt.isNull())
-          ..orderBy([(v) => OrderingTerm.asc(v.visitedAt)]))
-        .get();
+    final visits =
+        await (db.select(db.photoPointVisits)
+              ..where((v) => v.photoPointId.equals(widget.point.id))
+              ..where((v) => v.deletedAt.isNull())
+              ..orderBy([(v) => OrderingTerm.asc(v.visitedAt)]))
+            .get();
     final frames = <_Frame>[];
     for (final v in visits) {
-      final link = await (db.select(db.mediaLinks)
-            ..where((l) =>
-                l.entityType.equals('photo_point_visit') &
-                l.entityId.equals(v.id) &
-                l.deletedAt.isNull())
-            ..limit(1))
-          .getSingleOrNull();
+      final link =
+          await (db.select(db.mediaLinks)
+                ..where(
+                  (l) =>
+                      l.entityType.equals('photo_point_visit') &
+                      l.entityId.equals(v.id) &
+                      l.deletedAt.isNull(),
+                )
+                ..limit(1))
+              .getSingleOrNull();
       if (link == null) continue;
-      final m = await (db.select(db.media)
-            ..where((x) => x.id.equals(link.mediaId)))
-          .getSingleOrNull();
+      final m = await (db.select(
+        db.media,
+      )..where((x) => x.id.equals(link.mediaId))).getSingleOrNull();
       if (m?.localPath != null && File(m!.localPath!).existsSync()) {
         frames.add(_Frame(v, m));
       }
@@ -80,8 +87,11 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
   }
 
   Future<void> _capture() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => GhostCaptureScreen(db: widget.db, point: widget.point)));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GhostCaptureScreen(db: widget.db, point: widget.point),
+      ),
+    );
     _load();
   }
 
@@ -124,14 +134,20 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: _framed(anchor!,
-                            label: 'ANCHOR · ${_date(anchor.visit.visitedAt)}')),
+                        child: _framed(
+                          anchor!,
+                          label: 'ANCHOR · ${_date(anchor.visit.visitedAt)}',
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: _framed(current!,
-                            label: _index == 0
-                                ? 'SAME FRAME'
-                                : _date(current.visit.visitedAt))),
+                        child: _framed(
+                          current!,
+                          label: _index == 0
+                              ? 'SAME FRAME'
+                              : _date(current.visit.visitedAt),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -150,9 +166,12 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
                     aspectRatio: 4 / 3,
                     child: Container(
                       decoration: BoxDecoration(
-                          border: Border.all(color: Press.borderInk, width: 1.5)),
-                      child: Image.file(File(current.media.localPath!),
-                          fit: BoxFit.cover),
+                        border: Border.all(color: Press.borderInk, width: 1.5),
+                      ),
+                      child: Image.file(
+                        File(current.media.localPath!),
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -180,15 +199,18 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
                           margin: const EdgeInsets.only(right: 6),
                           decoration: BoxDecoration(
                             border: Border.all(
-                                color: i == _index
-                                    ? Press.oxblood
-                                    : Press.ink,
-                                width: i == _index ? 2.5 : 1),
+                              color: i == _index ? Press.oxblood : Press.ink,
+                              width: i == _index ? 2.5 : 1,
+                            ),
                             image: DecorationImage(
-                                image: FileImage(File(
-                                    _frames[i].media.thumbPath ??
-                                        _frames[i].media.localPath!)),
-                                fit: BoxFit.cover),
+                              image: FileImage(
+                                File(
+                                  _frames[i].media.thumbPath ??
+                                      _frames[i].media.localPath!,
+                                ),
+                              ),
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                       ),
@@ -200,9 +222,11 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
                   height: 58,
                   child: FilledButton.icon(
                     icon: const Icon(Icons.photo_camera_outlined),
-                    label: Text(_frames.isEmpty
-                        ? 'TAKE THE FIRST FRAME'
-                        : 'CAPTURE A VISIT'),
+                    label: Text(
+                      _frames.isEmpty
+                          ? 'TAKE THE FIRST FRAME'
+                          : 'CAPTURE A VISIT',
+                    ),
                     onPressed: _capture,
                   ),
                 ),
@@ -218,11 +242,13 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
         AspectRatio(
           aspectRatio: 4 / 3,
           child: Container(
-            decoration:
-                BoxDecoration(border: Border.all(color: Press.borderInk, width: 1)),
+            decoration: BoxDecoration(
+              border: Border.all(color: Press.borderInk, width: 1),
+            ),
             child: Image.file(
-                File(f.media.thumbPath ?? f.media.localPath!),
-                fit: BoxFit.cover),
+              File(f.media.thumbPath ?? f.media.localPath!),
+              fit: BoxFit.cover,
+            ),
           ),
         ),
         const SizedBox(height: 4),

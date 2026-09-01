@@ -26,8 +26,11 @@ Future<void> showSpeciesDetailSheet(
 }
 
 class _SpeciesDetail extends StatefulWidget {
-  _SpeciesDetail(
-      {required this.db, required this.property, required this.taxon});
+  _SpeciesDetail({
+    required this.db,
+    required this.property,
+    required this.taxon,
+  });
 
   final FieldNotesDb db;
   final Property property;
@@ -57,32 +60,36 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
 
   Future<void> _load() async {
     final db = widget.db;
-    final obs = await (db.select(db.observations)
-          ..where((o) => o.propertyId.equals(widget.property.id))
-          ..where((o) => o.taxonId.equals(widget.taxon.id))
-          ..where((o) => o.deletedAt.isNull())
-          ..orderBy([(o) => OrderingTerm.desc(o.observedAt)]))
-        .get();
+    final obs =
+        await (db.select(db.observations)
+              ..where((o) => o.propertyId.equals(widget.property.id))
+              ..where((o) => o.taxonId.equals(widget.taxon.id))
+              ..where((o) => o.deletedAt.isNull())
+              ..orderBy([(o) => OrderingTerm.desc(o.observedAt)]))
+            .get();
     final zones = {
-      for (final z in await (db.select(db.zones)
-            ..where((z) => z.propertyId.equals(widget.property.id)))
-          .get())
-        z.id: z.name
+      for (final z in await (db.select(
+        db.zones,
+      )..where((z) => z.propertyId.equals(widget.property.id))).get())
+        z.id: z.name,
     };
     final out = <_Sighting>[];
     for (final o in obs) {
       String? thumb;
-      final link = await (db.select(db.mediaLinks)
-            ..where((l) =>
-                l.entityType.equals('observation') &
-                l.entityId.equals(o.id) &
-                l.deletedAt.isNull())
-            ..limit(1))
-          .getSingleOrNull();
+      final link =
+          await (db.select(db.mediaLinks)
+                ..where(
+                  (l) =>
+                      l.entityType.equals('observation') &
+                      l.entityId.equals(o.id) &
+                      l.deletedAt.isNull(),
+                )
+                ..limit(1))
+              .getSingleOrNull();
       if (link != null) {
-        final m = await (db.select(db.media)
-              ..where((x) => x.id.equals(link.mediaId)))
-            .getSingleOrNull();
+        final m = await (db.select(
+          db.media,
+        )..where((x) => x.id.equals(link.mediaId))).getSingleOrNull();
         if (m?.mediaType == 'photo') thumb = m!.thumbPath ?? m.localPath;
       }
       out.add(_Sighting(o, thumb, o.zoneId == null ? null : zones[o.zoneId]));
@@ -97,12 +104,11 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
 
   Future<void> _toggleStar() async {
     final next = _taxon.isFavorite == 1 ? 0 : 1;
-    await (widget.db.update(widget.db.taxa)
-          ..where((t) => t.id.equals(_taxon.id)))
-        .write(TaxaCompanion(
-      isFavorite: Value(next),
-      updatedAt: Value(nowUtcIso()),
-    ));
+    await (widget.db.update(
+      widget.db.taxa,
+    )..where((t) => t.id.equals(_taxon.id))).write(
+      TaxaCompanion(isFavorite: Value(next), updatedAt: Value(nowUtcIso())),
+    );
     if (mounted) setState(() => _taxon = _taxon.copyWith(isFavorite: next));
   }
 
@@ -126,8 +132,7 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
       maxChildSize: 0.95,
       builder: (context, scroll) => ListView(
         controller: scroll,
-        padding: EdgeInsets.fromLTRB(
-            Metrics.gutter, 14, Metrics.gutter, 32),
+        padding: EdgeInsets.fromLTRB(Metrics.gutter, 14, Metrics.gutter, 32),
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,13 +142,16 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (t.commonName != null)
-                      Text(t.commonName!,
-                          style: TextStyle(
-                              fontFamily: Type.slab,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 26,
-                              height: 1.0,
-                              color: Press.ink)),
+                      Text(
+                        t.commonName!,
+                        style: TextStyle(
+                          fontFamily: Type.slab,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 26,
+                          height: 1.0,
+                          color: Press.ink,
+                        ),
+                      ),
                     SizedBox(height: 4),
                     TaxonName(t.scientificName, size: 17),
                     SizedBox(height: 6),
@@ -162,8 +170,10 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
               ),
               IconButton(
                 iconSize: 30,
-                icon: Icon(starred ? Icons.star : Icons.star_border,
-                    color: starred ? Press.gold : Press.inkSoft),
+                icon: Icon(
+                  starred ? Icons.star : Icons.star_border,
+                  color: starred ? Press.gold : Press.inkSoft,
+                ),
                 tooltip: starred ? 'Un-star' : 'Star for quick pick',
                 onPressed: _toggleStar,
               ),
@@ -177,8 +187,10 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
             ),
             child: Column(
               children: [
-                FactRow('seen here',
-                    '${_sightings.length} time${_sightings.length == 1 ? '' : 's'}'),
+                FactRow(
+                  'seen here',
+                  '${_sightings.length} time${_sightings.length == 1 ? '' : 's'}',
+                ),
                 FactRow('first', first == null ? '—' : _date(first)),
                 FactRow('last', last == null ? '—' : _date(last), last: true),
               ],
@@ -207,8 +219,9 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                       decoration: BoxDecoration(
                         border: Border.all(color: Press.borderInk, width: 1),
                         image: DecorationImage(
-                            image: FileImage(File(s.thumb!)),
-                            fit: BoxFit.cover),
+                          image: FileImage(File(s.thumb!)),
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ),
@@ -227,7 +240,8 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
                     border: Border(
-                        bottom: BorderSide(color: Press.divider, width: 1)),
+                      bottom: BorderSide(color: Press.divider, width: 1),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -241,7 +255,9 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              fontFamily: Type.serif, fontSize: 15),
+                            fontFamily: Type.serif,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                       Icon(Icons.chevron_right, color: Press.inkSoft),
@@ -264,7 +280,10 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
   }
 
   void _open(_Sighting s) {
-    Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => RecordDetailScreen(db: widget.db, obsId: s.obs.id)));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RecordDetailScreen(db: widget.db, obsId: s.obs.id),
+      ),
+    );
   }
 }

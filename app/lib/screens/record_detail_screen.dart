@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../db/database.dart';
 import '../geo/simplify.dart' show distanceM;
@@ -13,6 +14,7 @@ import '../widgets/edit_record_sheet.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../geo/zone_assignment.dart';
+import '../services/media_store.dart';
 import '../services/review.dart';
 import 'identify_sheet.dart';
 import 'move_pin_screen.dart';
@@ -54,6 +56,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   List<(Observation, double)> _nearby = [];
   Property? _property;
   int _photoIndex = 0;
+  int _zoneCount = -1;
   final _player = AudioPlayer();
   String? _playingId;
 
@@ -147,6 +150,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
     final review = await ReviewService(widget.db)
         .forEntity('observation', widget.obsId);
+    final zoneRows =
+        await (db.select(db.zones)
+              ..where((z) => z.propertyId.equals(obs.propertyId))
+              ..where((z) => z.deletedAt.isNull()))
+            .get();
     if (mounted) {
       setState(() {
         _review = review;
@@ -158,6 +166,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         _audio = audio;
         _nearby = nearby.take(6).toList();
         _property = property;
+        _zoneCount = zoneRows.length;
       });
     }
   }
@@ -199,6 +208,71 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             .showSnackBar(SnackBar(content: Text('Could not play: $e')));
       }
     }
+  }
+
+  Future<void> _addPhotos() async {
+    final obs = _obs;
+    if (obs == null) return;
+    final picker = ImagePicker();
+    List<XFile> picked = [];
+    try {
+      if (RecordDetailScreen.isDesk) {
+        picked = await picker.pickMultiImage();
+      } else {
+        final source = await showModalBottomSheet<ImageSource>(
+          context: context,
+          backgroundColor: Press.paper,
+          builder: (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: const Text('Take a photo'),
+                  onTap: () => Navigator.pop(ctx, ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Choose from gallery'),
+                  onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
+        );
+        if (source == null) return;
+        if (source == ImageSource.camera) {
+          final one = await picker.pickImage(source: source, imageQuality: 92);
+          if (one != null) picked = [one];
+        } else {
+          picked = await picker.pickMultiImage(imageQuality: 92);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not open photos: $e')));
+      }
+      return;
+    }
+    if (picked.isEmpty) return;
+    final store = MediaStore(widget.db);
+    for (final x in picked) {
+      final media = await store.savePhoto(
+        await x.readAsBytes(),
+        propertyId: obs.propertyId,
+        createdBy: 'local',
+        capturedAt: nowUtcIso(),
+      );
+      await store.linkTo(
+        media.id,
+        propertyId: obs.propertyId,
+        entityType: 'observation',
+        entityId: obs.id,
+        role: _photos.isEmpty ? 'primary' : 'attachment',
+      );
+    }
+    await _load();
   }
 
   /// Carousel arrow for the desk plate; wraps at either end.
@@ -647,7 +721,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                   ),
                   FactRow(
                     'zone',
-                    _zone != null ? _zone!.name : 'outside any zone',
+                    _zone?.name ??
+                        (_zoneCount == 0
+                            ? 'no zones drawn yet'
+                            : 'outside every zone'),
                   ),
                   if (_env != null) ...[
                     FactRow(
@@ -822,13 +899,34 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       db: widget.db,
                       observation: _obs!,
                       property: _property!,
-                      photo: File(_photos[_photoIndex].localPath!),
+                      // Every photo of the record goes to Pl@ntNet (up to five).
+                      photos: [for (final p in _photos) File(p.localPath!)],
                     );
                     if (accepted) _load();
                   },
                 ),
               ),
             ),
+
+          // Photos can be added after the fact — from the camera on the
+          // phone, from files on the desk — without pretending they were
+          // taken where the record was.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Metrics.gutter,
+              0,
+              Metrics.gutter,
+              12,
+            ),
+            child: SizedBox(
+              height: 56,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.add_a_photo_outlined),
+                label: const Text('ADD PHOTOS'),
+                onPressed: _addPhotos,
+              ),
+            ),
+          ),
 
           // 6. Actions.
           Padding(

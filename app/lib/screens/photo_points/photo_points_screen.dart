@@ -9,11 +9,12 @@ import 'photo_point_history_screen.dart';
 
 /// Photo points (spec §7.8): due list; capture with ghost overlay.
 class PhotoPointsScreen extends StatefulWidget {
-  const PhotoPointsScreen(
-      {super.key,
-      required this.db,
-      required this.property,
-      this.embedded = false});
+  const PhotoPointsScreen({
+    super.key,
+    required this.db,
+    required this.property,
+    this.embedded = false,
+  });
 
   final FieldNotesDb db;
   final Property property;
@@ -38,14 +39,16 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
       ..where((p) => p.deletedAt.isNull())
       ..orderBy([(p) => OrderingTerm.asc(p.name)]));
     return Scaffold(
-      appBar:
-          widget.embedded ? null : AppBar(title: const Text('Photo points')),
+      appBar: widget.embedded
+          ? null
+          : AppBar(title: const Text('Photo points')),
       floatingActionButton: FloatingActionButton.extended(
         icon: _creating
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2))
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             : const Icon(Icons.add_a_photo_outlined),
         label: Text(_creating ? 'Finding position…' : 'New photo point'),
         onPressed: _creating ? null : _create,
@@ -71,7 +74,8 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
           bool isDue(PhotoPoint p) =>
               p.nextDueOn != null && p.nextDueOn!.compareTo(today) <= 0;
           // Due list first (spec §7.8), then the rest by name.
-          final sorted = [...points]..sort((a, b) {
+          final sorted = [...points]
+            ..sort((a, b) {
               final d = (isDue(b) ? 1 : 0) - (isDue(a) ? 1 : 0);
               return d != 0 ? d : a.name.compareTo(b.name);
             });
@@ -84,18 +88,21 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
               return ListTile(
                 minTileHeight: 64,
                 leading: CircleAvatar(
-                  backgroundColor:
-                      due ? Colors.orange.shade100 : null,
-                  child: Icon(Icons.photo_camera_outlined,
-                      color: due ? Colors.orange.shade800 : null),
+                  backgroundColor: due ? Colors.orange.shade100 : null,
+                  child: Icon(
+                    Icons.photo_camera_outlined,
+                    color: due ? Colors.orange.shade800 : null,
+                  ),
                 ),
                 title: Text(p.name),
-                subtitle: Text([
-                  if (p.subject != null) p.subject!,
-                  '${p.bearingDeg.toStringAsFixed(0)}°',
-                  if (p.nextDueOn != null)
-                    due ? 'DUE' : 'next ${p.nextDueOn}',
-                ].join(' · ')),
+                subtitle: Text(
+                  [
+                    if (p.subject != null) p.subject!,
+                    '${p.bearingDeg.toStringAsFixed(0)}°',
+                    if (p.nextDueOn != null)
+                      due ? 'DUE' : 'next ${p.nextDueOn}',
+                  ].join(' · '),
+                ),
                 trailing: IconButton(
                   icon: const Icon(Icons.photo_camera_outlined),
                   tooltip: 'Capture a visit',
@@ -108,8 +115,7 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
                 // Row → history (every frame, scrubbable); camera → capture.
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) =>
-                        PhotoPointHistoryScreen(db: db, point: p),
+                    builder: (_) => PhotoPointHistoryScreen(db: db, point: p),
                   ),
                 ),
               );
@@ -142,13 +148,15 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
               TextField(
                 controller: subjectController,
                 decoration: const InputDecoration(
-                    labelText: 'Subject (looking at…)'),
+                  labelText: 'Subject (looking at…)',
+                ),
               ),
               TextField(
                 controller: cadenceController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                    labelText: 'Repeat every N days'),
+                  labelText: 'Repeat every N days',
+                ),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -160,14 +168,16 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-                // Validated inside the dialog (audit M12): a name is needed.
-                onPressed: nameController.text.trim().isEmpty
-                    ? null
-                    : () => Navigator.pop(context, true),
-                child: const Text('Create')),
+              // Validated inside the dialog (audit M12): a name is needed.
+              onPressed: nameController.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(context, true),
+              child: const Text('Create'),
+            ),
           ],
         ),
       ),
@@ -189,9 +199,11 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
         try {
           if (await locationHub.ensurePermission()) {
             final f = await Geolocator.getCurrentPosition(
-                locationSettings: const LocationSettings(
-                    accuracy: LocationAccuracy.best,
-                    timeLimit: Duration(seconds: 5)));
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.best,
+                timeLimit: Duration(seconds: 5),
+              ),
+            );
             lat = f.latitude;
             lng = f.longitude;
           }
@@ -200,25 +212,32 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
 
       final now = nowUtcIso();
       final cadence = int.tryParse(cadenceController.text.trim());
-      await db.into(db.photoPoints).insert(PhotoPointsCompanion.insert(
-            id: newId(),
-            propertyId: property.id,
-            name: name,
-            lat: lat,
-            lng: lng,
-            bearingDeg: 0, // set with the first captured frame
-            subject: Value(subjectController.text.trim().isEmpty
-                ? null
-                : subjectController.text.trim()),
-            cadenceDays: Value(cadence),
-            createdBy: 'local',
-            createdAt: now,
-            updatedAt: now,
-          ));
+      await db
+          .into(db.photoPoints)
+          .insert(
+            PhotoPointsCompanion.insert(
+              id: newId(),
+              propertyId: property.id,
+              name: name,
+              lat: lat,
+              lng: lng,
+              bearingDeg: 0, // set with the first captured frame
+              subject: Value(
+                subjectController.text.trim().isEmpty
+                    ? null
+                    : subjectController.text.trim(),
+              ),
+              cadenceDays: Value(cadence),
+              createdBy: 'local',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Couldn\'t save the photo point: $e')));
+        SnackBar(content: Text('Couldn\'t save the photo point: $e')),
+      );
     } finally {
       if (mounted) setState(() => _creating = false);
     }

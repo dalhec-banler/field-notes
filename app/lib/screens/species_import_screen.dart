@@ -12,8 +12,7 @@ import '../widgets/press.dart';
 /// never need to upload a list). Pick a CSV, say which column is which,
 /// review, import as this place's own starred taxa.
 class SpeciesImportScreen extends StatefulWidget {
-  SpeciesImportScreen(
-      {super.key, required this.db, required this.property});
+  SpeciesImportScreen({super.key, required this.db, required this.property});
 
   final FieldNotesDb db;
   final Property property;
@@ -33,10 +32,23 @@ const _fields = {
 };
 
 const _growthForms = {
-  'tree', 'shrub', 'forb', 'graminoid', 'vine', 'succulent', 'fern', 'moss',
-  'other'
+  'tree',
+  'shrub',
+  'forb',
+  'graminoid',
+  'vine',
+  'succulent',
+  'fern',
+  'moss',
+  'other',
 };
-const _nativities = {'native', 'introduced', 'invasive', 'cultivated', 'unknown'};
+const _nativities = {
+  'native',
+  'introduced',
+  'invasive',
+  'cultivated',
+  'unknown',
+};
 
 class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
   List<String> _headers = [];
@@ -47,9 +59,11 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
   String? _fileName;
 
   Future<void> _pick() async {
-    final file = await openFile(acceptedTypeGroups: [
-      XTypeGroup(label: 'CSV', extensions: ['csv', 'txt']),
-    ]);
+    final file = await openFile(
+      acceptedTypeGroups: [
+        XTypeGroup(label: 'CSV', extensions: ['csv', 'txt']),
+      ],
+    );
     if (file == null) return;
     try {
       final rows = parseCsv(await file.readAsString());
@@ -61,7 +75,10 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
       setState(() {
         _fileName = file.name;
         _headers = headers;
-        _rows = rows.skip(1).where((r) => r.any((c) => c.trim().isNotEmpty)).toList();
+        _rows = rows
+            .skip(1)
+            .where((r) => r.any((c) => c.trim().isNotEmpty))
+            .toList();
         _status = null;
         // Guess the mapping from header names.
         for (final k in _map.keys) {
@@ -70,17 +87,23 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
         for (var i = 0; i < headers.length; i++) {
           final h = headers[i].toLowerCase();
           if (_map['scientific'] == null &&
-              (h.contains('scientific') || h.contains('latin') || h == 'species')) {
+              (h.contains('scientific') ||
+                  h.contains('latin') ||
+                  h == 'species')) {
             _map['scientific'] = i;
           } else if (_map['common'] == null && h.contains('common')) {
             _map['common'] = i;
           } else if (_map['family'] == null && h.contains('family')) {
             _map['family'] = i;
           } else if (_map['growth'] == null &&
-              (h.contains('growth') || h.contains('habit') || h.contains('form'))) {
+              (h.contains('growth') ||
+                  h.contains('habit') ||
+                  h.contains('form'))) {
             _map['growth'] = i;
           } else if (_map['nativity'] == null &&
-              (h.contains('nativ') || h.contains('origin') || h.contains('status'))) {
+              (h.contains('nativ') ||
+                  h.contains('origin') ||
+                  h.contains('status'))) {
             _map['nativity'] = i;
           } else if (_map['usda'] == null &&
               (h.contains('usda') || h.contains('symbol'))) {
@@ -151,47 +174,59 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
           final now = nowUtcIso();
           // Match on scientific name (global seed or this place) so an
           // imported list stars what's already there instead of duplicating.
-          final existing = await (db.select(db.taxa)
-                ..where((t) => t.scientificName.lower().equals(sci.toLowerCase()))
-                ..where((t) => t.deletedAt.isNull())
-                ..limit(1))
-              .getSingleOrNull();
+          final existing =
+              await (db.select(db.taxa)
+                    ..where(
+                      (t) => t.scientificName.lower().equals(sci.toLowerCase()),
+                    )
+                    ..where((t) => t.deletedAt.isNull())
+                    ..limit(1))
+                  .getSingleOrNull();
           final common = _cell(row, 'common');
           if (existing != null) {
             // Star it; only fill a common name where the library has none,
             // and never rename a shared (global) taxon from one place's list.
-            final fillName = common != null &&
+            final fillName =
+                common != null &&
                 existing.commonName == null &&
                 existing.propertyId == widget.property.id;
-            await (db.update(db.taxa)..where((t) => t.id.equals(existing.id)))
-                .write(TaxaCompanion(
-              isFavorite: Value(1),
-              commonName: fillName ? Value(common) : Value.absent(),
-              updatedAt: Value(now),
-            ));
+            await (db.update(
+              db.taxa,
+            )..where((t) => t.id.equals(existing.id))).write(
+              TaxaCompanion(
+                isFavorite: Value(1),
+                commonName: fillName ? Value(common) : Value.absent(),
+                updatedAt: Value(now),
+              ),
+            );
             updated++;
             continue;
           }
-          await db.into(db.taxa).insert(TaxaCompanion.insert(
-                id: newId(),
-                propertyId: Value(widget.property.id),
-                scientificName: sci,
-                commonName: Value(common),
-                family: Value(_cell(row, 'family')),
-                growthForm: Value(_growth(_cell(row, 'growth'))),
-                nativity: Value(_nativity(_cell(row, 'nativity'))),
-                usdaPlantsSymbol: Value(_cell(row, 'usda')),
-                notes: Value(_cell(row, 'notes')),
-                isFavorite: Value(1),
-                createdBy: Value('import'),
-                createdAt: now,
-                updatedAt: now,
-              ));
+          await db
+              .into(db.taxa)
+              .insert(
+                TaxaCompanion.insert(
+                  id: newId(),
+                  propertyId: Value(widget.property.id),
+                  scientificName: sci,
+                  commonName: Value(common),
+                  family: Value(_cell(row, 'family')),
+                  growthForm: Value(_growth(_cell(row, 'growth'))),
+                  nativity: Value(_nativity(_cell(row, 'nativity'))),
+                  usdaPlantsSymbol: Value(_cell(row, 'usda')),
+                  notes: Value(_cell(row, 'notes')),
+                  isFavorite: Value(1),
+                  createdBy: Value('import'),
+                  createdAt: now,
+                  updatedAt: now,
+                ),
+              );
           added++;
         }
       });
       setState(() {
-        _status = 'Added $added, starred $updated already in the library'
+        _status =
+            'Added $added, starred $updated already in the library'
             '${skipped > 0 ? ', skipped $skipped without a name' : ''}.';
         _rows = [];
         _headers = [];
@@ -215,7 +250,11 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
             'Optional. The library already has the regional list; this adds '
             'your own — from a nursery order, a survey, a spreadsheet. Pick '
             'the CSV, then tell it which column is which.',
-            style: TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 15.5,
+              height: 1.45,
+            ),
           ),
           SizedBox(height: 14),
           SizedBox(
@@ -228,8 +267,12 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
           ),
           if (_headers.isNotEmpty) ...[
             SizedBox(height: 18),
-            MonoLabel('${_rows.length} rows · which column is which?',
-                size: 9, spacing: 1.6, opacity: 0.75),
+            MonoLabel(
+              '${_rows.length} rows · which column is which?',
+              size: 9,
+              spacing: 1.6,
+              opacity: 0.75,
+            ),
             SizedBox(height: 6),
             for (final e in _fields.entries)
               Padding(
@@ -239,13 +282,16 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
                   decoration: InputDecoration(labelText: e.value),
                   items: [
                     DropdownMenuItem<int?>(
-                        value: null, child: Text('— not in this file —')),
+                      value: null,
+                      child: Text('— not in this file —'),
+                    ),
                     for (var i = 0; i < _headers.length; i++)
                       DropdownMenuItem<int?>(
-                          value: i,
-                          child: Text(_headers[i].isEmpty
-                              ? 'Column ${i + 1}'
-                              : _headers[i])),
+                        value: i,
+                        child: Text(
+                          _headers[i].isEmpty ? 'Column ${i + 1}' : _headers[i],
+                        ),
+                      ),
                   ],
                   onChanged: (v) => setState(() => _map[e.key] = v),
                 ),
@@ -275,17 +321,19 @@ class _SpeciesImportScreenState extends State<SpeciesImportScreen> {
               height: 58,
               child: FilledButton(
                 onPressed: ready && !_importing ? _import : null,
-                child: Text(_importing
-                    ? 'IMPORTING…'
-                    : 'IMPORT ${_rows.length} SPECIES'),
+                child: Text(
+                  _importing ? 'IMPORTING…' : 'IMPORT ${_rows.length} SPECIES',
+                ),
               ),
             ),
           ],
           if (_status != null)
             Padding(
               padding: const EdgeInsets.only(top: 14),
-              child: Text(_status!,
-                  style: TextStyle(fontFamily: Type.serif, fontSize: 15)),
+              child: Text(
+                _status!,
+                style: TextStyle(fontFamily: Type.serif, fontSize: 15),
+              ),
             ),
         ],
       ),

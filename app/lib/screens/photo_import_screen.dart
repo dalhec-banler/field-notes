@@ -19,11 +19,12 @@ import '../widgets/press.dart';
 /// embedded coordinates. Photos without GPS still import — flagged as
 /// unlocated (gps_accuracy_m = -1), never faked.
 class PhotoImportScreen extends StatefulWidget {
-  const PhotoImportScreen(
-      {super.key,
-      required this.db,
-      required this.property,
-      required this.prefs});
+  const PhotoImportScreen({
+    super.key,
+    required this.db,
+    required this.property,
+    required this.prefs,
+  });
 
   final FieldNotesDb db;
   final Property property;
@@ -55,9 +56,11 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
       _reading = true;
     });
     try {
-      final files = await openFiles(acceptedTypeGroups: [
-        const XTypeGroup(label: 'Photos', extensions: ['jpg', 'jpeg']),
-      ]);
+      final files = await openFiles(
+        acceptedTypeGroups: [
+          const XTypeGroup(label: 'Photos', extensions: ['jpg', 'jpeg']),
+        ],
+      );
       final out = <_Candidate>[];
       for (final f in files) {
         double? lat;
@@ -150,28 +153,34 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
               resolvedFor: when.substring(0, 10),
             );
           }
-          await db.into(db.observations).insert(ObservationsCompanion.insert(
-                id: obsId,
-                propertyId: widget.property.id,
-                observedAt: when,
-                localTz: localTzName(),
-                lat: lat ?? 0,
-                lng: lng ?? 0,
-                // EXIF has no accuracy figure; null = located, unknown ±.
-                gpsAccuracyM: Value(c.located ? null : -1),
-                observationType: const Value('general'),
-                notes: Value('Imported from ${c.file.name}'),
-                envContextId: Value(envId),
-                createdBy: 'local',
-                createdAt: now,
-                updatedAt: now,
-              ));
+          await db
+              .into(db.observations)
+              .insert(
+                ObservationsCompanion.insert(
+                  id: obsId,
+                  propertyId: widget.property.id,
+                  observedAt: when,
+                  localTz: localTzName(),
+                  lat: lat ?? 0,
+                  lng: lng ?? 0,
+                  // EXIF has no accuracy figure; null = located, unknown ±.
+                  gpsAccuracyM: Value(c.located ? null : -1),
+                  observationType: const Value('general'),
+                  notes: Value('Imported from ${c.file.name}'),
+                  envContextId: Value(envId),
+                  createdBy: 'local',
+                  createdAt: now,
+                  updatedAt: now,
+                ),
+              );
           if (c.located) {
-            await assignZone(db,
-                observationId: obsId,
-                propertyId: widget.property.id,
-                lat: c.lat!,
-                lng: c.lng!);
+            await assignZone(
+              db,
+              observationId: obsId,
+              propertyId: widget.property.id,
+              lat: c.lat!,
+              lng: c.lng!,
+            );
           }
           await MediaStore(db).linkTo(
             media.id,
@@ -221,7 +230,11 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
             'Pick photos from your phone. Ones with GPS in them land on the '
             'map where they were taken; the rest still import, marked as '
             'unlocated. Each becomes a record you can edit.',
-            style: TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 15.5,
+              height: 1.45,
+            ),
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -235,11 +248,12 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
           if (_candidates.isNotEmpty) ...[
             const SizedBox(height: 18),
             MonoLabel(
-                '${_candidates.length} chosen · $located with GPS · '
-                '${_candidates.length - located} without',
-                size: 9,
-                spacing: 1.6,
-                opacity: 0.75),
+              '${_candidates.length} chosen · $located with GPS · '
+              '${_candidates.length - located} without',
+              size: 9,
+              spacing: 1.6,
+              opacity: 0.75,
+            ),
             const SizedBox(height: 6),
             for (final c in _candidates)
               CheckboxListTile(
@@ -247,8 +261,11 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
                 onChanged: _importing
                     ? null
                     : (v) => setState(() => c.include = v ?? true),
-                title: Text(c.file.name,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                title: Text(
+                  c.file.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 subtitle: MonoLabel(
                   [
                     c.located
@@ -271,17 +288,21 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
               height: 58,
               child: FilledButton(
                 onPressed: _importing || chosen == 0 ? null : _import,
-                child: Text(_importing
-                    ? 'IMPORTING…'
-                    : 'IMPORT $chosen PHOTO${chosen == 1 ? '' : 'S'}'),
+                child: Text(
+                  _importing
+                      ? 'IMPORTING…'
+                      : 'IMPORT $chosen PHOTO${chosen == 1 ? '' : 'S'}',
+                ),
               ),
             ),
           ],
           if (_status != null)
             Padding(
               padding: const EdgeInsets.only(top: 14),
-              child: Text(_status!,
-                  style: TextStyle(fontFamily: Type.serif, fontSize: 15)),
+              child: Text(
+                _status!,
+                style: TextStyle(fontFamily: Type.serif, fontSize: 15),
+              ),
             ),
         ],
       ),
