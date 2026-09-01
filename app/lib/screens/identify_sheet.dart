@@ -78,6 +78,11 @@ class _IdentifySheetState extends State<_IdentifySheet> {
   bool _loaded = false;
   String _organ = 'auto';
 
+  /// Pl@ntNet reads at most five images; with more, the user picks which.
+  late final List<int> _picked = [
+    for (var i = 0; i < widget.photos.length && i < 5; i++) i,
+  ];
+
   static const _organLabels = {
     'auto': 'Whole plant',
     'leaf': 'Leaf',
@@ -113,7 +118,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
     });
     try {
       final results = await _service.identify(
-        photos: widget.photos,
+        photos: [for (final i in _picked) widget.photos[i]],
         observation: widget.observation,
         property: widget.property,
         organ: _organ,
@@ -150,6 +155,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
         candidate: c,
         observationId: widget.observation.id,
         propertyId: widget.property.id,
+        runId: _service.lastRunId,
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -216,6 +222,53 @@ class _IdentifySheetState extends State<_IdentifySheet> {
             ),
             SizedBox(height: 12),
             if (_candidates.isEmpty && !_running) ...[
+              if (widget.photos.length > 5) ...[
+                MonoLabel(
+                  'Pl@ntNet reads five images — pick which '
+                  '(${_picked.length} of 5 chosen)',
+                  size: 9,
+                  spacing: 1.6,
+                ),
+                SizedBox(height: 6),
+                SizedBox(
+                  height: 64,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      for (var i = 0; i < widget.photos.length; i++)
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            if (_picked.contains(i)) {
+                              if (_picked.length > 1) _picked.remove(i);
+                            } else if (_picked.length < 5) {
+                              _picked.add(i);
+                            }
+                          }),
+                          child: Container(
+                            width: 60,
+                            margin: EdgeInsets.only(right: 6),
+                            foregroundDecoration: _picked.contains(i)
+                                ? null
+                                : BoxDecoration(color: const Color(0xB3F7F6F2)),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: _picked.contains(i)
+                                    ? Press.oxblood
+                                    : Press.borderInk,
+                                width: _picked.contains(i) ? 2 : 1,
+                              ),
+                              image: DecorationImage(
+                                image: FileImage(widget.photos[i]),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 12),
+              ],
               MonoLabel('What does the photo show?', size: 9, spacing: 1.6),
               SizedBox(height: 6),
               Wrap(

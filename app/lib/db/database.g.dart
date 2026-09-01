@@ -9675,6 +9675,15 @@ class IdentificationSuggestions extends Table
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _runIdMeta = const VerificationMeta('runId');
+  late final GeneratedColumn<String> runId = GeneratedColumn<String>(
+    'run_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   static const VerificationMeta _acceptedMeta = const VerificationMeta(
     'accepted',
   );
@@ -9744,6 +9753,7 @@ class IdentificationSuggestions extends Table
     rankPosition,
     reasoning,
     rawResponseJson,
+    runId,
     accepted,
     createdBy,
     createdAt,
@@ -9853,6 +9863,12 @@ class IdentificationSuggestions extends Table
         ),
       );
     }
+    if (data.containsKey('run_id')) {
+      context.handle(
+        _runIdMeta,
+        runId.isAcceptableOrUnknown(data['run_id']!, _runIdMeta),
+      );
+    }
     if (data.containsKey('accepted')) {
       context.handle(
         _acceptedMeta,
@@ -9943,6 +9959,10 @@ class IdentificationSuggestions extends Table
         DriftSqlType.string,
         data['${effectivePrefix}raw_response_json'],
       ),
+      runId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}run_id'],
+      ),
       accepted: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}accepted'],
@@ -9996,6 +10016,9 @@ class IdentificationSuggestion extends DataClass
 
   /// LLM re-rank rationale, shown to user
   final String? rawResponseJson;
+  final String? runId;
+
+  /// one identify() call = one run; reruns append, never mingle
   final int accepted;
   final String? createdBy;
   final String createdAt;
@@ -10013,6 +10036,7 @@ class IdentificationSuggestion extends DataClass
     this.rankPosition,
     this.reasoning,
     this.rawResponseJson,
+    this.runId,
     required this.accepted,
     this.createdBy,
     required this.createdAt,
@@ -10044,6 +10068,9 @@ class IdentificationSuggestion extends DataClass
     }
     if (!nullToAbsent || rawResponseJson != null) {
       map['raw_response_json'] = Variable<String>(rawResponseJson);
+    }
+    if (!nullToAbsent || runId != null) {
+      map['run_id'] = Variable<String>(runId);
     }
     map['accepted'] = Variable<int>(accepted);
     if (!nullToAbsent || createdBy != null) {
@@ -10082,6 +10109,9 @@ class IdentificationSuggestion extends DataClass
       rawResponseJson: rawResponseJson == null && nullToAbsent
           ? const Value.absent()
           : Value(rawResponseJson),
+      runId: runId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(runId),
       accepted: Value(accepted),
       createdBy: createdBy == null && nullToAbsent
           ? const Value.absent()
@@ -10113,6 +10143,7 @@ class IdentificationSuggestion extends DataClass
       rankPosition: serializer.fromJson<int?>(json['rank_position']),
       reasoning: serializer.fromJson<String?>(json['reasoning']),
       rawResponseJson: serializer.fromJson<String?>(json['raw_response_json']),
+      runId: serializer.fromJson<String?>(json['run_id']),
       accepted: serializer.fromJson<int>(json['accepted']),
       createdBy: serializer.fromJson<String?>(json['created_by']),
       createdAt: serializer.fromJson<String>(json['created_at']),
@@ -10135,6 +10166,7 @@ class IdentificationSuggestion extends DataClass
       'rank_position': serializer.toJson<int?>(rankPosition),
       'reasoning': serializer.toJson<String?>(reasoning),
       'raw_response_json': serializer.toJson<String?>(rawResponseJson),
+      'run_id': serializer.toJson<String?>(runId),
       'accepted': serializer.toJson<int>(accepted),
       'created_by': serializer.toJson<String?>(createdBy),
       'created_at': serializer.toJson<String>(createdAt),
@@ -10155,6 +10187,7 @@ class IdentificationSuggestion extends DataClass
     Value<int?> rankPosition = const Value.absent(),
     Value<String?> reasoning = const Value.absent(),
     Value<String?> rawResponseJson = const Value.absent(),
+    Value<String?> runId = const Value.absent(),
     int? accepted,
     Value<String?> createdBy = const Value.absent(),
     String? createdAt,
@@ -10176,6 +10209,7 @@ class IdentificationSuggestion extends DataClass
     rawResponseJson: rawResponseJson.present
         ? rawResponseJson.value
         : this.rawResponseJson,
+    runId: runId.present ? runId.value : this.runId,
     accepted: accepted ?? this.accepted,
     createdBy: createdBy.present ? createdBy.value : this.createdBy,
     createdAt: createdAt ?? this.createdAt,
@@ -10211,6 +10245,7 @@ class IdentificationSuggestion extends DataClass
       rawResponseJson: data.rawResponseJson.present
           ? data.rawResponseJson.value
           : this.rawResponseJson,
+      runId: data.runId.present ? data.runId.value : this.runId,
       accepted: data.accepted.present ? data.accepted.value : this.accepted,
       createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -10233,6 +10268,7 @@ class IdentificationSuggestion extends DataClass
           ..write('rankPosition: $rankPosition, ')
           ..write('reasoning: $reasoning, ')
           ..write('rawResponseJson: $rawResponseJson, ')
+          ..write('runId: $runId, ')
           ..write('accepted: $accepted, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
@@ -10255,6 +10291,7 @@ class IdentificationSuggestion extends DataClass
     rankPosition,
     reasoning,
     rawResponseJson,
+    runId,
     accepted,
     createdBy,
     createdAt,
@@ -10276,6 +10313,7 @@ class IdentificationSuggestion extends DataClass
           other.rankPosition == this.rankPosition &&
           other.reasoning == this.reasoning &&
           other.rawResponseJson == this.rawResponseJson &&
+          other.runId == this.runId &&
           other.accepted == this.accepted &&
           other.createdBy == this.createdBy &&
           other.createdAt == this.createdAt &&
@@ -10296,6 +10334,7 @@ class IdentificationSuggestionsCompanion
   final Value<int?> rankPosition;
   final Value<String?> reasoning;
   final Value<String?> rawResponseJson;
+  final Value<String?> runId;
   final Value<int> accepted;
   final Value<String?> createdBy;
   final Value<String> createdAt;
@@ -10314,6 +10353,7 @@ class IdentificationSuggestionsCompanion
     this.rankPosition = const Value.absent(),
     this.reasoning = const Value.absent(),
     this.rawResponseJson = const Value.absent(),
+    this.runId = const Value.absent(),
     this.accepted = const Value.absent(),
     this.createdBy = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -10333,6 +10373,7 @@ class IdentificationSuggestionsCompanion
     this.rankPosition = const Value.absent(),
     this.reasoning = const Value.absent(),
     this.rawResponseJson = const Value.absent(),
+    this.runId = const Value.absent(),
     this.accepted = const Value.absent(),
     this.createdBy = const Value.absent(),
     required String createdAt,
@@ -10358,6 +10399,7 @@ class IdentificationSuggestionsCompanion
     Expression<int>? rankPosition,
     Expression<String>? reasoning,
     Expression<String>? rawResponseJson,
+    Expression<String>? runId,
     Expression<int>? accepted,
     Expression<String>? createdBy,
     Expression<String>? createdAt,
@@ -10377,6 +10419,7 @@ class IdentificationSuggestionsCompanion
       if (rankPosition != null) 'rank_position': rankPosition,
       if (reasoning != null) 'reasoning': reasoning,
       if (rawResponseJson != null) 'raw_response_json': rawResponseJson,
+      if (runId != null) 'run_id': runId,
       if (accepted != null) 'accepted': accepted,
       if (createdBy != null) 'created_by': createdBy,
       if (createdAt != null) 'created_at': createdAt,
@@ -10398,6 +10441,7 @@ class IdentificationSuggestionsCompanion
     Value<int?>? rankPosition,
     Value<String?>? reasoning,
     Value<String?>? rawResponseJson,
+    Value<String?>? runId,
     Value<int>? accepted,
     Value<String?>? createdBy,
     Value<String>? createdAt,
@@ -10417,6 +10461,7 @@ class IdentificationSuggestionsCompanion
       rankPosition: rankPosition ?? this.rankPosition,
       reasoning: reasoning ?? this.reasoning,
       rawResponseJson: rawResponseJson ?? this.rawResponseJson,
+      runId: runId ?? this.runId,
       accepted: accepted ?? this.accepted,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
@@ -10462,6 +10507,9 @@ class IdentificationSuggestionsCompanion
     if (rawResponseJson.present) {
       map['raw_response_json'] = Variable<String>(rawResponseJson.value);
     }
+    if (runId.present) {
+      map['run_id'] = Variable<String>(runId.value);
+    }
     if (accepted.present) {
       map['accepted'] = Variable<int>(accepted.value);
     }
@@ -10497,6 +10545,7 @@ class IdentificationSuggestionsCompanion
           ..write('rankPosition: $rankPosition, ')
           ..write('reasoning: $reasoning, ')
           ..write('rawResponseJson: $rawResponseJson, ')
+          ..write('runId: $runId, ')
           ..write('accepted: $accepted, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
@@ -36297,6 +36346,7 @@ typedef $IdentificationSuggestionsCreateCompanionBuilder =
       Value<int?> rankPosition,
       Value<String?> reasoning,
       Value<String?> rawResponseJson,
+      Value<String?> runId,
       Value<int> accepted,
       Value<String?> createdBy,
       required String createdAt,
@@ -36317,6 +36367,7 @@ typedef $IdentificationSuggestionsUpdateCompanionBuilder =
       Value<int?> rankPosition,
       Value<String?> reasoning,
       Value<String?> rawResponseJson,
+      Value<String?> runId,
       Value<int> accepted,
       Value<String?> createdBy,
       Value<String> createdAt,
@@ -36427,6 +36478,11 @@ class $IdentificationSuggestionsFilterComposer
 
   ColumnFilters<String> get rawResponseJson => $composableBuilder(
     column: $table.rawResponseJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get runId => $composableBuilder(
+    column: $table.runId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -36556,6 +36612,11 @@ class $IdentificationSuggestionsOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get runId => $composableBuilder(
+    column: $table.runId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get accepted => $composableBuilder(
     column: $table.accepted,
     builder: (column) => ColumnOrderings(column),
@@ -36674,6 +36735,9 @@ class $IdentificationSuggestionsAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get runId =>
+      $composableBuilder(column: $table.runId, builder: (column) => column);
+
   GeneratedColumn<int> get accepted =>
       $composableBuilder(column: $table.accepted, builder: (column) => column);
 
@@ -36783,6 +36847,7 @@ class $IdentificationSuggestionsTableManager
                 Value<int?> rankPosition = const Value.absent(),
                 Value<String?> reasoning = const Value.absent(),
                 Value<String?> rawResponseJson = const Value.absent(),
+                Value<String?> runId = const Value.absent(),
                 Value<int> accepted = const Value.absent(),
                 Value<String?> createdBy = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
@@ -36801,6 +36866,7 @@ class $IdentificationSuggestionsTableManager
                 rankPosition: rankPosition,
                 reasoning: reasoning,
                 rawResponseJson: rawResponseJson,
+                runId: runId,
                 accepted: accepted,
                 createdBy: createdBy,
                 createdAt: createdAt,
@@ -36821,6 +36887,7 @@ class $IdentificationSuggestionsTableManager
                 Value<int?> rankPosition = const Value.absent(),
                 Value<String?> reasoning = const Value.absent(),
                 Value<String?> rawResponseJson = const Value.absent(),
+                Value<String?> runId = const Value.absent(),
                 Value<int> accepted = const Value.absent(),
                 Value<String?> createdBy = const Value.absent(),
                 required String createdAt,
@@ -36839,6 +36906,7 @@ class $IdentificationSuggestionsTableManager
                 rankPosition: rankPosition,
                 reasoning: reasoning,
                 rawResponseJson: rawResponseJson,
+                runId: runId,
                 accepted: accepted,
                 createdBy: createdBy,
                 createdAt: createdAt,

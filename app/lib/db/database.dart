@@ -20,22 +20,28 @@ class FieldNotesDb extends _$FieldNotesDb {
   FieldNotesDb.fromFile(File file) : super(NativeDatabase(file));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async => m.createAll(),
-        onUpgrade: (m, from, to) async {
-          // v2: review_items — pending-visible owner review (SYNC-DESIGN).
-          if (from < 2) {
-            await m.createTable(reviewItems);
-            await m.createIndex(idxReviewPending);
-          }
-        },
-        beforeOpen: (details) async {
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
+    onCreate: (m) async => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 3) {
+        // v3: suggestion runs are distinguishable (review finding 7).
+        await m.database.customStatement(
+          'ALTER TABLE identification_suggestions ADD COLUMN run_id TEXT',
+        );
+      }
+      // v2: review_items — pending-visible owner review (SYNC-DESIGN).
+      if (from < 2) {
+        await m.createTable(reviewItems);
+        await m.createIndex(idxReviewPending);
+      }
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 }
 
 LazyDatabase _openConnection() {

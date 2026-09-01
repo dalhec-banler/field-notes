@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import '../db/database.dart';
 import 'id_keys.dart';
 import 'id_models.dart';
+import 'send_copy.dart';
 import 'llm_client.dart';
 import 'plantnet_client.dart';
 
@@ -49,44 +50,64 @@ class IdentificationService {
     // persists the list itself once the row exists — rule 7 still holds.
     bool persist = true,
   }) async {
-    var priors = <IdCandidate>[];
-
-    if (await _keys.hasPlantNet) {
-      onStatus?.call('Asking Pl@ntNet…');
-      try {
-        priors = await _plantNet.identify(
-          photos: photos,
-          apiKey: (await _keys.plantNetKey)!,
-          project: plantNetProject,
-          organ: organ,
-        );
-      } on PlantNetException {
-        rethrow;
-      } catch (e) {
-        throw PlantNetException('Could not reach Pl@ntNet: $e');
-      }
-    }
-
-    var candidates = priors;
-    if (await _keys.hasLlm) {
-      onStatus?.call('Weighing it against this place…');
-      final context = await buildContext(observation, property);
-      final reranked = await _llm.rerank(
-        photo: photos.first,
-        context: context,
-        priors: priors,
-        provider: await _keys.llmProvider,
-        apiKey: (await _keys.llmKey)!,
-        model: await _keys.llmModel,
-        baseUrl: await _keys.llmBaseUrl,
+    // What leaves the device is a downsized copy with the EXIF block
+    // cleared (hard rule 3) — never the original file.
+    final runId = newId();
+    lastRunId = runId;
+    final sendPhotos = await identificationSendCopies(photos);
+    if (sendPhotos.isEmpty) {
+      throw const PlantNetException(
+        'Could not prepare a photo to send. Nothing left the device.',
       );
-      if (reranked.isNotEmpty) candidates = reranked;
     }
+    try {
+      var priors = <IdCandidate>[];
 
-    candidates = await _matchToLibrary(candidates, property.id);
-    if (persist) await _record(candidates, observation, plantNetProject);
-    return candidates;
+      if (await _keys.hasPlantNet) {
+        onStatus?.call('Asking Pl@ntNet…');
+        try {
+          priors = await _plantNet.identify(
+            photos: sendPhotos,
+            apiKey: (await _keys.plantNetKey)!,
+            project: plantNetProject,
+            organ: organ,
+          );
+        } on PlantNetException {
+          rethrow;
+        } catch (e) {
+          throw PlantNetException('Could not reach Pl@ntNet: $e');
+        }
+      }
+
+      var candidates = priors;
+      if (await _keys.hasLlm) {
+        onStatus?.call('Weighing it against this place…');
+        final context = await buildContext(observation, property);
+        final reranked = await _llm.rerank(
+          photo: sendPhotos.first,
+          context: context,
+          priors: priors,
+          provider: await _keys.llmProvider,
+          apiKey: (await _keys.llmKey)!,
+          model: await _keys.llmModel,
+          baseUrl: await _keys.llmBaseUrl,
+        );
+        if (reranked.isNotEmpty) candidates = reranked;
+      }
+
+      candidates = await _matchToLibrary(candidates, property.id);
+      if (persist) {
+        await _record(candidates, observation, plantNetProject, runId);
+      }
+      return candidates;
+    } finally {
+      cleanupSendCopies(sendPhotos);
+    }
   }
+
+  /// The run id of the most recent identify() on this service instance —
+  /// what accept() scopes its flag to.
+  String? lastRunId;
 
   /// What this place is, for the re-ranker.
   Future<IdContext> buildContext(
@@ -176,11 +197,15 @@ class IdentificationService {
   }
 
   /// Persist suggestions for a record that now exists (capture-time IDs).
-  Future<void> recordSuggestions(
+  Future<String> recordSuggestions(
     List<IdCandidate> candidates,
     Observation observation, {
     String project = 'k-world-flora',
-  }) => _record(candidates, observation, project);
+  }) async {
+    final runId = lastRunId ?? newId();
+    await _record(candidates, observation, project, runId);
+    return runId;
+  }
 
   /// The taxon for a candidate, creating it in this property's library if
   /// the name is new. Used by accept, and by capture when the user picks a
@@ -219,6 +244,7 @@ class IdentificationService {
     List<IdCandidate> candidates,
     Observation observation,
     String project,
+    String runId,
   ) async {
     if (candidates.isEmpty) return;
     final now = nowUtcIso();
@@ -239,6 +265,7 @@ class IdentificationService {
                 score: Value(c.score),
                 rankPosition: Value(i + 1),
                 reasoning: Value(c.reasoning),
+                runId: Value(runId),
                 rawResponseJson: Value(
                   jsonEncode({
                     'name': c.name,
@@ -261,6 +288,7 @@ class IdentificationService {
     required IdCandidate candidate,
     required String observationId,
     required String propertyId,
+    String? runId,
   }) async {
     final now = nowUtcIso();
     var taxonId = candidate.taxonId;
@@ -306,10 +334,12 @@ class IdentificationService {
           updatedAt: Value(now),
         ),
       );
+      final scope = runId ?? lastRunId;
       await (db.update(db.identificationSuggestions)..where(
             (s) =>
                 s.observationId.equals(observationId) &
-                s.suggestedName.equals(candidate.name),
+                s.suggestedName.equals(candidate.name) &
+                (scope == null ? const Constant(true) : s.runId.equals(scope)),
           ))
           .write(
             IdentificationSuggestionsCompanion(

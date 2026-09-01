@@ -563,13 +563,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
             final row = await (db.select(
               db.observations,
             )..where((o) => o.id.equals(obsId))).getSingle();
-            await svc.recordSuggestions(_pendingSuggestions, row);
+            final rid = await svc.recordSuggestions(_pendingSuggestions, row);
             final chosen = _chosenCandidate;
             if (chosen != null) {
               await svc.accept(
                 candidate: chosen,
                 observationId: obsId,
                 propertyId: widget.property.id,
+                runId: rid,
               );
             }
           } catch (_) {
