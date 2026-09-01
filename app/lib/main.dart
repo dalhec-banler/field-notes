@@ -19,6 +19,7 @@ import 'services/env_context.dart';
 import 'services/location_hub.dart';
 import 'services/track_recorder.dart';
 import 'shell/app_shell.dart';
+import 'sync/oplog.dart';
 import 'theme/theme.dart';
 import 'theme/tokens.dart';
 import 'screens/onboarding_screen.dart';
@@ -49,6 +50,13 @@ Future<void> main() async {
     // A failed restore attempt must never brick startup.
   }
   final db = FieldNotesDb();
+  // M4a: capture every write from the first launch that has this build —
+  // sync needs the history to exist before anyone flips it on.
+  try {
+    await OpLog.install(db);
+  } catch (_) {
+    // Capture must never block startup; sync just starts later.
+  }
   if (pendingRestore != null) {
     // Media repoints in the background; the DB is already live.
     pendingRestore.remapRestoredMedia(db).catchError((_) => 0);
