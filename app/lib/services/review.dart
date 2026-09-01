@@ -34,7 +34,9 @@ class ReviewService {
     required String author,
   }) async {
     final now = nowUtcIso();
-    await db.into(db.reviewItems).insert(
+    await db
+        .into(db.reviewItems)
+        .insert(
           ReviewItemsCompanion.insert(
             id: newId(),
             propertyId: propertyId,
@@ -66,25 +68,33 @@ class ReviewService {
   /// and the author can see it was removed rather than finding it silently
   /// gone. Works on pending AND approved items — "even after I approve
   /// them".
-  Future<void> remove(String reviewItemId,
-      {required String by, String? note}) async {
-    final item = await (db.select(db.reviewItems)
-          ..where((r) => r.id.equals(reviewItemId)))
-        .getSingle();
+  Future<void> remove(
+    String reviewItemId, {
+    required String by,
+    String? note,
+  }) async {
+    final item = await (db.select(
+      db.reviewItems,
+    )..where((r) => r.id.equals(reviewItemId))).getSingle();
     await _decide(reviewItemId, 'removed', by: by, note: note);
     await _tombstoneEntity(item.entityType, item.entityId);
   }
 
-  Future<void> _decide(String id, String state,
-      {required String by, String? note}) async {
-    await (db.update(db.reviewItems)..where((r) => r.id.equals(id)))
-        .write(ReviewItemsCompanion(
-      state: Value(state),
-      decidedBy: Value(by),
-      decidedAt: Value(nowUtcIso()),
-      note: Value(note),
-      updatedAt: Value(nowUtcIso()),
-    ));
+  Future<void> _decide(
+    String id,
+    String state, {
+    required String by,
+    String? note,
+  }) async {
+    await (db.update(db.reviewItems)..where((r) => r.id.equals(id))).write(
+      ReviewItemsCompanion(
+        state: Value(state),
+        decidedBy: Value(by),
+        decidedAt: Value(nowUtcIso()),
+        note: Value(note),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
   }
 
   Future<void> _tombstoneEntity(String entityType, String entityId) async {
@@ -92,27 +102,33 @@ class ReviewService {
     // Soft delete only — hard erase would be un-syncable and unattributable.
     switch (entityType) {
       case 'observation':
-        await (db.update(db.observations)..where((o) => o.id.equals(entityId)))
-            .write(ObservationsCompanion(
-                deletedAt: Value(now), updatedAt: Value(now)));
+        await (db.update(
+          db.observations,
+        )..where((o) => o.id.equals(entityId))).write(
+          ObservationsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+        );
       case 'zone':
-        await (db.update(db.zones)..where((z) => z.id.equals(entityId)))
-            .write(
-                ZonesCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+        await (db.update(db.zones)..where((z) => z.id.equals(entityId))).write(
+          ZonesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+        );
       case 'feature':
-        await (db.update(db.features)..where((f) => f.id.equals(entityId)))
-            .write(FeaturesCompanion(
-                deletedAt: Value(now), updatedAt: Value(now)));
+        await (db.update(
+          db.features,
+        )..where((f) => f.id.equals(entityId))).write(
+          FeaturesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+        );
       case 'planting_event':
-        await (db.update(db.plantingEvents)
-              ..where((e) => e.id.equals(entityId)))
-            .write(PlantingEventsCompanion(
-                deletedAt: Value(now), updatedAt: Value(now)));
+        await (db.update(
+          db.plantingEvents,
+        )..where((e) => e.id.equals(entityId))).write(
+          PlantingEventsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+        );
       case 'plant_checkin':
-        await (db.update(db.plantCheckins)
-              ..where((c) => c.id.equals(entityId)))
-            .write(PlantCheckinsCompanion(
-                deletedAt: Value(now), updatedAt: Value(now)));
+        await (db.update(
+          db.plantCheckins,
+        )..where((c) => c.id.equals(entityId))).write(
+          PlantCheckinsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+        );
       default:
         // Remaining entity types tombstone the same way as sync lands for
         // them; refusing loudly beats silently "removing" nothing.
@@ -143,9 +159,11 @@ class ReviewService {
     final count = db.reviewItems.id.count();
     final q = db.selectOnly(db.reviewItems)
       ..addColumns([count])
-      ..where(db.reviewItems.propertyId.equals(propertyId) &
-          db.reviewItems.state.equals('pending') &
-          db.reviewItems.deletedAt.isNull());
+      ..where(
+        db.reviewItems.propertyId.equals(propertyId) &
+            db.reviewItems.state.equals('pending') &
+            db.reviewItems.deletedAt.isNull(),
+      );
     return q.map((r) => r.read(count) ?? 0).watchSingle();
   }
 

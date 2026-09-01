@@ -64,16 +64,20 @@ class EnvContextService {
   }) async {
     final id = newId();
     final now = nowUtcIso();
-    await db.into(db.envContexts).insert(EnvContextsCompanion.insert(
-          id: id,
-          propertyId: propertyId,
-          lat: lat,
-          lng: lng,
-          resolvedFor: resolvedFor,
-          isStale: const Value(1),
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.envContexts)
+        .insert(
+          EnvContextsCompanion.insert(
+            id: id,
+            propertyId: propertyId,
+            lat: lat,
+            lng: lng,
+            resolvedFor: resolvedFor,
+            isStale: const Value(1),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     return id;
   }
 
@@ -84,10 +88,11 @@ class EnvContextService {
   /// one call in the app that talks to a third party unprompted.
   Future<int> backfillStale({bool enabled = false}) async {
     if (!enabled) return 0;
-    final stale = await (db.select(db.envContexts)
-          ..where((e) => e.isStale.equals(1))
-          ..limit(50))
-        .get();
+    final stale =
+        await (db.select(db.envContexts)
+              ..where((e) => e.isStale.equals(1))
+              ..limit(50))
+            .get();
     var done = 0;
     for (final row in stale) {
       try {
@@ -95,23 +100,26 @@ class EnvContextService {
         final lat = _coarse(row.lat), lng = _coarse(row.lng);
         final weather = await _fetchWeather(lat, lng, row.resolvedFor);
         final soil = await _fetchSoil(lat, lng);
-        await (db.update(db.envContexts)..where((e) => e.id.equals(row.id)))
-            .write(EnvContextsCompanion(
-          tempMinC: Value(weather['temp_min_c'] as double?),
-          tempMaxC: Value(weather['temp_max_c'] as double?),
-          precip24hMm: Value(weather['precip_24h_mm'] as double?),
-          precip7dMm: Value(weather['precip_7d_mm'] as double?),
-          precip30dMm: Value(weather['precip_30d_mm'] as double?),
-          daysSinceRain: Value(weather['days_since_rain'] as int?),
-          soilMukey: Value(soil?['mukey'] as String?),
-          soilSeries: Value(soil?['series'] as String?),
-          soilTexture: Value(soil?['texture'] as String?),
-          soilDrainageClass: Value(soil?['drainage'] as String?),
-          sourceJson: Value(jsonEncode({'weather': weather, 'soil': soil})),
-          fetchedAt: Value(nowUtcIso()),
-          isStale: const Value(0),
-          updatedAt: Value(nowUtcIso()),
-        ));
+        await (db.update(
+          db.envContexts,
+        )..where((e) => e.id.equals(row.id))).write(
+          EnvContextsCompanion(
+            tempMinC: Value(weather['temp_min_c'] as double?),
+            tempMaxC: Value(weather['temp_max_c'] as double?),
+            precip24hMm: Value(weather['precip_24h_mm'] as double?),
+            precip7dMm: Value(weather['precip_7d_mm'] as double?),
+            precip30dMm: Value(weather['precip_30d_mm'] as double?),
+            daysSinceRain: Value(weather['days_since_rain'] as int?),
+            soilMukey: Value(soil?['mukey'] as String?),
+            soilSeries: Value(soil?['series'] as String?),
+            soilTexture: Value(soil?['texture'] as String?),
+            soilDrainageClass: Value(soil?['drainage'] as String?),
+            sourceJson: Value(jsonEncode({'weather': weather, 'soil': soil})),
+            fetchedAt: Value(nowUtcIso()),
+            isStale: const Value(0),
+            updatedAt: Value(nowUtcIso()),
+          ),
+        );
         done++;
         await Future<void>.delayed(courtesyDelay);
       } catch (_) {
@@ -124,7 +132,10 @@ class EnvContextService {
   /// Open-Meteo archive: daily min/max temp and precip for the 30 days ending
   /// on [date]; derives 24h/7d/30d totals and days since rain.
   Future<Map<String, Object?>> _fetchWeather(
-      double lat, double lng, String date) async {
+    double lat,
+    double lng,
+    String date,
+  ) async {
     final end = DateTime.parse(date);
     final start = end.subtract(const Duration(days: 29));
     String d(DateTime t) => t.toIso8601String().substring(0, 10);
@@ -183,12 +194,14 @@ class EnvContextService {
   Future<Map<String, Object?>?> _fetchSoil(double lat, double lng) async {
     // Callers hand us an already-coarsened point, so the cache key is just
     // that point: every record within the same ~1 km cell shares one lookup.
-    final cacheKey = '${lat.toStringAsFixed(egressDecimals)},'
+    final cacheKey =
+        '${lat.toStringAsFixed(egressDecimals)},'
         '${lng.toStringAsFixed(egressDecimals)}';
     final cached = _soilCache[cacheKey];
     if (cached != null) return cached;
 
-    final query = """
+    final query =
+        """
 SELECT TOP 1 mu.mukey, c.compname, c.taxpartsize, c.drainagecl
 FROM mapunit mu
 JOIN component c ON c.mukey = mu.mukey AND c.majcompflag = 'Yes'

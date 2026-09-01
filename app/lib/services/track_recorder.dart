@@ -65,15 +65,19 @@ class TrackRecorder extends ChangeNotifier {
       } catch (_) {}
       final now = nowUtcIso();
       final id = newId();
-      await db.into(db.tracks).insert(TracksCompanion.insert(
-            id: id,
-            propertyId: propertyId,
-            startedAt: now,
-            purpose: Value(purpose),
-            createdBy: 'local',
-            createdAt: now,
-            updatedAt: now,
-          ));
+      await db
+          .into(db.tracks)
+          .insert(
+            TracksCompanion.insert(
+              id: id,
+              propertyId: propertyId,
+              startedAt: now,
+              purpose: Value(purpose),
+              createdBy: 'local',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
       _trackId = id;
       _propertyId = propertyId;
       _points.clear();
@@ -109,16 +113,20 @@ class TrackRecorder extends ChangeNotifier {
       return;
     }
     _points.add([pos.longitude, pos.latitude]);
-    await db.into(db.trackPoints).insert(TrackPointsCompanion.insert(
-          id: newId(),
-          trackId: trackId,
-          recordedAt: nowUtcIso(),
-          lat: pos.latitude,
-          lng: pos.longitude,
-          accuracyM: Value(pos.accuracy),
-          altitudeM: Value(pos.altitude),
-          speedMps: Value(pos.speed),
-        ));
+    await db
+        .into(db.trackPoints)
+        .insert(
+          TrackPointsCompanion.insert(
+            id: newId(),
+            trackId: trackId,
+            recordedAt: nowUtcIso(),
+            lat: pos.latitude,
+            lng: pos.longitude,
+            accuracyM: Value(pos.accuracy),
+            altitudeM: Value(pos.altitude),
+            speedMps: Value(pos.speed),
+          ),
+        );
     notifyListeners();
   }
 
@@ -142,48 +150,55 @@ class TrackRecorder extends ChangeNotifier {
   /// Tracks left open by a killed process: rebuild the line from the
   /// persisted raw points and close them out. Call once at startup.
   Future<int> recoverOpenTracks() async {
-    final open = await (db.select(db.tracks)
-          ..where((t) => t.endedAt.isNull() & t.deletedAt.isNull()))
-        .get();
+    final open = await (db.select(
+      db.tracks,
+    )..where((t) => t.endedAt.isNull() & t.deletedAt.isNull())).get();
     for (final t in open) {
-      final rows = await (db.select(db.trackPoints)
-            ..where((p) => p.trackId.equals(t.id))
-            ..orderBy([(p) => OrderingTerm.asc(p.recordedAt)]))
-          .get();
+      final rows =
+          await (db.select(db.trackPoints)
+                ..where((p) => p.trackId.equals(t.id))
+                ..orderBy([(p) => OrderingTerm.asc(p.recordedAt)]))
+              .get();
       if (rows.isEmpty) {
         // Never got a fix: not a walk. Tombstone rather than keep an empty
         // track in the ledger.
         final now = nowUtcIso();
         await (db.update(db.tracks)..where((x) => x.id.equals(t.id))).write(
-            TracksCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+          TracksCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+        );
         continue;
       }
-      await _finalize(t.id, [for (final r in rows) [r.lng, r.lat]],
-          endedAt: rows.last.recordedAt);
+      await _finalize(t.id, [
+        for (final r in rows) [r.lng, r.lat],
+      ], endedAt: rows.last.recordedAt);
     }
     return open.length;
   }
 
-  Future<void> _finalize(String trackId, List<List<double>> points,
-      {String? endedAt}) async {
+  Future<void> _finalize(
+    String trackId,
+    List<List<double>> points, {
+    String? endedAt,
+  }) async {
     final now = nowUtcIso();
     final simplified = simplifyTrack(points);
     await (db.update(db.tracks)..where((t) => t.id.equals(trackId))).write(
       TracksCompanion(
         endedAt: Value(endedAt ?? now),
         distanceM: Value(pathLengthM(points)),
-        geojson: Value(simplified.length >= 2
-            ? jsonEncode(
-                {'type': 'LineString', 'coordinates': simplified})
-            : null),
+        geojson: Value(
+          simplified.length >= 2
+              ? jsonEncode({'type': 'LineString', 'coordinates': simplified})
+              : null,
+        ),
         updatedAt: Value(now),
       ),
     );
     // Raw points served their purpose; the simplified line is the record
     // (D-008).
-    await (db.delete(db.trackPoints)
-          ..where((p) => p.trackId.equals(trackId)))
-        .go();
+    await (db.delete(
+      db.trackPoints,
+    )..where((p) => p.trackId.equals(trackId))).go();
   }
 
   String? get activePropertyId => _propertyId;

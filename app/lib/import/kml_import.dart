@@ -46,13 +46,15 @@ List<KmlPlacemark> parseKml(String xmlText) {
     final folder = _folderPath(pm);
     final geometry = _extractGeometry(pm);
     if (geometry == null) continue;
-    placemarks.add(KmlPlacemark(
-      name: name,
-      description: description,
-      geometryType: geometry.$1,
-      geojson: geometry.$2,
-      folder: folder,
-    ));
+    placemarks.add(
+      KmlPlacemark(
+        name: name,
+        description: description,
+        geometryType: geometry.$1,
+        geojson: geometry.$2,
+        folder: folder,
+      ),
+    );
   }
   return placemarks;
 }
@@ -87,7 +89,10 @@ String? _folderPath(XmlElement pm) {
   if (point != null) {
     final coords = _coords(point);
     if (coords.isEmpty) return null;
-    return ('Point', jsonEncode({'type': 'Point', 'coordinates': coords.first}));
+    return (
+      'Point',
+      jsonEncode({'type': 'Point', 'coordinates': coords.first}),
+    );
   }
 
   final line = pm.findElements('LineString').firstOrNull;
@@ -96,7 +101,7 @@ String? _folderPath(XmlElement pm) {
     if (coords.length < 2) return null;
     return (
       'LineString',
-      jsonEncode({'type': 'LineString', 'coordinates': coords})
+      jsonEncode({'type': 'LineString', 'coordinates': coords}),
     );
   }
 
@@ -115,12 +120,15 @@ String? _folderPath(XmlElement pm) {
       if (rings != null) polys.add(rings);
     }
     if (polys.length == 1) {
-      return ('Polygon', jsonEncode({'type': 'Polygon', 'coordinates': polys.first}));
+      return (
+        'Polygon',
+        jsonEncode({'type': 'Polygon', 'coordinates': polys.first}),
+      );
     }
     if (polys.isNotEmpty) {
       return (
         'MultiPolygon',
-        jsonEncode({'type': 'MultiPolygon', 'coordinates': polys})
+        jsonEncode({'type': 'MultiPolygon', 'coordinates': polys}),
       );
     }
     // Fall back to first point/line inside the MultiGeometry.
@@ -130,8 +138,14 @@ String? _folderPath(XmlElement pm) {
         final coords = _coords(el);
         if (coords.isEmpty) continue;
         return tag == 'Point'
-            ? ('Point', jsonEncode({'type': 'Point', 'coordinates': coords.first}))
-            : ('LineString', jsonEncode({'type': 'LineString', 'coordinates': coords}));
+            ? (
+                'Point',
+                jsonEncode({'type': 'Point', 'coordinates': coords.first}),
+              )
+            : (
+                'LineString',
+                jsonEncode({'type': 'LineString', 'coordinates': coords}),
+              );
       }
     }
   }
@@ -227,28 +241,37 @@ List<KmlPlacemark> parseGeoJson(String text) {
       final partType = type == 'MultiPoint' ? 'Point' : 'LineString';
       final coords = geometry['coordinates'] as List? ?? const [];
       for (var i = 0; i < coords.length; i++) {
-        out.add(KmlPlacemark(
-          name: '${pick(['name', 'Name', 'title', 'label']) ?? 'Feature $n'}'
-              '${coords.length > 1 ? ' ${i + 1}' : ''}',
-          description: pick(['description', 'desc', 'notes']),
-          geometryType: partType,
-          geojson: jsonEncode({'type': partType, 'coordinates': coords[i]}),
-          folder: pick(['folder', 'layer', 'type', 'zone_type']),
-        ));
+        out.add(
+          KmlPlacemark(
+            name:
+                '${pick(['name', 'Name', 'title', 'label']) ?? 'Feature $n'}'
+                '${coords.length > 1 ? ' ${i + 1}' : ''}',
+            description: pick(['description', 'desc', 'notes']),
+            geometryType: partType,
+            geojson: jsonEncode({'type': partType, 'coordinates': coords[i]}),
+            folder: pick(['folder', 'layer', 'type', 'zone_type']),
+          ),
+        );
       }
       continue;
     }
-    if (!const {'Point', 'LineString', 'Polygon', 'MultiPolygon'}
-        .contains(type)) {
+    if (!const {
+      'Point',
+      'LineString',
+      'Polygon',
+      'MultiPolygon',
+    }.contains(type)) {
       continue;
     }
-    out.add(KmlPlacemark(
-      name: pick(['name', 'Name', 'title', 'label']) ?? 'Feature $n',
-      description: pick(['description', 'desc', 'notes']),
-      geometryType: type,
-      geojson: jsonEncode(geometry),
-      folder: pick(['folder', 'layer', 'type', 'zone_type']),
-    ));
+    out.add(
+      KmlPlacemark(
+        name: pick(['name', 'Name', 'title', 'label']) ?? 'Feature $n',
+        description: pick(['description', 'desc', 'notes']),
+        geometryType: type,
+        geojson: jsonEncode(geometry),
+        folder: pick(['folder', 'layer', 'type', 'zone_type']),
+      ),
+    );
   }
   return out;
 }
@@ -266,13 +289,18 @@ List<KmlPlacemark> parseGpx(String xmlText) {
     final lat = num(wpt, 'lat');
     final lon = num(wpt, 'lon');
     if (lat == null || lon == null) continue;
-    out.add(KmlPlacemark(
-      name: _childText(wpt, 'name') ?? 'Waypoint ${out.length + 1}',
-      description: _childText(wpt, 'desc') ?? _childText(wpt, 'cmt'),
-      geometryType: 'Point',
-      geojson: jsonEncode({'type': 'Point', 'coordinates': [lon, lat]}),
-      folder: _childText(wpt, 'type') ?? 'Waypoints',
-    ));
+    out.add(
+      KmlPlacemark(
+        name: _childText(wpt, 'name') ?? 'Waypoint ${out.length + 1}',
+        description: _childText(wpt, 'desc') ?? _childText(wpt, 'cmt'),
+        geometryType: 'Point',
+        geojson: jsonEncode({
+          'type': 'Point',
+          'coordinates': [lon, lat],
+        }),
+        folder: _childText(wpt, 'type') ?? 'Waypoints',
+      ),
+    );
   }
 
   void lines(String container, String segment, String pointTag, String folder) {
@@ -289,13 +317,15 @@ List<KmlPlacemark> parseGpx(String xmlText) {
         }
       }
       if (coords.length < 2) continue;
-      out.add(KmlPlacemark(
-        name: _childText(trk, 'name') ?? '$folder ${out.length + 1}',
-        description: _childText(trk, 'desc'),
-        geometryType: 'LineString',
-        geojson: jsonEncode({'type': 'LineString', 'coordinates': coords}),
-        folder: folder,
-      ));
+      out.add(
+        KmlPlacemark(
+          name: _childText(trk, 'name') ?? '$folder ${out.length + 1}',
+          description: _childText(trk, 'desc'),
+          geometryType: 'LineString',
+          geojson: jsonEncode({'type': 'LineString', 'coordinates': coords}),
+          folder: folder,
+        ),
+      );
     }
   }
 

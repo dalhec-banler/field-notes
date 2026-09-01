@@ -17,7 +17,10 @@ class Exporter {
   final FieldNotesDb db;
 
   /// Exports [property] into [destRoot]; returns the export directory.
-  Future<Directory> exportProperty(Property property, Directory destRoot) async {
+  Future<Directory> exportProperty(
+    Property property,
+    Directory destRoot,
+  ) async {
     final date = nowUtcIso().substring(0, 10);
     final safeName = property.name
         .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
@@ -60,9 +63,13 @@ class Exporter {
     Future<void> table(String name, {String? where}) async {
       final clause = where ?? "property_id = '$propertyId'";
       final rows = await db
-          .customSelect('SELECT * FROM $name WHERE $clause AND deleted_at IS NULL'
-              .replaceFirst(' AND deleted_at IS NULL',
-                  _hasDeletedAt(name) ? ' AND deleted_at IS NULL' : ''))
+          .customSelect(
+            'SELECT * FROM $name WHERE $clause AND deleted_at IS NULL'
+                .replaceFirst(
+                  ' AND deleted_at IS NULL',
+                  _hasDeletedAt(name) ? ' AND deleted_at IS NULL' : '',
+                ),
+          )
           .get();
       final file = File(p.join(dataDir.path, '$name.csv'));
       if (rows.isEmpty) {
@@ -84,7 +91,10 @@ class Exporter {
     await table('propagation_batches');
     await table('features');
     await table('zones');
-    await table('taxa', where: "(property_id = '$propertyId' OR property_id IS NULL)");
+    await table(
+      'taxa',
+      where: "(property_id = '$propertyId' OR property_id IS NULL)",
+    );
     await table('detections');
     await table('practices');
   }
@@ -236,12 +246,12 @@ class Exporter {
     final boundary = property.boundaryGeojson;
     final placemark = boundary == null
         ? (property.centroidLat != null
-            ? '''
+              ? '''
     <Placemark>
       <name>${_xmlEscape(property.name)}</name>
       <Point><coordinates>${property.centroidLng},${property.centroidLat},0</coordinates></Point>
     </Placemark>'''
-            : '')
+              : '')
         : '''
     <Placemark>
       <name>${_xmlEscape(property.name)} boundary</name>
@@ -266,11 +276,15 @@ $placemark
       .replaceAll('>', '&gt;');
 
   Future<void> _copyMedia(
-      String propertyId, Directory mediaDir, Directory audioDir) async {
-    final rows = await (db.select(db.media)
-          ..where((m) => m.propertyId.equals(propertyId))
-          ..where((m) => m.deletedAt.isNull()))
-        .get();
+    String propertyId,
+    Directory mediaDir,
+    Directory audioDir,
+  ) async {
+    final rows =
+        await (db.select(db.media)
+              ..where((m) => m.propertyId.equals(propertyId))
+              ..where((m) => m.deletedAt.isNull()))
+            .get();
     for (final m in rows) {
       final src = m.localPath;
       if (src == null || !File(src).existsSync()) continue;
@@ -293,7 +307,11 @@ $placemark
   }
 
   static Future<void> _writeExifGps(
-      String path, double lat, double lng, String capturedAtIso) async {
+    String path,
+    double lat,
+    double lng,
+    String capturedAtIso,
+  ) async {
     try {
       final exif = await Exif.fromPath(path);
       try {
@@ -308,7 +326,7 @@ $placemark
           if (when != null)
             'DateTimeOriginal':
                 '${when.year}:${two(when.month)}:${two(when.day)} '
-                    '${two(when.hour)}:${two(when.minute)}:${two(when.second)}',
+                '${two(when.hour)}:${two(when.minute)}:${two(when.second)}',
         });
       } finally {
         await exif.close();

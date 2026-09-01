@@ -97,8 +97,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
     'soil',
     'phenology',
     'sign',
-    'weather',
     'maintenance',
+    'infrastructure',
   ];
 
   @override

@@ -46,10 +46,11 @@ Future<SurvivalResult?> survivalFor(
   FieldNotesDb db,
   PlantingEvent event,
 ) async {
-  final individuals = await (db.select(db.plants)
-        ..where((p) => p.plantingEventId.equals(event.id))
-        ..where((p) => p.deletedAt.isNull()))
-      .get();
+  final individuals =
+      await (db.select(db.plants)
+            ..where((p) => p.plantingEventId.equals(event.id))
+            ..where((p) => p.deletedAt.isNull()))
+          .get();
   if (individuals.isNotEmpty) {
     const aliveStatuses = {'alive', 'dormant', 'browsed', 'declining'};
     final alive = individuals
@@ -63,13 +64,14 @@ Future<SurvivalResult?> survivalFor(
     );
   }
 
-  final checkin = await (db.select(db.plantCheckins)
-        ..where((c) => c.plantingEventId.equals(event.id))
-        ..where((c) => c.deletedAt.isNull())
-        ..where((c) => c.countAlive.isNotNull())
-        ..orderBy([(c) => OrderingTerm.desc(c.checkedAt)])
-        ..limit(1))
-      .getSingleOrNull();
+  final checkin =
+      await (db.select(db.plantCheckins)
+            ..where((c) => c.plantingEventId.equals(event.id))
+            ..where((c) => c.deletedAt.isNull())
+            ..where((c) => c.countAlive.isNotNull())
+            ..orderBy([(c) => OrderingTerm.desc(c.checkedAt)])
+            ..limit(1))
+          .getSingleOrNull();
   if (checkin != null && checkin.countAlive != null) {
     return SurvivalResult(
       alive: checkin.countAlive!,

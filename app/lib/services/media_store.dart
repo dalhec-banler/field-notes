@@ -64,8 +64,9 @@ class MediaStore {
       updatedAt: now,
     );
     await db.into(db.media).insert(row);
-    return (await (db.select(db.media)..where((m) => m.id.equals(id)))
-        .getSingle());
+    return (await (db.select(
+      db.media,
+    )..where((m) => m.id.equals(id))).getSingle());
   }
 
   Future<void> linkTo(
@@ -75,15 +76,19 @@ class MediaStore {
     required String entityId,
     String role = 'attachment',
   }) async {
-    await db.into(db.mediaLinks).insert(MediaLinksCompanion.insert(
-          id: newId(),
-          propertyId: propertyId,
-          mediaId: mediaId,
-          entityType: entityType,
-          entityId: entityId,
-          role: Value(role),
-          createdAt: nowUtcIso(),
-        ));
+    await db
+        .into(db.mediaLinks)
+        .insert(
+          MediaLinksCompanion.insert(
+            id: newId(),
+            propertyId: propertyId,
+            mediaId: mediaId,
+            entityType: entityType,
+            entityId: entityId,
+            role: Value(role),
+            createdAt: nowUtcIso(),
+          ),
+        );
   }
 }
 
@@ -108,28 +113,35 @@ extension MediaStoreAudio on MediaStore {
     final ym = when.substring(0, 7).split('-');
     final dir = Directory(p.join(docs.path, 'media', 'audio', ym[0], ym[1]));
     dir.createSync(recursive: true);
-    final ext = p.extension(source.path).isEmpty ? '.m4a' : p.extension(source.path);
+    final ext = p.extension(source.path).isEmpty
+        ? '.m4a'
+        : p.extension(source.path);
     final dest = p.join(dir.path, '$id$ext');
     final bytes = source.readAsBytesSync();
     File(dest).writeAsBytesSync(bytes);
-    await db.into(db.media).insert(MediaCompanion.insert(
-          id: id,
-          propertyId: propertyId,
-          mediaType: 'audio',
-          localPath: Value(dest),
-          sha256: Value(sha256.convert(bytes).toString()),
-          bytes: Value(bytes.length),
-          durationMs: Value(durationMs),
-          transcript: Value(transcript),
-          capturedAt: Value(when),
-          lat: Value(lat),
-          lng: Value(lng),
-          createdBy: createdBy,
-          createdAt: now,
-          updatedAt: now,
-        ));
-    return (await (db.select(db.media)..where((m) => m.id.equals(id)))
-        .getSingle());
+    await db
+        .into(db.media)
+        .insert(
+          MediaCompanion.insert(
+            id: id,
+            propertyId: propertyId,
+            mediaType: 'audio',
+            localPath: Value(dest),
+            sha256: Value(sha256.convert(bytes).toString()),
+            bytes: Value(bytes.length),
+            durationMs: Value(durationMs),
+            transcript: Value(transcript),
+            capturedAt: Value(when),
+            lat: Value(lat),
+            lng: Value(lng),
+            createdBy: createdBy,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    return (await (db.select(
+      db.media,
+    )..where((m) => m.id.equals(id))).getSingle());
   }
 }
 

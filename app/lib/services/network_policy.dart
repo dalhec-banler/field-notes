@@ -8,7 +8,7 @@ import 'app_prefs.dart';
 /// dependency, and small lookups (weather, soil) are always allowed.
 class NetworkPolicy {
   NetworkPolicy({Connectivity? connectivity})
-      : _connectivity = connectivity ?? Connectivity();
+    : _connectivity = connectivity ?? Connectivity();
 
   final Connectivity _connectivity;
 

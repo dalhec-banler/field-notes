@@ -24,7 +24,10 @@ ThemeData appTheme() {
           letterSpacing: 1.6,
         )
       : const TextStyle(
-          fontWeight: FontWeight.w600, fontSize: 15, letterSpacing: 0.1);
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+          letterSpacing: 0.1,
+        );
   final scheme = ColorScheme(
     brightness: Brightness.light,
     primary: Press.ink,
@@ -68,7 +71,10 @@ ThemeData appTheme() {
                 letterSpacing: 0.6,
               )
             : const TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 15.5, letterSpacing: 0.1),
+                fontWeight: FontWeight.w600,
+                fontSize: 15.5,
+                letterSpacing: 0.1,
+              ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -93,11 +99,14 @@ ThemeData appTheme() {
       filled: true,
       fillColor: Press.paperRaised,
       border: OutlineInputBorder(borderSide: inkBorder, borderRadius: radius),
-      enabledBorder:
-          OutlineInputBorder(borderSide: inkBorder, borderRadius: radius),
+      enabledBorder: OutlineInputBorder(
+        borderSide: inkBorder,
+        borderRadius: radius,
+      ),
       focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Press.oxblood, width: 1.5),
-          borderRadius: radius),
+        borderSide: BorderSide(color: Press.oxblood, width: 1.5),
+        borderRadius: radius,
+      ),
       labelStyle: upper
           ? TextStyle(
               fontFamily: Type.mono,
@@ -113,13 +122,16 @@ ThemeData appTheme() {
               color: const Color(0x8C2C2620),
             )
           : TextStyle(
-              fontSize: 14, color: Press.inkSoft.withValues(alpha: 0.55)),
+              fontSize: 14,
+              color: Press.inkSoft.withValues(alpha: 0.55),
+            ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: Press.paper,
       shape: RoundedRectangleBorder(
-          side: skin.upperLabels ? inkBorder : BorderSide.none,
-          borderRadius: BorderRadius.circular(skin.radiusCard)),
+        side: skin.upperLabels ? inkBorder : BorderSide.none,
+        borderRadius: BorderRadius.circular(skin.radiusCard),
+      ),
       titleTextStyle: TextStyle(
         fontFamily: Type.slab,
         fontWeight: FontWeight.w700,
@@ -130,11 +142,17 @@ ThemeData appTheme() {
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: Press.paper,
       shape: skin.upperLabels
-          ? Border(top: BorderSide(
-              color: Press.ink, width: Metrics.borderStructural))
+          ? Border(
+              top: BorderSide(
+                color: Press.ink,
+                width: Metrics.borderStructural,
+              ),
+            )
           : RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(skin.radiusCard + 4))),
+                top: Radius.circular(skin.radiusCard + 4),
+              ),
+            ),
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: Press.ink,
@@ -221,11 +239,13 @@ ThemeData appTheme() {
               color: Press.ink,
             )
           : TextStyle(
-              fontWeight: FontWeight.w600, fontSize: 13, color: Press.ink),
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: Press.ink,
+            ),
     ),
   );
 }
-
 
 /// The historical name; screens and the desktop shell still call this.
 ThemeData fieldStationTheme() => appTheme();

@@ -8299,7 +8299,7 @@ class Observations extends Table with TableInfo<Observations, Observation> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    $customConstraints: 'NOT NULL DEFAULT \'general\' CHECK (observation_type IN (\'general\', \'plant\', \'wildlife\', \'problem\', \'water\', \'soil\', \'phenology\', \'sign\', \'weather\', \'maintenance\'))',
+    $customConstraints: 'NOT NULL DEFAULT \'general\' CHECK (observation_type IN (\'general\', \'plant\', \'wildlife\', \'problem\', \'water\', \'soil\', \'phenology\', \'sign\', \'weather\', \'maintenance\', \'infrastructure\'))',
     defaultValue: const CustomExpression('\'general\''),
   );
   static const VerificationMeta _taxonIdMeta = const VerificationMeta(

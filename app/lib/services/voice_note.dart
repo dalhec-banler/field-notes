@@ -55,8 +55,10 @@ class VoiceNoteRecorder extends ChangeNotifier {
         return false;
       }
       final tmp = await getTemporaryDirectory();
-      _path = p.join(tmp.path,
-          'voice_${DateTime.now().millisecondsSinceEpoch}.m4a');
+      _path = p.join(
+        tmp.path,
+        'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+      );
       await _recorder.start(
         const RecordConfig(
           encoder: AudioEncoder.aacLc,
@@ -148,7 +150,9 @@ class VoiceNoteRecorder extends ChangeNotifier {
     _recording = false;
     _startedAt = null;
     _notify();
-    if (path != null && File(path).existsSync() && File(path).lengthSync() > 0) {
+    if (path != null &&
+        File(path).existsSync() &&
+        File(path).lengthSync() > 0) {
       return path;
     }
     return null;

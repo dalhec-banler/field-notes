@@ -18,12 +18,13 @@ String? nextTagCode(String? lastCode) {
 /// Latest tag code used on the property (by creation order — UUIDv7 sorts by
 /// time), for seeding the suggestion.
 Future<String?> lastTagCode(FieldNotesDb db, String propertyId) async {
-  final row = await (db.select(db.plants)
-        ..where((p) => p.propertyId.equals(propertyId))
-        ..where((p) => p.tagCode.isNotNull())
-        ..where((p) => p.deletedAt.isNull())
-        ..orderBy([(p) => OrderingTerm.desc(p.id)])
-        ..limit(1))
-      .getSingleOrNull();
+  final row =
+      await (db.select(db.plants)
+            ..where((p) => p.propertyId.equals(propertyId))
+            ..where((p) => p.tagCode.isNotNull())
+            ..where((p) => p.deletedAt.isNull())
+            ..orderBy([(p) => OrderingTerm.desc(p.id)])
+            ..limit(1))
+          .getSingleOrNull();
   return row?.tagCode;
 }

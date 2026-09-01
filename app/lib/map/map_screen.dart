@@ -802,6 +802,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           '#5E6E8C',
           'maintenance',
           '#2C2620',
+          'infrastructure',
+          '#2C2620',
           '#2f5233',
         ],
         circleStrokeColor: '#ECE3CE',

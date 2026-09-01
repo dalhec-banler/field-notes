@@ -1,4 +1,3 @@
-
 import 'package:drift/drift.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -15,19 +14,18 @@ class SurvivalReport {
   final FieldNotesDb db;
 
   Future<Uint8List> build(Property property) async {
-    final events = await (db.select(db.plantingEvents)
-          ..where((e) => e.propertyId.equals(property.id))
-          ..where((e) => e.deletedAt.isNull())
-          ..orderBy([(e) => OrderingTerm.desc(e.plantedOn)]))
-        .get();
-    final taxa = {
-      for (final t in await db.select(db.taxa).get()) t.id: t
-    };
+    final events =
+        await (db.select(db.plantingEvents)
+              ..where((e) => e.propertyId.equals(property.id))
+              ..where((e) => e.deletedAt.isNull())
+              ..orderBy([(e) => OrderingTerm.desc(e.plantedOn)]))
+            .get();
+    final taxa = {for (final t in await db.select(db.taxa).get()) t.id: t};
     final zones = {
-      for (final z in await (db.select(db.zones)
-            ..where((z) => z.propertyId.equals(property.id)))
-          .get())
-        z.id: z.name
+      for (final z in await (db.select(
+        db.zones,
+      )..where((z) => z.propertyId.equals(property.id))).get())
+        z.id: z.name,
     };
 
     final rows = <List<String>>[];
@@ -47,8 +45,8 @@ class SurvivalReport {
         t == null
             ? '-'
             : (t.commonName != null
-                ? '${t.commonName} (${t.scientificName})'
-                : t.scientificName),
+                  ? '${t.commonName} (${t.scientificName})'
+                  : t.scientificName),
         e.zoneId == null ? '-' : (zones[e.zoneId] ?? '-'),
         '${e.countPlanted}',
         e.stockSource.replaceAll('_', ' '),
@@ -71,12 +69,15 @@ class SurvivalReport {
         pageFormat: PdfPageFormat.letter,
         margin: const pw.EdgeInsets.all(40),
         build: (ctx) => [
-          pw.Text(property.name.toUpperCase(),
-              style: pw.TextStyle(
-                  fontSize: 22, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            property.name.toUpperCase(),
+            style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
+          ),
           pw.SizedBox(height: 4),
-          pw.Text('Planting survival summary - generated $stamp',
-              style: const pw.TextStyle(fontSize: 10)),
+          pw.Text(
+            'Planting survival summary - generated $stamp',
+            style: const pw.TextStyle(fontSize: 10),
+          ),
           pw.SizedBox(height: 16),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -84,10 +85,11 @@ class SurvivalReport {
               _stat('Planting events', '${events.length}'),
               _stat('Plants planted', '$planted'),
               _stat(
-                  'Cohort survival',
-                  plantedKnown == 0
-                      ? '-'
-                      : '${(aliveKnown / plantedKnown * 100).toStringAsFixed(0)}%'),
+                'Cohort survival',
+                plantedKnown == 0
+                    ? '-'
+                    : '${(aliveKnown / plantedKnown * 100).toStringAsFixed(0)}%',
+              ),
               _stat('Checked', '$aliveKnown of $plantedKnown'),
             ],
           ),
@@ -105,13 +107,16 @@ class SurvivalReport {
                 'Latest survival',
               ],
               data: rows,
-              headerStyle:
-                  pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+              headerStyle: pw.TextStyle(
+                fontSize: 9,
+                fontWeight: pw.FontWeight.bold,
+              ),
               cellStyle: const pw.TextStyle(fontSize: 9),
               cellAlignments: {3: pw.Alignment.centerRight},
               border: pw.TableBorder.all(color: PdfColors.grey600, width: 0.5),
-              headerDecoration:
-                  const pw.BoxDecoration(color: PdfColors.grey300),
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey300,
+              ),
             ),
           pw.SizedBox(height: 18),
           pw.Text(
@@ -128,12 +133,13 @@ class SurvivalReport {
   }
 
   pw.Widget _stat(String label, String value) => pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(value,
-              style: pw.TextStyle(
-                  fontSize: 18, fontWeight: pw.FontWeight.bold)),
-          pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
-        ],
-      );
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.Text(
+        value,
+        style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+      ),
+      pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
+    ],
+  );
 }

@@ -45,9 +45,9 @@ class LocationHub extends ChangeNotifier {
 
   late final StreamController<Position> _controller =
       StreamController<Position>.broadcast(
-    onListen: _syncPlatform,
-    onCancel: _syncPlatform,
-  );
+        onListen: _syncPlatform,
+        onCancel: _syncPlatform,
+      );
 
   /// Live fixes. Subscribing starts the platform stream on demand; the last
   /// cancel stops it unless a track is being recorded. Errors are NOT
@@ -88,8 +88,10 @@ class LocationHub extends ChangeNotifier {
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: 'Field Notes is recording your walk',
           notificationText: 'Track logging is on. Tap stop in the app.',
-          notificationIcon:
-              AndroidResource(name: 'launch_background', defType: 'drawable'),
+          notificationIcon: AndroidResource(
+            name: 'launch_background',
+            defType: 'drawable',
+          ),
           enableWakeLock: true,
         ),
       );
@@ -120,16 +122,13 @@ class LocationHub extends ChangeNotifier {
       } catch (_) {}
       if (gen != _gen || !_wanted) return;
       try {
-        _platformSub =
-            Geolocator.getPositionStream(locationSettings: _settings).listen(
-          (pos) {
-            _last = pos;
-            lastError = null;
-            if (!_controller.isClosed) _controller.add(pos);
-            notifyListeners();
-          },
-          onError: _onPlatformError,
-        );
+        _platformSub = Geolocator.getPositionStream(locationSettings: _settings)
+            .listen((pos) {
+              _last = pos;
+              lastError = null;
+              if (!_controller.isClosed) _controller.add(pos);
+              notifyListeners();
+            }, onError: _onPlatformError);
       } catch (e) {
         _onPlatformError(e);
       }

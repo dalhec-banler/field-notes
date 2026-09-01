@@ -37,10 +37,11 @@ const _featureTypeSeed = [
 
 /// Seeds the global feature-type registry. Idempotent by key.
 Future<int> seedFeatureTypesIfEmpty(FieldNotesDb db) async {
-  final existing = await (db.select(db.featureTypes)
-        ..where((t) => t.propertyId.isNull())
-        ..limit(1))
-      .get();
+  final existing =
+      await (db.select(db.featureTypes)
+            ..where((t) => t.propertyId.isNull())
+            ..limit(1))
+          .get();
   if (existing.isNotEmpty) return 0;
   final now = nowUtcIso();
   var inserted = 0;
@@ -68,10 +69,11 @@ Future<int> seedFeatureTypesIfEmpty(FieldNotesDb db) async {
 /// Seed rows are global (property_id NULL, spec §4.4). No-op if any global
 /// taxa already exist, so user edits are never clobbered.
 Future<int> seedTaxaIfEmpty(FieldNotesDb db, {String? csvText}) async {
-  final existing = await (db.select(db.taxa)
-        ..where((t) => t.propertyId.isNull())
-        ..limit(1))
-      .get();
+  final existing =
+      await (db.select(db.taxa)
+            ..where((t) => t.propertyId.isNull())
+            ..limit(1))
+          .get();
   if (existing.isNotEmpty) return 0;
 
   csvText ??= await rootBundle.loadString(_seedAsset);

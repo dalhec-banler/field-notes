@@ -69,32 +69,33 @@ abstract final class Metrics {
 Color survivalBandColor(double rate) => rate >= 0.8
     ? Press.sage
     : rate >= 0.6
-        ? Press.ochre
-        : Press.oxblood;
+    ? Press.ochre
+    : Press.oxblood;
 
 /// Feature condition colours: good sage · fair ochre · poor/critical oxblood.
 Color conditionColor(String? condition) => switch (condition) {
-      'good' => Press.sage,
-      'fair' => Press.ochre,
-      'poor' || 'critical' => Press.oxblood,
-      _ => Press.inkSoft,
-    };
+  'good' => Press.sage,
+  'fair' => Press.ochre,
+  'poor' || 'critical' => Press.oxblood,
+  _ => Press.inkSoft,
+};
 
 /// Plant status colours: alive/dormant sage · browsed/declining ochre ·
 /// dead/removed oxblood.
 Color plantStatusColor(String status) => switch (status) {
-      'alive' || 'dormant' => Press.sage,
-      'browsed' || 'declining' => Press.ochre,
-      'dead' || 'removed' => Press.oxblood,
-      _ => Press.inkSoft,
-    };
+  'alive' || 'dormant' => Press.sage,
+  'browsed' || 'declining' => Press.ochre,
+  'dead' || 'removed' => Press.oxblood,
+  _ => Press.inkSoft,
+};
 
 /// Record-type diamond colours for pins and list rows.
 Color recordTypeColor(String type) => switch (type) {
-      'plant' || 'phenology' => Press.sage,
-      'water' => Press.river,
-      'problem' => Press.oxblood,
-      'wildlife' || 'sign' => Press.ochre,
-      'soil' => Press.ochreLight,
-      _ => Press.inkSoft,
-    };
+  'plant' || 'phenology' => Press.sage,
+  'water' => Press.river,
+  'problem' => Press.oxblood,
+  'wildlife' || 'sign' => Press.ochre,
+  'soil' => Press.ochreLight,
+  'infrastructure' || 'maintenance' => Press.ink,
+  _ => Press.inkSoft,
+};

@@ -200,7 +200,8 @@ CREATE TABLE observations (
   heading_deg   REAL,
   observation_type TEXT NOT NULL DEFAULT 'general' CHECK (observation_type IN
                  ('general','plant','wildlife','problem','water','soil',
-                  'phenology','sign','weather','maintenance')),
+                  'phenology','sign','weather','maintenance',
+                  'infrastructure')),
   taxon_id      TEXT REFERENCES taxa(id),
   taxon_confidence TEXT CHECK (taxon_confidence IN
                  ('certain','probable','uncertain','unidentified')),

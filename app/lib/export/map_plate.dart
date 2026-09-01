@@ -189,6 +189,7 @@ abstract final class PlateInk {
     'sign': 0xFFA8791F,
     'weather': 0xFF5D5A8A,
     'maintenance': 0xFF1B1813,
+    'infrastructure': 0xFF1B1813,
     'general': 0xFF6B655C,
   };
 }

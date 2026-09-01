@@ -18,8 +18,8 @@ const kObservationTypes = [
   'soil',
   'phenology',
   'sign',
-  'weather',
   'maintenance',
+  'infrastructure',
 ];
 
 const kConfidenceLabels = {
