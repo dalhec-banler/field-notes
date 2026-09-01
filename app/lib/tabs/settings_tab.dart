@@ -28,11 +28,12 @@ import '../widgets/press.dart';
 /// Settings & backup (design README §3.6). Order is the argument:
 /// verification first, storage second, then the grouped tables, then export.
 class SettingsTab extends StatefulWidget {
-  SettingsTab(
-      {super.key,
-      required this.db,
-      required this.property,
-      required this.prefs});
+  SettingsTab({
+    super.key,
+    required this.db,
+    required this.property,
+    required this.prefs,
+  });
 
   final FieldNotesDb db;
   final Property property;
@@ -75,9 +76,9 @@ class _SettingsTabState extends State<SettingsTab> {
     // "Current" means nothing has changed since — not merely "recent".
     var unbacked = 0;
     if (lastBackup != null) {
-      final changed = await (widget.db.select(widget.db.observations)
-            ..where((o) => o.updatedAt.isBiggerThan(Constant(lastBackup!))))
-          .get();
+      final changed = await (widget.db.select(
+        widget.db.observations,
+      )..where((o) => o.updatedAt.isBiggerThan(Constant(lastBackup!)))).get();
       unbacked = changed.length;
     }
     if (mounted) {
@@ -107,8 +108,7 @@ class _SettingsTabState extends State<SettingsTab> {
   bool get _backupOverdue {
     if (_lastBackup == null) return true;
     final then = DateTime.tryParse(_lastBackup!);
-    return then == null ||
-        DateTime.now().toUtc().difference(then).inDays >= 14;
+    return then == null || DateTime.now().toUtc().difference(then).inDays >= 14;
   }
 
   @override
@@ -118,34 +118,32 @@ class _SettingsTabState extends State<SettingsTab> {
     final cardColor = !backupHealthy
         ? Press.oxblood
         : _unbacked > 0
-            ? Press.ochre
-            : Press.sage;
+        ? Press.ochre
+        : Press.sage;
     return SafeArea(
       bottom: false,
       child: ListView(
         padding: EdgeInsets.only(bottom: 110),
         children: [
           ScreenHeader(
-              kicker: 'Configuration · this device', title: 'Settings'),
+            kicker: 'Configuration · this device',
+            title: 'Settings',
+          ),
           SizedBox(height: 12),
 
           // 1. Backup card — verification first.
           Padding(
-            padding:
-                EdgeInsets.symmetric(horizontal: Metrics.gutter),
+            padding: EdgeInsets.symmetric(horizontal: Metrics.gutter),
             child: Container(
               decoration: BoxDecoration(
-                border: Border.all(
-                    color: cardColor,
-                    width: 1.5),
+                border: Border.all(color: cardColor, width: 1.5),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
                     color: cardColor,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Row(
                       children: [
                         Diamond(size: 9, color: Press.paper),
@@ -154,17 +152,21 @@ class _SettingsTabState extends State<SettingsTab> {
                           !backupHealthy
                               ? 'Backup needed'
                               : _unbacked > 0
-                                  ? '$_unbacked ${_unbacked == 1 ? 'change' : 'changes'} since backup'
-                                  : _lastVerify != null
-                                      ? 'Backup verified'
-                                      : 'Backup current — unverified',
+                              ? '$_unbacked ${_unbacked == 1 ? 'change' : 'changes'} since backup'
+                              : _lastVerify != null
+                              ? 'Backup verified'
+                              : 'Backup current — unverified',
                           size: 10,
                           spacing: 1.6,
                           color: Press.paper,
                         ),
                         Spacer(),
-                        MonoLabel(_ago(_lastBackup),
-                            size: 9, color: Press.paper, opacity: 0.85),
+                        MonoLabel(
+                          _ago(_lastBackup),
+                          size: 9,
+                          color: Press.paper,
+                          opacity: 0.85,
+                        ),
                       ],
                     ),
                   ),
@@ -176,14 +178,15 @@ class _SettingsTabState extends State<SettingsTab> {
                         Text(
                           _lastBackup == null
                               ? 'Nothing is backed up yet. A phone in the '
-                                  'creek is a total loss until this runs.'
+                                    'creek is a total loss until this runs.'
                               : 'Only what changed gets copied, so it\'s '
-                                  'quick. Last verified ${_ago(_lastVerify)} '
-                                  '— an untested backup is not a backup.',
+                                    'quick. Last verified ${_ago(_lastVerify)} '
+                                    '— an untested backup is not a backup.',
                           style: TextStyle(
-                              fontFamily: Type.serif,
-                              fontSize: 15.5,
-                              height: 1.45),
+                            fontFamily: Type.serif,
+                            fontSize: 15.5,
+                            height: 1.45,
+                          ),
                         ),
                         SizedBox(height: 10),
                         Row(
@@ -191,10 +194,14 @@ class _SettingsTabState extends State<SettingsTab> {
                             Expanded(
                               child: FilledButton(
                                 onPressed: () => Navigator.of(context)
-                                    .push(MaterialPageRoute(
+                                    .push(
+                                      MaterialPageRoute(
                                         builder: (_) => BackupScreen(
-                                            db: widget.db,
-                                            prefs: widget.prefs)))
+                                          db: widget.db,
+                                          prefs: widget.prefs,
+                                        ),
+                                      ),
+                                    )
                                     .then((_) => _load()),
                                 child: Text('BACK UP NOW'),
                               ),
@@ -203,9 +210,10 @@ class _SettingsTabState extends State<SettingsTab> {
                             Expanded(
                               child: OutlinedButton(
                                 onPressed: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                        builder: (_) =>
-                                            RestoreScreen())),
+                                  MaterialPageRoute(
+                                    builder: (_) => RestoreScreen(),
+                                  ),
+                                ),
                                 child: Text('RESTORE'),
                               ),
                             ),
@@ -231,8 +239,7 @@ class _SettingsTabState extends State<SettingsTab> {
                   ? '${(_basemapBytes / (1 << 20)).toStringAsFixed(0)} MB'
                   : 'None',
               () => Navigator.of(context)
-                  .push(MaterialPageRoute(
-                      builder: (_) => OfflineMapsScreen()))
+                  .push(MaterialPageRoute(builder: (_) => OfflineMapsScreen()))
                   .then((_) => _load()),
             ),
           ]),
@@ -241,35 +248,50 @@ class _SettingsTabState extends State<SettingsTab> {
               'Import boundary & zones',
               'KML / KMZ / GeoJSON from Google Earth, onX, or your county GIS',
               '',
-              () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => KmlImportScreen(
-                      db: widget.db, property: widget.property))),
+              () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      KmlImportScreen(db: widget.db, property: widget.property),
+                ),
+              ),
             ),
             (
               'Import photos',
               'geotagged photos become records where they were taken',
               '',
-              () => Navigator.of(context).push(MaterialPageRoute(
+              () => Navigator.of(context).push(
+                MaterialPageRoute(
                   builder: (_) => PhotoImportScreen(
-                      db: widget.db,
-                      property: widget.property,
-                      prefs: widget.prefs))),
+                    db: widget.db,
+                    property: widget.property,
+                    prefs: widget.prefs,
+                  ),
+                ),
+              ),
             ),
             (
               'Import species list',
               'optional · a CSV of your own species, starred for quick pick',
               '',
-              () => Navigator.of(context).push(MaterialPageRoute(
+              () => Navigator.of(context).push(
+                MaterialPageRoute(
                   builder: (_) => SpeciesImportScreen(
-                      db: widget.db, property: widget.property))),
+                    db: widget.db,
+                    property: widget.property,
+                  ),
+                ),
+              ),
             ),
             (
               'Programs',
               'EQIP · TPWD · cost-share practices and deadlines',
               '',
-              () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => ProgramsScreen(
-                      db: widget.db, property: widget.property))),
+              () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ProgramsScreen(db: widget.db, property: widget.property),
+                ),
+              ),
             ),
           ]),
           _group('Species ID', [
@@ -278,27 +300,36 @@ class _SettingsTabState extends State<SettingsTab> {
               'your own Pl@ntNet and AI keys · the app suggests, you decide',
               '',
               () => Navigator.of(context)
-                  .push(MaterialPageRoute(
-                      builder: (_) => SpeciesIdSettingsScreen()))
+                  .push(
+                    MaterialPageRoute(
+                      builder: (_) => SpeciesIdSettingsScreen(),
+                    ),
+                  )
                   .then((_) => _load()),
             ),
           ]),
           _group('Backup', [
             (
-              'Back up to a computer',
+              'Pair with a computer',
               'over your own network · nothing touches the internet',
               '',
-              () => Navigator.of(context).push(MaterialPageRoute(
+              () => Navigator.of(context).push(
+                MaterialPageRoute(
                   builder: (_) =>
-                      LanBackupScreen(db: widget.db, prefs: widget.prefs))),
+                      LanBackupScreen(db: widget.db, prefs: widget.prefs),
+                ),
+              ),
             ),
             (
               'Back up to Google Drive',
               'a hidden folder in your own Drive · encrypted before it leaves',
               '',
-              () => Navigator.of(context).push(MaterialPageRoute(
+              () => Navigator.of(context).push(
+                MaterialPageRoute(
                   builder: (_) =>
-                      DriveBackupScreen(db: widget.db, prefs: widget.prefs))),
+                      DriveBackupScreen(db: widget.db, prefs: widget.prefs),
+                ),
+              ),
             ),
           ]),
           _group('Sharing', [
@@ -306,9 +337,14 @@ class _SettingsTabState extends State<SettingsTab> {
               'Review',
               'edits by other stewards wait here for your say · final, always',
               '',
-              () => Navigator.of(context).push(MaterialPageRoute(
+              () => Navigator.of(context).push(
+                MaterialPageRoute(
                   builder: (_) => ReviewFeedScreen(
-                      db: widget.db, property: widget.property))),
+                    db: widget.db,
+                    property: widget.property,
+                  ),
+                ),
+              ),
             ),
           ]),
           _group('Help', [
@@ -316,8 +352,11 @@ class _SettingsTabState extends State<SettingsTab> {
               'Getting started',
               'the walkthrough — what the app is for and how it behaves',
               '',
-              () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => OnboardingScreen(prefs: widget.prefs))),
+              () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => OnboardingScreen(prefs: widget.prefs),
+                ),
+              ),
             ),
           ]),
           // Spec §7 field ergonomics. Tapping a row toggles it.
@@ -329,7 +368,8 @@ class _SettingsTabState extends State<SettingsTab> {
                   : 'standard type · tap for bigger, for sun and gloves',
               widget.prefs.outdoorMode ? 'On' : 'Off',
               () => setState(
-                  () => widget.prefs.outdoorMode = !widget.prefs.outdoorMode),
+                () => widget.prefs.outdoorMode = !widget.prefs.outdoorMode,
+              ),
             ),
             (
               'Ledger rows',
@@ -337,8 +377,11 @@ class _SettingsTabState extends State<SettingsTab> {
                   ? 'dense · more entries per screen'
                   : 'glove · roomy rows, easy to hit',
               widget.prefs.density == 'dense' ? 'Dense' : 'Glove',
-              () => setState(() => widget.prefs.density =
-                  widget.prefs.density == 'dense' ? 'glove' : 'dense'),
+              () => setState(
+                () => widget.prefs.density = widget.prefs.density == 'dense'
+                    ? 'glove'
+                    : 'dense',
+              ),
             ),
           ]),
           // D-016: off-grid users, metered LTE. Tapping a row toggles it.
@@ -350,7 +393,8 @@ class _SettingsTabState extends State<SettingsTab> {
                   : 'maps and backups wait for Wi-Fi · tap to allow cellular',
               widget.prefs.allowCellular ? 'On' : 'Off',
               () => setState(
-                  () => widget.prefs.allowCellular = !widget.prefs.allowCellular),
+                () => widget.prefs.allowCellular = !widget.prefs.allowCellular,
+              ),
             ),
             (
               'Automatic backup',
@@ -359,7 +403,8 @@ class _SettingsTabState extends State<SettingsTab> {
                   : 'off · only when you tap Back up now',
               widget.prefs.autoBackup ? 'On' : 'Off',
               () => setState(
-                  () => widget.prefs.autoBackup = !widget.prefs.autoBackup),
+                () => widget.prefs.autoBackup = !widget.prefs.autoBackup,
+              ),
             ),
             // Off by default and described in terms of what leaves the phone
             // rather than what you get (D-022). It is the only switch here
@@ -368,11 +413,12 @@ class _SettingsTabState extends State<SettingsTab> {
               'Weather & soil for each record',
               widget.prefs.envContext
                   ? 'on · sends a location rounded to about a kilometre to '
-                      'Open-Meteo and USDA-NRCS'
+                        'Open-Meteo and USDA-NRCS'
                   : 'off · nothing is looked up and no location is sent',
               widget.prefs.envContext ? 'On' : 'Off',
               () => setState(
-                  () => widget.prefs.envContext = !widget.prefs.envContext),
+                () => widget.prefs.envContext = !widget.prefs.envContext,
+              ),
             ),
           ]),
           if (widget.prefs.pressUnlocked)
@@ -383,25 +429,18 @@ class _SettingsTabState extends State<SettingsTab> {
                     ? 'Field Station — paper, ink and the press'
                     : 'Quiet — the plain one',
                 widget.prefs.skinName == 'press' ? 'Press' : 'Quiet',
-                () => setState(() => widget.prefs.skinName =
-                    widget.prefs.skinName == 'press' ? 'quiet' : 'press'),
+                () => setState(
+                  () => widget.prefs.skinName = widget.prefs.skinName == 'press'
+                      ? 'quiet'
+                      : 'press',
+                ),
               ),
             ]),
           _group('About', [
-            (
-              'Version',
-              'Field Notes',
-              _appVersion,
-              _versionTapped,
-            ),
+            ('Version', 'Field Notes', _appVersion, _versionTapped),
           ]),
           _group('Privacy', [
-            (
-              'Account',
-              'none — everything stays on this phone',
-              'None',
-              null,
-            ),
+            ('Account', 'none — everything stays on this phone', 'None', null),
             (
               'Analytics',
               'no record content, no coordinates, ever',
@@ -414,8 +453,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
           // 4. Take my data.
           Padding(
-            padding:
-                EdgeInsets.symmetric(horizontal: Metrics.gutter),
+            padding: EdgeInsets.symmetric(horizontal: Metrics.gutter),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -480,10 +518,12 @@ class _SettingsTabState extends State<SettingsTab> {
       if (_versionTaps >= 4 && mounted) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
-          ..showSnackBar(SnackBar(
-            content: Text('${7 - _versionTaps} more…'),
-            duration: const Duration(milliseconds: 700),
-          ));
+          ..showSnackBar(
+            SnackBar(
+              content: Text('${7 - _versionTaps} more…'),
+              duration: const Duration(milliseconds: 700),
+            ),
+          );
       }
       return;
     }
@@ -504,37 +544,41 @@ class _SettingsTabState extends State<SettingsTab> {
     _pendingUnlockToast = false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: pressSkin.ink,
-        duration: const Duration(seconds: 6),
-        content: Text(
-          '◆ YOU FOUND THE PRESS — SHORT\'S RESORT FIELD STATION.\n'
-          'SWITCH SKINS ANY TIME UNDER APPEARANCE.',
-          style: TextStyle(
-            fontFamily: 'JetBrainsMono',
-            fontSize: 10,
-            letterSpacing: 1.2,
-            height: 1.6,
-            color: pressSkin.paper,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: pressSkin.ink,
+          duration: const Duration(seconds: 6),
+          content: Text(
+            '◆ YOU FOUND THE PRESS — SHORT\'S RESORT FIELD STATION.\n'
+            'SWITCH SKINS ANY TIME UNDER APPEARANCE.',
+            style: TextStyle(
+              fontFamily: 'JetBrainsMono',
+              fontSize: 10,
+              letterSpacing: 1.2,
+              height: 1.6,
+              color: pressSkin.paper,
+            ),
           ),
         ),
-      ));
+      );
     });
   }
 
   Widget _group(
-      String label, List<(String, String, String, VoidCallback?)> rows) {
+    String label,
+    List<(String, String, String, VoidCallback?)> rows,
+  ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          Metrics.gutter, 0, Metrics.gutter, 16),
+      padding: const EdgeInsets.fromLTRB(Metrics.gutter, 0, Metrics.gutter, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           MonoLabel(label, size: 9, spacing: 2),
           const SizedBox(height: 6),
           Container(
-            decoration:
-                BoxDecoration(border: Border.all(color: Press.borderInk, width: 1.5)),
+            decoration: BoxDecoration(
+              border: Border.all(color: Press.borderInk, width: 1.5),
+            ),
             child: Column(
               children: [
                 for (var i = 0; i < rows.length; i++)
@@ -543,13 +587,18 @@ class _SettingsTabState extends State<SettingsTab> {
                     child: Container(
                       constraints: const BoxConstraints(minHeight: 58),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 9),
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
                       decoration: BoxDecoration(
                         color: Press.paperRaised,
                         border: i < rows.length - 1
                             ? Border(
                                 bottom: BorderSide(
-                                    color: Press.divider, width: 1))
+                                  color: Press.divider,
+                                  width: 1,
+                                ),
+                              )
                             : null,
                       ),
                       child: Row(
@@ -569,16 +618,17 @@ class _SettingsTabState extends State<SettingsTab> {
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                MonoLabel(rows[i].$2,
-                                    size: 9, opacity: 0.7),
+                                MonoLabel(rows[i].$2, size: 9, opacity: 0.7),
                               ],
                             ),
                           ),
                           if (rows[i].$3.isNotEmpty)
-                            MonoLabel(rows[i].$3,
-                                size: 10.5,
-                                spacing: 1.4,
-                                color: Press.oxblood),
+                            MonoLabel(
+                              rows[i].$3,
+                              size: 10.5,
+                              spacing: 1.4,
+                              color: Press.oxblood,
+                            ),
                         ],
                       ),
                     ),

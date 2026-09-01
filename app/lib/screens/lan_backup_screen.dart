@@ -7,6 +7,7 @@ import '../db/database.dart';
 import '../services/app_prefs.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import 'scan_pairing_screen.dart';
 
 /// Back up to your own computer, over your own network (D-019).
 ///
@@ -72,6 +73,19 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
     return LanTarget(host: h.host, port: h.port, token: code);
   }
 
+  /// Scan → fill → test, one motion; the manual fields stay for the day
+  /// the camera is busy or the screen is cracked.
+  Future<void> _scan() async {
+    final raw = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const ScanPairingScreen()),
+    );
+    if (raw == null || !mounted) return;
+    setState(() => _hostController.text = raw.trim());
+    _parseHost();
+    setState(() {});
+    await _test();
+  }
+
   Future<void> _test() async {
     final target = _target();
     if (target == null) {
@@ -91,7 +105,7 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
       _status = ok
           ? 'Found it. This phone is paired.'
           : 'No answer. Check both are on the same Wi-Fi, the receiver is '
-              'switched on, and the code matches.';
+                'switched on, and the code matches.';
     });
     if (ok) {
       widget.prefs.lanHost = '${target.host}:${target.port}';
@@ -140,34 +154,38 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: Text('CANCEL')),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, controller.text),
-              child: Text('CONTINUE')),
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: Text('CONTINUE'),
+          ),
         ],
       ),
     );
   }
 
   Widget _step(int n, String text) => Padding(
-        padding: EdgeInsets.only(bottom: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 22, child: MonoLabel('$n.', size: 10, spacing: 1.2)),
-            Expanded(
-              child: Text(text,
-                  style: TextStyle(
-                      fontFamily: Type.serif, fontSize: 15, height: 1.4)),
-            ),
-          ],
+    padding: EdgeInsets.only(bottom: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 22, child: MonoLabel('$n.', size: 10, spacing: 1.2)),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontFamily: Type.serif, fontSize: 15, height: 1.4),
+          ),
         ),
-      );
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Back up to a computer')),
+      appBar: AppBar(title: Text('Pair with a computer')),
       body: ListView(
         padding: EdgeInsets.all(Metrics.gutter),
         children: [
@@ -176,17 +194,33 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
             'own network. It never touches the internet and there is no '
             'account. The phone encrypts first, so the computer only ever '
             'holds files it cannot read.',
-            style: TextStyle(fontFamily: Type.serif, fontSize: 15.5, height: 1.45),
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 15.5,
+              height: 1.45,
+            ),
           ),
           SizedBox(height: 18),
           MonoLabel('On the computer', size: 9, spacing: 1.8),
           SizedBox(height: 8),
           _step(1, 'Open Field Notes on the computer.'),
-          _step(2, 'Go to Data → Receive a backup, and switch it on.'),
-          _step(3, 'It shows an address and a six-digit code.'),
+          _step(2, 'Pair with your phone → SWITCH ON.'),
+          _step(
+            3,
+            'It shows a QR code — scan it below, or type the address and code.',
+          ),
           SizedBox(height: 18),
           MonoLabel('On this phone', size: 9, spacing: 1.8),
           SizedBox(height: 8),
+          SizedBox(
+            height: 56,
+            child: FilledButton.icon(
+              icon: Icon(Icons.qr_code_scanner, size: 20),
+              label: Text('SCAN THE QR CODE'),
+              onPressed: _busy ? null : _scan,
+            ),
+          ),
+          SizedBox(height: 12),
           TextField(
             controller: _hostController,
             decoration: InputDecoration(
@@ -198,8 +232,10 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
           TextField(
             controller: _codeController,
             keyboardType: TextInputType.number,
-            decoration:
-                InputDecoration(labelText: 'Six-digit code', isDense: true),
+            decoration: InputDecoration(
+              labelText: 'Six-digit code',
+              isDense: true,
+            ),
           ),
           SizedBox(height: 8),
           TextButton.icon(
@@ -241,16 +277,22 @@ class _LanBackupScreenState extends State<LanBackupScreen> {
           if (_status != null)
             Padding(
               padding: EdgeInsets.only(top: 16),
-              child: Text(_status!,
-                  style: TextStyle(
-                      fontFamily: Type.serif, fontSize: 15.5, height: 1.4)),
+              child: Text(
+                _status!,
+                style: TextStyle(
+                  fontFamily: Type.serif,
+                  fontSize: 15.5,
+                  height: 1.4,
+                ),
+              ),
             ),
           SizedBox(height: 20),
           MonoLabel(
-              'Both devices must be on the same network. The code changes '
-              'each time the receiver is switched on.',
-              size: 9,
-              opacity: 0.7),
+            'Both devices must be on the same network. The code changes '
+            'each time the receiver is switched on.',
+            size: 9,
+            opacity: 0.7,
+          ),
         ],
       ),
     );

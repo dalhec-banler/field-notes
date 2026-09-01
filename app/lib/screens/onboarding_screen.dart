@@ -101,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 'Convenient — the copy survives a lost phone without you '
                 'remembering anything. Google holds the file and no key.',
             'Your own computer, over your own network: run Field Notes on a '
-                'machine at home, switch on Receive a backup, and the phone '
+                'machine at home, switch on Pair with your phone, and the phone '
                 'pushes to it across the LAN. Nothing touches the internet '
                 'and no account exists.',
           ],

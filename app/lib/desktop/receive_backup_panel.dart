@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../backup/lan_receiver.dart';
 import '../theme/tokens.dart';
@@ -86,7 +87,7 @@ class _ReceiveBackupPanelState extends State<ReceiveBackupPanel> {
                   filled: running,
                 ),
                 SizedBox(width: 8),
-                MonoLabel('Receive from your phone', size: 9, spacing: 1.8),
+                MonoLabel('Pair with your phone', size: 9, spacing: 1.8),
                 Spacer(),
                 SizedBox(
                   height: 40,
@@ -99,9 +100,10 @@ class _ReceiveBackupPanelState extends State<ReceiveBackupPanel> {
             ),
             SizedBox(height: 10),
             Text(
-              'A phone on this network can back up straight to this computer. '
-              'Nothing goes to the internet, and this machine only ever holds '
-              'encrypted files it cannot open.',
+              'Switch on, scan the code with the phone, and the phone sends '
+              'its record here over your own network. Nothing goes to the '
+              'internet, and this computer only ever holds encrypted files '
+              'until you open the copy with your passphrase.',
               style: TextStyle(
                 fontFamily: Type.serif,
                 fontSize: 14,
@@ -111,26 +113,52 @@ class _ReceiveBackupPanelState extends State<ReceiveBackupPanel> {
             if (running) ...[
               SizedBox(height: 12),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // The QR carries the whole pairing link; the readouts
+                  // beside it are for typing when a camera isn't handy.
+                  if (r!.pairingString != null)
+                    Container(
+                      padding: EdgeInsets.all(6),
+                      color: Colors.white,
+                      child: QrImageView(
+                        data: r.pairingString!,
+                        size: 168,
+                        backgroundColor: Colors.white,
+                        eyeStyle: QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: Color(0xFF1B1813),
+                        ),
+                        dataModuleStyle: QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: Color(0xFF1B1813),
+                        ),
+                      ),
+                    ),
+                  SizedBox(width: 16),
                   Expanded(
-                    child: _readout(
-                      'Address',
-                      '${r!.address ?? "unknown"}:${r.port}',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _readout(
+                          'Address',
+                          '${r.address ?? "unknown"}:${r.port}',
+                        ),
+                        SizedBox(height: 10),
+                        _readout('Code', r.pairingCode ?? '—'),
+                        SizedBox(height: 10),
+                        _readout('Files received', '${r.filesReceived}'),
+                        SizedBox(height: 10),
+                        MonoLabel(
+                          'On the phone: Settings → Pair with a computer → '
+                          'SCAN THE QR CODE',
+                          size: 9,
+                          opacity: 0.7,
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(width: 12),
-                  Expanded(child: _readout('Code', r.pairingCode ?? '—')),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: _readout('Files received', '${r.filesReceived}'),
-                  ),
                 ],
-              ),
-              SizedBox(height: 8),
-              MonoLabel(
-                'On the phone: Settings → Back up to a computer',
-                size: 9,
-                opacity: 0.7,
               ),
             ],
             if (r?.error != null) ...[
