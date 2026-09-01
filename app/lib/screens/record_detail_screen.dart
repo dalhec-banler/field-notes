@@ -201,6 +201,92 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
   }
 
+  /// Carousel arrow for the desk plate; wraps at either end.
+  Widget _arrow(IconData icon, int step) => Material(
+    color: Color(0xCCF7F6F2),
+    shape: CircleBorder(side: BorderSide(color: Press.borderInk, width: 1)),
+    child: InkWell(
+      customBorder: CircleBorder(),
+      onTap: () =>
+          setState(() => _photoIndex = (_photoIndex + step) % _photos.length),
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Icon(icon, size: 28, color: Press.ink),
+      ),
+    ),
+  );
+
+  /// The photo at full size, pinch/scroll to zoom, arrows to move on.
+  Future<void> _openFullSize() async {
+    var index = _photoIndex;
+    await showDialog<void>(
+      context: context,
+      barrierColor: Color(0xE61B1813),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(ctx).pop(),
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 6,
+                  child: Center(
+                    child: Image.file(
+                      File(_photos[index].localPath!),
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (_photos.length > 1) ...[
+              Positioned(
+                left: 16,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: IconButton(
+                    iconSize: 40,
+                    color: Press.paper,
+                    icon: Icon(Icons.chevron_left),
+                    onPressed: () =>
+                        setDialog(() => index = (index - 1) % _photos.length),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 16,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: IconButton(
+                    iconSize: 40,
+                    color: Press.paper,
+                    icon: Icon(Icons.chevron_right),
+                    onPressed: () =>
+                        setDialog(() => index = (index + 1) % _photos.length),
+                  ),
+                ),
+              ),
+            ],
+            Positioned(
+              top: 16,
+              right: 16,
+              child: IconButton(
+                color: Press.paper,
+                icon: Icon(Icons.close),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (mounted) setState(() => _photoIndex = index);
+  }
+
   /// Edit what a field ID most often gets wrong (shared editor, see
   /// widgets/edit_record_sheet.dart). MOVE THE PIN comes back here because
   /// it needs the map.
@@ -314,16 +400,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           // 1. Photo header — full plate with a photo, a slim bar without
           // one (a voice note or a jotted line shouldn't cost a third of
           // the screen in blank paper).
-          // On a wide pane the plate is taller and the photo is shown whole
-          // on ink, not cropped to a phone's strip.
+          // On a wide pane the plate is tall and the photo is shown whole on
+          // paper, not cropped to a phone's strip; click it for full size.
           SizedBox(
             height:
                 (_photos.isEmpty
                     ? 64
                     : widget.embedded
-                    ? (MediaQuery.sizeOf(context).height * 0.42).clamp(
-                        260.0,
-                        520.0,
+                    ? (MediaQuery.sizeOf(context).height * 0.6).clamp(
+                        320.0,
+                        760.0,
                       )
                     : 238) +
                 MediaQuery.of(context).padding.top,
@@ -332,13 +418,33 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               children: [
                 _photos.isNotEmpty
                     ? Container(
-                        color: widget.embedded ? Press.ink : null,
-                        child: Image.file(
-                          File(_photos[_photoIndex].localPath!),
-                          fit: widget.embedded ? BoxFit.contain : BoxFit.cover,
+                        color: widget.embedded ? Press.paperEdge : null,
+                        child: GestureDetector(
+                          onTap: widget.embedded ? _openFullSize : null,
+                          child: Image.file(
+                            File(_photos[_photoIndex].localPath!),
+                            fit: widget.embedded
+                                ? BoxFit.contain
+                                : BoxFit.cover,
+                          ),
                         ),
                       )
                     : Container(color: Press.paper),
+                // Desk carousel: arrows either side, every thumbnail below.
+                if (widget.embedded && _photos.length > 1) ...[
+                  Positioned(
+                    left: 10,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(child: _arrow(Icons.chevron_left, -1)),
+                  ),
+                  Positioned(
+                    right: 10,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(child: _arrow(Icons.chevron_right, 1)),
+                  ),
+                ],
                 if (_photos.isNotEmpty)
                   Positioned.fill(
                     child: Padding(
@@ -415,12 +521,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     bottom: 8,
                     child: Row(
                       children: [
-                        for (var i = 0; i < _photos.length && i < 3; i++)
+                        for (
+                          var i = 0;
+                          i < _photos.length && (widget.embedded || i < 3);
+                          i++
+                        )
                           GestureDetector(
                             onTap: () => setState(() => _photoIndex = i),
                             child: Container(
-                              width: 34,
-                              height: 34,
+                              width: widget.embedded ? 56 : 34,
+                              height: widget.embedded ? 56 : 34,
                               margin: EdgeInsets.only(left: 5),
                               decoration: BoxDecoration(
                                 border: Border.all(
