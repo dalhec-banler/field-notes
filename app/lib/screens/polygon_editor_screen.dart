@@ -6,6 +6,8 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../db/database.dart';
 import '../export/plate_subject_loader.dart' show acresOf;
+import '../export/web_mercator.dart' show metresPerPixel;
+import '../geo/simplify.dart' show distanceM;
 import '../geo/site_presence.dart' show propertyCentre;
 import '../geo/zone_assignment.dart';
 import '../map/basemap_style.dart';
@@ -25,6 +27,7 @@ class PolygonEditorScreen extends StatefulWidget {
     super.key,
     required this.db,
     required this.property,
+    this.initialTarget,
   }) : zone = null,
        isBoundary = true;
 
@@ -33,12 +36,14 @@ class PolygonEditorScreen extends StatefulWidget {
     required this.db,
     required this.property,
     required Zone this.zone,
+    this.initialTarget,
   }) : isBoundary = false;
 
   const PolygonEditorScreen.newZone({
     super.key,
     required this.db,
     required this.property,
+    this.initialTarget,
   }) : zone = null,
        isBoundary = false;
 
@@ -46,6 +51,10 @@ class PolygonEditorScreen extends StatefulWidget {
   final Property property;
   final Zone? zone;
   final bool isBoundary;
+
+  /// Where to open when there is no shape yet (the map hands over its own
+  /// centre so a new place never opens on the fallback coordinates).
+  final LatLng? initialTarget;
 
   @override
   State<PolygonEditorScreen> createState() => _PolygonEditorScreenState();
@@ -64,7 +73,11 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
   final List<Circle> _circles = [];
   int? _selected;
   bool _dirty = false;
-  bool _dragSnapshotTaken = false;
+
+  /// Crosshair mode: the grabbed corner follows the map centre until SET.
+  int? _placing;
+  LatLng? _placingOriginal;
+  bool _placingIsNew = false;
 
   String get _title =>
       widget.isBoundary ? 'Boundary' : widget.zone?.name ?? 'New zone';
@@ -108,7 +121,9 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     }
     final c = propertyCentre(widget.property);
     return CameraPosition(
-      target: c == null ? const LatLng(31.06, -98.05) : LatLng(c[1], c[0]),
+      target:
+          widget.initialTarget ??
+          (c == null ? const LatLng(31.06, -98.05) : LatLng(c[1], c[0])),
       zoom: 15,
     );
   }
@@ -140,31 +155,22 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
   Future<void> _redraw() async {
     final map = _map;
     if (map == null) return;
-    // Wipe and rebuild — the counts here are tens, not thousands.
-    for (final c in _circles) {
-      try {
-        await map.removeCircle(c);
-      } catch (_) {}
-    }
+    // Authoritative wipe: stale annotation objects survived id-based
+    // removal on Android, leaving the outline one edit behind.
+    try {
+      await map.clearCircles();
+      await map.clearFills();
+      await map.clearLines();
+    } catch (_) {}
     _circles.clear();
     _vertexIdx.clear();
     _midIdx.clear();
+    _fill = null;
+    _outline = null;
 
     final ringClosed = _ring.length >= 3
         ? [..._ring, _ring.first]
         : List.of(_ring);
-    if (_fill != null) {
-      try {
-        await map.removeFill(_fill!);
-      } catch (_) {}
-      _fill = null;
-    }
-    if (_outline != null) {
-      try {
-        await map.removeLine(_outline!);
-      } catch (_) {}
-      _outline = null;
-    }
     if (_ring.length >= 3) {
       _fill = await map.addFill(
         FillOptions(
@@ -198,7 +204,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
             circleOpacity: 0.6,
             circleStrokeColor: '#8B2E22',
             circleStrokeWidth: 1.5,
-            draggable: true,
           ),
         );
         _circles.add(ghost);
@@ -213,7 +218,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
           circleColor: i == _selected ? '#8B2E22' : '#F7F6F2',
           circleStrokeColor: '#8B2E22',
           circleStrokeWidth: 3,
-          draggable: true,
         ),
       );
       _circles.add(v);
@@ -234,45 +238,78 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     }
   }
 
-  void _onDrag(
-    dynamic point,
-    LatLng origin,
-    LatLng current,
-    LatLng delta,
-    dynamic id,
-    dynamic annotation,
-    DragEventType eventType,
-  ) {
-    final vertex = _vertexIdx[id];
-    final midAt = _midIdx[id];
-    if (vertex == null && midAt == null) return;
-    if (eventType == DragEventType.start) {
-      _dragSnapshotTaken = false;
-      return;
-    }
-    if (!_dragSnapshotTaken) {
-      _snapshot();
-      _dragSnapshotTaken = true;
-      if (midAt != null) {
-        // The ghost becomes a real corner and keeps following the finger.
-        _ring.insert(midAt, current);
-        _vertexIdx[id as String] = midAt;
-        _midIdx.remove(id);
-      }
-    }
-    final i = _vertexIdx[id];
-    if (i == null || i >= _ring.length) return;
-    _ring[i] = current;
+  void _onCameraMove() {
+    final i = _placing;
+    final map = _map;
+    if (i == null || map == null) return;
+    final pos = map.cameraPosition;
+    if (pos == null || i >= _ring.length) return;
+    _ring[i] = pos.target;
     _liveGeometry();
-    if (eventType == DragEventType.end) {
-      _selected = null;
-      _redraw();
-    } else if (mounted) {
-      setState(() {}); // acreage readout follows the drag
-    }
+    if (mounted) setState(() {}); // acreage follows the pan
   }
 
-  void _onMapTap(dynamic point, LatLng latLng) {
+  Future<void> _beginPlacing(int index, {required bool isNew}) async {
+    final map = _map;
+    if (map == null) return;
+    _snapshot();
+    setState(() {
+      _placingIsNew = isNew;
+      _placingOriginal = _ring[index];
+      _selected = null;
+    });
+    await _redraw();
+    // Fly to the corner FIRST; only then arm the follow — arming during
+    // the flight dragged the corner to wherever the camera started.
+    try {
+      await map.animateCamera(CameraUpdate.newLatLng(_ring[index]));
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _placing = index);
+  }
+
+  Future<void> _setPlaced() async {
+    setState(() {
+      _placing = null;
+      _placingOriginal = null;
+      _placingIsNew = false;
+    });
+    await _redraw();
+  }
+
+  Future<void> _cancelPlacing() async {
+    final i = _placing;
+    if (i != null) {
+      if (_placingIsNew) {
+        _ring.removeAt(i);
+      } else if (_placingOriginal != null) {
+        _ring[i] = _placingOriginal!;
+      }
+      // The snapshot from _beginPlacing is now moot.
+      if (_undo.isNotEmpty) _undo.removeLast();
+    }
+    setState(() {
+      _placing = null;
+      _placingOriginal = null;
+      _placingIsNew = false;
+    });
+    await _redraw();
+  }
+
+  Future<void> _deletePlacing() async {
+    final i = _placing;
+    if (i == null || _ring.length <= 3) return;
+    _ring.removeAt(i);
+    setState(() {
+      _placing = null;
+      _placingOriginal = null;
+      _placingIsNew = false;
+    });
+    await _redraw();
+  }
+
+  Future<void> _onMapTap(dynamic point, LatLng latLng) async {
+    if (_placing != null) return;
     // Building a new shape: every tap is a corner until there are three.
     if (_ring.length < 3) {
       _snapshot();
@@ -280,26 +317,73 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       _redraw();
       return;
     }
-    if (_selected != null) {
-      setState(() => _selected = null);
-      _redraw();
+    // Manual hit-test in GEOGRAPHIC space: the click's logical pixels and
+    // toScreenLocation's device pixels don't agree on Android, so distance
+    // is measured in metres against the metre size of a thumb at this zoom.
+    final map = _map;
+    if (map == null) return;
+    final zoom = (map.cameraPosition?.zoom ?? 16).round();
+    final hitM = metresPerPixel(latLng.latitude, zoom) * 34;
+    double dTo(LatLng p) => distanceM(
+      [latLng.longitude, latLng.latitude],
+      [p.longitude, p.latitude],
+    );
+    double best = double.infinity;
+    int? bestVertex;
+    for (var i = 0; i < _ring.length; i++) {
+      final d = dTo(_ring[i]);
+      if (d < best) {
+        best = d;
+        bestVertex = i;
+      }
+    }
+    if (bestVertex != null && best <= hitM) {
+      _beginPlacing(bestVertex, isNew: false);
+      return;
+    }
+    best = double.infinity;
+    int? bestMid;
+    for (var i = 0; i < _ring.length; i++) {
+      final a = _ring[i];
+      final b = _ring[(i + 1) % _ring.length];
+      final mid = LatLng(
+        (a.latitude + b.latitude) / 2,
+        (a.longitude + b.longitude) / 2,
+      );
+      final d = dTo(mid);
+      if (d < best) {
+        best = d;
+        bestMid = i + 1;
+      }
+    }
+    if (bestMid != null && best <= hitM) {
+      final a = _ring[bestMid - 1];
+      final b = _ring[bestMid % _ring.length];
+      _ring.insert(
+        bestMid,
+        LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2),
+      );
+      _beginPlacing(bestMid, isNew: true);
     }
   }
 
   void _onCircleTap(Circle circle) {
+    if (_placing != null) return;
     final i = _vertexIdx[circle.id];
-    if (i == null) return;
-    setState(() => _selected = _selected == i ? null : i);
-    _redraw();
-  }
-
-  void _deleteSelected() {
-    final i = _selected;
-    if (i == null || _ring.length <= 3) return;
-    _snapshot();
-    _ring.removeAt(i);
-    _selected = null;
-    _redraw();
+    if (i != null) {
+      _beginPlacing(i, isNew: false);
+      return;
+    }
+    final at = _midIdx[circle.id];
+    if (at != null) {
+      final a = _ring[at - 1];
+      final b = _ring[at % _ring.length];
+      _ring.insert(
+        at,
+        LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2),
+      );
+      _beginPlacing(at, isNew: true);
+    }
   }
 
   void _undoOnce() {
@@ -450,7 +534,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: _ring.length >= 3 ? _save : null,
+              onPressed: _ring.length >= 3 && _placing == null ? _save : null,
               child: const Text('SAVE'),
             ),
           ],
@@ -458,13 +542,18 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         body: Stack(
           children: [
             MapLibreMap(
+              trackCameraPosition: true,
+              // Let every tap fall through to onMapClick: the default has
+              // fills/lines/circles CONSUME taps, which is why tapping a
+              // corner reached no callback at all.
+              annotationConsumeTapEvents: const [AnnotationType.symbol],
               styleString: basemapStyle(),
               initialCameraPosition: _camera,
               rotateGesturesEnabled: false,
               tiltGesturesEnabled: false,
               onMapCreated: (c) {
                 _map = c;
-                c.onFeatureDrag.add(_onDrag);
+                c.addListener(_onCameraMove);
                 c.onCircleTapped.add(_onCircleTap);
               },
               onMapClick: _onMapTap,
@@ -483,32 +572,59 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                 child: MonoLabel(
                   _ring.length < 3
                       ? 'TAP THREE CORNERS TO START THE SHAPE'
-                      : 'DRAG A CORNER · DRAG A GHOST TO ADD ONE · '
-                            'TAP A CORNER TO SELECT${_acres.isEmpty ? '' : ' · $_acres'}',
+                      : _placing != null
+                      ? 'PAN THE MAP UNTIL THE MARK SITS RIGHT · THEN SET'
+                            '${_acres.isEmpty ? '' : ' · $_acres'}'
+                      : 'TAP A CORNER OR A GHOST TO MOVE IT'
+                            '${_acres.isEmpty ? '' : ' · $_acres'}',
                   size: 8.5,
                   spacing: 1.1,
                   color: Press.paperRaised,
                 ),
               ),
             ),
+            if (_placing != null)
+              IgnorePointer(
+                child: Center(
+                  child: Transform.rotate(
+                    angle: 0.7853981633974483,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Press.oxblood, width: 3),
+                        color: Press.oxblood.withValues(alpha: 0.15),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             Positioned(
               left: Metrics.gutter,
               right: Metrics.gutter,
               bottom: 16,
-              child: Row(
-                children: [
-                  _tool('UNDO', _undo.isEmpty ? null : _undoOnce),
-                  const SizedBox(width: 8),
-                  _tool('REDO', _redo.isEmpty ? null : _redoOnce),
-                  const Spacer(),
-                  if (_selected != null)
-                    _tool(
-                      'DELETE POINT',
-                      _ring.length > 3 ? _deleteSelected : null,
-                      color: Press.oxblood,
+              child: _placing != null
+                  ? Row(
+                      children: [
+                        _tool('SET', _setPlaced, color: Press.sage),
+                        const SizedBox(width: 8),
+                        _tool('CANCEL', _cancelPlacing),
+                        const Spacer(),
+                        if (!_placingIsNew && _ring.length > 3)
+                          _tool(
+                            'DELETE POINT',
+                            _deletePlacing,
+                            color: Press.oxblood,
+                          ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        _tool('UNDO', _undo.isEmpty ? null : _undoOnce),
+                        const SizedBox(width: 8),
+                        _tool('REDO', _redo.isEmpty ? null : _redoOnce),
+                      ],
                     ),
-                ],
-              ),
             ),
           ],
         ),

@@ -188,17 +188,42 @@ class _MapTabState extends State<MapTab> {
       ),
     );
     if (choice == null || !mounted) return;
+    // Open where the work is: the property centre, else the records' mean —
+    // never the editor's own fallback coordinates.
+    LatLng? target;
+    final c = propertyCentre(widget.property);
+    if (c != null) {
+      target = LatLng(c[1], c[0]);
+    } else {
+      final row =
+          await (widget.db.selectOnly(widget.db.observations)
+                ..addColumns([
+                  widget.db.observations.lat.avg(),
+                  widget.db.observations.lng.avg(),
+                ])
+                ..where(
+                  widget.db.observations.propertyId.equals(widget.property.id) &
+                      widget.db.observations.deletedAt.isNull(),
+                ))
+              .getSingleOrNull();
+      final lat = row?.read(widget.db.observations.lat.avg());
+      final lng = row?.read(widget.db.observations.lng.avg());
+      if (lat != null && lng != null) target = LatLng(lat, lng);
+    }
+    if (!mounted) return;
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => choice == 'boundary'
             ? PolygonEditorScreen.boundary(
                 db: widget.db,
                 property: widget.property,
+                initialTarget: target,
               )
             : choice == 'new'
             ? PolygonEditorScreen.newZone(
                 db: widget.db,
                 property: widget.property,
+                initialTarget: target,
               )
             : PolygonEditorScreen.zone(
                 db: widget.db,

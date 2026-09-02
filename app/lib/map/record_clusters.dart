@@ -35,7 +35,7 @@ class ClusterGroup {
 List<ClusterGroup> clusterFeatures(
   List<Map<String, dynamic>> features,
   double zoom, {
-  double cellPx = 44,
+  double cellPx = 26,
 }) {
   final z = zoom.floor();
   final scale = 1 << 0; // world px at integer zoom; fractional zoom below
@@ -74,7 +74,7 @@ double? expansionZoom(
   List<Map<String, dynamic>> members,
   double fromZoom, {
   double maxZoom = 20,
-  double cellPx = 44,
+  double cellPx = 26,
 }) {
   if (members.length < 2) return null;
   for (var z = fromZoom.floorToDouble() + 1; z <= maxZoom; z += 1) {

@@ -420,6 +420,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final camera = _initialCamera ??= _decideCamera();
     return Scaffold(
       body: MapLibreMap(
+        trackCameraPosition: true,
         styleString: _styleJson!,
         initialCameraPosition: camera,
         myLocationEnabled: false,
@@ -492,7 +493,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (controller == null) return null;
     try {
       final hits = await controller.queryRenderedFeatures(point, [
-        'observations-clusters',
+        'obs-clusters-lyr',
         'observations-circles',
       ], null);
       for (final h in hits) {
@@ -549,10 +550,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     try {
       final zoom = controller.cameraPosition?.zoom ?? 15;
       final groups = clusterFeatures(_recordFeatures, zoom);
+      final singles = <Map<String, dynamic>>[];
       final out = <Map<String, dynamic>>[];
       for (final g in groups) {
         if (!g.isCluster) {
-          out.add(g.members.single);
+          singles.add(g.members.single);
           continue;
         }
         final n = g.members.length;
@@ -568,6 +570,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             'coordinates': [lng, lat],
           },
           'properties': {
+            // A stable id makes the badge tappable like any other feature.
+            'id': 'cluster:${g.ids.join(',').hashCode}',
             'cluster': true,
             'count': n,
             'icon': icon,
@@ -576,6 +580,10 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         });
       }
       await controller.setGeoJsonSource('observations', {
+        'type': 'FeatureCollection',
+        'features': singles,
+      });
+      await controller.setGeoJsonSource('obs-clusters', {
         'type': 'FeatureCollection',
         'features': out,
       });
@@ -809,23 +817,19 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         circleStrokeColor: '#ECE3CE',
         circleStrokeWidth: 1.5,
       ),
-      filter: [
-        '!',
-        ['has', 'cluster'],
-      ],
       enableInteraction: true,
     );
     // Clusters: one badge with the count (image, so no glyphs needed).
+    await controller.addGeoJsonSource('obs-clusters', _emptyCollection);
     await controller.addSymbolLayer(
-      'observations',
-      'observations-clusters',
+      'obs-clusters',
+      'obs-clusters-lyr',
       const SymbolLayerProperties(
         iconImage: ['get', 'icon'],
         iconSize: 1 / 3, // badges are drawn at 3× for crisp text
         iconAllowOverlap: true,
         iconIgnorePlacement: true,
       ),
-      filter: ['has', 'cluster'],
       enableInteraction: true,
     );
     _recordLayersReady = true;

@@ -15,6 +15,7 @@ import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../geo/zone_assignment.dart';
 import '../services/media_store.dart';
+import '../services/observation_ops.dart' show eraseMedia;
 import '../services/review.dart';
 import 'identify_sheet.dart';
 import 'move_pin_screen.dart';
@@ -210,6 +211,53 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
   }
 
+  /// Remove ONE picture from this record (Austin, 2026-09-01). The link
+  /// goes first; the file itself is erased only when no other record still
+  /// uses it (photos are content-deduplicated across records).
+  Future<void> _deleteCurrentPhoto() async {
+    final obs = _obs;
+    if (obs == null || _photos.isEmpty) return;
+    final media = _photos[_photoIndex];
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('REMOVE THIS PHOTO?'),
+        content: Text(
+          _photos.length == 1
+              ? 'The record keeps its facts and notes; its only photo goes.'
+              : 'Photo ${_photoIndex + 1} of ${_photos.length} comes off '
+                    'this record.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('KEEP'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('REMOVE'),
+          ),
+        ],
+      ),
+    );
+    if (sure != true) return;
+    await (widget.db.delete(widget.db.mediaLinks)..where(
+          (l) =>
+              l.mediaId.equals(media.id) &
+              l.entityType.equals('observation') &
+              l.entityId.equals(obs.id),
+        ))
+        .go();
+    final remaining = await (widget.db.select(
+      widget.db.mediaLinks,
+    )..where((l) => l.mediaId.equals(media.id) & l.deletedAt.isNull())).get();
+    if (remaining.isEmpty) {
+      await eraseMedia(widget.db, media.id);
+    }
+    _photoIndex = 0;
+    await _load();
+  }
+
   Future<void> _addPhotos() async {
     final obs = _obs;
     if (obs == null) return;
@@ -345,6 +393,19 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 ),
               ),
             ],
+            Positioned(
+              top: 16,
+              left: 16,
+              child: IconButton(
+                tooltip: 'Remove this photo',
+                color: Press.paper,
+                icon: Icon(Icons.delete_outline),
+                onPressed: () async {
+                  Navigator.of(ctx).pop();
+                  await _deleteCurrentPhoto();
+                },
+              ),
+            ),
             Positioned(
               top: 16,
               right: 16,
@@ -495,6 +556,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                         color: widget.embedded ? Press.paperEdge : null,
                         child: GestureDetector(
                           onTap: widget.embedded ? _openFullSize : null,
+                          // Hold the photo to remove just this picture.
+                          onLongPress: _deleteCurrentPhoto,
                           child: Image.file(
                             File(_photos[_photoIndex].localPath!),
                             fit: widget.embedded

@@ -8,10 +8,10 @@ import 'dart:ui' as ui;
 Future<Uint8List> clusterBadge(int count, {double scale = 3}) async {
   final label = count > 99 ? '99+' : '$count';
   final radius = count >= 50
-      ? 18.0
+      ? 21.0
       : count >= 10
-      ? 15.0
-      : 12.5;
+      ? 18.0
+      : 15.5;
   final size = (radius + 2.5) * 2;
   final rec = ui.PictureRecorder();
   final c = ui.Canvas(rec);
@@ -27,13 +27,13 @@ Future<Uint8List> clusterBadge(int count, {double scale = 3}) async {
       ui.ParagraphBuilder(
           ui.ParagraphStyle(
             textAlign: ui.TextAlign.center,
-            fontSize: count > 99 ? 10 : 12,
+            fontSize: count > 99 ? 12 : 14,
           ),
         )
         ..pushStyle(
           ui.TextStyle(
             color: const ui.Color(0xFFF7F6F2),
-            fontSize: count > 99 ? 10 : 12,
+            fontSize: count > 99 ? 12 : 14,
             fontWeight: ui.FontWeight.w700,
             fontFamily: 'JetBrainsMono',
             fontFamilyFallback: const ['Roboto', 'sans-serif'],

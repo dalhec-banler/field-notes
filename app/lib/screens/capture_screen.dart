@@ -821,12 +821,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               SizedBox(
-                width: 90,
+                width: 112,
                 height: 58,
                 child: TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(
                     'CANCEL',
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    softWrap: false,
                     style: TextStyle(color: Color(0x99F4ECD8)),
                   ),
                 ),
