@@ -7,6 +7,7 @@ import '../db/database.dart';
 import '../screens/record_detail_screen.dart';
 import '../services/app_prefs.dart';
 import '../theme/tokens.dart';
+import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
 
 /// Ledger (design README §3.2): the feed as a record of entries. Rows scale
@@ -261,21 +262,9 @@ class _LedgerTabState extends State<LedgerTab> {
   }
 
   Future<void> _pickType() async {
-    const types = [
-      'general',
-      'plant',
-      'wildlife',
-      'problem',
-      'water',
-      'soil',
-      'phenology',
-      'sign',
-      'weather',
-      'maintenance',
-    ];
     final picked = await _pickSheet<String?>(
       title: 'Type',
-      items: [(null, 'All types'), for (final t in types) (t, t)],
+      items: [(null, 'All types'), for (final t in kObservationTypes) (t, t)],
     );
     if (picked == null) return;
     setState(() => _typeFilter = picked.$1);

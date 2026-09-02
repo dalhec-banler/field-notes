@@ -15,11 +15,7 @@ class NativityChip extends StatelessWidget {
     final n = nativity;
     if (n == null || n.isEmpty || n == 'unknown')
       return const SizedBox.shrink();
-    final color = switch (n) {
-      'native' => Press.sage,
-      'invasive' => Press.oxblood,
-      _ => Press.ochre, // introduced, cultivated
-    };
+    final color = nativityColor(n);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(

@@ -498,22 +498,16 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       ], null);
       for (final h in hits) {
         final props = (h as Map)['properties'] as Map?;
-        if (props == null) continue;
-        final idsCsv = props['ids'] as String?;
-        if (idsCsv != null) {
-          final ids = idsCsv.split(',').toSet();
-          return ClusterGroup([
-            for (final f in _recordFeatures)
-              if (ids.contains((f['properties'] as Map)['id'])) f,
-          ]);
-        }
-        final obsId = props['id'] as String?;
-        if (obsId != null) {
-          final f = _recordFeatures
-              .where((f) => (f['properties'] as Map)['id'] == obsId)
-              .firstOrNull;
-          if (f != null) return ClusterGroup([f]);
-        }
+        final id = props?['id'] as String?;
+        if (id == null) continue;
+        // Clusters resolve through the index the last paint built — no
+        // member lists round-tripping through GeoJSON properties as CSV.
+        final cluster = _clusterIndex[id];
+        if (cluster != null) return cluster;
+        final f = _recordFeatures
+            .where((f) => (f['properties'] as Map)['id'] == id)
+            .firstOrNull;
+        if (f != null) return ClusterGroup([f]);
       }
     } catch (_) {}
     return null;
@@ -533,6 +527,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   /// Every located record as a GeoJSON feature — the clustering input.
   List<Map<String, dynamic>> _recordFeatures = const [];
   final Set<String> _badgeImages = {};
+
+  /// Cluster feature id → its group, rebuilt by every paint. Taps resolve
+  /// against this instead of parsing member ids out of rendered features.
+  final Map<String, ClusterGroup> _clusterIndex = {};
+  double? _lastPaintZoom;
+  List<Map<String, dynamic>>? _lastPainted;
   bool _painting = false;
   bool _paintAgain = false;
 
@@ -549,34 +549,37 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _painting = true;
     try {
       final zoom = controller.cameraPosition?.zoom ?? 15;
+      // Clustering depends only on zoom and the feature list: a pan-only
+      // idle would re-push byte-identical sources over the channel.
+      if (zoom == _lastPaintZoom && identical(_recordFeatures, _lastPainted)) {
+        return;
+      }
       final groups = clusterFeatures(_recordFeatures, zoom);
       final singles = <Map<String, dynamic>>[];
       final out = <Map<String, dynamic>>[];
+      final index = <String, ClusterGroup>{};
       for (final g in groups) {
         if (!g.isCluster) {
           singles.add(g.members.single);
           continue;
         }
         final n = g.members.length;
-        final icon = 'cluster-${n > 99 ? '99plus' : n}';
+        final icon = clusterIconKey(n);
         if (_badgeImages.add(icon)) {
           await controller.addImage(icon, await clusterBadge(n));
         }
         final (lat, lng) = g.centre;
+        // Content-derived id: stable across repaints while membership holds
+        // (same-process only, which is all a tap lookup needs).
+        final id = 'cluster:${g.ids.join(',').hashCode}';
+        index[id] = g;
         out.add({
           'type': 'Feature',
           'geometry': {
             'type': 'Point',
             'coordinates': [lng, lat],
           },
-          'properties': {
-            // A stable id makes the badge tappable like any other feature.
-            'id': 'cluster:${g.ids.join(',').hashCode}',
-            'cluster': true,
-            'count': n,
-            'icon': icon,
-            'ids': g.ids.join(','),
-          },
+          'properties': {'id': id, 'cluster': true, 'count': n, 'icon': icon},
         });
       }
       await controller.setGeoJsonSource('observations', {
@@ -587,6 +590,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         'type': 'FeatureCollection',
         'features': out,
       });
+      _clusterIndex
+        ..clear()
+        ..addAll(index);
+      _lastPaintZoom = zoom;
+      _lastPainted = _recordFeatures;
     } catch (_) {
       // A repaint failure must never take the map down.
     } finally {

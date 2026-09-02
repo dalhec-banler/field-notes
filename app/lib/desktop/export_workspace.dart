@@ -174,6 +174,7 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
         s,
         layers: _layers,
         title: _title.text.trim().isEmpty ? null : _title.text.trim(),
+        dateLine: _document?.dateLine,
       );
       return Uint8List.fromList(utf8.encode(html));
     });

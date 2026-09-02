@@ -116,7 +116,11 @@ class EvidencePacket {
         final media =
             await (db.select(db.media)
                   ..where((m) => m.id.isIn(mediaIds))
-                  ..where((m) => m.mediaType.equals('photo')))
+                  ..where((m) => m.mediaType.equals('photo'))
+                  // The canonical meaning of "the record's photos"
+                  // (observationPhotoFiles) excludes soft-deleted media;
+                  // the packet must agree.
+                  ..where((m) => m.deletedAt.isNull()))
                 .get();
         final mediaById = {for (final m in media) m.id: m};
         final dated = <(String, File)>[];

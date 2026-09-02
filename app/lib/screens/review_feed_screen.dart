@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../db/database.dart';
 import '../services/review.dart';
 import '../theme/tokens.dart';
+import '../widgets/confirm.dart';
 import '../widgets/press.dart';
 import 'record_detail_screen.dart';
 
@@ -35,17 +36,25 @@ class _ReviewFeedScreenState extends State<ReviewFeedScreen> {
   }
 
   Future<void> _load() async {
-    final pending = await _service.pending(widget.property.id);
-    final decided = await _service.decided(widget.property.id);
+    final lists = await Future.wait([
+      _service.pending(widget.property.id),
+      _service.decided(widget.property.id),
+    ]);
+    final pending = lists[0];
+    final decided = lists[1];
     // Preview text for observation items — other entity types show their
-    // type name until their detail views learn to preview here.
-    for (final item in [...pending, ...decided]) {
-      if (item.entityType == 'observation' &&
-          !_observations.containsKey(item.entityId)) {
-        final obs = await (widget.db.select(
-          widget.db.observations,
-        )..where((o) => o.id.equals(item.entityId))).getSingleOrNull();
-        if (obs != null) _observations[item.entityId] = obs;
+    // type name until their detail views learn to preview here. One query,
+    // not one per item.
+    final wanted = {
+      for (final item in [...pending, ...decided])
+        if (item.entityType == 'observation') item.entityId,
+    }..removeAll(_observations.keys);
+    if (wanted.isNotEmpty) {
+      final rows = await (widget.db.select(
+        widget.db.observations,
+      )..where((o) => o.id.isIn(wanted.toList()))).get();
+      for (final o in rows) {
+        _observations[o.id] = o;
       }
     }
     if (mounted) {
@@ -62,28 +71,17 @@ class _ReviewFeedScreenState extends State<ReviewFeedScreen> {
   }
 
   Future<void> _remove(ReviewItem item) async {
-    final sure = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('REMOVE THIS EDIT?'),
-        content: Text(
+    final sure = await confirmDialog(
+      context,
+      title: 'REMOVE THIS EDIT?',
+      body:
           'The ${item.entityType.replaceAll('_', ' ')} by ${item.author} '
           'will be removed for everyone. They will be able to see that it '
           'was removed — nothing vanishes silently.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('KEEP'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('REMOVE'),
-          ),
-        ],
-      ),
+      cancelLabel: 'KEEP',
+      confirmLabel: 'REMOVE',
     );
-    if (sure != true) return;
+    if (!sure) return;
     await _service.remove(item.id, by: 'owner');
     _load();
   }

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -10,6 +8,7 @@ import '../backup/restore.dart';
 import '../db/database.dart';
 import '../desktop/relaunch.dart';
 import '../services/app_prefs.dart';
+import '../services/desk.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 
@@ -52,11 +51,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
   /// the phone is the one that backs up. A desk that could press BACK UP
   /// NOW would overwrite the phone's lineage with its older copy — which
   /// is exactly what happened once. Intake is the same posture.
-  bool get _receiveOnly =>
-      widget.intake ||
-      Platform.isMacOS ||
-      Platform.isLinux ||
-      Platform.isWindows;
+  bool get _receiveOnly => widget.intake || isDesk;
 
   @override
   void initState() {

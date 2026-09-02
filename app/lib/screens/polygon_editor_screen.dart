@@ -5,13 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../db/database.dart';
-import '../export/plate_subject_loader.dart' show acresOf;
+import '../export/plate_subject_loader.dart' show acresOf, acresOfRing;
 import '../export/web_mercator.dart' show metresPerPixel;
 import '../geo/simplify.dart' show distanceM;
 import '../geo/site_presence.dart' show propertyCentre;
 import '../geo/zone_assignment.dart';
 import '../map/basemap_style.dart';
 import '../theme/tokens.dart';
+import '../widgets/confirm.dart';
 import '../widgets/press.dart';
 
 /// Trace and adjust a polygon on the imagery (Austin, 2026-09-01): drag
@@ -68,11 +69,10 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
 
   Fill? _fill;
   Line? _outline;
-  final Map<String, int> _vertexIdx = {}; // circle id → ring index
-  final Map<String, int> _midIdx = {}; // circle id → insert-before index
-  final List<Circle> _circles = [];
-  int? _selected;
-  bool _dirty = false;
+
+  /// Unsaved edits exist exactly when there is something to undo — derived,
+  /// so undo-back-to-original honestly reads as clean.
+  bool get _dirty => _undo.isNotEmpty;
 
   /// Crosshair mode: the grabbed corner follows the map centre until SET.
   int? _placing;
@@ -109,15 +109,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
 
   CameraPosition get _camera {
     if (_ring.isNotEmpty) {
-      var lat = 0.0, lng = 0.0;
-      for (final p in _ring) {
-        lat += p.latitude;
-        lng += p.longitude;
-      }
-      return CameraPosition(
-        target: LatLng(lat / _ring.length, lng / _ring.length),
-        zoom: 15.5,
-      );
+      return CameraPosition(target: _ringCentre, zoom: 15.5);
     }
     final c = propertyCentre(widget.property);
     return CameraPosition(
@@ -130,8 +122,32 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
 
   String get _acres {
     if (_ring.length < 3) return '';
-    final a = acresOf(_ringGeojson());
+    // Straight from the coordinates: the old path encoded the ring to
+    // GeoJSON and decoded it right back, once per camera frame while placing.
+    final a = acresOfRing([
+      for (final p in _ring) [p.longitude, p.latitude],
+    ]);
     return a == null ? '' : '${a.toStringAsFixed(1)} ac';
+  }
+
+  /// Mean of the corners — the camera home and the saved centroid.
+  LatLng get _ringCentre {
+    var lat = 0.0, lng = 0.0;
+    for (final p in _ring) {
+      lat += p.latitude;
+      lng += p.longitude;
+    }
+    return LatLng(lat / _ring.length, lng / _ring.length);
+  }
+
+  /// Midpoint of the segment that starts at ring index [i].
+  LatLng _midOf(int i) {
+    final a = _ring[i];
+    final b = _ring[(i + 1) % _ring.length];
+    return LatLng(
+      (a.latitude + b.latitude) / 2,
+      (a.longitude + b.longitude) / 2,
+    );
   }
 
   String _ringGeojson() {
@@ -149,7 +165,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     _undo.add(List.of(_ring));
     if (_undo.length > 60) _undo.removeAt(0);
     _redo.clear();
-    _dirty = true;
   }
 
   Future<void> _redraw() async {
@@ -162,9 +177,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       await map.clearFills();
       await map.clearLines();
     } catch (_) {}
-    _circles.clear();
-    _vertexIdx.clear();
-    _midIdx.clear();
     _fill = null;
     _outline = null;
 
@@ -186,19 +198,15 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       );
     }
 
-    // Midpoint ghosts first so real corners draw over them.
+    // Midpoint ghosts first so real corners draw over them — one batched
+    // call; 2n sequential platform round trips made every redraw drag.
+    final dots = <CircleOptions>[];
     if (_ring.length >= 2) {
       for (var i = 0; i < _ring.length; i++) {
-        final a = _ring[i];
-        final b = _ring[(i + 1) % _ring.length];
         if (_ring.length == 2 && i == 1) break; // one segment, one ghost
-        final mid = LatLng(
-          (a.latitude + b.latitude) / 2,
-          (a.longitude + b.longitude) / 2,
-        );
-        final ghost = await map.addCircle(
+        dots.add(
           CircleOptions(
-            geometry: mid,
+            geometry: _midOf(i),
             circleRadius: 8,
             circleColor: '#F7F6F2',
             circleOpacity: 0.6,
@@ -206,35 +214,41 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
             circleStrokeWidth: 1.5,
           ),
         );
-        _circles.add(ghost);
-        _midIdx[ghost.id] = i + 1;
       }
     }
     for (var i = 0; i < _ring.length; i++) {
-      final v = await map.addCircle(
+      dots.add(
         CircleOptions(
           geometry: _ring[i],
           circleRadius: 10,
-          circleColor: i == _selected ? '#8B2E22' : '#F7F6F2',
+          circleColor: '#F7F6F2',
           circleStrokeColor: '#8B2E22',
           circleStrokeWidth: 3,
         ),
       );
-      _circles.add(v);
-      _vertexIdx[v.id] = i;
     }
+    if (dots.isNotEmpty) await map.addCircles(dots);
     if (mounted) setState(() {});
   }
 
+  bool _geomBusy = false;
+
+  /// Live outline while placing. A camera frame that lands mid-update is
+  /// dropped — the next frame (or SET's full redraw) carries the truth.
   Future<void> _liveGeometry() async {
     final map = _map;
-    if (map == null) return;
-    final ringClosed = [..._ring, if (_ring.isNotEmpty) _ring.first];
-    if (_fill != null && _ring.length >= 3) {
-      await map.updateFill(_fill!, FillOptions(geometry: [ringClosed]));
-    }
-    if (_outline != null && _ring.length >= 2) {
-      await map.updateLine(_outline!, LineOptions(geometry: ringClosed));
+    if (map == null || _geomBusy) return;
+    _geomBusy = true;
+    try {
+      final ringClosed = [..._ring, if (_ring.isNotEmpty) _ring.first];
+      if (_fill != null && _ring.length >= 3) {
+        await map.updateFill(_fill!, FillOptions(geometry: [ringClosed]));
+      }
+      if (_outline != null && _ring.length >= 2) {
+        await map.updateLine(_outline!, LineOptions(geometry: ringClosed));
+      }
+    } finally {
+      _geomBusy = false;
     }
   }
 
@@ -246,8 +260,15 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     if (pos == null || i >= _ring.length) return;
     _ring[i] = pos.target;
     _liveGeometry();
-    if (mounted) setState(() {}); // acreage follows the pan
+    final label = _acres;
+    if (label != _acresShown && mounted) {
+      setState(() => _acresShown = label); // acreage follows the pan
+    }
   }
+
+  /// The last acreage label shown, so per-frame camera moves only rebuild
+  /// when the number actually changes.
+  String _acresShown = '';
 
   Future<void> _beginPlacing(int index, {required bool isNew}) async {
     final map = _map;
@@ -256,7 +277,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     setState(() {
       _placingIsNew = isNew;
       _placingOriginal = _ring[index];
-      _selected = null;
     });
     await _redraw();
     // Fly to the corner FIRST; only then arm the follow — arming during
@@ -323,7 +343,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     final map = _map;
     if (map == null) return;
     final zoom = (map.cameraPosition?.zoom ?? 16).round();
-    final hitM = metresPerPixel(latLng.latitude, zoom) * 34;
+    final hitM = metresPerPixel(latLng.latitude, zoom) * Metrics.mapHitPx;
     double dTo(LatLng p) => distanceM(
       [latLng.longitude, latLng.latitude],
       [p.longitude, p.latitude],
@@ -344,45 +364,15 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     best = double.infinity;
     int? bestMid;
     for (var i = 0; i < _ring.length; i++) {
-      final a = _ring[i];
-      final b = _ring[(i + 1) % _ring.length];
-      final mid = LatLng(
-        (a.latitude + b.latitude) / 2,
-        (a.longitude + b.longitude) / 2,
-      );
-      final d = dTo(mid);
+      final d = dTo(_midOf(i));
       if (d < best) {
         best = d;
         bestMid = i + 1;
       }
     }
     if (bestMid != null && best <= hitM) {
-      final a = _ring[bestMid - 1];
-      final b = _ring[bestMid % _ring.length];
-      _ring.insert(
-        bestMid,
-        LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2),
-      );
+      _ring.insert(bestMid, _midOf(bestMid - 1));
       _beginPlacing(bestMid, isNew: true);
-    }
-  }
-
-  void _onCircleTap(Circle circle) {
-    if (_placing != null) return;
-    final i = _vertexIdx[circle.id];
-    if (i != null) {
-      _beginPlacing(i, isNew: false);
-      return;
-    }
-    final at = _midIdx[circle.id];
-    if (at != null) {
-      final a = _ring[at - 1];
-      final b = _ring[at % _ring.length];
-      _ring.insert(
-        at,
-        LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2),
-      );
-      _beginPlacing(at, isNew: true);
     }
   }
 
@@ -392,7 +382,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     _ring
       ..clear()
       ..addAll(_undo.removeLast());
-    _selected = null;
     _redraw();
   }
 
@@ -402,7 +391,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     _ring
       ..clear()
       ..addAll(_redo.removeLast());
-    _selected = null;
     _redraw();
   }
 
@@ -413,18 +401,14 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     final geojson = _ringGeojson();
     final acres = acresOf(geojson);
     if (widget.isBoundary) {
-      var lat = 0.0, lng = 0.0;
-      for (final p in _ring) {
-        lat += p.latitude;
-        lng += p.longitude;
-      }
+      final centre = _ringCentre;
       await (db.update(
         db.properties,
       )..where((p) => p.id.equals(widget.property.id))).write(
         PropertiesCompanion(
           boundaryGeojson: Value(geojson),
-          centroidLat: Value(lat / _ring.length),
-          centroidLng: Value(lng / _ring.length),
+          centroidLat: Value(centre.latitude),
+          centroidLng: Value(centre.longitude),
           acreage: Value(acres),
           updatedAt: Value(now),
         ),
@@ -498,24 +482,14 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       Navigator.of(context).pop(false);
       return;
     }
-    final leave = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('DISCARD CHANGES?'),
-        content: const Text('The shape goes back to how it was.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('KEEP EDITING'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('DISCARD'),
-          ),
-        ],
-      ),
+    final leave = await confirmDialog(
+      context,
+      title: 'DISCARD CHANGES?',
+      body: 'The shape goes back to how it was.',
+      cancelLabel: 'KEEP EDITING',
+      confirmLabel: 'DISCARD',
     );
-    if (leave == true && mounted) Navigator.of(context).pop(false);
+    if (leave && mounted) Navigator.of(context).pop(false);
   }
 
   @override
@@ -554,7 +528,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
               onMapCreated: (c) {
                 _map = c;
                 c.addListener(_onCameraMove);
-                c.onCircleTapped.add(_onCircleTap);
               },
               onMapClick: _onMapTap,
               onStyleLoadedCallback: _redraw,

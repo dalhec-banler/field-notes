@@ -15,6 +15,7 @@ import 'desktop/desktop_shell.dart';
 import 'db/seed.dart';
 import 'export/exporter.dart';
 import 'services/app_prefs.dart';
+import 'services/desk.dart';
 import 'services/env_context.dart';
 import 'services/location_hub.dart';
 import 'services/track_recorder.dart';
@@ -184,7 +185,6 @@ class _RootScreenState extends State<RootScreen> {
     if (!_loaded) {
       return Scaffold(body: SizedBox.shrink());
     }
-    final isDesk = Platform.isMacOS || Platform.isLinux || Platform.isWindows;
     // A computer never starts a property from nothing (D-024): the phone's
     // walkthrough and ADD A PLACE don't apply here. It brings the record
     // over and reopens on the copy.

@@ -1,12 +1,14 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'record_clusters.dart' show clusterLabel;
+
 /// A cluster badge as a PNG for the map's symbol layer: ink dot, paper ring,
 /// the count. Drawn once per distinct count and cached by the map screen.
 /// Icon images sidestep the glyph question — an offline style may have no
 /// font ranges, but it can always draw a picture.
 Future<Uint8List> clusterBadge(int count, {double scale = 3}) async {
-  final label = count > 99 ? '99+' : '$count';
+  final label = clusterLabel(count);
   final radius = count >= 50
       ? 21.0
       : count >= 10

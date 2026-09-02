@@ -58,6 +58,12 @@ abstract final class Metrics {
   static const borderStructural = 2.0;
 
   static const touchMin = 56.0;
+
+  /// Geographic hit-test radius for map taps, in logical px before the
+  /// metres-per-pixel conversion (Android's tap point and toScreenLocation
+  /// disagree on pixel space, so map taps measure distance in metres against
+  /// this many pixels' worth of ground). Sized to land inside [touchMin].
+  static const mapHitPx = 34.0;
   static const fabSize = 66.0;
   static const shutterSize = 86.0;
 
@@ -98,4 +104,12 @@ Color recordTypeColor(String type) => switch (type) {
   'soil' => Press.ochreLight,
   'infrastructure' || 'maintenance' => Press.ink,
   _ => Press.inkSoft,
+};
+
+/// Nativity → ink, the one mapping (the chip today, a plate or export
+/// tomorrow), kept beside the other semantic colour maps.
+Color nativityColor(String nativity) => switch (nativity) {
+  'native' => Press.sage,
+  'invasive' => Press.oxblood,
+  _ => Press.ochre, // introduced, cultivated
 };

@@ -9,11 +9,13 @@ import '../db/database.dart';
 import '../geo/simplify.dart' show distanceM;
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../widgets/confirm.dart';
 import '../widgets/edit_record_sheet.dart';
 
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../geo/zone_assignment.dart';
+import '../services/desk.dart';
 import '../services/media_store.dart';
 import '../services/observation_ops.dart' show eraseMedia;
 import '../services/review.dart';
@@ -38,9 +40,6 @@ class RecordDetailScreen extends StatefulWidget {
   /// Living inside the desk's pane (D-024): no back chip, and the photo
   /// header fits the photo rather than cropping it to a phone plate.
   final bool embedded;
-
-  static bool get isDesk =>
-      Platform.isMacOS || Platform.isLinux || Platform.isWindows;
 
   @override
   State<RecordDetailScreen> createState() => _RecordDetailScreenState();
@@ -218,29 +217,17 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     final obs = _obs;
     if (obs == null || _photos.isEmpty) return;
     final media = _photos[_photoIndex];
-    final sure = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('REMOVE THIS PHOTO?'),
-        content: Text(
-          _photos.length == 1
-              ? 'The record keeps its facts and notes; its only photo goes.'
-              : 'Photo ${_photoIndex + 1} of ${_photos.length} comes off '
-                    'this record.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('KEEP'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('REMOVE'),
-          ),
-        ],
-      ),
+    final sure = await confirmDialog(
+      context,
+      title: 'REMOVE THIS PHOTO?',
+      body: _photos.length == 1
+          ? 'The record keeps its facts and notes; its only photo goes.'
+          : 'Photo ${_photoIndex + 1} of ${_photos.length} comes off '
+                'this record.',
+      cancelLabel: 'KEEP',
+      confirmLabel: 'REMOVE',
     );
-    if (sure != true) return;
+    if (!sure) return;
     await (widget.db.delete(widget.db.mediaLinks)..where(
           (l) =>
               l.mediaId.equals(media.id) &
@@ -264,7 +251,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     final picker = ImagePicker();
     List<XFile> picked = [];
     try {
-      if (RecordDetailScreen.isDesk) {
+      if (isDesk) {
         picked = await picker.pickMultiImage();
       } else {
         final source = await showModalBottomSheet<ImageSource>(
@@ -434,7 +421,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       obs: obs,
       taxon: _taxon,
       // The pin moves on a map, and the desk has none yet.
-      allowMovePin: !RecordDetailScreen.isDesk,
+      allowMovePin: !isDesk,
     );
     if (!mounted) return;
     if (outcome == EditOutcome.movePin) {
@@ -477,27 +464,13 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   }
 
   Future<void> _delete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('DELETE RECORD?'),
-        content: Text(
-          'The record leaves your ledger. Photos stay on disk.',
-          style: TextStyle(fontFamily: Type.serif, fontSize: 15.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('CANCEL'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('DELETE'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmDialog(
+      context,
+      title: 'DELETE RECORD?',
+      body: 'The record leaves your ledger. Photos stay on disk.',
+      confirmLabel: 'DELETE',
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     // Soft delete (spec §4.1) — sync engines need tombstones.
     await (widget.db.update(
       widget.db.observations,
@@ -782,13 +755,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                         : '${obs.lat.toStringAsFixed(5)}, ${obs.lng.toStringAsFixed(5)}'
                               '${obs.gpsAccuracyM != null ? '  ±${obs.gpsAccuracyM!.toStringAsFixed(0)} m' : ''}',
                   ),
-                  FactRow(
-                    'zone',
-                    _zone?.name ??
-                        (_zoneCount == 0
-                            ? 'no zones drawn yet'
-                            : 'outside every zone'),
-                  ),
+                  FactRow('zone', _zone?.name ?? noZoneLabel(_zoneCount)),
                   if (_env != null) ...[
                     FactRow(
                       'rain, 30 d',

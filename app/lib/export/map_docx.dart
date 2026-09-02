@@ -122,10 +122,7 @@ class MapDocx {
         legend[i],
         if (i + half < legend.length) legend[i + half],
       ]) {
-        final hex = (e.$1 & 0xFFFFFF)
-            .toRadixString(16)
-            .padLeft(6, '0')
-            .toUpperCase();
+        final hex = argbToCssHex(e.$1).substring(1);
         b.write(
           '<w:tc><w:tcPr><w:tcW w:w="400" w:type="dxa"/>'
           '<w:shd w:val="clear" w:color="auto" w:fill="$hex"/></w:tcPr>${_p('')}</w:tc>',
@@ -164,11 +161,7 @@ class MapDocx {
     return b.toString();
   }
 
-  static String _esc(String s) => s
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
+  static String _esc(String s) => escapeXml(s);
 
   static const _contentTypes =
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'

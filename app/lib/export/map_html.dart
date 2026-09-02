@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'map_document.dart';
 import 'map_plate.dart';
 
 /// A self-contained interactive map for the website or a partner's inbox
@@ -16,6 +17,10 @@ class MapHtml {
     PlateSubject subject, {
     PlateLayers layers = const PlateLayers(),
     String? title,
+
+    /// The document's date line ([MapDocument.dateLine]) so an explicitly
+    /// set date survives into the HTML like it does into PDF and DOCX.
+    String? dateLine,
     String attribution = 'Imagery: USGS The National Map · Field Notes',
   }) {
     final t = _esc(title ?? subject.propertyName);
@@ -148,7 +153,7 @@ class MapHtml {
 </head>
 <body>
 <div id="map"></div>
-<div class="plate"><h1>$t</h1><p>${_esc(_today())}</p></div>
+<div class="plate"><h1>$t</h1><p>${_esc(dateLine ?? _today())}</p></div>
 ${legend.isEmpty ? '' : '<div class="legend">$legendHtml</div>'}
 <div class="attr">${_esc(attribution)}</div>
 <script>
@@ -212,19 +217,14 @@ map.on('load', () => {
 ''';
   }
 
-  static String _esc(String s) => s
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
+  static String _esc(String s) => escapeXml(s);
 
   static String _today() {
     final d = DateTime.now();
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 
-  static String _argbToHex(int argb) =>
-      '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  static String _argbToHex(int argb) => argbToCssHex(argb);
 
   static String _hex(String h) => h.startsWith('#') ? h : '#$h';
 }

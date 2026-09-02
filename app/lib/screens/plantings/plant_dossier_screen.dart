@@ -42,6 +42,14 @@ class _PlantDossierScreenState extends State<PlantDossierScreen> {
 
   Future<void> _load() async {
     final db = widget.db;
+    // Check-ins depend only on the plant id — start that query first and
+    // collect it last.
+    final checkinsF =
+        (db.select(db.plantCheckins)
+              ..where((c) => c.plantId.equals(widget.plantId))
+              ..where((c) => c.deletedAt.isNull())
+              ..orderBy([(c) => OrderingTerm.desc(c.checkedAt)]))
+            .get();
     final plant = await (db.select(
       db.plants,
     )..where((p) => p.id.equals(widget.plantId))).getSingleOrNull();
@@ -55,40 +63,40 @@ class _PlantDossierScreenState extends State<PlantDossierScreen> {
     CollectionEvent? collection;
     SourcePlant? source;
     if (event != null) {
-      if (event.taxonId != null) {
-        taxon = await (db.select(
-          db.taxa,
-        )..where((t) => t.id.equals(event.taxonId!))).getSingleOrNull();
-      }
-      if (event.zoneId != null) {
-        zone = await (db.select(
-          db.zones,
-        )..where((z) => z.id.equals(event.zoneId!))).getSingleOrNull();
-      }
-      if (event.batchId != null) {
-        batch = await (db.select(
-          db.propagationBatches,
-        )..where((b) => b.id.equals(event.batchId!))).getSingleOrNull();
-        if (batch?.collectionEventId != null) {
-          collection =
-              await (db.select(db.collectionEvents)
-                    ..where((c) => c.id.equals(batch!.collectionEventId!)))
+      // Taxon, zone and batch are independent once the event is known: the
+      // futures start together and the awaits collect them.
+      final taxonF = event.taxonId == null
+          ? Future<TaxaData?>.value()
+          : (db.select(
+              db.taxa,
+            )..where((t) => t.id.equals(event.taxonId!))).getSingleOrNull();
+      final zoneF = event.zoneId == null
+          ? Future<Zone?>.value()
+          : (db.select(
+              db.zones,
+            )..where((z) => z.id.equals(event.zoneId!))).getSingleOrNull();
+      final batchF = event.batchId == null
+          ? Future<PropagationBatche?>.value()
+          : (db.select(
+              db.propagationBatches,
+            )..where((b) => b.id.equals(event.batchId!))).getSingleOrNull();
+      taxon = await taxonF;
+      zone = await zoneF;
+      batch = await batchF;
+      if (batch?.collectionEventId != null) {
+        collection =
+            await (db.select(db.collectionEvents)
+                  ..where((c) => c.id.equals(batch!.collectionEventId!)))
+                .getSingleOrNull();
+        if (collection?.sourcePlantId != null) {
+          source =
+              await (db.select(db.sourcePlants)
+                    ..where((s) => s.id.equals(collection!.sourcePlantId!)))
                   .getSingleOrNull();
-          if (collection?.sourcePlantId != null) {
-            source =
-                await (db.select(db.sourcePlants)
-                      ..where((s) => s.id.equals(collection!.sourcePlantId!)))
-                    .getSingleOrNull();
-          }
         }
       }
     }
-    final checkins =
-        await (db.select(db.plantCheckins)
-              ..where((c) => c.plantId.equals(plant.id))
-              ..where((c) => c.deletedAt.isNull())
-              ..orderBy([(c) => OrderingTerm.desc(c.checkedAt)]))
-            .get();
+    final checkins = await checkinsF;
     if (!mounted) return;
     setState(() {
       _plant = plant;

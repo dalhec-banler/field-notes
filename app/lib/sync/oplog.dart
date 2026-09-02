@@ -64,18 +64,11 @@ class OpLog {
           .getSingleOrNull();
       id = row?.data['value'] as String?;
     }
-    if (id == null) {
-      id = newId();
-      await db.customStatement(
-        "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('device_id', ?)",
-        [id],
-      );
-    } else {
-      await db.customStatement(
-        "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('device_id', ?)",
-        [id],
-      );
-    }
+    id ??= newId();
+    await db.customStatement(
+      "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('device_id', ?)",
+      [id],
+    );
 
     // The apply guard: while a row exists here, triggers stay silent so
     // remote ops don't re-capture as local ones.
@@ -103,15 +96,18 @@ class OpLog {
   }
 
   Future<void> _installTriggers() async {
-    for (final table in db.allTables) {
-      final name = table.actualTableName;
-      if (_never.contains(name)) continue;
-      final cols = table.columnsByName.keys.toSet();
-      if (!cols.contains('id')) continue; // sync rides on TEXT id PKs (§4)
-      final jsonPairs = cols.map((c) => "'$c', NEW.\"$c\"").join(', ');
-      final guard = '(SELECT COUNT(*) FROM temp._sync_guard) = 0';
-      for (final event in ['INSERT', 'UPDATE']) {
-        await db.customStatement('''
+    // ~3 triggers × ~30 tables: one transaction, not ~100 autocommits on
+    // the startup path.
+    await db.transaction(() async {
+      for (final table in db.allTables) {
+        final name = table.actualTableName;
+        if (_never.contains(name)) continue;
+        final cols = table.columnsByName.keys.toSet();
+        if (!cols.contains('id')) continue; // sync rides on TEXT id PKs (§4)
+        final jsonPairs = cols.map((c) => "'$c', NEW.\"$c\"").join(', ');
+        final guard = '(SELECT COUNT(*) FROM temp._sync_guard) = 0';
+        for (final event in ['INSERT', 'UPDATE']) {
+          await db.customStatement('''
           CREATE TEMP TRIGGER IF NOT EXISTS _cap_${name}_${event.toLowerCase()}
           AFTER $event ON "$name"
           WHEN $guard
@@ -121,8 +117,8 @@ class OpLog {
                     strftime('%Y-%m-%dT%H:%M:%fZ','now'),
                     json_object($jsonPairs));
           END''');
-      }
-      await db.customStatement('''
+        }
+        await db.customStatement('''
         CREATE TEMP TRIGGER IF NOT EXISTS _cap_${name}_delete
         AFTER DELETE ON "$name"
         WHEN $guard
@@ -132,7 +128,8 @@ class OpLog {
                   strftime('%Y-%m-%dT%H:%M:%fZ','now'),
                   strftime('%Y-%m-%dT%H:%M:%fZ','now'), NULL);
         END''');
-    }
+      }
+    });
   }
 
   Future<String?> _meta(String key) async {
@@ -219,21 +216,38 @@ class OpLog {
       if (device == deviceId) continue;
       (byDevice[device] ??= []).add(f);
     }
+    // Every synced table, resolved once — not a linear scan per op.
+    final tables = {for (final t in db.allTables) t.actualTableName: t};
     for (final entry in byDevice.entries) {
       entry.value.sort();
       var cursor = int.tryParse(await _meta('cursor_${entry.key}') ?? '0') ?? 0;
       for (final file in entry.value) {
+        // The name carries the batch's seq range (push writes
+        // `<first>-<last>.json`): a fully-applied batch is skipped without
+        // being downloaded — pull must not re-read all history every sync.
+        final range = RegExp(r'-(\d+)\.json$').firstMatch(file);
+        if (range != null && int.parse(range.group(1)!) <= cursor) continue;
         final batch = jsonDecode(utf8.decode(await target.read(file))) as Map;
         final ops = (batch['ops'] as List).cast<Map>();
         if (ops.isEmpty) continue;
         if ((ops.last['seq'] as num).toInt() <= cursor) continue;
-        for (final op in ops) {
-          final seq = (op['seq'] as num).toInt();
-          if (seq <= cursor) continue;
-          final did = await _apply(op, entry.key);
-          did ? applied++ : skipped++;
-          cursor = seq;
-        }
+        // One transaction per batch file: one commit, the guard and the
+        // deferred-FK pragma set once — not one fsync per op.
+        await db.transaction(() async {
+          await db.customStatement('PRAGMA defer_foreign_keys = ON');
+          await db.customStatement('INSERT INTO _sync_guard VALUES (1)');
+          try {
+            for (final op in ops) {
+              final seq = (op['seq'] as num).toInt();
+              if (seq <= cursor) continue;
+              final did = await _apply(op, entry.key, tables);
+              did ? applied++ : skipped++;
+              cursor = seq;
+            }
+          } finally {
+            await db.customStatement('DELETE FROM _sync_guard');
+          }
+        });
         await _setMeta('cursor_${entry.key}', '$cursor');
       }
     }
@@ -241,24 +255,24 @@ class OpLog {
   }
 
   /// One op against the local row: last writer wins on the row timestamp,
-  /// device id breaks ties. Foreign keys are deferred so a batch can carry
-  /// a child one op before its parent.
-  Future<bool> _apply(Map op, String fromDevice) async {
+  /// device id breaks ties. Runs inside pull's per-batch transaction, with
+  /// the guard set and foreign keys deferred so a batch can carry a child
+  /// one op before its parent.
+  Future<bool> _apply(
+    Map op,
+    String fromDevice,
+    Map<String, TableInfo> tables,
+  ) async {
     final table = op['table'] as String;
     final rowId = op['row_id'] as String;
     final incomingTs = (op['row_ts'] as String?) ?? '';
-    final info = db.allTables
-        .where((t) => t.actualTableName == table)
-        .cast<TableInfo?>()
-        .firstOrNull;
+    final info = tables[table];
     if (info == null) return false; // schema drift: refuse quietly for now
     final cols = info.columnsByName.keys.toSet();
 
     var did = false;
-    await db.transaction(() async {
-      await db.customStatement('PRAGMA defer_foreign_keys = ON');
-      await db.customStatement('INSERT INTO _sync_guard VALUES (1)');
-      try {
+    {
+      {
         final local = await db
             .customSelect(
               'SELECT ${_rowTsExpr(cols, '"$table"')} AS ts FROM "$table" '
@@ -279,16 +293,16 @@ class OpLog {
             ]);
             did = true;
           }
-          return;
+          return did;
         }
         final payload = (op['payload'] as Map?)?.cast<String, Object?>();
-        if (payload == null) return;
+        if (payload == null) return did;
         // Only columns both sides know: an older app applies what it can.
         final use = [
           for (final c in payload.keys)
             if (cols.contains(c)) c,
         ];
-        if (use.isEmpty) return;
+        if (use.isEmpty) return did;
         if (local == null) {
           final placeholders = List.filled(use.length, '?').join(', ');
           await db.customStatement(
@@ -305,10 +319,8 @@ class OpLog {
           ]);
           did = true;
         }
-      } finally {
-        await db.customStatement('DELETE FROM _sync_guard');
       }
-    });
+    }
     return did;
   }
 }

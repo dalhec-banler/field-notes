@@ -1,7 +1,6 @@
-import 'dart:io';
-
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../services/desk.dart';
 import 'drive_desktop_auth.dart';
 import 'drive_target.dart';
 
@@ -33,8 +32,7 @@ class DriveAuth {
 
   /// On a computer there is no Google Sign-In SDK to lean on; the desk uses
   /// the installed-app flow instead (D-024).
-  static bool get _isDesk =>
-      Platform.isMacOS || Platform.isLinux || Platform.isWindows;
+  static bool get _isDesk => isDesk;
 
   Future<void> _init() async {
     if (_initialised) return;

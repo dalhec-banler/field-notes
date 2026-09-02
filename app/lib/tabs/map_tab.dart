@@ -11,6 +11,7 @@ import '../map/map_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
+import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
 import '../screens/polygon_editor_screen.dart';
 import '../widgets/feature_sheet.dart';
@@ -76,18 +77,6 @@ class _MapTabState extends State<MapTab> {
 
   // Layer toggles (spec §7.1): record types, zones, tracks. Kept on the tab
   // so they survive the map being re-keyed after a capture.
-  static const _types = [
-    'general',
-    'plant',
-    'wildlife',
-    'problem',
-    'water',
-    'soil',
-    'phenology',
-    'sign',
-    'weather',
-    'maintenance',
-  ];
   final Set<String> _hiddenTypes = {};
 
   /// What a plant is, as the library records it. Filtering by this is the
@@ -275,7 +264,7 @@ class _MapTabState extends State<MapTab> {
                 spacing: 7,
                 runSpacing: 7,
                 children: [
-                  for (final t in _types)
+                  for (final t in kObservationTypes)
                     _pill(t, !_hiddenTypes.contains(t), () {
                       setSheet(() {
                         if (!_hiddenTypes.remove(t)) _hiddenTypes.add(t);

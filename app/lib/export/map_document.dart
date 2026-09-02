@@ -52,3 +52,15 @@ class MapDocument {
       '${plate.tilesMissing > 0 ? ' ${plate.tilesMissing} imagery tiles were unavailable.' : ''}'
       ' Made with Field Notes.';
 }
+
+/// XML/HTML entity escaping shared by the DOCX and HTML renderers — the
+/// same four entities, one home.
+String escapeXml(String s) => s
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+
+/// `#RRGGBB` for an ARGB int — the print palette's colours as CSS/OOXML hex.
+String argbToCssHex(int argb) =>
+    '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';

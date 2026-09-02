@@ -165,7 +165,7 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
           ),
         ]),
         _group('Display & network', [
-          _toggle(
+          _row(
             'Ledger rows',
             prefs.density == 'dense'
                 ? 'Dense — more on screen.'
@@ -176,13 +176,13 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
                   prefs.density = prefs.density == 'dense' ? 'glove' : 'dense',
             ),
           ),
-          _toggle(
+          _row(
             'Automatic backup',
             'Daily to the encrypted store on this computer; weekly check.',
             prefs.autoBackup ? 'On' : 'Off',
             () => setState(() => prefs.autoBackup = !prefs.autoBackup),
           ),
-          _toggle(
+          _row(
             'Weather & soil for each record',
             prefs.envContext
                 ? 'Sends a coarsened location (~1 km) to Open-Meteo and '
@@ -194,7 +194,7 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
         ]),
         if (prefs.pressUnlocked)
           _group('Appearance', [
-            _toggle(
+            _row(
               'Skin',
               prefs.skinName == 'press'
                   ? 'Field Station — paper, ink and the press.'
@@ -327,9 +327,6 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
           ),
         ),
       );
-
-  Widget _toggle(String title, String sub, String value, VoidCallback onTap) =>
-      _row(title, sub, value, onTap);
 
   Widget _heading(String label) => Padding(
     padding: EdgeInsets.only(bottom: 8),

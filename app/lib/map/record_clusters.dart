@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../export/web_mercator.dart';
 
 /// Dart-side clustering for the record pins. The map plugin gives us no
@@ -38,14 +40,13 @@ List<ClusterGroup> clusterFeatures(
   double cellPx = 26,
 }) {
   final z = zoom.floor();
-  final scale = 1 << 0; // world px at integer zoom; fractional zoom below
   final frac = zoom - z;
   final cells = <(int, int), ClusterGroup>{};
   for (final f in features) {
     final (lat, lng) = _coords(f);
     var (x, y) = project(lat, lng, z);
     // Fractional zoom scales the world; cells should follow the screen.
-    final k = _pow2(frac) * scale;
+    final k = math.pow(2.0, frac).toDouble();
     x *= k;
     y *= k;
     final key = ((x / cellPx).floor(), (y / cellPx).floor());
@@ -54,18 +55,12 @@ List<ClusterGroup> clusterFeatures(
   return cells.values.toList();
 }
 
-double _pow2(double v) => v == 0 ? 1 : _exp2(v);
-double _exp2(double v) {
-  // 2^v for v in [0,1): good enough with a short series, no dart:math.
-  const ln2 = 0.6931471805599453;
-  final x = v * ln2;
-  var term = 1.0, sum = 1.0;
-  for (var i = 1; i < 12; i++) {
-    term *= x / i;
-    sum += term;
-  }
-  return sum;
-}
+/// Badge display conventions, one home: the label the badge draws and the
+/// icon-cache key the map screen uses must cap at 99+ together, or cached
+/// icons mislabel.
+String clusterLabel(int count) => count > 99 ? '99+' : '$count';
+
+String clusterIconKey(int count) => 'cluster-${count > 99 ? '99plus' : count}';
 
 /// The first zoom above [fromZoom] at which [members] stop sharing a cell,
 /// or null when they never do (coincident points) up to [maxZoom]. That is

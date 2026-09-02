@@ -18,6 +18,7 @@ import '../services/media_store.dart';
 import '../services/observation_ops.dart';
 import '../services/voice_note.dart';
 import '../theme/tokens.dart';
+import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
 import '../widgets/species_field.dart';
 import 'identify_sheet.dart';
@@ -87,19 +88,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
   final _voice = VoiceNoteRecorder();
   String? _voicePath;
   int? _voiceMs;
-
-  static const _types = [
-    'general',
-    'plant',
-    'wildlife',
-    'problem',
-    'water',
-    'soil',
-    'phenology',
-    'sign',
-    'maintenance',
-    'infrastructure',
-  ];
 
   @override
   void initState() {
@@ -910,7 +898,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                             ? 'GPS ±${fix.accuracy.toStringAsFixed(0)} m'
                             : _zoneName != null
                             ? 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · $_zoneName'
-                            : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · ${_zoneCount == 0 ? 'no zones drawn yet' : 'outside every zone'}',
+                            : 'GPS ±${fix.accuracy.toStringAsFixed(0)} m · ${noZoneLabel(_zoneCount)}',
                         size: 8.5,
                         opacity: 0.65,
                       ),
@@ -994,7 +982,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   spacing: 7,
                   runSpacing: 7,
                   children: [
-                    for (final t in _types)
+                    for (final t in kObservationTypes)
                       GestureDetector(
                         onTap: () => setState(() => _observationType = t),
                         child: Container(

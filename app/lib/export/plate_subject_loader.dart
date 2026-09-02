@@ -108,6 +108,14 @@ double? acresOf(String geojson) {
   }
 }
 
+/// Acres of one ring given as `[lng, lat]` pairs (open or closed) — the
+/// polygon editor's live readout, skipping the GeoJSON round trip.
+double? acresOfRing(List<List<double>> ring) {
+  final m2 = _ringAreaM2(ring);
+  if (m2.isNaN || m2 <= 0) return null;
+  return m2 / 4046.8564224;
+}
+
 double _ringAreaM2(List ring) {
   const radius = 6378137.0;
   final n = ring.length;
