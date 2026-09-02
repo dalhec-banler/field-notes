@@ -776,7 +776,26 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       'observations',
       'observations-circles',
       const CircleLayerProperties(
-        circleRadius: 7.5,
+        // Plants keep the fine dot; everything else (infrastructure, water,
+        // problems…) draws larger — the non-plant inks are dark and a 7.5px
+        // dot in near-black disappears against imagery (Austin, 2026-09-02).
+        circleRadius: [
+          'match',
+          ['get', 'kind'],
+          [
+            'tree',
+            'shrub',
+            'graminoid',
+            'forb',
+            'vine',
+            'succulent',
+            'fern',
+            'moss',
+            'plant',
+          ],
+          7.5,
+          9.5,
+        ],
         // A named plant is coloured by what kind of plant it is — trees,
         // shrubs, grasses and forbs read apart at a glance. Everything else
         // falls back to the kind of record it is.
