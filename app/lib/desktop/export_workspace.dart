@@ -49,6 +49,10 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
   bool _rendering = false;
   bool _saving = false;
   bool _detailsOpen = false;
+
+  /// Species chosen for a species-coloured plate (empty = classic type
+  /// colours, every record).
+  final Set<String> _speciesSel = {};
   String? _note; // warnings and save confirmations only
   int _seq = 0;
   Timer? _debounce;
@@ -102,6 +106,7 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
       _title.text = widget.property.name;
       _preparedFor.clear();
       _notes.clear();
+      _speciesSel.clear();
       _plate = null;
       _scheduleRender(immediate: true);
     }
@@ -141,6 +146,7 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
           ).render(
             fresh,
             layers: _layers,
+            species: _speciesSelection,
             attribution: 'Imagery: ${activeImagery.attribution} · Field Notes',
           );
       if (!mounted || seq != _seq) return; // a newer render superseded this
@@ -160,6 +166,48 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
     }
   }
 
+  static String _cap(String s) =>
+      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+  /// Records grouped by species (label, or type when unnamed), most-seen
+  /// first. Palette position is the group's LIST index, so a species keeps
+  /// its colour while others are toggled.
+  List<(String, String, int, int)> get _recordGroups {
+    final s = _subject;
+    if (s == null) return const [];
+    final counts = <String, (String, int)>{};
+    for (final r in s.records) {
+      final key = r.label ?? '__type:${r.type}';
+      final label = r.label ?? '${_cap(r.type)} — unnamed';
+      final prev = counts[key];
+      counts[key] = (label, (prev?.$2 ?? 0) + 1);
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.$2.compareTo(a.value.$2);
+        return byCount != 0
+            ? byCount
+            : a.value.$1.toLowerCase().compareTo(b.value.$1.toLowerCase());
+      });
+    return [
+      for (var i = 0; i < entries.length; i++)
+        (
+          entries[i].key,
+          entries[i].value.$1,
+          entries[i].value.$2,
+          PlateInk.speciesWheel[i % PlateInk.speciesWheel.length],
+        ),
+    ];
+  }
+
+  List<PlateSpecies>? get _speciesSelection {
+    if (_speciesSel.isEmpty) return null;
+    return [
+      for (final g in _recordGroups)
+        if (_speciesSel.contains(g.$1)) PlateSpecies(g.$1, g.$2, g.$4),
+    ];
+  }
+
   MapDocument? get _document {
     final p = _plate;
     final s = _subject;
@@ -171,6 +219,7 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
       plate: p,
       subject: s,
       layers: _layers,
+      species: _speciesSelection,
       preparedFor: _preparedFor.text,
       notes: _notes.text,
     );
@@ -322,6 +371,18 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
                       ),
                     ),
                   ),
+                if (_layers.records && _recordGroups.isNotEmpty) ...[
+                  Padding(
+                    padding: EdgeInsets.only(top: 2, bottom: 4),
+                    child: MonoLabel(
+                      'Pick species for the plate — each wears its own '
+                      'colour. None picked = every record, type colours.',
+                      size: 8.5,
+                      opacity: 0.65,
+                    ),
+                  ),
+                  for (final g in _recordGroups) _speciesRowUi(g),
+                ],
                 SizedBox(height: 12),
                 InkWell(
                   onTap: () => setState(() => _detailsOpen = !_detailsOpen),
@@ -506,6 +567,55 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _speciesRowUi((String, String, int, int) g) {
+    final on = _speciesSel.contains(g.$1);
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (on) {
+            _speciesSel.remove(g.$1);
+          } else {
+            _speciesSel.add(g.$1);
+          }
+        });
+        _scheduleRender();
+      },
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            SizedBox(width: 6),
+            Container(
+              width: 15,
+              height: 15,
+              decoration: BoxDecoration(
+                color: on ? Color(g.$4) : null,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: on ? Color(g.$4) : Press.borderInk,
+                  width: 1.5,
+                ),
+              ),
+              child: on
+                  ? Icon(Icons.check, size: 11, color: Press.paper)
+                  : null,
+            ),
+            SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                g.$2,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: Type.serif, fontSize: 14),
+              ),
+            ),
+            MonoLabel('${g.$3}', size: 9, opacity: 0.6),
+          ],
+        ),
+      ),
     );
   }
 

@@ -10,6 +10,7 @@ class MapDocument {
     required this.plate,
     required this.subject,
     required this.layers,
+    this.species,
     this.preparedFor,
     this.notes,
     DateTime? date,
@@ -19,6 +20,10 @@ class MapDocument {
   final PlateResult plate;
   final PlateSubject subject;
   final PlateLayers layers;
+
+  /// Species mode (matches what [MapPlate.render] drew): the chosen
+  /// species, in their plate colours.
+  final List<PlateSpecies>? species;
   final String? preparedFor;
   final String? notes;
   final DateTime? _date;
@@ -87,6 +92,16 @@ class MapDocument {
   /// What the record dots are: species (or type) · count, most first.
   List<(String, String)> get recordRows {
     if (!layers.records) return const [];
+    final sel = species;
+    if (sel != null && sel.isNotEmpty) {
+      return [
+        for (final s in sel)
+          (
+            s.label,
+            '${subject.records.where((r) => (r.label ?? '__type:${r.type}') == s.key).length}',
+          ),
+      ];
+    }
     final counts = <String, int>{};
     for (final r in subject.records) {
       final key =

@@ -90,6 +90,17 @@ class PlateRecord {
   final String? observedAt;
 }
 
+/// One species chosen for a species-coloured plate (Austin, 2026-09-03:
+/// "a way for X amt of species to be depicted... different colors for
+/// each species"). key matches records' label (or '__type:<type>' for
+/// unnamed records); ink is the colour it wears on this plate.
+class PlateSpecies {
+  const PlateSpecies(this.key, this.label, this.ink);
+  final String key;
+  final String label;
+  final int ink;
+}
+
 class PlateTrack {
   const PlateTrack({required this.geojson, this.label});
   final String geojson; // LineString
@@ -189,6 +200,24 @@ abstract final class PlateInk {
     0xFF6B7F2E,
     0xFF7E4E7A,
   ];
+
+  /// Distinct hues for species-coloured plates — picked apart from the
+  /// boundary oxblood and legible on imagery under a white halo.
+  static const speciesWheel = [
+    0xFF2F5D8A, // river
+    0xFFB5652B, // rust
+    0xFF7A8C3B, // moss
+    0xFF7E4E7A, // plum
+    0xFF3F7A73, // teal
+    0xFFC9564B, // coral
+    0xFF5D5A8A, // violet
+    0xFF6B7F2E, // olive
+    0xFF9B3D63, // magenta
+    0xFF8E6A28, // bronze
+    0xFF2E7D52, // pine
+    0xFF8A6FA8, // lavender
+  ];
+
   static const recordTypes = {
     'plant': 0xFF4E6B4A,
     'wildlife': 0xFFA8791F,
@@ -217,6 +246,11 @@ class MapPlate {
   Future<PlateResult> render(
     PlateSubject subject, {
     PlateLayers layers = const PlateLayers(),
+
+    /// Species mode: only these species' records draw, each in its own
+    /// ink; the legend names them. Null (or empty) = every record in its
+    /// type colour, as before.
+    List<PlateSpecies>? species,
     double maxWidth = 1600,
     double maxHeight = 1100,
     String attribution = 'Imagery: USGS The National Map · Field Notes',
@@ -394,22 +428,45 @@ class MapPlate {
     // printed plate never hides records under each other.
     var overlapGroups = 0;
     if (layers.records && subject.records.isNotEmpty) {
-      final groups = groupOverlapping(frame, subject.records);
+      final speciesInk = (species == null || species.isEmpty)
+          ? null
+          : {for (final s in species) s.key: s.ink};
+      // Species mode draws ONLY the chosen species — unchosen records
+      // stay off the file entirely (fewer coordinates shipped).
+      final source = speciesInk == null
+          ? subject.records
+          : [
+              for (final r in subject.records)
+                if (speciesInk.containsKey(r.label ?? '__type:${r.type}')) r,
+            ];
+      final groups = groupOverlapping(frame, source);
       final typesSeen = <String>{};
       for (final g in groups) {
         final (x, y) = g.$1;
         final members = g.$2;
         if (members.length == 1) {
           final r = members.first;
-          _drawRecordMark(canvas, x, y, r.type);
-          typesSeen.add(r.type);
+          _drawRecordMark(
+            canvas,
+            x,
+            y,
+            r.type,
+            colorOverride: speciesInk?[r.label ?? '__type:${r.type}'],
+          );
+          if (speciesInk == null) typesSeen.add(r.type);
         } else {
           overlapGroups++;
           _drawCountBadge(canvas, x, y, members.length);
         }
       }
-      for (final t in typesSeen) {
-        legend.add((markFor(t).argb, '${_cap(t)} record'));
+      if (speciesInk != null) {
+        for (final s in species!) {
+          legend.add((s.ink, s.label));
+        }
+      } else {
+        for (final t in typesSeen) {
+          legend.add((markFor(t).argb, '${_cap(t)} record'));
+        }
       }
       if (overlapGroups > 0) {
         legend.add((PlateInk.ink, 'Several records at one spot'));
@@ -606,11 +663,18 @@ class MapPlate {
   /// The shared shape language (record_ink): circle for the grown and
   /// observed, square for the built, triangle for trouble — white halo,
   /// as everything prints.
-  static void _drawRecordMark(ui.Canvas c, double x, double y, String type) {
+  static void _drawRecordMark(
+    ui.Canvas c,
+    double x,
+    double y,
+    String type, {
+    int? colorOverride,
+  }) {
     final mark = markFor(type);
+    final ink = colorOverride ?? mark.argb;
     switch (mark.shape) {
       case RecordShape.circle:
-        _drawRecordDot(c, x, y, mark.argb);
+        _drawRecordDot(c, x, y, ink);
       case RecordShape.square:
         final rect = ui.Rect.fromCenter(
           center: ui.Offset(x, y),
@@ -621,7 +685,7 @@ class MapPlate {
           rect.inflate(2),
           ui.Paint()..color = const ui.Color(0xFFFFFFFF),
         );
-        c.drawRect(rect, ui.Paint()..color = ui.Color(mark.argb));
+        c.drawRect(rect, ui.Paint()..color = ui.Color(ink));
       case RecordShape.triangle:
         final tri = ui.Path()
           ..moveTo(x, y - 7)
@@ -636,7 +700,7 @@ class MapPlate {
             ..strokeWidth = 3
             ..strokeJoin = ui.StrokeJoin.round,
         );
-        c.drawPath(tri, ui.Paint()..color = ui.Color(mark.argb));
+        c.drawPath(tri, ui.Paint()..color = ui.Color(ink));
     }
   }
 
