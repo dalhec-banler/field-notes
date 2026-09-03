@@ -17,15 +17,18 @@ import '../screens/record_detail_screen.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 
-/// The desk's map (Austin, 2026-09-03: "there is no way to interface with
-/// the map in the same way you do on the phone — critically important").
+/// The desk's map (Austin, 2026-09-03: "critically important").
 ///
 /// maplibre_gl has no desktop platform, so this is our own slippy map on
 /// the machinery the plate already proved: web-mercator math, XYZ imagery
 /// tiles, and the shared record mark language. Drag to pan, scroll or
-/// double-click to zoom, click a mark to open the record beside the map —
-/// where ADD PHOTOS takes files from a real camera's card (D-024: the desk
-/// refines; the phone originates).
+/// double-click to zoom, click a mark to open the record.
+///
+/// Beside it, the species panel (Austin's design, same day): every species
+/// on this map listed on the right; click one and its card opens in place
+/// — pushing the others down — while its marks light up on the map and
+/// everything else dims. Eradication sweeps and population reads at a
+/// glance.
 class DeskMapWorkspace extends StatefulWidget {
   DeskMapWorkspace({super.key, required this.db, required this.property});
 
@@ -36,9 +39,22 @@ class DeskMapWorkspace extends StatefulWidget {
   State<DeskMapWorkspace> createState() => _DeskMapWorkspaceState();
 }
 
+/// One row of the species panel: every record sharing a species label
+/// (or, for unnamed records, sharing a type).
+class _SpeciesGroup {
+  _SpeciesGroup(this.key, this.label, this.type, this.records);
+  final String key;
+  final String label;
+  final String type;
+  final List<PlateRecord> records;
+}
+
 class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   PlateSubject? _subject;
   String? _selectedId;
+
+  /// The species group lit on the map and opened in the panel.
+  String? _highlightKey;
   StreamSubscription<void>? _watch;
 
   // Camera.
@@ -55,6 +71,14 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   String _fetchSourceId = activeImagery.id;
   int _tileEpoch = 0;
 
+  TileFetcher _buildFetcher() {
+    final primary = httpTileFetcher(template: activeImagery.template);
+    final chained = activeImagery.id == 'usgs'
+        ? primary
+        : tileFetcherWithFallback(primary, httpTileFetcher());
+    return _tiles.wrap(chained);
+  }
+
   /// Settings can swap the imagery source while this map lives: rebuild
   /// the fetcher, drop every cached tile, and let in-flight fetches from
   /// the old source die on arrival.
@@ -70,14 +94,6 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     _images.clear();
     _inflight.clear();
     _missing.clear();
-  }
-
-  TileFetcher _buildFetcher() {
-    final primary = httpTileFetcher(template: activeImagery.template);
-    final chained = activeImagery.id == 'usgs'
-        ? primary
-        : tileFetcherWithFallback(primary, httpTileFetcher());
-    return _tiles.wrap(chained);
   }
 
   @override
@@ -116,8 +132,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   }
 
   /// The camera's opening question is "where are my marks?" — records
-  /// first, then whatever geometry the place has (Austin, 2026-09-03:
-  /// "it doesn't bring it up to where my locations are marked").
+  /// first, then whatever geometry the place has.
   void _frameSubject(PlateSubject s, Size size) {
     var b = merc.LatLngBounds.ofPoints([
       for (final r in s.records) (r.lat, r.lng),
@@ -133,8 +148,6 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     });
   }
 
-  /// The pane's real size (the first framing guesses before layout, then
-  /// one post-layout reframe corrects it — unless the user already moved).
   Size _lastLayoutSize = const Size(900, 700);
   bool _sizedFrame = false;
   bool _userMoved = false;
@@ -155,6 +168,8 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     return (x - cx + size.width / 2, y - cy + size.height / 2);
   }
 
+  /// Shift what's on screen by [delta] pixels (drag semantics: content
+  /// follows the pointer).
   void _panBy(Offset delta, Size size) {
     _userMoved = true;
     final (cx, cy) = _worldPx(_lat!, _lng!);
@@ -169,15 +184,16 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
 
   void _zoomBy(double dz, Offset about, Size size) {
     _userMoved = true;
-    // Keep the point under the cursor still: pan so `about` maps to the
-    // same coordinate after the zoom.
-    final beforeCentre = Offset(size.width / 2, size.height / 2);
-    final (aLatLng) = _latLngAt(about, size);
+    // Anchor the zoom on the CURSOR: the coordinate under it must stay
+    // under it. The first cut re-centred that point to the window middle,
+    // so successive scrolls dragged the camera across town (Austin,
+    // 2026-09-03).
+    final aLatLng = _latLngAt(about, size);
     setState(() {
       _zoom = (_zoom + dz).clamp(4.0, activeImagery.maxZoom + 0.99);
     });
     final (ax, ay) = _screenOf(aLatLng.$1, aLatLng.$2, size);
-    _panBy(Offset(beforeCentre.dx - ax, beforeCentre.dy - ay) * -1, size);
+    _panBy(Offset(about.dx - ax, about.dy - ay), size);
   }
 
   (double, double) _latLngAt(Offset p, Size size) {
@@ -193,12 +209,11 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     final z = _zInt;
     final n = 1 << z;
     final (cx, cy) = _worldPx(_lat!, _lng!);
-    final left = ((cx - size.width / 2) / (merc.tileSize * _tileScale)).floor();
-    final top = ((cy - size.height / 2) / (merc.tileSize * _tileScale)).floor();
-    final right = ((cx + size.width / 2) / (merc.tileSize * _tileScale))
-        .floor();
-    final bottom = ((cy + size.height / 2) / (merc.tileSize * _tileScale))
-        .floor();
+    final drawn = merc.tileSize * _tileScale;
+    final left = ((cx - size.width / 2) / drawn).floor();
+    final top = ((cy - size.height / 2) / drawn).floor();
+    final right = ((cx + size.width / 2) / drawn).floor();
+    final bottom = ((cy + size.height / 2) / drawn).floor();
     for (var ty = top; ty <= bottom; ty++) {
       for (var tx = left; tx <= right; tx++) {
         if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
@@ -234,6 +249,34 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     }
   }
 
+  // ── species groups ───────────────────────────────────────────────
+
+  static String _cap(String s) =>
+      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+  List<_SpeciesGroup> get _groups {
+    final s = _subject;
+    if (s == null) return const [];
+    final byKey = <String, _SpeciesGroup>{};
+    for (final r in s.records) {
+      final key = r.label ?? '__type:${r.type}';
+      (byKey[key] ??= _SpeciesGroup(
+        key,
+        r.label ?? '${_cap(r.type)} — unnamed',
+        r.type,
+        [],
+      )).records.add(r);
+    }
+    final out = byKey.values.toList()
+      ..sort((a, b) {
+        final byCount = b.records.length.compareTo(a.records.length);
+        return byCount != 0
+            ? byCount
+            : a.label.toLowerCase().compareTo(b.label.toLowerCase());
+      });
+    return out;
+  }
+
   // ── hit test ─────────────────────────────────────────────────────
 
   void _onTapUp(TapUpDetails d, Size size) {
@@ -262,119 +305,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final size = Size(constraints.maxWidth, constraints.maxHeight);
-              _syncImagerySource();
-              _lastLayoutSize = size;
-              if (!_sizedFrame) {
-                _sizedFrame = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && _subject != null && !_userMoved) {
-                    _frameSubject(_subject!, size);
-                  }
-                });
-              }
-              _ensureVisibleTiles(size);
-              return ClipRect(
-                child: Listener(
-                  onPointerSignal: (e) {
-                    if (e is PointerScrollEvent) {
-                      _zoomBy(
-                        e.scrollDelta.dy > 0 ? -0.5 : 0.5,
-                        e.localPosition,
-                        size,
-                      );
-                    }
-                  },
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onPanUpdate: (d) => _panBy(d.delta, size),
-                    onDoubleTapDown: (d) => _zoomBy(1, d.localPosition, size),
-                    onTapUp: (d) => _onTapUp(d, size),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CustomPaint(
-                          painter: _DeskMapPainter(
-                            subject: s,
-                            images: _images,
-                            zInt: _zInt,
-                            tileScale: _tileScale,
-                            centre: _worldPx(_lat!, _lng!),
-                            selectedId: _selectedId,
-                            screenOf: _screenOf,
-                          ),
-                        ),
-                        Positioned(
-                          right: 8,
-                          bottom: 6,
-                          child: Container(
-                            color: const Color(0xCCF7F6F2),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            child: MonoLabel(
-                              '${activeImagery.attribution} · z${_zoom.toStringAsFixed(1)}',
-                              size: 8,
-                              color: const Color(0xFF1B1813),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 10,
-                          top: 8,
-                          child: Container(
-                            color: Press.ink,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            child: MonoLabel(
-                              'DRAG TO PAN · SCROLL TO ZOOM · CLICK A MARK '
-                              'TO OPEN THE RECORD',
-                              size: 8,
-                              spacing: 1.2,
-                              color: Press.paperRaised,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: InkWell(
-                            onTap: () {
-                              _userMoved = false;
-                              final s2 = _subject;
-                              if (s2 != null) {
-                                _frameSubject(s2, _lastLayoutSize);
-                              }
-                            },
-                            child: Container(
-                              color: Press.ink,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              child: MonoLabel(
-                                '⌖ FIT MARKS',
-                                size: 8,
-                                spacing: 1.2,
-                                color: Press.paperRaised,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+        Expanded(child: _map(s)),
         Container(
           width: 380,
           decoration: BoxDecoration(
@@ -382,34 +313,410 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
               left: BorderSide(color: Press.borderInk, width: 1.5),
             ),
           ),
-          child: _selectedId == null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'Click a mark to open its record here. ADD PHOTOS '
-                      'takes files straight from this computer — the way '
-                      'in for a better camera\'s shots.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: Type.serif,
-                        fontSize: 14.5,
-                        height: 1.5,
-                        color: Press.inkSoft,
-                      ),
-                    ),
-                  ),
-                )
-              : RecordDetailScreen(
-                  key: ValueKey(_selectedId),
-                  db: widget.db,
-                  obsId: _selectedId!,
-                  embedded: true,
-                ),
+          child: _selectedId == null ? _speciesPanel(s) : _recordPanel(),
         ),
       ],
     );
   }
+
+  Widget _map(PlateSubject s) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        _syncImagerySource();
+        _lastLayoutSize = size;
+        if (!_sizedFrame) {
+          _sizedFrame = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _subject != null && !_userMoved) {
+              _frameSubject(_subject!, size);
+            }
+          });
+        }
+        _ensureVisibleTiles(size);
+        return ClipRect(
+          child: Listener(
+            onPointerSignal: (e) {
+              if (e is PointerScrollEvent) {
+                _zoomBy(
+                  e.scrollDelta.dy > 0 ? -0.5 : 0.5,
+                  e.localPosition,
+                  size,
+                );
+              }
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanUpdate: (d) => _panBy(d.delta, size),
+              onDoubleTapDown: (d) => _zoomBy(1, d.localPosition, size),
+              onTapUp: (d) => _onTapUp(d, size),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CustomPaint(
+                    painter: _DeskMapPainter(
+                      subject: s,
+                      images: _images,
+                      zInt: _zInt,
+                      tileScale: _tileScale,
+                      centre: _worldPx(_lat!, _lng!),
+                      selectedId: _selectedId,
+                      highlightKey: _highlightKey,
+                      screenOf: _screenOf,
+                    ),
+                  ),
+                  Positioned(
+                    right: 8,
+                    bottom: 6,
+                    child: Container(
+                      color: const Color(0xCCF7F6F2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      child: MonoLabel(
+                        '${activeImagery.attribution} · z${_zoom.toStringAsFixed(1)}',
+                        size: 8,
+                        color: const Color(0xFF1B1813),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 10,
+                    top: 8,
+                    child: Container(
+                      color: Press.ink,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      child: MonoLabel(
+                        'DRAG TO PAN · SCROLL TO ZOOM · CLICK A MARK '
+                        'TO OPEN THE RECORD',
+                        size: 8,
+                        spacing: 1.2,
+                        color: Press.paperRaised,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: InkWell(
+                      onTap: () {
+                        _userMoved = false;
+                        final s2 = _subject;
+                        if (s2 != null) {
+                          _frameSubject(s2, _lastLayoutSize);
+                        }
+                      },
+                      child: Container(
+                        color: Press.ink,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        child: MonoLabel(
+                          '⌖ FIT MARKS',
+                          size: 8,
+                          spacing: 1.2,
+                          color: Press.paperRaised,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// The species panel: what lives on this map, most-seen first. Click a
+  /// species — its card opens in place, everything else slides down, and
+  /// its marks light up while the rest of the map dims.
+  Widget _speciesPanel(PlateSubject s) {
+    final groups = _groups;
+    if (groups.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No records on this map yet. The phone captures; this desk '
+            'reviews them in place.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 14.5,
+              height: 1.5,
+              color: Press.inkSoft,
+            ),
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Kicker('On this map'),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text(
+                    'SPECIES',
+                    style: TextStyle(
+                      fontFamily: Type.slab,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                      height: 0.9,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${groups.length}',
+                    style: TextStyle(
+                      fontFamily: Type.slab,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                      color: Press.oxblood,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(children: [for (final g in groups) _speciesRow(g)]),
+        ),
+      ],
+    );
+  }
+
+  Widget _speciesRow(_SpeciesGroup g) {
+    final open = g.key == _highlightKey;
+    final dates =
+        g.records.map((r) => r.observedAt).whereType<String>().toList()..sort();
+    String day(String iso) => iso.length >= 10 ? iso.substring(0, 10) : iso;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _highlightKey = open ? null : g.key),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 52),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: open ? Press.paperRaised : null,
+              border: Border(
+                bottom: BorderSide(color: Press.divider, width: 1),
+                left: BorderSide(
+                  color: open ? Press.oxblood : Colors.transparent,
+                  width: 3,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                _MarkSwatch(type: g.type),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    g.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: Type.serif,
+                      fontSize: 15.5,
+                      fontStyle: g.records.first.label != null
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                      color: Press.ink,
+                    ),
+                  ),
+                ),
+                MonoLabel('${g.records.length}', size: 10, opacity: 0.7),
+                Icon(
+                  open ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: Press.inkSoft,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (open)
+          Container(
+            color: Press.paperRaised,
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Press.paper,
+                    border: Border.all(color: Press.borderInk, width: 1.5),
+                  ),
+                  child: Column(
+                    children: [
+                      FactRow(
+                        'seen here',
+                        '${g.records.length} time'
+                            '${g.records.length == 1 ? '' : 's'}',
+                      ),
+                      FactRow('first', dates.isEmpty ? '—' : day(dates.first)),
+                      FactRow(
+                        'last',
+                        dates.isEmpty ? '—' : day(dates.last),
+                        last: true,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                for (final r in g.records)
+                  if (r.id != null)
+                    InkWell(
+                      onTap: () => setState(() => _selectedId = r.id),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        child: Row(
+                          children: [
+                            Diamond(
+                              size: 8,
+                              color: Color(markFor(r.type).argb),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                r.observedAt == null
+                                    ? _cap(r.type)
+                                    : '${day(r.observedAt!)} · ${r.type}',
+                                style: TextStyle(
+                                  fontFamily: Type.serif,
+                                  fontSize: 13.5,
+                                  color: Press.ink,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right,
+                              size: 16,
+                              color: Press.inkSoft,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// A clicked mark's record, with the way back to the species list.
+  Widget _recordPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _selectedId = null),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Press.borderInk, width: 1.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.chevron_left, size: 18, color: Press.inkSoft),
+                const SizedBox(width: 4),
+                MonoLabel('SPECIES LIST', size: 9, spacing: 1.6),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: RecordDetailScreen(
+            key: ValueKey(_selectedId),
+            db: widget.db,
+            obsId: _selectedId!,
+            embedded: true,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The mark swatch beside a species row — same shape language as the map.
+class _MarkSwatch extends StatelessWidget {
+  const _MarkSwatch({required this.type});
+  final String type;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = markFor(type);
+    final color = Color(mark.argb);
+    return switch (mark.shape) {
+      RecordShape.circle => Container(
+        width: 13,
+        height: 13,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFECE3CE), width: 1.5),
+        ),
+      ),
+      RecordShape.square => Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: color,
+          border: Border.all(color: const Color(0xFFECE3CE), width: 1.5),
+        ),
+      ),
+      RecordShape.triangle => CustomPaint(
+        size: const Size(14, 13),
+        painter: _TriPainter(color),
+      ),
+    };
+  }
+}
+
+class _TriPainter extends CustomPainter {
+  _TriPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(ui.Canvas canvas, Size size) {
+    final tri = ui.Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(
+      tri,
+      ui.Paint()
+        ..color = const Color(0xFFECE3CE)
+        ..style = ui.PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeJoin = ui.StrokeJoin.round,
+    );
+    canvas.drawPath(tri, ui.Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TriPainter old) => old.color != color;
 }
 
 class _DeskMapPainter extends CustomPainter {
@@ -420,6 +727,7 @@ class _DeskMapPainter extends CustomPainter {
     required this.tileScale,
     required this.centre,
     required this.selectedId,
+    required this.highlightKey,
     required this.screenOf,
   });
 
@@ -429,6 +737,7 @@ class _DeskMapPainter extends CustomPainter {
   final double tileScale;
   final (double, double) centre;
   final String? selectedId;
+  final String? highlightKey;
   final (double, double) Function(double lat, double lng, Size size) screenOf;
 
   @override
@@ -630,51 +939,84 @@ class _DeskMapPainter extends CustomPainter {
       } catch (_) {}
     }
 
-    // Records — the shared shape language, paper stroke (the record layer).
-    final paper = ui.Paint()..color = const ui.Color(0xFFECE3CE);
+    // Records — the shared shape language, paper stroke. With a species
+    // highlighted, everything else dims and the highlighted marks draw
+    // last with a gold ring: the map becomes that species' map.
+    final dimmed = <PlateRecord>[];
+    final lit = <PlateRecord>[];
     for (final r in subject.records) {
-      final (x, y) = screenOf(r.lat, r.lng, size);
-      if (x < -20 || y < -20 || x > size.width + 20 || y > size.height + 20) {
-        continue;
-      }
-      final mark = markFor(r.type);
-      final fill = ui.Paint()..color = ui.Color(mark.argb);
-      final selected = r.id != null && r.id == selectedId;
-      if (selected) {
-        canvas.drawCircle(
-          ui.Offset(x, y),
-          14,
-          ui.Paint()..color = const ui.Color(0x338B2E22),
+      final key = r.label ?? '__type:${r.type}';
+      (highlightKey == null || key == highlightKey ? lit : dimmed).add(r);
+    }
+    for (final r in dimmed) {
+      _drawRecord(canvas, size, r, dim: true);
+    }
+    for (final r in lit) {
+      _drawRecord(canvas, size, r, ringed: highlightKey != null);
+    }
+  }
+
+  void _drawRecord(
+    ui.Canvas canvas,
+    Size size,
+    PlateRecord r, {
+    bool dim = false,
+    bool ringed = false,
+  }) {
+    final (x, y) = screenOf(r.lat, r.lng, size);
+    if (x < -20 || y < -20 || x > size.width + 20 || y > size.height + 20) {
+      return;
+    }
+    final mark = markFor(r.type);
+    final alpha = dim ? 0.30 : 1.0;
+    final paper = ui.Paint()
+      ..color = const ui.Color(0xFFECE3CE).withValues(alpha: alpha);
+    final fill = ui.Paint()
+      ..color = ui.Color(mark.argb).withValues(alpha: alpha);
+    if (r.id != null && r.id == selectedId) {
+      canvas.drawCircle(
+        ui.Offset(x, y),
+        14,
+        ui.Paint()..color = const ui.Color(0x338B2E22),
+      );
+    }
+    if (ringed) {
+      canvas.drawCircle(
+        ui.Offset(x, y),
+        12,
+        ui.Paint()
+          ..color = const ui.Color(0xFFD9A521)
+          ..style = ui.PaintingStyle.stroke
+          ..strokeWidth = 2.5,
+      );
+    }
+    switch (mark.shape) {
+      case RecordShape.circle:
+        canvas.drawCircle(ui.Offset(x, y), 7.5, paper);
+        canvas.drawCircle(ui.Offset(x, y), 6, fill);
+      case RecordShape.square:
+        final rect = ui.Rect.fromCenter(
+          center: ui.Offset(x, y),
+          width: 11,
+          height: 11,
         );
-      }
-      switch (mark.shape) {
-        case RecordShape.circle:
-          canvas.drawCircle(ui.Offset(x, y), 7.5, paper);
-          canvas.drawCircle(ui.Offset(x, y), 6, fill);
-        case RecordShape.square:
-          final rect = ui.Rect.fromCenter(
-            center: ui.Offset(x, y),
-            width: 11,
-            height: 11,
-          );
-          canvas.drawRect(rect.inflate(1.8), paper);
-          canvas.drawRect(rect, fill);
-        case RecordShape.triangle:
-          final tri = ui.Path()
-            ..moveTo(x, y - 8)
-            ..lineTo(x + 7, y + 5)
-            ..lineTo(x - 7, y + 5)
-            ..close();
-          canvas.drawPath(
-            tri,
-            ui.Paint()
-              ..color = const ui.Color(0xFFECE3CE)
-              ..style = ui.PaintingStyle.stroke
-              ..strokeWidth = 3.5
-              ..strokeJoin = ui.StrokeJoin.round,
-          );
-          canvas.drawPath(tri, fill);
-      }
+        canvas.drawRect(rect.inflate(1.8), paper);
+        canvas.drawRect(rect, fill);
+      case RecordShape.triangle:
+        final tri = ui.Path()
+          ..moveTo(x, y - 8)
+          ..lineTo(x + 7, y + 5)
+          ..lineTo(x - 7, y + 5)
+          ..close();
+        canvas.drawPath(
+          tri,
+          ui.Paint()
+            ..color = const ui.Color(0xFFECE3CE).withValues(alpha: alpha)
+            ..style = ui.PaintingStyle.stroke
+            ..strokeWidth = 3.5
+            ..strokeJoin = ui.StrokeJoin.round,
+        );
+        canvas.drawPath(tri, fill);
     }
   }
 

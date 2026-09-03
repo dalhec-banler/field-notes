@@ -71,6 +71,7 @@ Future<PlateSubject> loadPlateSubject(
           lng: o.lng,
           type: o.observationType,
           label: o.taxonId == null ? null : taxa[o.taxonId],
+          observedAt: o.observedAt,
         ),
     ],
     tracks: [

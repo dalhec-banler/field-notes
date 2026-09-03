@@ -76,14 +76,17 @@ class PlateRecord {
     required this.type,
     this.label,
     this.id,
+    this.observedAt,
   });
   final double lat, lng;
   final String type; // observation_type
   final String? label; // species, when identified
 
-  /// Observation id — the desk map opens the record from its mark. The
-  /// plate renderer itself never reads it.
+  /// Observation id and time — the desk map opens the record from its
+  /// mark and lists sightings per species. The plate renderer itself
+  /// never reads either.
   final String? id;
+  final String? observedAt;
 }
 
 class PlateTrack {

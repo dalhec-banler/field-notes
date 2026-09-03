@@ -480,7 +480,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         updatedAt: Value(nowUtcIso()),
       ),
     );
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    final nav = Navigator.of(context);
+    if (!widget.embedded && nav.canPop()) nav.pop();
   }
 
   @override
@@ -574,7 +576,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     top: MediaQuery.of(context).padding.top + 8,
                     left: 8,
                     child: GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
+                      onTap: () {
+                        final nav = Navigator.of(context);
+                        if (nav.canPop()) nav.pop();
+                      },
                       child: Container(
                         width: 56,
                         height: 56,
