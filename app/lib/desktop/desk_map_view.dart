@@ -154,7 +154,13 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
 
   // ── camera math ──────────────────────────────────────────────────
 
-  int get _zInt => _zoom.floor().clamp(3, activeImagery.maxZoom);
+  /// On a retina display, drawing one tile pixel per LOGICAL pixel doubles
+  /// everything and the imagery reads soft — "still isn't Esri" (Austin,
+  /// 2026-09-03). Fetch one zoom deeper and draw at half size instead, so
+  /// tile pixels land on device pixels.
+  int _dprBoost = 0;
+
+  int get _zInt => (_zoom.floor() + _dprBoost).clamp(3, activeImagery.maxZoom);
   double get _tileScale => math.pow(2.0, _zoom - _zInt).toDouble();
 
   (double, double) _worldPx(double lat, double lng) {
@@ -298,6 +304,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
 
   @override
   Widget build(BuildContext context) {
+    _dprBoost = MediaQuery.of(context).devicePixelRatio >= 1.5 ? 1 : 0;
     final s = _subject;
     if (s == null || _lat == null) {
       return const Center(child: CircularProgressIndicator());
