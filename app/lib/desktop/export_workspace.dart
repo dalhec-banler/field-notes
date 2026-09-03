@@ -57,13 +57,15 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
   /// Session tile cache: layer toggles never change the imagery, so only
   /// the first render waits on the network.
   final _tiles = TileCache();
-  late final TileFetcher _fetch = () {
+  String _fetchSourceId = activeImagery.id;
+  late TileFetcher _fetch = _buildFetcher();
+  TileFetcher _buildFetcher() {
     final primary = httpTileFetcher(template: activeImagery.template);
     final chained = activeImagery.id == 'usgs'
         ? primary
         : tileFetcherWithFallback(primary, httpTileFetcher());
     return _tiles.wrap(chained);
-  }();
+  }
 
   final _pageKey = GlobalKey();
 
@@ -117,26 +119,30 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
 
   void _scheduleRender({bool immediate = false}) {
     _debounce?.cancel();
-    _debounce = Timer(
-      Duration(milliseconds: immediate ? 0 : 450),
-      _render,
-    );
+    _debounce = Timer(Duration(milliseconds: immediate ? 0 : 450), _render);
   }
 
   Future<void> _render() async {
     if (!mounted) return;
     final seq = ++_seq;
+    // Settings may have swapped the imagery source since the last render.
+    if (_fetchSourceId != activeImagery.id) {
+      _fetchSourceId = activeImagery.id;
+      _tiles.clear();
+      _fetch = _buildFetcher();
+    }
     setState(() => _rendering = true);
     try {
       final fresh = await loadPlateSubject(widget.db, widget.property);
-      final r = await MapPlate(
-        fetchTile: _fetch,
-        maxZoom: activeImagery.maxZoom,
-      ).render(
-        fresh,
-        layers: _layers,
-        attribution: 'Imagery: ${activeImagery.attribution} · Field Notes',
-      );
+      final r =
+          await MapPlate(
+            fetchTile: _fetch,
+            maxZoom: activeImagery.maxZoom,
+          ).render(
+            fresh,
+            layers: _layers,
+            attribution: 'Imagery: ${activeImagery.attribution} · Field Notes',
+          );
       if (!mounted || seq != _seq) return; // a newer render superseded this
       setState(() {
         _subject = fresh;
@@ -607,11 +613,7 @@ class _Page extends StatelessWidget {
       child: Row(children: cells),
     );
 
-    Text cell(
-      String s, {
-      bool right = false,
-      Color color = _ink,
-    }) => Text(
+    Text cell(String s, {bool right = false, Color color = _ink}) => Text(
       s,
       textAlign: right ? TextAlign.right : TextAlign.left,
       style: TextStyle(fontFamily: Type.serif, fontSize: 10.5, color: color),
@@ -639,11 +641,7 @@ class _Page extends StatelessWidget {
           SizedBox(height: 3),
           Text(
             d.subtitle,
-            style: TextStyle(
-              fontFamily: Type.mono,
-              fontSize: 10,
-              color: _soft,
-            ),
+            style: TextStyle(fontFamily: Type.mono, fontSize: 10, color: _soft),
           ),
           SizedBox(height: 13),
           Container(
@@ -685,7 +683,10 @@ class _Page extends StatelessWidget {
                 Container(width: 10, height: 10, color: Color(ink)),
                 SizedBox(width: 8),
                 Expanded(child: cell(name)),
-                SizedBox(width: 80, child: cell(acres, right: true, color: _soft)),
+                SizedBox(
+                  width: 80,
+                  child: cell(acres, right: true, color: _soft),
+                ),
               ]),
             SizedBox(height: 12),
           ],
@@ -695,7 +696,10 @@ class _Page extends StatelessWidget {
             for (final (name, cls) in d.featureRows)
               tableRow([
                 Expanded(child: cell(name)),
-                SizedBox(width: 110, child: cell(cls, right: true, color: _soft)),
+                SizedBox(
+                  width: 110,
+                  child: cell(cls, right: true, color: _soft),
+                ),
               ]),
             SizedBox(height: 12),
           ],
@@ -705,7 +709,10 @@ class _Page extends StatelessWidget {
             for (final (label, count) in d.recordRows)
               tableRow([
                 Expanded(child: cell(label)),
-                SizedBox(width: 60, child: cell(count, right: true, color: _soft)),
+                SizedBox(
+                  width: 60,
+                  child: cell(count, right: true, color: _soft),
+                ),
               ]),
             SizedBox(height: 12),
           ],

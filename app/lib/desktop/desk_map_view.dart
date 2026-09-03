@@ -52,6 +52,25 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   final _images = <String, ui.Image>{};
   final _inflight = <String>{};
   final _missing = <String>{};
+  String _fetchSourceId = activeImagery.id;
+  int _tileEpoch = 0;
+
+  /// Settings can swap the imagery source while this map lives: rebuild
+  /// the fetcher, drop every cached tile, and let in-flight fetches from
+  /// the old source die on arrival.
+  void _syncImagerySource() {
+    if (_fetchSourceId == activeImagery.id) return;
+    _fetchSourceId = activeImagery.id;
+    _tileEpoch++;
+    _fetch = _buildFetcher();
+    _tiles.clear();
+    for (final img in _images.values) {
+      img.dispose();
+    }
+    _images.clear();
+    _inflight.clear();
+    _missing.clear();
+  }
 
   TileFetcher _buildFetcher() {
     final primary = httpTileFetcher(template: activeImagery.template);
@@ -93,19 +112,32 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     final s = await loadPlateSubject(widget.db, widget.property);
     if (!mounted) return;
     setState(() => _subject = s);
-    if (frame || _lat == null) _frameSubject(s);
+    if (frame || _lat == null) _frameSubject(s, _lastLayoutSize);
   }
 
-  void _frameSubject(PlateSubject s) {
-    final b = MapPlate.frameBounds(s, const PlateLayers(records: true));
+  /// The camera's opening question is "where are my marks?" — records
+  /// first, then whatever geometry the place has (Austin, 2026-09-03:
+  /// "it doesn't bring it up to where my locations are marked").
+  void _frameSubject(PlateSubject s, Size size) {
+    var b = merc.LatLngBounds.ofPoints([
+      for (final r in s.records) (r.lat, r.lng),
+    ]);
+    b ??= MapPlate.frameBounds(s, const PlateLayers());
+    final bb = b.pad(0.25);
     setState(() {
-      _lat = (b.north + b.south) / 2;
-      _lng = (b.east + b.west) / 2;
+      _lat = (bb.north + bb.south) / 2;
+      _lng = (bb.east + bb.west) / 2;
       _zoom = merc
-          .zoomFor(b, 900, 700, maxZoom: activeImagery.maxZoom)
+          .zoomFor(bb, size.width, size.height, maxZoom: activeImagery.maxZoom)
           .toDouble();
     });
   }
+
+  /// The pane's real size (the first framing guesses before layout, then
+  /// one post-layout reframe corrects it — unless the user already moved).
+  Size _lastLayoutSize = const Size(900, 700);
+  bool _sizedFrame = false;
+  bool _userMoved = false;
 
   // ── camera math ──────────────────────────────────────────────────
 
@@ -124,6 +156,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   }
 
   void _panBy(Offset delta, Size size) {
+    _userMoved = true;
     final (cx, cy) = _worldPx(_lat!, _lng!);
     final nx = cx - delta.dx;
     final ny = cy - delta.dy;
@@ -135,6 +168,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   }
 
   void _zoomBy(double dz, Offset about, Size size) {
+    _userMoved = true;
     // Keep the point under the cursor still: pan so `about` maps to the
     // same coordinate after the zoom.
     final beforeCentre = Offset(size.width / 2, size.height / 2);
@@ -175,7 +209,9 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
           continue;
         }
         _inflight.add(key);
+        final epoch = _tileEpoch;
         _fetch(z, tx, ty).then((bytes) async {
+          if (epoch != _tileEpoch) return; // source swapped mid-flight
           _inflight.remove(key);
           if (bytes == null) {
             _missing.add(key);
@@ -185,7 +221,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
             final codec = await ui.instantiateImageCodec(bytes);
             final img = (await codec.getNextFrame()).image;
             codec.dispose();
-            if (!mounted) {
+            if (!mounted || epoch != _tileEpoch) {
               img.dispose();
               return;
             }
@@ -230,6 +266,16 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final size = Size(constraints.maxWidth, constraints.maxHeight);
+              _syncImagerySource();
+              _lastLayoutSize = size;
+              if (!_sizedFrame) {
+                _sizedFrame = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && _subject != null && !_userMoved) {
+                    _frameSubject(_subject!, size);
+                  }
+                });
+              }
               _ensureVisibleTiles(size);
               return ClipRect(
                 child: Listener(
@@ -292,6 +338,32 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
                               size: 8,
                               spacing: 1.2,
                               color: Press.paperRaised,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: InkWell(
+                            onTap: () {
+                              _userMoved = false;
+                              final s2 = _subject;
+                              if (s2 != null) {
+                                _frameSubject(s2, _lastLayoutSize);
+                              }
+                            },
+                            child: Container(
+                              color: Press.ink,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              child: MonoLabel(
+                                '⌖ FIT MARKS',
+                                size: 8,
+                                spacing: 1.2,
+                                color: Press.paperRaised,
+                              ),
                             ),
                           ),
                         ),

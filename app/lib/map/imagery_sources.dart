@@ -53,8 +53,10 @@ const esriImagery = ImagerySource(
 const imagerySources = [usgsImagery, esriImagery];
 
 ImagerySource imageryById(String? id) =>
-    imagerySources.where((s) => s.id == id).firstOrNull ?? usgsImagery;
+    imagerySources.where((s) => s.id == id).firstOrNull ?? esriImagery;
 
-/// The source in use, set once at startup from prefs and only ever changed
-/// together with a map/style rebuild.
-ImagerySource activeImagery = usgsImagery;
+/// The source in use, set at startup from prefs and swappable in Settings.
+/// Default is the sharper source with USGS filling any gaps (Austin,
+/// 2026-09-03: "our default should just be the higher quality option");
+/// USGS remains the only offline-capture source either way.
+ImagerySource activeImagery = esriImagery;
