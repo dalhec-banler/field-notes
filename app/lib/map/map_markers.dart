@@ -88,6 +88,46 @@ Future<Uint8List> featureMarker(String featureClass, {double scale = 3}) async {
   return _png(rec, size, scale);
 }
 
+/// Record marks that aren't circles (Austin, 2026-09-03): shape says what
+/// kind of thing the record is. Built things are squares (infrastructure =
+/// ink, maintenance = ochre), trouble is an oxblood triangle; everything
+/// else stays a circle. They wear the record layer's PAPER stroke — not
+/// the features' white halo — so shape carries class while the halo still
+/// says which layer a mark belongs to. Sized in device pixels to carry the
+/// same visual weight as the 9.5-logical-px record dots.
+Future<Uint8List> recordShapeMarker(String kind, {double scale = 3}) async {
+  const size = 56.0;
+  final rec = ui.PictureRecorder();
+  final c = ui.Canvas(rec)..scale(scale);
+  const centre = ui.Offset(size / 2, size / 2);
+  final paper = ui.Paint()..color = const ui.Color(0xFFECE3CE);
+  switch (kind) {
+    case 'problem':
+      final tri = ui.Path()
+        ..moveTo(centre.dx, centre.dy - 22)
+        ..lineTo(centre.dx + 19, centre.dy + 14)
+        ..lineTo(centre.dx - 19, centre.dy + 14)
+        ..close();
+      c.drawPath(
+        tri,
+        paper
+          ..style = ui.PaintingStyle.stroke
+          ..strokeWidth = 8
+          ..strokeJoin = ui.StrokeJoin.round,
+      );
+      c.drawPath(tri, ui.Paint()..color = const ui.Color(0xFF8B2E22));
+    case 'maintenance':
+      final rect = ui.Rect.fromCenter(center: centre, width: 40, height: 40);
+      c.drawRect(rect.inflate(4), paper);
+      c.drawRect(rect, ui.Paint()..color = const ui.Color(0xFFA8791F));
+    default: // infrastructure
+      final rect = ui.Rect.fromCenter(center: centre, width: 40, height: 40);
+      c.drawRect(rect.inflate(4), paper);
+      c.drawRect(rect, ui.Paint()..color = const ui.Color(0xFF1B1813));
+  }
+  return _png(rec, size, scale);
+}
+
 Future<Uint8List> _png(
   ui.PictureRecorder rec,
   double size,

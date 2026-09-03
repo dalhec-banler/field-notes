@@ -9,11 +9,15 @@ import 'record_clusters.dart' show clusterLabel;
 /// font ranges, but it can always draw a picture.
 Future<Uint8List> clusterBadge(int count, {double scale = 3}) async {
   final label = clusterLabel(count);
+  // Sized against the record dots as they actually render: addImage
+  // registers at density 1, so these numbers are DEVICE pixels at 1/3
+  // icon scale. The smallest badge must out-size the largest dot
+  // (Austin, 2026-09-03: badges drew smaller than the dots they gather).
   final radius = count >= 50
-      ? 21.0
+      ? 34.0
       : count >= 10
-      ? 18.0
-      : 15.5;
+      ? 30.0
+      : 27.0;
   final size = (radius + 2.5) * 2;
   final rec = ui.PictureRecorder();
   final c = ui.Canvas(rec);
@@ -29,13 +33,13 @@ Future<Uint8List> clusterBadge(int count, {double scale = 3}) async {
       ui.ParagraphBuilder(
           ui.ParagraphStyle(
             textAlign: ui.TextAlign.center,
-            fontSize: count > 99 ? 12 : 14,
+            fontSize: count > 99 ? 20 : 24,
           ),
         )
         ..pushStyle(
           ui.TextStyle(
             color: const ui.Color(0xFFF7F6F2),
-            fontSize: count > 99 ? 12 : 14,
+            fontSize: count > 99 ? 20 : 24,
             fontWeight: ui.FontWeight.w700,
             fontFamily: 'JetBrainsMono',
             fontFamilyFallback: const ['Roboto', 'sans-serif'],

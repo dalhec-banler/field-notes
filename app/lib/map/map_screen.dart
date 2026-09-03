@@ -495,6 +495,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       final hits = await controller.queryRenderedFeatures(point, [
         'obs-clusters-lyr',
         'observations-circles',
+        'observations-shapes',
       ], null);
       for (final h in hits) {
         final props = (h as Map)['properties'] as Map?;
@@ -720,6 +721,16 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     for (final cls in ['natural', 'infrastructure', 'problem']) {
       await controller.addImage('feature-$cls', await featureMarker(cls));
     }
+    // Record shape language (2026-09-03): built things are squares, trouble
+    // is a triangle — same silhouettes as the Features layer, but in the
+    // record layer's paper stroke at record-dot weight.
+    for (final e in const {
+      'infrastructure': 'obs-square-ink',
+      'maintenance': 'obs-square-ochre',
+      'problem': 'obs-triangle',
+    }.entries) {
+      await controller.addImage(e.value, await recordShapeMarker(e.key));
+    }
     await controller.addGeoJsonSource('features', _emptyCollection);
     await controller.addFillLayer(
       'features',
@@ -844,6 +855,46 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         circleStrokeColor: '#ECE3CE',
         circleStrokeWidth: 1.5,
       ),
+      // The shaped kinds draw in the symbol layer below instead.
+      filter: [
+        '!',
+        [
+          'in',
+          ['get', 'kind'],
+          [
+            'literal',
+            ['infrastructure', 'maintenance', 'problem'],
+          ],
+        ],
+      ],
+      enableInteraction: true,
+    );
+    // Shaped records: squares for built things, a triangle for problems.
+    await controller.addSymbolLayer(
+      'observations',
+      'observations-shapes',
+      const SymbolLayerProperties(
+        iconImage: [
+          'match',
+          ['get', 'kind'],
+          'infrastructure',
+          'obs-square-ink',
+          'maintenance',
+          'obs-square-ochre',
+          'obs-triangle',
+        ],
+        iconSize: 1 / 3,
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+      ),
+      filter: [
+        'in',
+        ['get', 'kind'],
+        [
+          'literal',
+          ['infrastructure', 'maintenance', 'problem'],
+        ],
+      ],
       enableInteraction: true,
     );
     // Clusters: one badge with the count (image, so no glyphs needed).

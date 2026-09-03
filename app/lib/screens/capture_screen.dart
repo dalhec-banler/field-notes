@@ -635,8 +635,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // Android back: notes → form, form → confirm, shutter → leave.
-      canPop: _step == 0,
+      // Android back: notes → form, form → confirm, shutter → confirm too
+      // when a photo/species/notes exist (a re-shot photo lives at step 0;
+      // it must not vanish silently — Austin's audit, 2026-09-03).
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || _saving) return;
         if (_step == 2) {
@@ -812,7 +814,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 width: 112,
                 height: 58,
                 child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: _confirmDiscard,
                   child: Text(
                     'CANCEL',
                     maxLines: 1,
