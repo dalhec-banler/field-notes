@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:http/http.dart' as http;
 
+import '../map/record_ink.dart';
 import 'web_mercator.dart';
 
 /// A map plate (D-024): the property's geometry composited over public
@@ -74,10 +75,15 @@ class PlateRecord {
     required this.lng,
     required this.type,
     this.label,
+    this.id,
   });
   final double lat, lng;
   final String type; // observation_type
   final String? label; // species, when identified
+
+  /// Observation id — the desk map opens the record from its mark. The
+  /// plate renderer itself never reads it.
+  final String? id;
 }
 
 class PlateTrack {
@@ -391,9 +397,7 @@ class MapPlate {
         final members = g.$2;
         if (members.length == 1) {
           final r = members.first;
-          final color =
-              PlateInk.recordTypes[r.type] ?? PlateInk.recordTypes['general']!;
-          _drawRecordDot(canvas, x, y, color);
+          _drawRecordMark(canvas, x, y, r.type);
           typesSeen.add(r.type);
         } else {
           overlapGroups++;
@@ -401,7 +405,7 @@ class MapPlate {
         }
       }
       for (final t in typesSeen) {
-        legend.add((PlateInk.recordTypes[t]!, '${_cap(t)} record'));
+        legend.add((markFor(t).argb, '${_cap(t)} record'));
       }
       if (overlapGroups > 0) {
         legend.add((PlateInk.ink, 'Several records at one spot'));
@@ -446,6 +450,12 @@ class MapPlate {
       overlapGroups: overlapGroups,
     );
   }
+
+  /// The colour a zone draws in, resolved exactly as [render] resolves it —
+  /// so the document's zone table can carry the same swatch.
+  static int zoneInk(PlateZone z, int index) =>
+      _parseHex(z.colorHex) ??
+      PlateInk.zoneFills[index % PlateInk.zoneFills.length];
 
   /// The box the plate frames: boundary if drawn, else every drawn layer's
   /// geometry, padded. Pure, so the framing is testable without rendering.
@@ -561,6 +571,43 @@ class MapPlate {
         ui.Offset(ox + d + tileSize, oy),
         p,
       );
+    }
+  }
+
+  /// The shared shape language (record_ink): circle for the grown and
+  /// observed, square for the built, triangle for trouble — white halo,
+  /// as everything prints.
+  static void _drawRecordMark(ui.Canvas c, double x, double y, String type) {
+    final mark = markFor(type);
+    switch (mark.shape) {
+      case RecordShape.circle:
+        _drawRecordDot(c, x, y, mark.argb);
+      case RecordShape.square:
+        final rect = ui.Rect.fromCenter(
+          center: ui.Offset(x, y),
+          width: 10,
+          height: 10,
+        );
+        c.drawRect(
+          rect.inflate(2),
+          ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+        );
+        c.drawRect(rect, ui.Paint()..color = ui.Color(mark.argb));
+      case RecordShape.triangle:
+        final tri = ui.Path()
+          ..moveTo(x, y - 7)
+          ..lineTo(x + 6, y + 4.5)
+          ..lineTo(x - 6, y + 4.5)
+          ..close();
+        c.drawPath(
+          tri,
+          ui.Paint()
+            ..color = const ui.Color(0xFFFFFFFF)
+            ..style = ui.PaintingStyle.stroke
+            ..strokeWidth = 3
+            ..strokeJoin = ui.StrokeJoin.round,
+        );
+        c.drawPath(tri, ui.Paint()..color = ui.Color(mark.argb));
     }
   }
 

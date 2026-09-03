@@ -54,14 +54,24 @@ class MapDocx {
       ..write(_p(d.subtitle, style: 'Subtitle'))
       ..write(_picture(cx, cy))
       ..write(_p(''));
-    if (d.plate.legend.isNotEmpty) {
+    if (d.marksLegend.isNotEmpty) {
       b.write(_p('Legend', style: 'Heading1'));
-      b.write(_legendTable(d.plate.legend));
+      b.write(_legendTable(d.marksLegend));
       b.write(_p(''));
     }
-    if (d.zoneRows.isNotEmpty) {
+    if (d.zoneRowsInk.isNotEmpty) {
       b.write(_p('Zones', style: 'Heading1'));
-      b.write(_zoneTable(d.zoneRows));
+      b.write(_zoneTable(d.zoneRowsInk));
+      b.write(_p(''));
+    }
+    if (d.featureRows.isNotEmpty) {
+      b.write(_p('Features', style: 'Heading1'));
+      b.write(_pairTable(d.featureRows));
+      b.write(_p(''));
+    }
+    if (d.recordRows.isNotEmpty) {
+      b.write(_p('Field records on this map', style: 'Heading1'));
+      b.write(_pairTable(d.recordRows));
       b.write(_p(''));
     }
     b.write(_p('Notes', style: 'Heading1'));
@@ -143,18 +153,42 @@ class MapDocx {
     return b.toString();
   }
 
-  static String _zoneTable(List<(String, String)> rows) {
+  static String _zoneTable(List<(int, String, String)> rows) {
+    final b = StringBuffer(
+      '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>'
+      '<w:tblBorders><w:insideH w:val="single" w:sz="4" w:space="0" w:color="B8AE9C"/>'
+      '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="1B1813"/></w:tblBorders>'
+      '<w:tblLook w:val="0000"/></w:tblPr><w:tblGrid><w:gridCol w:w="400"/>'
+      '<w:gridCol w:w="7600"/><w:gridCol w:w="2000"/></w:tblGrid>',
+    );
+    for (final (ink, name, acres) in rows) {
+      final hex = argbToCssHex(ink).substring(1);
+      b.write(
+        '<w:tr><w:tc><w:tcPr><w:tcW w:w="400" w:type="dxa"/>'
+        '<w:shd w:val="clear" w:color="auto" w:fill="$hex"/></w:tcPr>${_p('')}</w:tc>'
+        '<w:tc><w:tcPr><w:tcW w:w="7600" w:type="dxa"/></w:tcPr>${_p(name)}</w:tc>'
+        '<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/></w:tcPr>'
+        '<w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:t>${_esc(acres)}</w:t></w:r></w:p></w:tc></w:tr>',
+      );
+    }
+    b.write('</w:tbl>');
+    return b.toString();
+  }
+
+  /// Plain two-column table (name · value), right column right-aligned —
+  /// the features and records tables.
+  static String _pairTable(List<(String, String)> rows) {
     final b = StringBuffer(
       '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>'
       '<w:tblBorders><w:insideH w:val="single" w:sz="4" w:space="0" w:color="B8AE9C"/>'
       '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="1B1813"/></w:tblBorders>'
       '<w:tblLook w:val="0000"/></w:tblPr><w:tblGrid><w:gridCol w:w="8000"/><w:gridCol w:w="2000"/></w:tblGrid>',
     );
-    for (final (name, acres) in rows) {
+    for (final (name, value) in rows) {
       b.write(
         '<w:tr><w:tc><w:tcPr><w:tcW w:w="8000" w:type="dxa"/></w:tcPr>${_p(name)}</w:tc>'
         '<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/></w:tcPr>'
-        '<w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:t>${_esc(acres)}</w:t></w:r></w:p></w:tc></w:tr>',
+        '<w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:t>${_esc(value)}</w:t></w:r></w:p></w:tc></w:tr>',
       );
     }
     b.write('</w:tbl>');

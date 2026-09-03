@@ -45,6 +45,58 @@ class MapDocument {
         ),
   ];
 
+  /// Zone rows with their drawn colour, so the table itself is the zone
+  /// legend (swatch · name · acres) and the legend proper keeps only marks.
+  List<(int, String, String)> get zoneRowsInk => [
+    if (layers.zones)
+      for (var i = 0; i < subject.zones.length; i++)
+        (
+          MapPlate.zoneInk(subject.zones[i], i),
+          subject.zones[i].name,
+          subject.zones[i].areaAcres == null
+              ? '—'
+              : '${subject.zones[i].areaAcres!.toStringAsFixed(1)} ac',
+        ),
+  ];
+
+  /// The legend without the per-zone rows (those live in the zone table
+  /// now): boundary, tracks, feature classes, record types.
+  List<(int, String)> get marksLegend {
+    final zoneNames = {for (final z in subject.zones) z.name};
+    return [
+      for (final e in plate.legend)
+        if (!zoneNames.contains(e.$2)) e,
+    ];
+  }
+
+  /// The map shows features; the document must name them (name · class).
+  List<(String, String)> get featureRows => [
+    if (layers.features)
+      for (final f in subject.features)
+        (
+          f.name,
+          switch (f.featureClass) {
+            'problem' => 'Problem',
+            'infrastructure' => 'Infrastructure',
+            _ => 'Natural',
+          },
+        ),
+  ];
+
+  /// What the record dots are: species (or type) · count, most first.
+  List<(String, String)> get recordRows {
+    if (!layers.records) return const [];
+    final counts = <String, int>{};
+    for (final r in subject.records) {
+      final key =
+          r.label ?? '${r.type[0].toUpperCase()}${r.type.substring(1)} record';
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    final rows = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return [for (final e in rows) (e.key, '${e.value}')];
+  }
+
   /// The plain statement of what the map shows and where it came from.
   String get sourceLine =>
       'Imagery: USGS The National Map (public domain), zoom ${plate.zoom}. '

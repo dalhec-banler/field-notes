@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../map/record_ink.dart';
 import 'map_document.dart';
 import 'map_plate.dart';
 
@@ -84,12 +85,7 @@ class MapHtml {
             'properties': {
               'type': r.type,
               'label': r.label ?? r.type,
-              'color': _hex(
-                _argbToHex(
-                  PlateInk.recordTypes[r.type] ??
-                      PlateInk.recordTypes['general']!,
-                ),
-              ),
+              'color': cssHex(markFor(r.type).argb),
             },
             'geometry': {
               'type': 'Point',
@@ -122,7 +118,11 @@ class MapHtml {
       if (layers.tracks && subject.tracks.isNotEmpty)
         (_hex(_argbToHex(PlateInk.ink)), 'Walked track'),
       if (layers.records && subject.records.isNotEmpty)
-        (_hex(_argbToHex(PlateInk.sage)), 'Field records'),
+        for (final t in {for (final r in subject.records) r.type})
+          (
+            cssHex(markFor(t).argb),
+            '${t[0].toUpperCase()}${t.substring(1)} record',
+          ),
     ];
 
     final legendHtml = [

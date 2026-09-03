@@ -20,6 +20,7 @@ import '../screens/programs_screen.dart';
 import '../screens/species_id_settings_screen.dart';
 import '../screens/species_import_screen.dart';
 import '../screens/restore_screen.dart';
+import '../map/imagery_sources.dart';
 import '../services/app_prefs.dart';
 import '../theme/tokens.dart';
 import '../main.dart' show exportAndShare;
@@ -230,6 +231,27 @@ class _SettingsTabState extends State<SettingsTab> {
 
           // 2. Grouped tables.
           _group('Offline maps', [
+            (
+              'Satellite imagery',
+              activeImagery.id == 'esri'
+                  ? 'Esri — sharper, to zoom 19 · display only'
+                  : 'USGS — public domain, to zoom 16',
+              activeImagery.id == 'esri' ? 'Esri' : 'USGS',
+              () {
+                final next = activeImagery.id == 'esri' ? 'usgs' : 'esri';
+                widget.prefs.imagerySource = next;
+                activeImagery = imageryById(next);
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Imagery: ${activeImagery.label}. The map redraws '
+                      'next time it reloads.',
+                    ),
+                  ),
+                );
+              },
+            ),
             (
               'Offline basemap',
               _basemapInstalled

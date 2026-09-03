@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'record_ink.dart';
+
 /// Marker images for the phone map, drawn once at 3× and added to the
 /// style with addImage. Images rather than circle layers because the map
 /// needs *shapes*: your position is a view-finder, not another dot the
@@ -115,15 +117,11 @@ Future<Uint8List> recordShapeMarker(String kind, {double scale = 3}) async {
           ..strokeWidth = 8
           ..strokeJoin = ui.StrokeJoin.round,
       );
-      c.drawPath(tri, ui.Paint()..color = const ui.Color(0xFF8B2E22));
-    case 'maintenance':
+      c.drawPath(tri, ui.Paint()..color = ui.Color(markFor(kind).argb));
+    default: // infrastructure, maintenance — the squares
       final rect = ui.Rect.fromCenter(center: centre, width: 40, height: 40);
       c.drawRect(rect.inflate(4), paper);
-      c.drawRect(rect, ui.Paint()..color = const ui.Color(0xFFA8791F));
-    default: // infrastructure
-      final rect = ui.Rect.fromCenter(center: centre, width: 40, height: 40);
-      c.drawRect(rect.inflate(4), paper);
-      c.drawRect(rect, ui.Paint()..color = const ui.Color(0xFF1B1813));
+      c.drawRect(rect, ui.Paint()..color = ui.Color(markFor(kind).argb));
   }
   return _png(rec, size, scale);
 }

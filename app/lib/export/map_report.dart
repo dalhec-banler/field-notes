@@ -37,7 +37,7 @@ class MapReport {
       theme: theme,
     );
     final image = pw.MemoryImage(d.plate.png);
-    final legend = d.plate.legend;
+    final legend = d.marksLegend;
     final half = (legend.length / 2).ceil();
     // Letter minus margins; the map takes the width and at most 55 % of the
     // height so the legend and notes start on the same page.
@@ -132,7 +132,7 @@ class MapReport {
             ),
             pw.SizedBox(height: 12),
           ],
-          if (d.zoneRows.isNotEmpty) ...[
+          if (d.zoneRowsInk.isNotEmpty) ...[
             kicker('Zones'),
             pw.SizedBox(height: 4),
             pw.Table(
@@ -140,11 +140,56 @@ class MapReport {
                 horizontalInside: pw.BorderSide(color: _rule, width: 0.5),
               ),
               columnWidths: {
-                0: const pw.FlexColumnWidth(4),
-                1: const pw.FlexColumnWidth(1),
+                0: const pw.FixedColumnWidth(16),
+                1: const pw.FlexColumnWidth(4),
+                2: const pw.FlexColumnWidth(1),
               },
               children: [
-                for (final (name, acres) in d.zoneRows)
+                for (final (ink, name, acres) in d.zoneRowsInk)
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                        child: pw.Container(
+                          width: 9,
+                          height: 9,
+                          color: PdfColor.fromInt(ink),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3),
+                        child: pw.Text(
+                          name,
+                          style: pw.TextStyle(fontSize: 9, color: _ink),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3),
+                        child: pw.Text(
+                          acres,
+                          textAlign: pw.TextAlign.right,
+                          style: pw.TextStyle(fontSize: 9, color: _soft),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            pw.SizedBox(height: 12),
+          ],
+          if (d.featureRows.isNotEmpty) ...[
+            kicker('Features'),
+            pw.SizedBox(height: 4),
+            pw.Table(
+              border: pw.TableBorder(
+                horizontalInside: pw.BorderSide(color: _rule, width: 0.5),
+              ),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(4),
+                1: const pw.FlexColumnWidth(1.4),
+              },
+              children: [
+                for (final (name, cls) in d.featureRows)
                   pw.TableRow(
                     children: [
                       pw.Padding(
@@ -157,7 +202,43 @@ class MapReport {
                       pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(vertical: 3),
                         child: pw.Text(
-                          acres,
+                          cls,
+                          textAlign: pw.TextAlign.right,
+                          style: pw.TextStyle(fontSize: 9, color: _soft),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            pw.SizedBox(height: 12),
+          ],
+          if (d.recordRows.isNotEmpty) ...[
+            kicker('Field records on this map'),
+            pw.SizedBox(height: 4),
+            pw.Table(
+              border: pw.TableBorder(
+                horizontalInside: pw.BorderSide(color: _rule, width: 0.5),
+              ),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(4),
+                1: const pw.FlexColumnWidth(1),
+              },
+              children: [
+                for (final (label, count) in d.recordRows)
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3),
+                        child: pw.Text(
+                          label,
+                          style: pw.TextStyle(fontSize: 9, color: _ink),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 3),
+                        child: pw.Text(
+                          count,
                           textAlign: pw.TextAlign.right,
                           style: pw.TextStyle(fontSize: 9, color: _soft),
                         ),

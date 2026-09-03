@@ -13,6 +13,7 @@ import '../screens/review_feed_screen.dart';
 import '../screens/species_id_settings_screen.dart';
 import '../screens/species_import_screen.dart';
 import '../services/app_prefs.dart';
+import '../map/imagery_sources.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 import 'receive_backup_panel.dart';
@@ -165,6 +166,19 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
           ),
         ]),
         _group('Display & network', [
+          _row(
+            'Satellite imagery',
+            activeImagery.id == 'esri'
+                ? 'Esri World Imagery — sharper, to zoom 19. Display only; '
+                      'offline capture stays USGS.'
+                : 'USGS — public domain, to zoom 16.',
+            activeImagery.id == 'esri' ? 'Esri' : 'USGS',
+            () => setState(() {
+              final next = activeImagery.id == 'esri' ? 'usgs' : 'esri';
+              prefs.imagerySource = next;
+              activeImagery = imageryById(next);
+            }),
+          ),
           _row(
             'Ledger rows',
             prefs.density == 'dense'

@@ -19,6 +19,7 @@ import 'services/desk.dart';
 import 'services/env_context.dart';
 import 'services/location_hub.dart';
 import 'services/track_recorder.dart';
+import 'map/imagery_sources.dart';
 import 'shell/app_shell.dart';
 import 'sync/oplog.dart';
 import 'theme/theme.dart';
@@ -83,6 +84,9 @@ Future<void> main() async {
   // decided before the first frame and only ever changed with the rebuild
   // below, never mid-frame.
   skin = prefs.skinName == 'press' ? pressSkin : quietSkin;
+  // Imagery source is the same kind of process-wide, decided-before-first-
+  // frame state as the skin (D-023 pattern).
+  activeImagery = imageryById(prefs.imagerySource);
   runApp(FieldNotesApp(db: db, prefs: prefs));
 }
 

@@ -66,6 +66,7 @@ Future<PlateSubject> loadPlateSubject(
     records: [
       for (final o in observations)
         PlateRecord(
+          id: o.id,
           lat: o.lat,
           lng: o.lng,
           type: o.observationType,

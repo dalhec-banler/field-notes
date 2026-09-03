@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../map/record_ink.dart';
+
 import 'skin.dart';
 
 export 'skin.dart' show Skin, pressSkin, quietSkin, skin;
@@ -96,15 +98,7 @@ Color plantStatusColor(String status) => switch (status) {
 };
 
 /// Record-type diamond colours for pins and list rows.
-Color recordTypeColor(String type) => switch (type) {
-  'plant' || 'phenology' => Press.sage,
-  'water' => Press.river,
-  'problem' => Press.oxblood,
-  'wildlife' || 'sign' => Press.ochre,
-  'soil' => Press.ochreLight,
-  'infrastructure' || 'maintenance' => Press.ink,
-  _ => Press.inkSoft,
-};
+Color recordTypeColor(String type) => Color(markFor(type).argb);
 
 /// Nativity → ink, the one mapping (the chip today, a plate or export
 /// tomorrow), kept beside the other semantic colour maps.

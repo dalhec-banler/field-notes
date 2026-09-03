@@ -95,6 +95,11 @@ class AppPrefs extends ChangeNotifier {
   bool get pressUnlocked => get<bool>('press_unlocked') ?? false;
   set pressUnlocked(bool v) => set('press_unlocked', v);
 
+  /// Which satellite imagery source the map and plates draw (2026-09-03).
+  /// 'usgs' (default, public domain) or 'esri' (sharper, display-only).
+  String get imagerySource => get<String>('imagery_source') ?? 'usgs';
+  set imagerySource(String v) => set('imagery_source', v);
+
   /// glove | dense — drives the ledger row scale factor.
   String get density => get<String>('density') ?? 'glove';
   set density(String v) => set('density', v);

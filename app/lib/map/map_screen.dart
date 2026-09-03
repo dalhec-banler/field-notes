@@ -18,6 +18,7 @@ import 'basemap_style.dart';
 import 'cluster_badge.dart';
 import 'map_markers.dart';
 import 'record_clusters.dart';
+import 'record_ink.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
 import 'tile_server.dart';
@@ -786,7 +787,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     await controller.addCircleLayer(
       'observations',
       'observations-circles',
-      const CircleLayerProperties(
+      CircleLayerProperties(
         // Plants keep the fine dot; everything else (infrastructure, water,
         // problems…) draws larger — the non-plant inks are dark and a 7.5px
         // dot in near-black disappears against imagery (Austin, 2026-09-02).
@@ -813,45 +814,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         // A named plant is coloured by what kind of plant it is — trees,
         // shrubs, grasses and forbs read apart at a glance. Everything else
         // falls back to the kind of record it is.
-        circleColor: [
-          'match',
-          ['get', 'kind'],
-          'tree',
-          '#3F5957',
-          'shrub',
-          '#5F6B58',
-          'graminoid',
-          '#B58A3C',
-          'forb',
-          '#8E6A28',
-          'vine',
-          '#5C7A78',
-          'succulent',
-          '#8E9B85',
-          'fern',
-          '#6B8F71',
-          'moss',
-          '#6B8F71',
-          'wildlife',
-          '#7A5C2E',
-          'problem',
-          '#7A2E1E',
-          'water',
-          '#5E6E8C',
-          'soil',
-          '#6B4F2A',
-          'phenology',
-          '#5C7A78',
-          'sign',
-          '#8E6A28',
-          'weather',
-          '#5E6E8C',
-          'maintenance',
-          '#2C2620',
-          'infrastructure',
-          '#2C2620',
-          '#2f5233',
-        ],
+        circleColor: kindColorMatch(),
         circleStrokeColor: '#ECE3CE',
         circleStrokeWidth: 1.5,
       ),

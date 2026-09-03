@@ -14,6 +14,7 @@ import '../widgets/press.dart';
 import '../backup/restore.dart';
 import '../screens/drive_backup_screen.dart';
 import '../screens/record_detail_screen.dart';
+import 'desk_map_view.dart';
 import 'drive_watch.dart';
 import 'export_workspace.dart';
 import 'settings_workspace.dart';
@@ -44,6 +45,7 @@ class DesktopShell extends StatefulWidget {
 class _DesktopShellState extends State<DesktopShell> {
   int _view = 0;
   static const _views = [
+    'Map',
     'Review',
     'Survival',
     'Propagation',
@@ -350,21 +352,30 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 
   Widget _workspace() {
-    return switch (_view) {
-      0 => _ReviewWorkspace(db: widget.db, property: widget.property),
-      1 => _SurvivalWorkspace(db: widget.db, property: widget.property),
-      2 => _PropagationWorkspace(db: widget.db, property: widget.property),
-      3 => ExportWorkspace(db: widget.db, property: widget.property),
-      _ => SettingsWorkspace(
-        db: widget.db,
-        property: widget.property,
-        prefs: widget.prefs,
-      ),
-    };
+    // IndexedStack, not a switch: composing a plate, then checking one
+    // record in Review, must come back to the same plate (design audit
+    // 2026-09-03 finding 1). Keyed by property so switching place resets.
+    return IndexedStack(
+      key: ValueKey(widget.property.id),
+      index: _view,
+      children: [
+        DeskMapWorkspace(db: widget.db, property: widget.property),
+        _ReviewWorkspace(db: widget.db, property: widget.property),
+        _SurvivalWorkspace(db: widget.db, property: widget.property),
+        _PropagationWorkspace(db: widget.db, property: widget.property),
+        ExportWorkspace(db: widget.db, property: widget.property),
+        SettingsWorkspace(
+          db: widget.db,
+          property: widget.property,
+          prefs: widget.prefs,
+        ),
+      ],
+    );
   }
 
   Widget _statusBar() {
     final sentences = [
+      'The record in place · click a mark to open it',
       'Reviewing the local store · click a row to inspect',
       'Survival is derived at read time · never stored',
       'The chain must tolerate a break at either end',

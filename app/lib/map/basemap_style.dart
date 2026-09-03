@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'imagery_sources.dart';
+
 /// Minimal MapLibre style over a Protomaps vector basemap served from the
 /// loopback tile server. No glyphs or sprites — every layer here renders
 /// without font/icon assets, so the style is fully offline from day one.
@@ -19,12 +21,10 @@ String basemapStyle({String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
       // of imagery tiles is a later step.
       'satellite': {
         'type': 'raster',
-        'tiles': [
-          'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',
-        ],
+        'tiles': [activeImagery.template],
         'tileSize': 256,
-        'maxzoom': 16,
-        'attribution': 'USGS The National Map',
+        'maxzoom': activeImagery.maxZoom,
+        'attribution': activeImagery.attribution,
       },
       'basemap': pmtilesUrl != null
           ? {'type': 'vector', 'url': pmtilesUrl}
@@ -142,12 +142,10 @@ String _satelliteOnlyStyle() => jsonEncode({
   'sources': {
     'satellite': {
       'type': 'raster',
-      'tiles': [
-        'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',
-      ],
+      'tiles': [activeImagery.template],
       'tileSize': 256,
-      'maxzoom': 16,
-      'attribution': 'USGS The National Map',
+      'maxzoom': activeImagery.maxZoom,
+      'attribution': activeImagery.attribution,
     },
   },
   'layers': [
