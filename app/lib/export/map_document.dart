@@ -1,3 +1,4 @@
+import '../map/imagery_sources.dart';
 import 'map_plate.dart';
 
 /// What the exported document says, independent of format (D-024). The PDF
@@ -99,7 +100,7 @@ class MapDocument {
 
   /// The plain statement of what the map shows and where it came from.
   String get sourceLine =>
-      'Imagery: USGS The National Map (public domain), zoom ${plate.zoom}. '
+      'Imagery: ${activeImagery.attribution}, zoom ${plate.zoom}. '
       '${layers.records ? 'Field record locations are shown.' : 'Field record locations are not shown.'}'
       '${plate.tilesMissing > 0 ? ' ${plate.tilesMissing} imagery tiles were unavailable.' : ''}'
       ' Made with Field Notes.';

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -506,7 +507,32 @@ class MapPlate {
     final b =
         LatLngBounds.ofPoints(pts) ??
         const LatLngBounds(south: 30.9, west: -98.2, north: 31.2, east: -97.9);
-    return b.pad(0.08);
+    var bb = b.pad(0.08);
+    // A near-collinear subject — five records down one street — frames as
+    // a ribbon and the page gets a sliver of map (Austin, 2026-09-03).
+    // Open the short axis until the window is page-shaped.
+    final latMid = (bb.north + bb.south) / 2;
+    final mPerLng = 111320 * math.cos(latMid * math.pi / 180);
+    final wM = (bb.east - bb.west) * mPerLng;
+    final hM = (bb.north - bb.south) * 110574;
+    if (hM < wM * 0.6) {
+      final grow = (wM * 0.6 - hM) / 110574 / 2;
+      bb = LatLngBounds(
+        south: bb.south - grow,
+        west: bb.west,
+        north: bb.north + grow,
+        east: bb.east,
+      );
+    } else if (wM < hM * 0.7) {
+      final grow = (hM * 0.7 - wM) / mPerLng / 2;
+      bb = LatLngBounds(
+        south: bb.south,
+        west: bb.west - grow,
+        north: bb.north,
+        east: bb.east + grow,
+      );
+    }
+    return bb;
   }
 
   /// Records within [radiusPx] of each other collapse into one group. Greedy
