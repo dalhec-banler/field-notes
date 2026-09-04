@@ -283,16 +283,27 @@ class MapPlate {
     /// ink; the legend names them. Null (or empty) = every record in its
     /// type colour, as before.
     List<PlateSpecies>? species,
+
+    /// Frame this many zoom levels past the source's cache: tiles are
+    /// upscaled into their quadrants. A poster framed at the source cap
+    /// renders a few hundred pixels stretched to two feet — soft imagery
+    /// and comically large furniture (2026-09-04).
+    int overzoom = 0,
     double maxWidth = 1600,
     double maxHeight = 1100,
     String attribution = 'Imagery: USGS The National Map · Field Notes',
     double scale = 2,
   }) async {
     final bounds = frameBounds(subject, layers);
-    final zoom = zoomFor(bounds, maxWidth, maxHeight, maxZoom: maxZoom);
+    final zoom = zoomFor(
+      bounds,
+      maxWidth,
+      maxHeight,
+      maxZoom: maxZoom + overzoom,
+    );
     final frame = PlateFrame(bounds: bounds, zoom: zoom);
 
-    final tiles = await _fetchAll(frame);
+    final tiles = await _fetchAll(frame, srcMaxZoom: maxZoom);
     var missing = 0;
 
     final recorder = ui.PictureRecorder();
@@ -308,16 +319,22 @@ class MapPlate {
       ui.Paint()..color = ui.Color(PlateInk.paper),
     );
 
-    // Imagery.
+    // Imagery. Overzoomed frames draw a quadrant of the parent tile.
     for (final (tx, ty) in frame.tiles) {
-      final img = tiles[(tx, ty)];
+      final entry = tiles[(tx, ty)];
       final (ox, oy) = frame.tileOrigin(tx, ty);
-      if (img == null) {
+      if (entry == null) {
         missing++;
         _drawMissingTile(canvas, ox, oy);
         continue;
       }
-      canvas.drawImage(img, ui.Offset(ox, oy), ui.Paint());
+      final (img, src) = entry;
+      canvas.drawImageRect(
+        img,
+        src,
+        ui.Rect.fromLTWH(ox, oy, tileSize, tileSize),
+        ui.Paint()..filterQuality = ui.FilterQuality.medium,
+      );
       img.dispose();
     }
     // A soft wash so ink reads on imagery.
@@ -729,24 +746,56 @@ class MapPlate {
     }
   }
 
-  Future<Map<(int, int), ui.Image?>> _fetchAll(PlateFrame frame) async {
-    final out = <(int, int), ui.Image?>{};
+  Future<Map<(int, int), (ui.Image, ui.Rect)?>> _fetchAll(
+    PlateFrame frame, {
+    int? srcMaxZoom,
+  }) async {
+    final srcMax = srcMaxZoom ?? frame.zoom;
+    final depth = (frame.zoom - srcMax).clamp(0, 8);
+    final out = <(int, int), (ui.Image, ui.Rect)?>{};
     final queue = frame.tiles.toList();
     Future<void> worker() async {
       while (queue.isNotEmpty) {
         final (tx, ty) = queue.removeLast();
-        final bytes = await fetchTile(frame.zoom, tx, ty);
-        ui.Image? img;
+        // Past the source's cache: fetch the parent and note which
+        // quadrant this tile is (the tile cache dedups the network).
+        final bytes = depth == 0
+            ? await fetchTile(frame.zoom, tx, ty)
+            : await fetchTile(srcMax, tx >> depth, ty >> depth);
+        (ui.Image, ui.Rect)? entry;
         if (bytes != null) {
           try {
             final codec = await ui.instantiateImageCodec(bytes);
-            img = (await codec.getNextFrame()).image;
+            final img = (await codec.getNextFrame()).image;
             codec.dispose();
+            if (depth == 0) {
+              entry = (
+                img,
+                ui.Rect.fromLTWH(
+                  0,
+                  0,
+                  img.width.toDouble(),
+                  img.height.toDouble(),
+                ),
+              );
+            } else {
+              final sub = 1 << depth;
+              final q = img.width / sub;
+              entry = (
+                img,
+                ui.Rect.fromLTWH(
+                  (tx & (sub - 1)) * q,
+                  (ty & (sub - 1)) * q,
+                  q,
+                  q,
+                ),
+              );
+            }
           } catch (_) {
-            img = null;
+            entry = null;
           }
         }
-        out[(tx, ty)] = img;
+        out[(tx, ty)] = entry;
       }
     }
 

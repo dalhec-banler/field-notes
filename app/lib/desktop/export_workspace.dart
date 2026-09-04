@@ -166,15 +166,16 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
       final (_, baseMaxZoom, baseLabel) = _baseSource;
       // Bigger sheets carry more pixels: the poster renders a plate a
       // print shop can hold at arm's length.
-      final (maxW, maxH) = switch (_page) {
-        PlatePage.letter => (1600.0, 1100.0),
-        PlatePage.tabloid => (2200.0, 1600.0),
-        PlatePage.poster => (3400.0, 2400.0),
+      final (maxW, maxH, over) = switch (_page) {
+        PlatePage.letter => (1600.0, 1100.0, 1),
+        PlatePage.tabloid => (2200.0, 1600.0, 2),
+        PlatePage.poster => (3400.0, 2400.0, 2),
       };
       final r = await MapPlate(fetchTile: _fetch, maxZoom: baseMaxZoom).render(
         fresh,
         layers: _layers,
         species: _speciesSelection,
+        overzoom: over,
         maxWidth: maxW,
         maxHeight: maxH,
         attribution: 'Imagery: $baseLabel · Field Notes',
