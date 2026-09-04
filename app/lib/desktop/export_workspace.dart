@@ -16,6 +16,7 @@ import '../export/map_plate.dart';
 import '../export/map_report.dart';
 import '../export/plate_subject_loader.dart';
 import '../map/imagery_sources.dart';
+import '../map/record_ink.dart';
 import '../map/tile_cache.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
@@ -178,7 +179,7 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
     final counts = <String, (String, int)>{};
     for (final r in s.records) {
       final key = r.label ?? '__type:${r.type}';
-      final label = r.label ?? '${_cap(r.type)} — unnamed';
+      final label = r.label ?? _cap(r.type);
       final prev = counts[key];
       counts[key] = (label, (prev?.$2 ?? 0) + 1);
     }
@@ -199,6 +200,12 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
         ),
     ];
   }
+
+  /// A group with a species label is SPECIES; otherwise its type decides.
+  RecordRealm _realmOf((String, String, int, int) g) =>
+      g.$1.startsWith('__type:')
+      ? realmOfType(g.$1.substring('__type:'.length))
+      : RecordRealm.species;
 
   List<PlateSpecies>? get _speciesSelection {
     if (_speciesSel.isEmpty) return null;
@@ -375,13 +382,28 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
                   Padding(
                     padding: EdgeInsets.only(top: 2, bottom: 4),
                     child: MonoLabel(
-                      'Pick species for the plate — each wears its own '
-                      'colour. None picked = every record, type colours.',
+                      'Pick what goes on the plate — each pick wears its '
+                      'own colour. None picked = every record, type '
+                      'colours.',
                       size: 8.5,
                       opacity: 0.65,
                     ),
                   ),
-                  for (final g in _recordGroups) _speciesRowUi(g),
+                  for (final realm in RecordRealm.values) ...[
+                    if (_recordGroups.any((g) => _realmOf(g) == realm)) ...[
+                      Padding(
+                        padding: EdgeInsets.only(top: 6, bottom: 2),
+                        child: MonoLabel(
+                          realmTitles[realm]!,
+                          size: 8.5,
+                          spacing: 1.8,
+                          color: Press.oxblood,
+                        ),
+                      ),
+                      for (final g in _recordGroups)
+                        if (_realmOf(g) == realm) _speciesRowUi(g),
+                    ],
+                  ],
                 ],
                 SizedBox(height: 12),
                 InkWell(

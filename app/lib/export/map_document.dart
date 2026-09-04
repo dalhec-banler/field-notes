@@ -1,4 +1,5 @@
 import '../map/imagery_sources.dart';
+import '../map/record_ink.dart';
 import 'map_plate.dart';
 
 /// What the exported document says, independent of format (D-024). The PDF
@@ -102,15 +103,22 @@ class MapDocument {
           ),
       ];
     }
-    final counts = <String, int>{};
+    // Species first, then observations, the built, the broken — the same
+    // sections every panel uses (2026-09-04).
+    final counts = <String, (int, int)>{};
     for (final r in subject.records) {
       final key =
           r.label ?? '${r.type[0].toUpperCase()}${r.type.substring(1)} record';
-      counts[key] = (counts[key] ?? 0) + 1;
+      final realm = r.label != null ? RecordRealm.species : realmOfType(r.type);
+      final prev = counts[key];
+      counts[key] = (realm.index, (prev?.$2 ?? 0) + 1);
     }
     final rows = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return [for (final e in rows) (e.key, '${e.value}')];
+      ..sort((a, b) {
+        final byRealm = a.value.$1.compareTo(b.value.$1);
+        return byRealm != 0 ? byRealm : b.value.$2.compareTo(a.value.$2);
+      });
+    return [for (final e in rows) (e.key, '${e.value.$2}')];
   }
 
   /// The plain statement of what the map shows and where it came from.

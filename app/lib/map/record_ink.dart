@@ -61,3 +61,23 @@ List<Object> kindColorMatch() => [
   for (final e in recordMarks.entries) ...[e.key, cssHex(e.value.argb)],
   cssHex(recordMarks['general']!.argb),
 ];
+
+/// The section taxonomy (Austin, 2026-09-04: "we should have separate
+/// sections for species, infra, problems"): a record with a species name
+/// belongs to SPECIES wherever records are listed; the rest of the circle
+/// types are field observations; squares are the built estate; triangles
+/// are trouble.
+enum RecordRealm { species, observation, infrastructure, problem }
+
+RecordRealm realmOfType(String type) => switch (type) {
+  'problem' => RecordRealm.problem,
+  'infrastructure' || 'maintenance' => RecordRealm.infrastructure,
+  _ => RecordRealm.observation,
+};
+
+const realmTitles = {
+  RecordRealm.species: 'Species',
+  RecordRealm.observation: 'Observations',
+  RecordRealm.infrastructure: 'Infrastructure',
+  RecordRealm.problem: 'Problems',
+};

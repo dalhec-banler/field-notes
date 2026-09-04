@@ -39,14 +39,17 @@ class DeskMapWorkspace extends StatefulWidget {
   State<DeskMapWorkspace> createState() => _DeskMapWorkspaceState();
 }
 
-/// One row of the species panel: every record sharing a species label
-/// (or, for unnamed records, sharing a type).
+/// One row of the panel: every record sharing a species label (or, for
+/// unnamed records, sharing a type).
 class _SpeciesGroup {
   _SpeciesGroup(this.key, this.label, this.type, this.records);
   final String key;
   final String label;
   final String type;
   final List<PlateRecord> records;
+
+  RecordRealm get realm =>
+      records.first.label != null ? RecordRealm.species : realmOfType(type);
 }
 
 class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
@@ -268,7 +271,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
       final key = r.label ?? '__type:${r.type}';
       (byKey[key] ??= _SpeciesGroup(
         key,
-        r.label ?? '${_cap(r.type)} — unnamed',
+        r.label ?? _cap(r.type),
         r.type,
         [],
       )).records.add(r);
@@ -464,44 +467,60 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
         ),
       );
     }
+    // Separate sections for the separate kinds of thing (Austin,
+    // 2026-09-04): a fence post is not a species.
+    final sections = [
+      for (final realm in RecordRealm.values)
+        (
+          realm,
+          [
+            for (final g in groups)
+              if (g.realm == realm) g,
+          ],
+        ),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Kicker('On this map'),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    'SPECIES',
-                    style: TextStyle(
-                      fontFamily: Type.slab,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                      height: 0.9,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${groups.length}',
-                    style: TextStyle(
-                      fontFamily: Type.slab,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                      color: Press.oxblood,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
+          child: Kicker('On this map'),
         ),
         Expanded(
-          child: ListView(children: [for (final g in groups) _speciesRow(g)]),
+          child: ListView(
+            children: [
+              for (final (realm, gs) in sections)
+                if (gs.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+                    child: Row(
+                      children: [
+                        Text(
+                          realmTitles[realm]!.toUpperCase(),
+                          style: TextStyle(
+                            fontFamily: Type.slab,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 17,
+                            height: 0.9,
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          '${gs.length}',
+                          style: TextStyle(
+                            fontFamily: Type.slab,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 17,
+                            color: Press.oxblood,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  for (final g in gs) _speciesRow(g),
+                ],
+            ],
+          ),
         ),
       ],
     );
