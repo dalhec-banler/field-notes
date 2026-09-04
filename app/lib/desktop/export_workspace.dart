@@ -54,22 +54,47 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
   /// Species chosen for a species-coloured plate (empty = classic type
   /// colours, every record).
   final Set<String> _speciesSel = {};
+
+  /// The plate's base: the live aerial source, USGS topo, or the blend —
+  /// "aerial and topographic imagery as background", the property-map
+  /// standard (2026-09-04).
+  String _base = 'aerial';
+  static const _bases = [
+    ('aerial', 'Aerial'),
+    ('topo', 'Topo'),
+    ('blend', 'Aerial + topo'),
+  ];
+
+  PlatePage _page = PlatePage.letter;
+
+  (String template, int maxZoom, String label) get _baseSource =>
+      switch (_base) {
+        'topo' => (usgsTopoTemplate, 16, 'USGS Topo'),
+        'blend' => (usgsImageryTopoTemplate, 16, 'USGS Imagery + Topo'),
+        _ => (
+          activeImagery.template,
+          activeImagery.maxZoom,
+          activeImagery.attribution,
+        ),
+      };
   String? _note; // warnings and save confirmations only
   int _seq = 0;
   Timer? _debounce;
   StreamSubscription<void>? _watch;
 
-  /// Session tile cache: layer toggles never change the imagery, so only
-  /// the first render waits on the network.
-  final _tiles = TileCache();
-  String _fetchSourceId = activeImagery.id;
+  /// Session tile caches, one per base — a topo tile must never answer
+  /// for an aerial one.
+  final _tileCaches = <String, TileCache>{};
+  String _fetchKey = '';
   late TileFetcher _fetch = _buildFetcher();
   TileFetcher _buildFetcher() {
-    final primary = httpTileFetcher(template: activeImagery.template);
-    final chained = activeImagery.id == 'usgs'
-        ? primary
-        : tileFetcherWithFallback(primary, httpTileFetcher());
-    return _tiles.wrap(chained);
+    final (template, _, _) = _baseSource;
+    final primary = httpTileFetcher(template: template);
+    final chained = _base == 'aerial' && activeImagery.id != 'usgs'
+        ? tileFetcherWithFallback(primary, httpTileFetcher())
+        : primary;
+    _fetchKey = '$_base:${activeImagery.id}';
+    return (_tileCaches[_fetchKey] ??= TileCache()).wrap(chained);
   }
 
   final _pageKey = GlobalKey();
@@ -131,25 +156,29 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
   Future<void> _render() async {
     if (!mounted) return;
     final seq = ++_seq;
-    // Settings may have swapped the imagery source since the last render.
-    if (_fetchSourceId != activeImagery.id) {
-      _fetchSourceId = activeImagery.id;
-      _tiles.clear();
+    // The base or the Settings imagery source may have changed.
+    if (_fetchKey != '$_base:${activeImagery.id}') {
       _fetch = _buildFetcher();
     }
     setState(() => _rendering = true);
     try {
       final fresh = await loadPlateSubject(widget.db, widget.property);
-      final r =
-          await MapPlate(
-            fetchTile: _fetch,
-            maxZoom: activeImagery.maxZoom,
-          ).render(
-            fresh,
-            layers: _layers,
-            species: _speciesSelection,
-            attribution: 'Imagery: ${activeImagery.attribution} · Field Notes',
-          );
+      final (_, baseMaxZoom, baseLabel) = _baseSource;
+      // Bigger sheets carry more pixels: the poster renders a plate a
+      // print shop can hold at arm's length.
+      final (maxW, maxH) = switch (_page) {
+        PlatePage.letter => (1600.0, 1100.0),
+        PlatePage.tabloid => (2200.0, 1600.0),
+        PlatePage.poster => (3400.0, 2400.0),
+      };
+      final r = await MapPlate(fetchTile: _fetch, maxZoom: baseMaxZoom).render(
+        fresh,
+        layers: _layers,
+        species: _speciesSelection,
+        maxWidth: maxW,
+        maxHeight: maxH,
+        attribution: 'Imagery: $baseLabel · Field Notes',
+      );
       if (!mounted || seq != _seq) return; // a newer render superseded this
       setState(() {
         _subject = fresh;
@@ -226,6 +255,7 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
       plate: p,
       subject: s,
       layers: _layers,
+      page: _page,
       species: _speciesSelection,
       preparedFor: _preparedFor.text,
       notes: _notes.text,
@@ -328,6 +358,34 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
                   ),
                 ),
                 SizedBox(height: 12),
+                MonoLabel('Base', size: 9, spacing: 1.8),
+                SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final (id, label) in _bases)
+                      _choiceChip(label, _base == id, () {
+                        setState(() => _base = id);
+                        _scheduleRender();
+                      }),
+                  ],
+                ),
+                SizedBox(height: 6),
+                MonoLabel('Sheet', size: 9, spacing: 1.8),
+                SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final pg in PlatePage.values)
+                      _choiceChip(pg.label, _page == pg, () {
+                        setState(() => _page = pg);
+                        _scheduleRender();
+                      }),
+                  ],
+                ),
+                SizedBox(height: 12),
                 _layerRow(
                   'Property boundary',
                   _layers.boundary,
@@ -356,6 +414,21 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
                   _layers.tracks,
                   (v) => _layers = _layers.copyWith(tracks: v),
                   count: _subject?.tracks.length,
+                ),
+                _layerRow(
+                  'Hydrology · USGS',
+                  _layers.hydro,
+                  (v) => _layers = _layers.copyWith(hydro: v),
+                ),
+                _layerRow(
+                  'Elevation contours · USGS',
+                  _layers.contours,
+                  (v) => _layers = _layers.copyWith(contours: v),
+                ),
+                _layerRow(
+                  'Soil map units · USDA',
+                  _layers.soils,
+                  (v) => _layers = _layers.copyWith(soils: v),
                 ),
                 _layerRow(
                   'Field records',
@@ -466,9 +539,9 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
                   onSelected: _saveAs,
                   itemBuilder: (_) => [
                     for (final (ext, label) in [
-                      ('pdf', 'PDF — the page as it prints'),
+                      ('pdf', 'PDF — the sheet as it prints'),
                       ('png', 'PNG — the page as an image'),
-                      ('docx', 'Word — editable document'),
+                      ('docx', 'Word — editable, letter size'),
                       ('html', 'HTML — interactive map'),
                     ])
                       PopupMenuItem(
@@ -640,6 +713,25 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
       ),
     );
   }
+
+  Widget _choiceChip(String label, bool on, VoidCallback onTap) => InkWell(
+    onTap: onTap,
+    child: Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: on ? Press.ink : null,
+        border: Border.all(color: Press.borderInk, width: 1),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: Type.serif,
+          fontSize: 13,
+          color: on ? Press.paper : Press.ink,
+        ),
+      ),
+    ),
+  );
 
   Widget _layerRow(
     String label,

@@ -41,8 +41,10 @@ class MapReport {
     final half = (legend.length / 2).ceil();
     // Letter minus margins; the map takes the width and at most 55 % of the
     // height so the legend and notes start on the same page.
-    final pageW = PdfPageFormat.letter.width - 96;
-    final pageH = PdfPageFormat.letter.height - 96;
+    final format = PdfPageFormat(d.page.widthPt, d.page.heightPt);
+    final margin = d.page == PlatePage.poster ? 72.0 : 48.0;
+    final pageW = format.width - 2 * margin;
+    final pageH = format.height - 2 * margin;
     final ratio = d.plate.height / d.plate.width;
     final mapH = (pageW * ratio).clamp(120.0, pageH * 0.55);
     final mapW = mapH / ratio;
@@ -73,8 +75,8 @@ class MapReport {
 
     doc.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.letter,
-        margin: const pw.EdgeInsets.all(48),
+        pageFormat: format,
+        margin: pw.EdgeInsets.all(margin),
         footer: (ctx) => pw.Text(
           d.sourceLine,
           style: pw.TextStyle(fontSize: 7, color: _soft),

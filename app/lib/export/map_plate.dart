@@ -26,6 +26,23 @@ typedef TileFetcher = Future<Uint8List?> Function(int z, int x, int y);
 const usgsImageryTemplate =
     'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}';
 
+/// Topographic bases for the plate (the Plateau-style property map,
+/// 2026-09-04): USGS's own topo, and the aerial+topo blend. Public
+/// domain, no key. These are PLATE bases, not app map sources.
+const usgsTopoTemplate =
+    'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}';
+const usgsImageryTopoTemplate =
+    'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}';
+
+/// One-shot overlay services drawn over the base at the frame's bbox:
+/// hydrology and contours from The National Map, soil map units from
+/// USDA-NRCS. All public domain; each request sends only the framed bbox.
+const _hydroExport =
+    'https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/export';
+const _contoursExport =
+    'https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export';
+const _soilsWms = 'https://SDMDataAccess.sc.egov.usda.gov/Spatial/SDM.wms';
+
 TileFetcher httpTileFetcher({http.Client? client, String? template}) {
   final c = client ?? http.Client();
   final t = template ?? usgsImageryTemplate;
@@ -134,8 +151,17 @@ class PlateLayers {
     this.features = true,
     this.records = false,
     this.tracks = false,
+    this.hydro = false,
+    this.contours = false,
+    this.soils = false,
   });
   final bool boundary, zones, zoneLabels, features, records, tracks;
+
+  /// Government overlays (the Plateau map's optional layers): hydrology,
+  /// elevation contours, soil map units.
+  final bool hydro;
+  final bool contours;
+  final bool soils;
 
   PlateLayers copyWith({
     bool? boundary,
@@ -144,6 +170,9 @@ class PlateLayers {
     bool? features,
     bool? records,
     bool? tracks,
+    bool? hydro,
+    bool? contours,
+    bool? soils,
   }) => PlateLayers(
     boundary: boundary ?? this.boundary,
     zones: zones ?? this.zones,
@@ -151,6 +180,9 @@ class PlateLayers {
     features: features ?? this.features,
     records: records ?? this.records,
     tracks: tracks ?? this.tracks,
+    hydro: hydro ?? this.hydro,
+    contours: contours ?? this.contours,
+    soils: soils ?? this.soils,
   );
 }
 
@@ -295,6 +327,49 @@ class MapPlate {
     );
 
     final legend = <(int, String)>[];
+
+    // Government overlays: one bbox-sized image each, drawn over the base.
+    final mercBbox = _mercBboxOf(bounds);
+    Future<void> overlay(String url, {double opacity = 1}) async {
+      final img = await _fetchOverlayImage(url);
+      if (img == null) return;
+      canvas.drawImageRect(
+        img,
+        ui.Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+        ui.Rect.fromLTWH(0, 0, w, h),
+        ui.Paint()
+          ..color = ui.Color.fromRGBO(0, 0, 0, opacity)
+          ..filterQuality = ui.FilterQuality.medium,
+      );
+      img.dispose();
+    }
+
+    final ow = (frame.width).clamp(256, 2000).toInt();
+    final oh = (frame.height * ow / frame.width).round().clamp(256, 2000);
+    if (layers.soils) {
+      await overlay(
+        '$_soilsWms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap'
+        '&LAYERS=MapunitPoly&STYLES=&SRS=EPSG:3857&BBOX=$mercBbox'
+        '&WIDTH=$ow&HEIGHT=$oh&FORMAT=image/png&TRANSPARENT=true',
+        opacity: 0.9,
+      );
+      legend.add((0xFFB5652B, 'Soil map units · USDA-NRCS'));
+    }
+    if (layers.contours) {
+      await overlay(
+        '$_contoursExport?bbox=$mercBbox&bboxSR=3857&imageSR=3857'
+        '&size=$ow,$oh&transparent=true&format=png32&f=image',
+        opacity: 0.85,
+      );
+      legend.add((0xFF7A5C3B, 'Elevation contours · USGS'));
+    }
+    if (layers.hydro) {
+      await overlay(
+        '$_hydroExport?bbox=$mercBbox&bboxSR=3857&imageSR=3857'
+        '&size=$ow,$oh&transparent=true&format=png32&f=image',
+      );
+      legend.add((0xFF2F5D8A, 'Hydrology · USGS NHD'));
+    }
 
     // Zones.
     if (layers.zones) {
@@ -614,6 +689,44 @@ class MapPlate {
       if (!placed) groups.add(((x, y), [r]));
     }
     return groups;
+  }
+
+  /// EPSG:3857 bbox string for the frame's bounds.
+  static String _mercBboxOf(LatLngBounds b) {
+    const r = 6378137.0;
+    double mx(double lon) => lon * math.pi / 180 * r;
+    double my(double lat) =>
+        r * math.log(math.tan(math.pi / 4 + lat * math.pi / 360));
+    return '${mx(b.west)},${my(b.south)},${mx(b.east)},${my(b.north)}';
+  }
+
+  /// One overlay image; the government endpoints hiccup (a 502 answered
+  /// this exact request during development), so try three times and let
+  /// a miss mean a missing layer, never a failed plate.
+  Future<ui.Image?> _fetchOverlayImage(String url) async {
+    final client = http.Client();
+    try {
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          final res = await client
+              .get(Uri.parse(url), headers: {'User-Agent': 'FieldNotes/1.1'})
+              .timeout(const Duration(seconds: 25));
+          final b = res.bodyBytes;
+          final isImage =
+              b.length > 8 && (b[0] == 0x89 || (b[0] == 0xFF && b[1] == 0xD8));
+          if (res.statusCode == 200 && isImage) {
+            final codec = await ui.instantiateImageCodec(b);
+            final img = (await codec.getNextFrame()).image;
+            codec.dispose();
+            return img;
+          }
+        } catch (_) {}
+        await Future<void>.delayed(const Duration(seconds: 1));
+      }
+      return null;
+    } finally {
+      client.close();
+    }
   }
 
   Future<Map<(int, int), ui.Image?>> _fetchAll(PlateFrame frame) async {

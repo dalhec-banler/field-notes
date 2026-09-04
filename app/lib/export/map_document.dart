@@ -11,6 +11,7 @@ class MapDocument {
     required this.plate,
     required this.subject,
     required this.layers,
+    this.page = PlatePage.letter,
     this.species,
     this.preparedFor,
     this.notes,
@@ -21,6 +22,10 @@ class MapDocument {
   final PlateResult plate;
   final PlateSubject subject;
   final PlateLayers layers;
+
+  /// The printed sheet (2026-09-04): letter for the binder, tabloid for
+  /// the truck, poster for the wall — the print shop takes the file.
+  final PlatePage page;
 
   /// Species mode (matches what [MapPlate.render] drew): the chosen
   /// species, in their plate colours.
@@ -140,3 +145,15 @@ String escapeXml(String s) => s
 /// `#RRGGBB` for an ARGB int — the print palette's colours as CSS/OOXML hex.
 String argbToCssHex(int argb) =>
     '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+/// Print sheet sizes. Dimensions in points (1/72 in).
+enum PlatePage {
+  letter(612, 792, 'Letter · 8.5×11'),
+  tabloid(792, 1224, '11×17'),
+  poster(1728, 2592, 'Poster · 24×36');
+
+  const PlatePage(this.widthPt, this.heightPt, this.label);
+  final double widthPt;
+  final double heightPt;
+  final String label;
+}
