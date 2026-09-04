@@ -59,10 +59,14 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
   /// "aerial and topographic imagery as background", the property-map
   /// standard (2026-09-04).
   String _base = 'aerial';
+  // Aerial is the sharp one (Esri, z19); the USGS quad blend caps at z16
+  // and costs that sharpness — say so on the chip (Austin, 2026-09-04:
+  // "doesn't look like we are using the high quality map"). The topo LOOK
+  // on sharp imagery is Aerial + the contour/hydro overlays.
   static const _bases = [
-    ('aerial', 'Aerial'),
-    ('topo', 'Topo'),
-    ('blend', 'Aerial + topo'),
+    ('aerial', 'Aerial — sharpest'),
+    ('topo', 'USGS topo map'),
+    ('blend', 'USGS quad — soft'),
   ];
 
   PlatePage _page = PlatePage.letter;
