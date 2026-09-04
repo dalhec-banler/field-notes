@@ -329,6 +329,10 @@ class _MapTabState extends State<MapTab> {
                     setState(() {});
                     _applyLayers();
                   }),
+                  _pill('go to…', false, () {
+                    Navigator.of(ctx).pop();
+                    _gotoCoords();
+                  }),
                   _pill('satellite', _showSatellite, () {
                     setSheet(() => _showSatellite = !_showSatellite);
                     widget.prefs.mapSatellite = _showSatellite;
@@ -356,6 +360,48 @@ class _MapTabState extends State<MapTab> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Fly to typed coordinates — "search by GPS" (Austin, 2026-09-04).
+  Future<void> _gotoCoords() async {
+    final controller = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: const Text('GO TO COORDINATES'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(
+            signed: true,
+            decimal: true,
+          ),
+          decoration: const InputDecoration(hintText: '30.2617, -97.7281'),
+          onSubmitted: (v) => Navigator.pop(dctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dctx),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dctx, controller.text),
+            child: const Text('GO'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (text == null) return;
+    final m = RegExp(r'(-?\d+(?:\.\d+)?)[,;\s]+(-?\d+(?:\.\d+)?)')
+        .firstMatch(text);
+    if (m == null) return;
+    final lat = double.parse(m.group(1)!);
+    final lng = double.parse(m.group(2)!);
+    if (lat.abs() > 90 || lng.abs() > 180) return;
+    await _controller?.animateCamera(
+      CameraUpdate.newLatLngZoom(LatLng(lat, lng), 17),
     );
   }
 

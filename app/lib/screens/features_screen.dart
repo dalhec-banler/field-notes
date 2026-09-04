@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../db/database.dart';
 import '../main.dart' show locationHub;
+import '../widgets/confirm.dart';
 
 /// Features & infrastructure (spec §7.9): map-worthy things with condition
 /// history — springs, guzzlers, headcuts, gates.
@@ -354,6 +355,34 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
                   _logCondition(f);
                 },
                 child: const Text('LOG CONDITION'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 48,
+              child: OutlinedButton(
+                onPressed: () async {
+                  final sure = await confirmDialog(
+                    ctx,
+                    title: 'DELETE THIS FEATURE?',
+                    body:
+                        'It leaves the map and its condition history goes '
+                        'quiet. Nothing is erased from disk.',
+                    confirmLabel: 'DELETE',
+                  );
+                  if (!sure || !ctx.mounted) return;
+                  final now = nowUtcIso();
+                  await (widget.db.update(
+                    widget.db.features,
+                  )..where((x) => x.id.equals(f.id))).write(
+                    FeaturesCompanion(
+                      deletedAt: Value(now),
+                      updatedAt: Value(now),
+                    ),
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('DELETE FEATURE'),
               ),
             ),
           ],

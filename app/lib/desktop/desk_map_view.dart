@@ -6,6 +6,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'package:drift/drift.dart' hide Column;
+
 import '../db/database.dart';
 import '../export/map_plate.dart';
 import '../export/plate_subject_loader.dart';
@@ -15,6 +17,7 @@ import '../map/record_ink.dart';
 import '../map/tile_cache.dart';
 import '../screens/record_detail_screen.dart';
 import '../theme/tokens.dart';
+import '../widgets/confirm.dart';
 import '../widgets/press.dart';
 
 /// The desk's map (Austin, 2026-09-03: "critically important").
@@ -55,6 +58,7 @@ class _SpeciesGroup {
 class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   PlateSubject? _subject;
   String? _selectedId;
+  String? _selectedFeatureId;
 
   /// The species group lit on the map and opened in the panel.
   String? _highlightKey;
@@ -286,12 +290,55 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     return out;
   }
 
+  /// Fly to typed coordinates — "search by GPS" (Austin, 2026-09-04).
+  /// Accepts "30.2617, -97.7281" and close variants.
+  Future<void> _gotoCoords() async {
+    final controller = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('GO TO COORDINATES'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '30.2617, -97.7281'),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('GO'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (text == null) return;
+    final m = RegExp(r'(-?\d+(?:\.\d+)?)[,;\s]+(-?\d+(?:\.\d+)?)')
+        .firstMatch(text);
+    if (m == null) return;
+    final lat = double.parse(m.group(1)!);
+    final lng = double.parse(m.group(2)!);
+    if (lat.abs() > 90 || lng.abs() > 180) return;
+    _userMoved = true;
+    setState(() {
+      _lat = lat;
+      _lng = lng;
+      _zoom = (activeImagery.maxZoom - 1).toDouble();
+    });
+  }
+
   // ── hit test ─────────────────────────────────────────────────────
 
   void _onTapUp(TapUpDetails d, Size size) {
     final s = _subject;
     if (s == null) return;
-    String? best;
+    String? bestRecord;
+    String? bestFeature;
     var bestD = 16.0; // px
     for (final r in s.records) {
       if (r.id == null) continue;
@@ -299,10 +346,42 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
       final dist = (Offset(x, y) - d.localPosition).distance;
       if (dist < bestD) {
         bestD = dist;
-        best = r.id;
+        bestRecord = r.id;
+        bestFeature = null;
       }
     }
-    if (best != null) setState(() => _selectedId = best);
+    // Features are clickable here too — "can't even access it on the
+    // desktop" (Austin, 2026-09-04).
+    for (final f in s.features) {
+      if (f.id == null) continue;
+      try {
+        final g = jsonDecode(f.geojson) as Map<String, dynamic>;
+        if (g['type'] != 'Point') continue;
+        final coords = g['coordinates'] as List;
+        final (x, y) = _screenOf(
+          (coords[1] as num).toDouble(),
+          (coords[0] as num).toDouble(),
+          size,
+        );
+        final dist = (Offset(x, y) - d.localPosition).distance;
+        if (dist < bestD) {
+          bestD = dist;
+          bestFeature = f.id;
+          bestRecord = null;
+        }
+      } catch (_) {}
+    }
+    if (bestRecord != null) {
+      setState(() {
+        _selectedId = bestRecord;
+        _selectedFeatureId = null;
+      });
+    } else if (bestFeature != null) {
+      setState(() {
+        _selectedFeatureId = bestFeature;
+        _selectedId = null;
+      });
+    }
   }
 
   @override
@@ -323,7 +402,11 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
               left: BorderSide(color: Press.borderInk, width: 1.5),
             ),
           ),
-          child: _selectedId == null ? _speciesPanel(s) : _recordPanel(),
+          child: _selectedFeatureId != null
+              ? _featurePanel(_selectedFeatureId!)
+              : _selectedId == null
+              ? _speciesPanel(s)
+              : _recordPanel(),
         ),
       ],
     );
@@ -406,6 +489,26 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
                         size: 8,
                         spacing: 1.2,
                         color: Press.paperRaised,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 8,
+                    top: 40,
+                    child: InkWell(
+                      onTap: _gotoCoords,
+                      child: Container(
+                        color: Press.ink,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        child: MonoLabel(
+                          '⌖ GO TO…',
+                          size: 8,
+                          spacing: 1.2,
+                          color: Press.paperRaised,
+                        ),
                       ),
                     ),
                   ),
@@ -645,6 +748,177 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
             ),
           ),
       ],
+    );
+  }
+
+  /// A clicked feature: what it is, its condition history, and the
+  /// controls the phone has — log lives there; DELETE lives here too.
+  Widget _featurePanel(String featureId) {
+    return FutureBuilder(
+      future: Future.wait([
+        (widget.db.select(
+          widget.db.features,
+        )..where((f) => f.id.equals(featureId))).getSingleOrNull(),
+        (widget.db.select(widget.db.featureConditionLogs)
+              ..where((l) => l.featureId.equals(featureId))
+              ..where((l) => l.deletedAt.isNull())
+              ..orderBy([(l) => OrderingTerm.desc(l.observedAt)]))
+            .get(),
+        widget.db.select(widget.db.featureTypes).get(),
+      ]),
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        if (data == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final f = data[0] as Feature?;
+        final logs = data[1]! as List<FeatureConditionLog>;
+        final types = data[2]! as List<FeatureType>;
+        if (f == null || f.deletedAt != null) {
+          return const Center(child: Text('This feature is gone.'));
+        }
+        final type = types.where((t) => t.id == f.featureTypeId).firstOrNull;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: () => setState(() => _selectedFeatureId = null),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Press.borderInk, width: 1.5),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.chevron_left, size: 18, color: Press.inkSoft),
+                    const SizedBox(width: 4),
+                    MonoLabel('SPECIES LIST', size: 9, spacing: 1.6),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(14),
+                children: [
+                  Kicker(
+                    '${type?.label ?? 'Feature'} · '
+                    '${type?.featureClass ?? 'natural'}',
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    f.name ?? type?.label ?? 'Feature',
+                    style: TextStyle(
+                      fontFamily: Type.slab,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
+                      color: Press.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  StatusPill(
+                    (f.currentCondition ?? 'unknown').toUpperCase(),
+                    color: conditionColor(f.currentCondition),
+                    filled: true,
+                  ),
+                  if ((f.notes ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      f.notes!,
+                      style: TextStyle(
+                        fontFamily: Type.serif,
+                        fontSize: 15,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  MonoLabel('Condition history', size: 9, spacing: 1.8),
+                  const SizedBox(height: 6),
+                  if (logs.isEmpty)
+                    Text(
+                      'No condition history yet.',
+                      style: TextStyle(
+                        fontFamily: Type.serif,
+                        fontSize: 14.5,
+                        color: Press.inkSoft,
+                      ),
+                    )
+                  else
+                    for (final l in logs)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Diamond(
+                              size: 10,
+                              color: conditionColor(l.condition),
+                              filled: true,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                [
+                                  '${l.observedAt.substring(0, 10)} · '
+                                      '${l.condition}',
+                                  if (l.actionTaken != null) l.actionTaken!,
+                                  if (l.notes != null) l.notes!,
+                                ].join(' · '),
+                                style: TextStyle(
+                                  fontFamily: Type.serif,
+                                  fontSize: 14,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 44,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Press.oxblood,
+                      ),
+                      onPressed: () async {
+                        final sure = await confirmDialog(
+                          context,
+                          title: 'DELETE THIS FEATURE?',
+                          body:
+                              'It leaves the map and its condition history '
+                              'goes quiet. Nothing is erased from disk.',
+                          confirmLabel: 'DELETE',
+                        );
+                        if (!sure || !mounted) return;
+                        final now = nowUtcIso();
+                        await (widget.db.update(
+                          widget.db.features,
+                        )..where((x) => x.id.equals(featureId))).write(
+                          FeaturesCompanion(
+                            deletedAt: Value(now),
+                            updatedAt: Value(now),
+                          ),
+                        );
+                        if (mounted) {
+                          setState(() => _selectedFeatureId = null);
+                        }
+                      },
+                      child: const Text('DELETE FEATURE'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

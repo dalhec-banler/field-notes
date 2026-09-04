@@ -55,7 +55,9 @@ Future<Uint8List> positionReticle({double scale = 3}) async {
 /// natural = blue ring with a white eye, infrastructure = ink square,
 /// problem = oxblood triangle. All on a white halo.
 Future<Uint8List> featureMarker(String featureClass, {double scale = 3}) async {
-  const size = 30.0;
+  // Device pixels at 1/3 icon scale (addImage registers at density 1) —
+  // 30 drew ~10 logical px, "incredibly tiny" (Austin, 2026-09-04).
+  const size = 54.0;
   final rec = ui.PictureRecorder();
   final c = ui.Canvas(rec)..scale(scale);
   const centre = ui.Offset(size / 2, size / 2);
@@ -64,28 +66,28 @@ Future<Uint8List> featureMarker(String featureClass, {double scale = 3}) async {
     case 'problem':
       final fill = ui.Paint()..color = const ui.Color(0xFF8B2E22);
       final tri = ui.Path()
-        ..moveTo(centre.dx, centre.dy - 10)
-        ..lineTo(centre.dx + 9, centre.dy + 7)
-        ..lineTo(centre.dx - 9, centre.dy + 7)
+        ..moveTo(centre.dx, centre.dy - 18)
+        ..lineTo(centre.dx + 16, centre.dy + 13)
+        ..lineTo(centre.dx - 16, centre.dy + 13)
         ..close();
       c.drawPath(
         tri,
         halo
           ..style = ui.PaintingStyle.stroke
-          ..strokeWidth = 5
+          ..strokeWidth = 8
           ..strokeJoin = ui.StrokeJoin.round,
       );
       c.drawPath(tri, fill);
     case 'infrastructure':
       final fill = ui.Paint()..color = const ui.Color(0xFF1B1813);
-      final rect = ui.Rect.fromCenter(center: centre, width: 14, height: 14);
-      c.drawRect(rect.inflate(2.5), halo);
+      final rect = ui.Rect.fromCenter(center: centre, width: 26, height: 26);
+      c.drawRect(rect.inflate(4), halo);
       c.drawRect(rect, fill);
     default:
       final fill = ui.Paint()..color = const ui.Color(0xFF2F5D8A);
-      c.drawCircle(centre, 10, halo);
-      c.drawCircle(centre, 7.5, fill);
-      c.drawCircle(centre, 3, ui.Paint()..color = const ui.Color(0xFFFFFFFF));
+      c.drawCircle(centre, 18, halo);
+      c.drawCircle(centre, 13.5, fill);
+      c.drawCircle(centre, 5.5, ui.Paint()..color = const ui.Color(0xFFFFFFFF));
   }
   return _png(rec, size, scale);
 }

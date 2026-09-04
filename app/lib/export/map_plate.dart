@@ -81,10 +81,15 @@ class PlateFeature {
     required this.name,
     required this.featureClass, // natural | infrastructure | problem
     required this.geojson,
+    this.id,
   });
   final String name;
   final String featureClass;
   final String geojson; // Point / LineString / Polygon
+
+  /// Feature id — the desk map opens it from its mark; the renderer
+  /// never reads it.
+  final String? id;
 }
 
 class PlateRecord {

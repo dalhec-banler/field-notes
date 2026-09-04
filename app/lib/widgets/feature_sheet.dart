@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../db/database.dart';
 import '../screens/features_screen.dart';
 import '../theme/tokens.dart';
+import 'confirm.dart';
 import 'press.dart';
 
 /// Tap a feature marker: what it is, its condition, and the way into the
@@ -27,12 +28,7 @@ Future<void> showFeatureSheet(
   if (row == null || !context.mounted) return;
   final name = (row.data['name'] as String?) ?? row.data['label'] as String;
   final cond = row.data['cond'] as String?;
-  final condColor = switch (cond) {
-    'good' => Press.sage,
-    'fair' => Press.ochre,
-    'poor' || 'critical' => Press.oxblood,
-    _ => Press.inkSoft,
-  };
+  final condColor = conditionColor(cond);
   await showModalBottomSheet<void>(
     context: context,
     backgroundColor: Press.paper,
@@ -75,20 +71,57 @@ Future<void> showFeatureSheet(
             ),
           ],
           SizedBox(height: 16),
-          SizedBox(
-            height: Metrics.touchMin,
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => FeaturesScreen(db: db, property: property),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: Metrics.touchMin,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              FeaturesScreen(db: db, property: property),
+                        ),
+                      );
+                    },
+                    child: Text('OPEN FEATURES'),
                   ),
-                );
-              },
-              child: Text('OPEN FEATURES'),
-            ),
+                ),
+              ),
+              SizedBox(width: 8),
+              SizedBox(
+                height: Metrics.touchMin,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Press.oxblood,
+                  ),
+                  onPressed: () async {
+                    final sure = await confirmDialog(
+                      ctx,
+                      title: 'DELETE THIS FEATURE?',
+                      body:
+                          'It leaves the map and its condition history goes '
+                          'quiet. Nothing is erased from disk.',
+                      confirmLabel: 'DELETE',
+                    );
+                    if (!sure || !ctx.mounted) return;
+                    final now = nowUtcIso();
+                    await (db.update(
+                      db.features,
+                    )..where((f) => f.id.equals(featureId))).write(
+                      FeaturesCompanion(
+                        deletedAt: Value(now),
+                        updatedAt: Value(now),
+                      ),
+                    );
+                    if (ctx.mounted) Navigator.of(ctx).pop();
+                  },
+                  child: Text('DELETE'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

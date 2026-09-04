@@ -58,6 +58,7 @@ Future<PlateSubject> loadPlateSubject(
     features: [
       for (final f in features)
         PlateFeature(
+          id: f.id,
           name: f.name ?? types[f.featureTypeId]?.label ?? 'Feature',
           featureClass: types[f.featureTypeId]?.featureClass ?? 'natural',
           geojson: f.geojson,
