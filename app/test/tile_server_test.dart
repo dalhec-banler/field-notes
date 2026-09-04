@@ -58,11 +58,13 @@ void main() {
     expect(await body(res), data.sublist(65000, 66000));
   });
 
-  test('unsatisfiable range returns 416 or full-file 200, never garbage',
-      () async {
-    final res = await get('basemap.pmtiles', range: 'bytes=90000-90010');
-    expect(res.statusCode, anyOf(416, 200));
-  });
+  test(
+    'unsatisfiable range returns 416 or full-file 200, never garbage',
+    () async {
+      final res = await get('basemap.pmtiles', range: 'bytes=90000-90010');
+      expect(res.statusCode, anyOf(416, 200));
+    },
+  );
 
   test('missing file returns 404', () async {
     final res = await get('nope.pmtiles');
@@ -72,6 +74,9 @@ void main() {
   test('binds loopback with an ephemeral port', () {
     expect(server.port, greaterThan(1024));
     expect(server.urlFor('x'), startsWith('http://127.0.0.1:'));
-    expect(server.pmtilesUrlFor('x'), startsWith('pmtiles://http://127.0.0.1:'));
+    expect(
+      server.pmtilesUrlFor('x'),
+      startsWith('pmtiles://http://127.0.0.1:'),
+    );
   });
 }

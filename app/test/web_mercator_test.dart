@@ -37,7 +37,11 @@ void main() {
 
   test('zoomFor picks the deepest zoom that fits and honours the cap', () {
     final b = const LatLngBounds(
-        south: 31.05, west: -98.06, north: 31.07, east: -98.03);
+      south: 31.05,
+      west: -98.06,
+      north: 31.07,
+      east: -98.03,
+    );
     final z = zoomFor(b, 1600, 1200);
     expect(z, 16); // ~2.9 km wide fits comfortably at 16
     final small = zoomFor(b, 200, 200);
@@ -47,7 +51,11 @@ void main() {
 
   test('frame tiles cover the box and toPlate maps corners to edges', () {
     final b = const LatLngBounds(
-        south: 31.05, west: -98.06, north: 31.07, east: -98.03);
+      south: 31.05,
+      west: -98.06,
+      north: 31.07,
+      east: -98.03,
+    );
     final f = PlateFrame(bounds: b, zoom: 15);
     expect(f.tileCount, greaterThan(0));
     final (nwX, nwY) = f.toPlate(b.north, b.west);

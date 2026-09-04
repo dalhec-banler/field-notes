@@ -62,9 +62,12 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
               child: Padding(
                 padding: EdgeInsets.all(32),
                 child: Text(
-                  'No photo points yet.\n\nA photo point is a fixed spot and '
-                  'bearing you re-photograph over months and years. The ghost '
-                  'overlay lines each new shot up with the first one.',
+                  'No photo points yet.\n\nA photo point is a fixed '
+                  'station — same spot, same height, same direction, same '
+                  'focal length — that you re-photograph for years. Point '
+                  'one across a field and the series shows the Tifton '
+                  'giving way to prairie. The ghost overlay lines each new '
+                  'shot up with the first.',
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -131,6 +134,8 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
     final nameController = TextEditingController();
     final subjectController = TextEditingController();
     final cadenceController = TextEditingController(text: '30');
+    final focalController = TextEditingController(text: '26');
+    final extentController = TextEditingController(text: '60');
     final created = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -158,10 +163,37 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
                   labelText: 'Repeat every N days',
                 ),
               ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: focalController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Focal length (mm)',
+                        helperText: '26 = phone main',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: extentController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'View out to (m)',
+                        helperText: 'draws the wedge',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               const Text(
-                'Stand at the spot, aim at the subject, and save — position '
-                'and bearing are captured with the first photo.',
+                'Stand at the spot, aim across the stand, and save — the '
+                'position and direction are fixed with the first photo. '
+                'Same spot, height, direction and focal length every visit '
+                'is what makes the series evidence.',
                 style: TextStyle(fontSize: 12),
               ),
             ],
@@ -228,6 +260,10 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
                     : subjectController.text.trim(),
               ),
               cadenceDays: Value(cadence),
+              focalLengthMm: Value(
+                double.tryParse(focalController.text.trim()),
+              ),
+              viewExtentM: Value(double.tryParse(extentController.text.trim())),
               createdBy: 'local',
               createdAt: now,
               updatedAt: now,

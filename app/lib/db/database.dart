@@ -20,7 +20,7 @@ class FieldNotesDb extends _$FieldNotesDb {
   FieldNotesDb.fromFile(File file) : super(NativeDatabase(file));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -90,6 +90,23 @@ class FieldNotesDb extends _$FieldNotesDb {
       if (from < 2) {
         await m.createTable(reviewItems);
         await m.createIndex(idxReviewPending);
+      }
+      // v6: a photo point is a station — same spot, height, DIRECTION and
+      // FOCAL LENGTH (Austin, 2026-09-04). The first two were stored; these
+      // are the rest, and they let the map draw what the frame looks at.
+      if (from < 6) {
+        for (final col in const [
+          'focal_length_mm REAL',
+          'view_extent_m REAL',
+        ]) {
+          try {
+            await m.database.customStatement(
+              'ALTER TABLE photo_points ADD COLUMN $col',
+            );
+          } catch (_) {
+            // Already there (a re-run): nothing to do.
+          }
+        }
       }
       // v5 LAST (it inserts 'infrastructure'-typed rows, which need the
       // v4 CHECK already in place): features fold into records (Austin,

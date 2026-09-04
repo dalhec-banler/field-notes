@@ -16,13 +16,17 @@ void main() {
     db = FieldNotesDb.forTesting();
     store = Directory.systemTemp.createTempSync('prune');
     final now = nowUtcIso();
-    await db.into(db.properties).insert(PropertiesCompanion.insert(
-          id: newId(),
-          name: 'Yard',
-          createdBy: 'a',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.properties)
+        .insert(
+          PropertiesCompanion.insert(
+            id: newId(),
+            name: 'Yard',
+            createdBy: 'a',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
   });
 
   tearDown(() async {
@@ -31,17 +35,21 @@ void main() {
   });
 
   test('only the newest five generations survive', () async {
-    final engine =
-        BackupEngine(db, DirectoryTarget(store), const PlainCipher());
+    final engine = BackupEngine(
+      db,
+      DirectoryTarget(store),
+      const PlainCipher(),
+    );
     for (var i = 0; i < 8; i++) {
       await engine.backup();
     }
-    final dumps = Directory('${store.path}/fieldnotes/db')
-        .listSync()
-        .whereType<File>()
-        .map((f) => f.uri.pathSegments.last)
-        .toList()
-      ..sort();
+    final dumps =
+        Directory('${store.path}/fieldnotes/db')
+            .listSync()
+            .whereType<File>()
+            .map((f) => f.uri.pathSegments.last)
+            .toList()
+          ..sort();
     expect(dumps.length, BackupEngine.generationsToKeep);
     expect(dumps.first, startsWith('4.'), reason: 'gens 1-3 pruned');
     expect(dumps.last, startsWith('8.'));

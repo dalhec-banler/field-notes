@@ -29,28 +29,36 @@ void main() {
       db = FieldNotesDb.forTesting();
       final now = nowUtcIso();
       propId = newId();
-      await db.into(db.properties).insert(PropertiesCompanion.insert(
-            id: propId,
-            name: 'SFS',
-            createdBy: 'a',
-            createdAt: now,
-            updatedAt: now,
-          ));
+      await db
+          .into(db.properties)
+          .insert(
+            PropertiesCompanion.insert(
+              id: propId,
+              name: 'SFS',
+              createdBy: 'a',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
       final eventId = newId();
       // December planting of 40 black willow cuttings.
-      await db.into(db.plantingEvents).insert(PlantingEventsCompanion.insert(
-            id: eventId,
-            propertyId: propId,
-            plantedOn: '2026-12-15',
-            stockSource: 'own_propagation',
-            countPlanted: 40,
-            createdBy: 'a',
-            createdAt: now,
-            updatedAt: now,
-          ));
-      event = await (db.select(db.plantingEvents)
-            ..where((e) => e.id.equals(eventId)))
-          .getSingle();
+      await db
+          .into(db.plantingEvents)
+          .insert(
+            PlantingEventsCompanion.insert(
+              id: eventId,
+              propertyId: propId,
+              plantedOn: '2026-12-15',
+              stockSource: 'own_propagation',
+              countPlanted: 40,
+              createdBy: 'a',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      event = await (db.select(
+        db.plantingEvents,
+      )..where((e) => e.id.equals(eventId))).getSingle();
     });
 
     tearDown(() => db.close());
@@ -61,18 +69,22 @@ void main() {
 
     test('cohort-level check-in: March check finds 31 alive', () async {
       final now = nowUtcIso();
-      await db.into(db.plantCheckins).insert(PlantCheckinsCompanion.insert(
-            id: newId(),
-            propertyId: propId,
-            plantingEventId: Value(event.id),
-            checkedAt: '2027-03-10T10:00:00Z',
-            status: 'alive',
-            countAlive: const Value(31),
-            countDead: const Value(9),
-            createdBy: 'a',
-            createdAt: now,
-            updatedAt: now,
-          ));
+      await db
+          .into(db.plantCheckins)
+          .insert(
+            PlantCheckinsCompanion.insert(
+              id: newId(),
+              propertyId: propId,
+              plantingEventId: Value(event.id),
+              checkedAt: '2027-03-10T10:00:00Z',
+              status: 'alive',
+              countAlive: const Value(31),
+              countDead: const Value(9),
+              createdBy: 'a',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
       final s = await survivalFor(db, event);
       expect(s!.alive, 31);
       expect(s.total, 40);
@@ -86,17 +98,21 @@ void main() {
         ('2027-03-10T10:00:00Z', 31),
         ('2027-06-01T10:00:00Z', 28),
       ]) {
-        await db.into(db.plantCheckins).insert(PlantCheckinsCompanion.insert(
-              id: newId(),
-              propertyId: propId,
-              plantingEventId: Value(event.id),
-              checkedAt: checkedAt,
-              status: 'alive',
-              countAlive: Value(alive),
-              createdBy: 'a',
-              createdAt: now,
-              updatedAt: now,
-            ));
+        await db
+            .into(db.plantCheckins)
+            .insert(
+              PlantCheckinsCompanion.insert(
+                id: newId(),
+                propertyId: propId,
+                plantingEventId: Value(event.id),
+                checkedAt: checkedAt,
+                status: 'alive',
+                countAlive: Value(alive),
+                createdBy: 'a',
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
       }
       expect((await survivalFor(db, event))!.alive, 28);
     });
@@ -110,16 +126,20 @@ void main() {
         ('SFS-BW-003', 'browsed'),
         ('SFS-BW-004', 'dead'),
       ]) {
-        await db.into(db.plants).insert(PlantsCompanion.insert(
-              id: newId(),
-              propertyId: propId,
-              plantingEventId: event.id,
-              tagCode: Value(tag),
-              currentStatus: Value(status),
-              createdBy: 'a',
-              createdAt: now,
-              updatedAt: now,
-            ));
+        await db
+            .into(db.plants)
+            .insert(
+              PlantsCompanion.insert(
+                id: newId(),
+                propertyId: propId,
+                plantingEventId: event.id,
+                tagCode: Value(tag),
+                currentStatus: Value(status),
+                createdBy: 'a',
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
       }
       final s = await survivalFor(db, event);
       expect(s!.alive, 3);
@@ -130,15 +150,19 @@ void main() {
     test('lastTagCode returns most recent for suggestion seeding', () async {
       final now = nowUtcIso();
       for (final tag in ['SFS-BW-001', 'SFS-BW-002']) {
-        await db.into(db.plants).insert(PlantsCompanion.insert(
-              id: newId(),
-              propertyId: propId,
-              plantingEventId: event.id,
-              tagCode: Value(tag),
-              createdBy: 'a',
-              createdAt: now,
-              updatedAt: now,
-            ));
+        await db
+            .into(db.plants)
+            .insert(
+              PlantsCompanion.insert(
+                id: newId(),
+                propertyId: propId,
+                plantingEventId: event.id,
+                tagCode: Value(tag),
+                createdBy: 'a',
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
         // UUIDv7 ordering is only guaranteed across milliseconds.
         await Future<void>.delayed(const Duration(milliseconds: 2));
       }

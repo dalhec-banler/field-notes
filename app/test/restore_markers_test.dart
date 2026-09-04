@@ -22,14 +22,15 @@ void main() {
   Future<void> stageFakeDb() async {
     final staging = Directory(p.join(docs.path, 'restore_staged'))
       ..createSync(recursive: true);
-    final staged = FieldNotesDb.fromFile(File(p.join(staging.path, 'db.sqlite')));
+    final staged = FieldNotesDb.fromFile(
+      File(p.join(staging.path, 'db.sqlite')),
+    );
     await staged.customSelect('SELECT 1').get(); // force open + schema
     await staged.close();
     File(p.join(staging.path, 'READY')).writeAsStringSync('now');
   }
 
-  test('apply consumes READY, sets APPLIED, and never applies twice',
-      () async {
+  test('apply consumes READY, sets APPLIED, and never applies twice', () async {
     await stageFakeDb();
     final pipeline = RestorePipeline(docs);
     final liveDb = p.join(docs.path, 'field_notes.sqlite');
@@ -43,16 +44,20 @@ void main() {
 
     expect(pipeline.hasStagedRestore, isFalse, reason: 'READY consumed');
     expect(pipeline.hasPendingMediaRemap, isTrue, reason: 'APPLIED set');
-    expect(File('$liveDb-journal').existsSync(), isFalse,
-        reason: 'sidecar moved aside with the old DB');
     expect(
-        docs
-            .listSync()
-            .whereType<File>()
-            .where((f) => p.basename(f.path).contains('pre-restore'))
-            .length,
-        2,
-        reason: 'old DB and its journal both preserved');
+      File('$liveDb-journal').existsSync(),
+      isFalse,
+      reason: 'sidecar moved aside with the old DB',
+    );
+    expect(
+      docs
+          .listSync()
+          .whereType<File>()
+          .where((f) => p.basename(f.path).contains('pre-restore'))
+          .length,
+      2,
+      reason: 'old DB and its journal both preserved',
+    );
 
     // Second launch before remap finished: must NOT touch the DB again.
     File(liveDb).writeAsStringSync('records written since restore');
@@ -71,7 +76,9 @@ void main() {
     await db.close();
     expect(n, 0);
     expect(pipeline.hasPendingMediaRemap, isFalse);
-    expect(Directory(p.join(docs.path, 'restore_staged')).existsSync(),
-        isFalse);
+    expect(
+      Directory(p.join(docs.path, 'restore_staged')).existsSync(),
+      isFalse,
+    );
   });
 }

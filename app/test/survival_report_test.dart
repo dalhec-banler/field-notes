@@ -11,48 +11,64 @@ void main() {
     db = FieldNotesDb.forTesting();
     final now = nowUtcIso();
     final propId = newId();
-    await db.into(db.properties).insert(PropertiesCompanion.insert(
-          id: propId,
-          name: 'Shorts Resort',
-          createdBy: 'a',
-          createdAt: now,
-          updatedAt: now,
-        ));
-    property = await (db.select(db.properties)
-          ..where((p) => p.id.equals(propId)))
-        .getSingle();
+    await db
+        .into(db.properties)
+        .insert(
+          PropertiesCompanion.insert(
+            id: propId,
+            name: 'Shorts Resort',
+            createdBy: 'a',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    property = await (db.select(
+      db.properties,
+    )..where((p) => p.id.equals(propId))).getSingle();
     final taxonId = newId();
-    await db.into(db.taxa).insert(TaxaCompanion.insert(
-          id: taxonId,
-          scientificName: 'Salix nigra',
-          commonName: const Value('Black Willow'),
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.taxa)
+        .insert(
+          TaxaCompanion.insert(
+            id: taxonId,
+            scientificName: 'Salix nigra',
+            commonName: const Value('Black Willow'),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     final eventId = newId();
-    await db.into(db.plantingEvents).insert(PlantingEventsCompanion.insert(
-          id: eventId,
-          propertyId: propId,
-          taxonId: Value(taxonId),
-          plantedOn: '2025-12-14',
-          stockSource: 'own_propagation',
-          countPlanted: 40,
-          createdBy: 'a',
-          createdAt: now,
-          updatedAt: now,
-        ));
-    await db.into(db.plantCheckins).insert(PlantCheckinsCompanion.insert(
-          id: newId(),
-          propertyId: propId,
-          plantingEventId: Value(eventId),
-          checkedAt: '2026-03-20T12:00:00Z',
-          status: 'alive',
-          countAlive: const Value(31),
-          countDead: const Value(9),
-          createdBy: 'a',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.plantingEvents)
+        .insert(
+          PlantingEventsCompanion.insert(
+            id: eventId,
+            propertyId: propId,
+            taxonId: Value(taxonId),
+            plantedOn: '2025-12-14',
+            stockSource: 'own_propagation',
+            countPlanted: 40,
+            createdBy: 'a',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await db
+        .into(db.plantCheckins)
+        .insert(
+          PlantCheckinsCompanion.insert(
+            id: newId(),
+            propertyId: propId,
+            plantingEventId: Value(eventId),
+            checkedAt: '2026-03-20T12:00:00Z',
+            status: 'alive',
+            countAlive: const Value(31),
+            countDead: const Value(9),
+            createdBy: 'a',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
   });
 
   tearDown(() => db.close());
@@ -66,10 +82,20 @@ void main() {
   test('empty property still produces a document', () async {
     final now = nowUtcIso();
     final id = newId();
-    await db.into(db.properties).insert(PropertiesCompanion.insert(
-        id: id, name: 'Empty', createdBy: 'a', createdAt: now, updatedAt: now));
-    final empty = await (db.select(db.properties)..where((p) => p.id.equals(id)))
-        .getSingle();
+    await db
+        .into(db.properties)
+        .insert(
+          PropertiesCompanion.insert(
+            id: id,
+            name: 'Empty',
+            createdBy: 'a',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final empty = await (db.select(
+      db.properties,
+    )..where((p) => p.id.equals(id))).getSingle();
     final bytes = await SurvivalReport(db).build(empty);
     expect(String.fromCharCodes(bytes.sublist(0, 4)), '%PDF');
   });

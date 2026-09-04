@@ -128,6 +128,30 @@ Future<Uint8List> recordShapeMarker(String kind, {double scale = 3}) async {
   return _png(rec, size, scale);
 }
 
+/// A photo point: the station itself — an ochre camera bug on paper, so
+/// it never reads as a record or a feature (Austin, 2026-09-04). The
+/// wedge it looks through is drawn as geometry, not in this bitmap.
+Future<Uint8List> photoPointMarker({double scale = 3}) async {
+  const size = 54.0;
+  final rec = ui.PictureRecorder();
+  final c = ui.Canvas(rec)..scale(scale);
+  const centre = ui.Offset(size / 2, size / 2);
+  c.drawCircle(centre, 19, ui.Paint()..color = const ui.Color(0xFFFFFFFF));
+  c.drawCircle(centre, 15.5, ui.Paint()..color = const ui.Color(0xFFD9A521));
+  // Camera body + lens, in paper.
+  final paper = ui.Paint()..color = const ui.Color(0xFFF7F6F2);
+  c.drawRRect(
+    ui.RRect.fromRectAndRadius(
+      ui.Rect.fromCenter(center: centre, width: 19, height: 13),
+      const ui.Radius.circular(2.5),
+    ),
+    paper,
+  );
+  c.drawCircle(centre, 4.6, ui.Paint()..color = const ui.Color(0xFFD9A521));
+  c.drawCircle(centre, 2.4, paper);
+  return _png(rec, size, scale);
+}
+
 Future<Uint8List> _png(
   ui.PictureRecorder rec,
   double size,

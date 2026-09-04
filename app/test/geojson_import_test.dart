@@ -28,14 +28,18 @@ void main() {
   });
 
   test('bare geometry and single Feature are accepted', () {
-    expect(parseGeoJson('{"type":"Point","coordinates":[-98,31]}').single
-        .geometryType, 'Point');
     expect(
-        parseGeoJson(
-                '{"type":"Feature","properties":{"title":"T"},"geometry":{"type":"LineString","coordinates":[[-98,31],[-98.1,31.1]]}}')
-            .single
-            .name,
-        'T');
+      parseGeoJson('{"type":"Point","coordinates":[-98,31]}')
+          .single
+          .geometryType,
+      'Point',
+    );
+    expect(
+      parseGeoJson(
+        '{"type":"Feature","properties":{"title":"T"},"geometry":{"type":"LineString","coordinates":[[-98,31],[-98.1,31.1]]}}',
+      ).single.name,
+      'T',
+    );
   });
 
   test('non-object input is a FormatException', () {

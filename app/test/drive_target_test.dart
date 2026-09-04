@@ -19,54 +19,54 @@ class _FakeDrive {
   String _id() => 'id${_next++}';
 
   http.Client client() => MockClient((request) async {
-        final path = request.url.path;
+    final path = request.url.path;
 
-        if (request.method == 'GET' && path == '/drive/v3/files') {
-          listCalls++;
-          return http.Response(
-            jsonEncode({
-              'files': [
-                for (final e in names.entries)
-                  {'id': e.key, 'name': e.value}
-              ]
-            }),
-            200,
-          );
-        }
+    if (request.method == 'GET' && path == '/drive/v3/files') {
+      listCalls++;
+      return http.Response(
+        jsonEncode({
+          'files': [
+            for (final e in names.entries) {'id': e.key, 'name': e.value},
+          ],
+        }),
+        200,
+      );
+    }
 
-        if (request.method == 'GET' && path.startsWith('/drive/v3/files/')) {
-          final id = path.split('/').last;
-          return http.Response.bytes(files[id] ?? Uint8List(0), 200);
-        }
+    if (request.method == 'GET' && path.startsWith('/drive/v3/files/')) {
+      final id = path.split('/').last;
+      return http.Response.bytes(files[id] ?? Uint8List(0), 200);
+    }
 
-        if (request.method == 'DELETE' && path.startsWith('/drive/v3/files/')) {
-          final id = path.split('/').last;
-          files.remove(id);
-          names.remove(id);
-          return http.Response('', 204);
-        }
+    if (request.method == 'DELETE' && path.startsWith('/drive/v3/files/')) {
+      final id = path.split('/').last;
+      files.remove(id);
+      names.remove(id);
+      return http.Response('', 204);
+    }
 
-        if (path.startsWith('/upload/drive/v3/files')) {
-          final body = request.bodyBytes;
-          // Split the multipart body: metadata JSON, then the raw payload.
-          final text = latin1.decode(body);
-          final metaStart = text.indexOf('{');
-          final metaEnd = text.indexOf('}\r\n--');
-          final meta = jsonDecode(text.substring(metaStart, metaEnd + 1))
-              as Map<String, dynamic>;
-          final marker = 'application/octet-stream\r\n\r\n';
-          final start = text.indexOf(marker) + marker.length;
-          final end = text.lastIndexOf('\r\n--');
-          final payload = Uint8List.fromList(body.sublist(start, end));
+    if (path.startsWith('/upload/drive/v3/files')) {
+      final body = request.bodyBytes;
+      // Split the multipart body: metadata JSON, then the raw payload.
+      final text = latin1.decode(body);
+      final metaStart = text.indexOf('{');
+      final metaEnd = text.indexOf('}\r\n--');
+      final meta = jsonDecode(
+        text.substring(metaStart, metaEnd + 1),
+      ) as Map<String, dynamic>;
+      final marker = 'application/octet-stream\r\n\r\n';
+      final start = text.indexOf(marker) + marker.length;
+      final end = text.lastIndexOf('\r\n--');
+      final payload = Uint8List.fromList(body.sublist(start, end));
 
-          final id = request.method == 'PATCH' ? path.split('/').last : _id();
-          files[id] = payload;
-          names[id] = meta['name'] as String;
-          return http.Response(jsonEncode({'id': id}), 200);
-        }
+      final id = request.method == 'PATCH' ? path.split('/').last : _id();
+      files[id] = payload;
+      names[id] = meta['name'] as String;
+      return http.Response(jsonEncode({'id': id}), 200);
+    }
 
-        return http.Response('unexpected ${request.method} $path', 404);
-      });
+    return http.Response('unexpected ${request.method} $path', 404);
+  });
 }
 
 void main() {
@@ -110,9 +110,15 @@ void main() {
     await target.write('fieldnotes/manifest.json', Uint8List.fromList([1]));
     await target.write('fieldnotes/manifest.json', Uint8List.fromList([9, 9]));
 
-    expect(drive.names.length, 1, reason: 'a second file would orphan the first');
-    expect(await target.read('fieldnotes/manifest.json'),
-        Uint8List.fromList([9, 9]));
+    expect(
+      drive.names.length,
+      1,
+      reason: 'a second file would orphan the first',
+    );
+    expect(
+      await target.read('fieldnotes/manifest.json'),
+      Uint8List.fromList([9, 9]),
+    );
   });
 
   test('delete drops it from the index too', () async {
@@ -129,13 +135,24 @@ void main() {
   test('an expired token is reported in words, not JSON', () async {
     final dead = DriveTarget(
       accessToken: 'stale',
-      client: MockClient((_) async => http.Response(
-          jsonEncode({'error': {'message': 'Invalid Credentials'}}), 401)),
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'error': {'message': 'Invalid Credentials'},
+          }),
+          401,
+        ),
+      ),
     );
     expect(
       () => dead.exists('fieldnotes/manifest.json'),
-      throwsA(isA<DriveException>().having(
-          (e) => e.message, 'message', contains('Open Backup'))),
+      throwsA(
+        isA<DriveException>().having(
+          (e) => e.message,
+          'message',
+          contains('Open Backup'),
+        ),
+      ),
     );
   });
 }

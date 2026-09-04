@@ -36,8 +36,11 @@ void main() {
     final bytes = copies.first.readAsBytesSync();
     final decoded = img.decodeJpg(bytes)!;
     expect(decoded.width, 1600);
-    expect(decoded.exif.gpsIfd.isEmpty, isTrue,
-        reason: 'GPS must not survive into the send copy');
+    expect(
+      decoded.exif.gpsIfd.isEmpty,
+      isTrue,
+      reason: 'GPS must not survive into the send copy',
+    );
     expect(decoded.exif.imageIfd['Make'], isNull);
     expect(bytes.length, lessThan(original.lengthSync()));
     cleanupSendCopies(copies);

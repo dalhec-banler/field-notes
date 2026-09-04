@@ -18,57 +18,66 @@ void main() {
   tearDown(() => skin = quietSkin);
 
   Widget composite() => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: appTheme(),
-        home: Scaffold(
-          body: ListView(
-            padding: EdgeInsets.all(Metrics.gutter),
-            children: [
-              ScreenHeader(kicker: 'Configuration · This Device', title: 'SETTINGS'),
-              SizedBox(height: 10),
-              Kicker('Field Journal'),
-              MonoLabel('ON THIS PHONE · WORKS WITH NO SIGNAL',
-                  size: 9, spacing: 1.8),
-              SizedBox(height: 10),
-              InkCard(
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TaxonName('Quercus macrocarpa'),
-                      FactRow('zone', 'North Pasture'),
-                      FactRow('rain, 30 d', '41.2 mm · 9 d since rain'),
-                    ],
-                  ),
-                ),
+    debugShowCheckedModeBanner: false,
+    theme: appTheme(),
+    home: Scaffold(
+      body: ListView(
+        padding: EdgeInsets.all(Metrics.gutter),
+        children: [
+          ScreenHeader(
+            kicker: 'Configuration · This Device',
+            title: 'SETTINGS',
+          ),
+          SizedBox(height: 10),
+          Kicker('Field Journal'),
+          MonoLabel(
+            'ON THIS PHONE · WORKS WITH NO SIGNAL',
+            size: 9,
+            spacing: 1.8,
+          ),
+          SizedBox(height: 10),
+          InkCard(
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TaxonName('Quercus macrocarpa'),
+                  FactRow('zone', 'North Pasture'),
+                  FactRow('rain, 30 d', '41.2 mm · 9 d since rain'),
+                ],
               ),
-              SizedBox(height: 10),
-              StatusPill('alive', color: Press.sage),
-              SizedBox(height: 10),
-              BigNumber('78', unit: '%'),
-              const SizedBox(height: 10),
-              StatCells(cells: const [
-                ('PLANTED', '40', null),
-                ('ALIVE', '31', null),
-              ]),
-              const SizedBox(height: 10),
-              RailNote(
-                  color: Press.sage,
-                  label: 'Mechanism',
-                  body: 'Identity is the tag. The plant does not move; '
-                      'the tag does not lie.'),
-              const SizedBox(height: 10),
-              Row(children: [
-                FilledButton(onPressed: () {}, child: const Text('BACK UP NOW')),
-                const SizedBox(width: 8),
-                OutlinedButton(onPressed: () {}, child: const Text('RESTORE')),
-              ]),
+            ),
+          ),
+          SizedBox(height: 10),
+          StatusPill('alive', color: Press.sage),
+          SizedBox(height: 10),
+          BigNumber('78', unit: '%'),
+          const SizedBox(height: 10),
+          StatCells(
+            cells: const [('PLANTED', '40', null), ('ALIVE', '31', null)],
+          ),
+          const SizedBox(height: 10),
+          RailNote(
+            color: Press.sage,
+            label: 'Mechanism',
+            body:
+                'Identity is the tag. The plant does not move; '
+                'the tag does not lie.',
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              FilledButton(onPressed: () {}, child: const Text('BACK UP NOW')),
+              const SizedBox(width: 8),
+              OutlinedButton(onPressed: () {}, child: const Text('RESTORE')),
             ],
           ),
-          floatingActionButton: CaptureFab(onPressed: () {}),
-        ),
-      );
+        ],
+      ),
+      floatingActionButton: CaptureFab(onPressed: () {}),
+    ),
+  );
 
   testWidgets('quiet skin composite (reference render)', (tester) async {
     skin = quietSkin;

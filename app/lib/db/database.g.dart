@@ -17164,6 +17164,28 @@ class PhotoPoints extends Table with TableInfo<PhotoPoints, PhotoPoint> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _focalLengthMmMeta = const VerificationMeta(
+    'focalLengthMm',
+  );
+  late final GeneratedColumn<double> focalLengthMm = GeneratedColumn<double>(
+    'focal_length_mm',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _viewExtentMMeta = const VerificationMeta(
+    'viewExtentM',
+  );
+  late final GeneratedColumn<double> viewExtentM = GeneratedColumn<double>(
+    'view_extent_m',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   static const VerificationMeta _subjectMeta = const VerificationMeta(
     'subject',
   );
@@ -17262,6 +17284,8 @@ class PhotoPoints extends Table with TableInfo<PhotoPoints, PhotoPoint> {
     lng,
     bearingDeg,
     cameraHeightCm,
+    focalLengthMm,
+    viewExtentM,
     subject,
     cadenceDays,
     nextDueOn,
@@ -17340,6 +17364,24 @@ class PhotoPoints extends Table with TableInfo<PhotoPoints, PhotoPoint> {
         cameraHeightCm.isAcceptableOrUnknown(
           data['camera_height_cm']!,
           _cameraHeightCmMeta,
+        ),
+      );
+    }
+    if (data.containsKey('focal_length_mm')) {
+      context.handle(
+        _focalLengthMmMeta,
+        focalLengthMm.isAcceptableOrUnknown(
+          data['focal_length_mm']!,
+          _focalLengthMmMeta,
+        ),
+      );
+    }
+    if (data.containsKey('view_extent_m')) {
+      context.handle(
+        _viewExtentMMeta,
+        viewExtentM.isAcceptableOrUnknown(
+          data['view_extent_m']!,
+          _viewExtentMMeta,
         ),
       );
     }
@@ -17444,6 +17486,14 @@ class PhotoPoints extends Table with TableInfo<PhotoPoints, PhotoPoint> {
         DriftSqlType.double,
         data['${effectivePrefix}camera_height_cm'],
       ),
+      focalLengthMm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}focal_length_mm'],
+      ),
+      viewExtentM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}view_extent_m'],
+      ),
       subject: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}subject'],
@@ -17497,6 +17547,13 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
   final double lng;
   final double bearingDeg;
   final double? cameraHeightCm;
+  final double? focalLengthMm;
+
+  /// 35 mm equivalent; the 4th fixed axis
+  final double? viewExtentM;
+
+  /// how far out the frame reads, for the
+  /// map wedge (default 60 m)
   final String? subject;
 
   /// 'looking downstream at willow planting'
@@ -17520,6 +17577,8 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
     required this.lng,
     required this.bearingDeg,
     this.cameraHeightCm,
+    this.focalLengthMm,
+    this.viewExtentM,
     this.subject,
     this.cadenceDays,
     this.nextDueOn,
@@ -17543,6 +17602,12 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
     map['bearing_deg'] = Variable<double>(bearingDeg);
     if (!nullToAbsent || cameraHeightCm != null) {
       map['camera_height_cm'] = Variable<double>(cameraHeightCm);
+    }
+    if (!nullToAbsent || focalLengthMm != null) {
+      map['focal_length_mm'] = Variable<double>(focalLengthMm);
+    }
+    if (!nullToAbsent || viewExtentM != null) {
+      map['view_extent_m'] = Variable<double>(viewExtentM);
     }
     if (!nullToAbsent || subject != null) {
       map['subject'] = Variable<String>(subject);
@@ -17579,6 +17644,12 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
       cameraHeightCm: cameraHeightCm == null && nullToAbsent
           ? const Value.absent()
           : Value(cameraHeightCm),
+      focalLengthMm: focalLengthMm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(focalLengthMm),
+      viewExtentM: viewExtentM == null && nullToAbsent
+          ? const Value.absent()
+          : Value(viewExtentM),
       subject: subject == null && nullToAbsent
           ? const Value.absent()
           : Value(subject),
@@ -17614,6 +17685,8 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
       lng: serializer.fromJson<double>(json['lng']),
       bearingDeg: serializer.fromJson<double>(json['bearing_deg']),
       cameraHeightCm: serializer.fromJson<double?>(json['camera_height_cm']),
+      focalLengthMm: serializer.fromJson<double?>(json['focal_length_mm']),
+      viewExtentM: serializer.fromJson<double?>(json['view_extent_m']),
       subject: serializer.fromJson<String?>(json['subject']),
       cadenceDays: serializer.fromJson<int?>(json['cadence_days']),
       nextDueOn: serializer.fromJson<String?>(json['next_due_on']),
@@ -17638,6 +17711,8 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
       'lng': serializer.toJson<double>(lng),
       'bearing_deg': serializer.toJson<double>(bearingDeg),
       'camera_height_cm': serializer.toJson<double?>(cameraHeightCm),
+      'focal_length_mm': serializer.toJson<double?>(focalLengthMm),
+      'view_extent_m': serializer.toJson<double?>(viewExtentM),
       'subject': serializer.toJson<String?>(subject),
       'cadence_days': serializer.toJson<int?>(cadenceDays),
       'next_due_on': serializer.toJson<String?>(nextDueOn),
@@ -17658,6 +17733,8 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
     double? lng,
     double? bearingDeg,
     Value<double?> cameraHeightCm = const Value.absent(),
+    Value<double?> focalLengthMm = const Value.absent(),
+    Value<double?> viewExtentM = const Value.absent(),
     Value<String?> subject = const Value.absent(),
     Value<int?> cadenceDays = const Value.absent(),
     Value<String?> nextDueOn = const Value.absent(),
@@ -17677,6 +17754,10 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
     cameraHeightCm: cameraHeightCm.present
         ? cameraHeightCm.value
         : this.cameraHeightCm,
+    focalLengthMm: focalLengthMm.present
+        ? focalLengthMm.value
+        : this.focalLengthMm,
+    viewExtentM: viewExtentM.present ? viewExtentM.value : this.viewExtentM,
     subject: subject.present ? subject.value : this.subject,
     cadenceDays: cadenceDays.present ? cadenceDays.value : this.cadenceDays,
     nextDueOn: nextDueOn.present ? nextDueOn.value : this.nextDueOn,
@@ -17704,6 +17785,12 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
       cameraHeightCm: data.cameraHeightCm.present
           ? data.cameraHeightCm.value
           : this.cameraHeightCm,
+      focalLengthMm: data.focalLengthMm.present
+          ? data.focalLengthMm.value
+          : this.focalLengthMm,
+      viewExtentM: data.viewExtentM.present
+          ? data.viewExtentM.value
+          : this.viewExtentM,
       subject: data.subject.present ? data.subject.value : this.subject,
       cadenceDays: data.cadenceDays.present
           ? data.cadenceDays.value
@@ -17730,6 +17817,8 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
           ..write('lng: $lng, ')
           ..write('bearingDeg: $bearingDeg, ')
           ..write('cameraHeightCm: $cameraHeightCm, ')
+          ..write('focalLengthMm: $focalLengthMm, ')
+          ..write('viewExtentM: $viewExtentM, ')
           ..write('subject: $subject, ')
           ..write('cadenceDays: $cadenceDays, ')
           ..write('nextDueOn: $nextDueOn, ')
@@ -17752,6 +17841,8 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
     lng,
     bearingDeg,
     cameraHeightCm,
+    focalLengthMm,
+    viewExtentM,
     subject,
     cadenceDays,
     nextDueOn,
@@ -17773,6 +17864,8 @@ class PhotoPoint extends DataClass implements Insertable<PhotoPoint> {
           other.lng == this.lng &&
           other.bearingDeg == this.bearingDeg &&
           other.cameraHeightCm == this.cameraHeightCm &&
+          other.focalLengthMm == this.focalLengthMm &&
+          other.viewExtentM == this.viewExtentM &&
           other.subject == this.subject &&
           other.cadenceDays == this.cadenceDays &&
           other.nextDueOn == this.nextDueOn &&
@@ -17792,6 +17885,8 @@ class PhotoPointsCompanion extends UpdateCompanion<PhotoPoint> {
   final Value<double> lng;
   final Value<double> bearingDeg;
   final Value<double?> cameraHeightCm;
+  final Value<double?> focalLengthMm;
+  final Value<double?> viewExtentM;
   final Value<String?> subject;
   final Value<int?> cadenceDays;
   final Value<String?> nextDueOn;
@@ -17810,6 +17905,8 @@ class PhotoPointsCompanion extends UpdateCompanion<PhotoPoint> {
     this.lng = const Value.absent(),
     this.bearingDeg = const Value.absent(),
     this.cameraHeightCm = const Value.absent(),
+    this.focalLengthMm = const Value.absent(),
+    this.viewExtentM = const Value.absent(),
     this.subject = const Value.absent(),
     this.cadenceDays = const Value.absent(),
     this.nextDueOn = const Value.absent(),
@@ -17829,6 +17926,8 @@ class PhotoPointsCompanion extends UpdateCompanion<PhotoPoint> {
     required double lng,
     required double bearingDeg,
     this.cameraHeightCm = const Value.absent(),
+    this.focalLengthMm = const Value.absent(),
+    this.viewExtentM = const Value.absent(),
     this.subject = const Value.absent(),
     this.cadenceDays = const Value.absent(),
     this.nextDueOn = const Value.absent(),
@@ -17856,6 +17955,8 @@ class PhotoPointsCompanion extends UpdateCompanion<PhotoPoint> {
     Expression<double>? lng,
     Expression<double>? bearingDeg,
     Expression<double>? cameraHeightCm,
+    Expression<double>? focalLengthMm,
+    Expression<double>? viewExtentM,
     Expression<String>? subject,
     Expression<int>? cadenceDays,
     Expression<String>? nextDueOn,
@@ -17875,6 +17976,8 @@ class PhotoPointsCompanion extends UpdateCompanion<PhotoPoint> {
       if (lng != null) 'lng': lng,
       if (bearingDeg != null) 'bearing_deg': bearingDeg,
       if (cameraHeightCm != null) 'camera_height_cm': cameraHeightCm,
+      if (focalLengthMm != null) 'focal_length_mm': focalLengthMm,
+      if (viewExtentM != null) 'view_extent_m': viewExtentM,
       if (subject != null) 'subject': subject,
       if (cadenceDays != null) 'cadence_days': cadenceDays,
       if (nextDueOn != null) 'next_due_on': nextDueOn,
@@ -17896,6 +17999,8 @@ class PhotoPointsCompanion extends UpdateCompanion<PhotoPoint> {
     Value<double>? lng,
     Value<double>? bearingDeg,
     Value<double?>? cameraHeightCm,
+    Value<double?>? focalLengthMm,
+    Value<double?>? viewExtentM,
     Value<String?>? subject,
     Value<int?>? cadenceDays,
     Value<String?>? nextDueOn,
@@ -17915,6 +18020,8 @@ class PhotoPointsCompanion extends UpdateCompanion<PhotoPoint> {
       lng: lng ?? this.lng,
       bearingDeg: bearingDeg ?? this.bearingDeg,
       cameraHeightCm: cameraHeightCm ?? this.cameraHeightCm,
+      focalLengthMm: focalLengthMm ?? this.focalLengthMm,
+      viewExtentM: viewExtentM ?? this.viewExtentM,
       subject: subject ?? this.subject,
       cadenceDays: cadenceDays ?? this.cadenceDays,
       nextDueOn: nextDueOn ?? this.nextDueOn,
@@ -17953,6 +18060,12 @@ class PhotoPointsCompanion extends UpdateCompanion<PhotoPoint> {
     }
     if (cameraHeightCm.present) {
       map['camera_height_cm'] = Variable<double>(cameraHeightCm.value);
+    }
+    if (focalLengthMm.present) {
+      map['focal_length_mm'] = Variable<double>(focalLengthMm.value);
+    }
+    if (viewExtentM.present) {
+      map['view_extent_m'] = Variable<double>(viewExtentM.value);
     }
     if (subject.present) {
       map['subject'] = Variable<String>(subject.value);
@@ -17995,6 +18108,8 @@ class PhotoPointsCompanion extends UpdateCompanion<PhotoPoint> {
           ..write('lng: $lng, ')
           ..write('bearingDeg: $bearingDeg, ')
           ..write('cameraHeightCm: $cameraHeightCm, ')
+          ..write('focalLengthMm: $focalLengthMm, ')
+          ..write('viewExtentM: $viewExtentM, ')
           ..write('subject: $subject, ')
           ..write('cadenceDays: $cadenceDays, ')
           ..write('nextDueOn: $nextDueOn, ')
@@ -42805,6 +42920,8 @@ typedef $PhotoPointsCreateCompanionBuilder = PhotoPointsCompanion Function({
   required double lng,
   required double bearingDeg,
   Value<double?> cameraHeightCm,
+  Value<double?> focalLengthMm,
+  Value<double?> viewExtentM,
   Value<String?> subject,
   Value<int?> cadenceDays,
   Value<String?> nextDueOn,
@@ -42824,6 +42941,8 @@ typedef $PhotoPointsUpdateCompanionBuilder = PhotoPointsCompanion Function({
   Value<double> lng,
   Value<double> bearingDeg,
   Value<double?> cameraHeightCm,
+  Value<double?> focalLengthMm,
+  Value<double?> viewExtentM,
   Value<String?> subject,
   Value<int?> cadenceDays,
   Value<String?> nextDueOn,
@@ -42918,6 +43037,16 @@ class $PhotoPointsFilterComposer extends Composer<_$FieldNotesDb, PhotoPoints> {
 
   ColumnFilters<double> get cameraHeightCm => $composableBuilder(
     column: $table.cameraHeightCm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get focalLengthMm => $composableBuilder(
+    column: $table.focalLengthMm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get viewExtentM => $composableBuilder(
+    column: $table.viewExtentM,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -43054,6 +43183,16 @@ class $PhotoPointsOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get focalLengthMm => $composableBuilder(
+    column: $table.focalLengthMm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get viewExtentM => $composableBuilder(
+    column: $table.viewExtentM,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get subject => $composableBuilder(
     column: $table.subject,
     builder: (column) => ColumnOrderings(column),
@@ -43151,6 +43290,16 @@ class $PhotoPointsAnnotationComposer
 
   GeneratedColumn<double> get cameraHeightCm => $composableBuilder(
     column: $table.cameraHeightCm,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get focalLengthMm => $composableBuilder(
+    column: $table.focalLengthMm,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get viewExtentM => $composableBuilder(
+    column: $table.viewExtentM,
     builder: (column) => column,
   );
 
@@ -43267,6 +43416,8 @@ class $PhotoPointsTableManager
                 Value<double> lng = const Value.absent(),
                 Value<double> bearingDeg = const Value.absent(),
                 Value<double?> cameraHeightCm = const Value.absent(),
+                Value<double?> focalLengthMm = const Value.absent(),
+                Value<double?> viewExtentM = const Value.absent(),
                 Value<String?> subject = const Value.absent(),
                 Value<int?> cadenceDays = const Value.absent(),
                 Value<String?> nextDueOn = const Value.absent(),
@@ -43285,6 +43436,8 @@ class $PhotoPointsTableManager
                 lng: lng,
                 bearingDeg: bearingDeg,
                 cameraHeightCm: cameraHeightCm,
+                focalLengthMm: focalLengthMm,
+                viewExtentM: viewExtentM,
                 subject: subject,
                 cadenceDays: cadenceDays,
                 nextDueOn: nextDueOn,
@@ -43305,6 +43458,8 @@ class $PhotoPointsTableManager
                 required double lng,
                 required double bearingDeg,
                 Value<double?> cameraHeightCm = const Value.absent(),
+                Value<double?> focalLengthMm = const Value.absent(),
+                Value<double?> viewExtentM = const Value.absent(),
                 Value<String?> subject = const Value.absent(),
                 Value<int?> cadenceDays = const Value.absent(),
                 Value<String?> nextDueOn = const Value.absent(),
@@ -43323,6 +43478,8 @@ class $PhotoPointsTableManager
                 lng: lng,
                 bearingDeg: bearingDeg,
                 cameraHeightCm: cameraHeightCm,
+                focalLengthMm: focalLengthMm,
+                viewExtentM: viewExtentM,
                 subject: subject,
                 cadenceDays: cadenceDays,
                 nextDueOn: nextDueOn,

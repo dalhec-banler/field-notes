@@ -30,23 +30,25 @@ void main() {
 
     // Flutter tests have no network: a khaki tile stands in for imagery.
     final rec = ui.PictureRecorder();
-    ui.Canvas(rec).drawRect(const ui.Rect.fromLTWH(0, 0, 256, 256),
-        ui.Paint()..color = const ui.Color(0xFF8A8F6A));
+    ui.Canvas(rec).drawRect(
+      const ui.Rect.fromLTWH(0, 0, 256, 256),
+      ui.Paint()..color = const ui.Color(0xFF8A8F6A),
+    );
     final img = await rec.endRecording().toImage(256, 256);
-    final tile = (await img.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
+    final tile = (await img.toByteData(format: ui.ImageByteFormat.png))!.buffer
         .asUint8List();
 
-    final plate = await MapPlate(fetchTile: (z, x, y) async => tile).render(
-        subject,
-        layers: const PlateLayers(records: true, tracks: true));
+    final plate = await MapPlate(
+      fetchTile: (z, x, y) async => tile,
+    ).render(subject, layers: const PlateLayers(records: true, tracks: true));
     final doc = MapDocument(
       title: property.name,
       plate: plate,
       subject: subject,
       layers: const PlateLayers(records: true, tracks: true),
       preparedFor: 'Texas Parks & Wildlife',
-      notes: 'Zones as of September 2026. River strip planted spring 2025.\n'
+      notes:
+          'Zones as of September 2026. River strip planted spring 2025.\n'
           'Headcut in the basin needs rock before the fall rains.',
     );
     Directory(out).createSync(recursive: true);

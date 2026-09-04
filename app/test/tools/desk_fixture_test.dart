@@ -31,21 +31,27 @@ void main() {
     final file = File(out);
     if (file.existsSync()) file.deleteSync();
     final db = FieldNotesDb.fromFile(file);
-    await seedTaxaIfEmpty(db,
-        csvText: File('assets/seed/taxa_seed.csv').readAsStringSync());
+    await seedTaxaIfEmpty(
+      db,
+      csvText: File('assets/seed/taxa_seed.csv').readAsStringSync(),
+    );
     await seedFeatureTypesIfEmpty(db);
     final now = nowUtcIso();
 
     final propId = newId();
-    await db.into(db.properties).insert(PropertiesCompanion.insert(
-          id: propId,
-          name: 'Shorts Resort',
-          county: const Value('Lampasas'),
-          state: const Value('TX'),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.properties)
+        .insert(
+          PropertiesCompanion.insert(
+            id: propId,
+            name: 'Shorts Resort',
+            county: const Value('Lampasas'),
+            state: const Value('TX'),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
 
     // Boundary + zones from the real KML, the way the import screen commits.
     final placemarks = parseKml(File(kmlPath).readAsStringSync());
@@ -61,44 +67,60 @@ void main() {
       }
       final centroid = (sy / ring.length, sx / ring.length);
       if (pm.name.contains('Shorts Resort')) {
-        await (db.update(db.properties)..where((p) => p.id.equals(propId)))
-            .write(PropertiesCompanion(
-          boundaryGeojson: Value(pm.geojson),
-          centroidLat: Value(centroid.$1),
-          centroidLng: Value(centroid.$2),
-        ));
+        await (db.update(
+          db.properties,
+        )..where((p) => p.id.equals(propId))).write(
+          PropertiesCompanion(
+            boundaryGeojson: Value(pm.geojson),
+            centroidLat: Value(centroid.$1),
+            centroidLng: Value(centroid.$2),
+          ),
+        );
         continue;
       }
       final zid = newId();
-      await db.into(db.zones).insert(ZonesCompanion.insert(
-            id: zid,
-            propertyId: propId,
-            name: pm.name,
-            geojson: pm.geojson,
-            notes: Value(pm.description),
-            createdBy: 'local',
-            createdAt: now,
-            updatedAt: now,
-          ));
+      await db
+          .into(db.zones)
+          .insert(
+            ZonesCompanion.insert(
+              id: zid,
+              propertyId: propId,
+              name: pm.name,
+              geojson: pm.geojson,
+              notes: Value(pm.description),
+              createdBy: 'local',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
       zoneCentroids[zid] = centroid;
     }
     expect(zoneCentroids.length, greaterThanOrEqualTo(5));
 
     Future<String?> taxon(String prefix) async {
-      final t = await (db.select(db.taxa)
-            ..where((t) => t.scientificName.like('$prefix%'))
-            ..limit(1))
-          .getSingleOrNull();
+      final t =
+          await (db.select(db.taxa)
+                ..where((t) => t.scientificName.like('$prefix%'))
+                ..limit(1))
+              .getSingleOrNull();
       return t?.id;
     }
 
     final species = [
       (await taxon('Quercus'), 'certain', 'Live oak motte holding well.'),
-      (await taxon('Juniperus'), 'certain', 'Cedar encroachment, cut this winter.'),
+      (
+        await taxon('Juniperus'),
+        'certain',
+        'Cedar encroachment, cut this winter.',
+      ),
       (await taxon('Prosopis'), 'probable', 'Mesquite resprout in the basin.'),
       (await taxon('Salix'), 'probable', 'Willow cuttings leafing out.'),
       (await taxon('Platanus'), 'certain', 'Sycamore seedlings on the bar.'),
-      (await taxon('Schizachyrium'), 'uncertain', 'Little bluestem? Seed heads forming.'),
+      (
+        await taxon('Schizachyrium'),
+        'uncertain',
+        'Little bluestem? Seed heads forming.',
+      ),
       (null, null, 'Unknown forb, pink, ~40 cm. Photo taken.'),
     ];
 
@@ -115,34 +137,47 @@ void main() {
       final type = k == 5
           ? 'problem'
           : k == 9
-              ? 'water'
-              : sp.$1 == null
-                  ? 'plant'
-                  : 'plant';
-      await db.into(db.observations).insert(ObservationsCompanion.insert(
-            id: id,
-            propertyId: propId,
-            observedAt: day.toIso8601String(),
-            localTz: 'America/Chicago',
-            lat: lat,
-            lng: lng,
-            gpsAccuracyM: const Value(4.2),
-            observationType: Value(type),
-            taxonId: Value(type == 'plant' ? sp.$1 : null),
-            taxonConfidence: Value(type == 'plant'
-                ? (sp.$1 == null ? 'unidentified' : sp.$2)
-                : 'unidentified'),
-            notes: Value(type == 'problem'
-                ? 'Headcut advancing ~1 m since spring. Needs rock.'
-                : type == 'water'
+          ? 'water'
+          : sp.$1 == null
+          ? 'plant'
+          : 'plant';
+      await db
+          .into(db.observations)
+          .insert(
+            ObservationsCompanion.insert(
+              id: id,
+              propertyId: propId,
+              observedAt: day.toIso8601String(),
+              localTz: 'America/Chicago',
+              lat: lat,
+              lng: lng,
+              gpsAccuracyM: const Value(4.2),
+              observationType: Value(type),
+              taxonId: Value(type == 'plant' ? sp.$1 : null),
+              taxonConfidence: Value(
+                type == 'plant'
+                    ? (sp.$1 == null ? 'unidentified' : sp.$2)
+                    : 'unidentified',
+              ),
+              notes: Value(
+                type == 'problem'
+                    ? 'Headcut advancing ~1 m since spring. Needs rock.'
+                    : type == 'water'
                     ? 'Spring running clear after the rain.'
-                    : sp.$3),
-            createdBy: k % 4 == 3 ? 'wylder' : 'local',
-            createdAt: day.toIso8601String(),
-            updatedAt: day.toIso8601String(),
-          ));
-      await assignZone(db,
-          observationId: id, propertyId: propId, lat: lat, lng: lng);
+                    : sp.$3,
+              ),
+              createdBy: k % 4 == 3 ? 'wylder' : 'local',
+              createdAt: day.toIso8601String(),
+              updatedAt: day.toIso8601String(),
+            ),
+          );
+      await assignZone(
+        db,
+        observationId: id,
+        propertyId: propId,
+        lat: lat,
+        lng: lng,
+      );
       obsIds.add(id);
       i++;
     }
@@ -152,68 +187,81 @@ void main() {
     final review = ReviewService(db);
     for (var k = 3; k < 14; k += 4) {
       await review.markPending(
-          propertyId: propId,
-          entityType: 'observation',
-          entityId: obsIds[k],
-          author: 'wylder');
+        propertyId: propId,
+        entityType: 'observation',
+        entityId: obsIds[k],
+        author: 'wylder',
+      );
     }
 
-    Future<String> featureType(String key) async => (await (db
-                .select(db.featureTypes)
-              ..where((t) => t.typeKey.equals(key)))
-            .getSingle())
-        .id;
+    Future<String> featureType(String key) async => (await (db.select(
+      db.featureTypes,
+    )..where((t) => t.typeKey.equals(key))).getSingle()).id;
     final c0 = centroids.first.value;
     final c1 = centroids[1].value;
-    await db.into(db.features).insert(FeaturesCompanion.insert(
-          id: newId(),
-          propertyId: propId,
-          featureTypeId: await featureType('spring'),
-          name: const Value('Bluff spring'),
-          geojson: jsonEncode({
-            'type': 'Point',
-            'coordinates': [c0.$2 + 0.0006, c0.$1 - 0.0002]
-          }),
-          lat: Value(c0.$1 - 0.0002),
-          lng: Value(c0.$2 + 0.0006),
-          currentCondition: const Value('good'),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
-    await db.into(db.features).insert(FeaturesCompanion.insert(
-          id: newId(),
-          propertyId: propId,
-          featureTypeId: await featureType('erosion_zone'),
-          name: const Value('Basin headcut'),
-          geojson: jsonEncode({
-            'type': 'Point',
-            'coordinates': [c1.$2 - 0.0004, c1.$1 + 0.0003]
-          }),
-          lat: Value(c1.$1 + 0.0003),
-          lng: Value(c1.$2 - 0.0004),
-          currentCondition: const Value('poor'),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.features)
+        .insert(
+          FeaturesCompanion.insert(
+            id: newId(),
+            propertyId: propId,
+            featureTypeId: await featureType('spring'),
+            name: const Value('Bluff spring'),
+            geojson: jsonEncode({
+              'type': 'Point',
+              'coordinates': [c0.$2 + 0.0006, c0.$1 - 0.0002],
+            }),
+            lat: Value(c0.$1 - 0.0002),
+            lng: Value(c0.$2 + 0.0006),
+            currentCondition: const Value('good'),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await db
+        .into(db.features)
+        .insert(
+          FeaturesCompanion.insert(
+            id: newId(),
+            propertyId: propId,
+            featureTypeId: await featureType('erosion_zone'),
+            name: const Value('Basin headcut'),
+            geojson: jsonEncode({
+              'type': 'Point',
+              'coordinates': [c1.$2 - 0.0004, c1.$1 + 0.0003],
+            }),
+            lat: Value(c1.$1 + 0.0003),
+            lng: Value(c1.$2 - 0.0004),
+            currentCondition: const Value('poor'),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
 
     // One walk through three zones.
     final line = [
-      for (final e in centroids.take(3)) [e.value.$2, e.value.$1]
+      for (final e in centroids.take(3)) [e.value.$2, e.value.$1],
     ];
-    await db.into(db.tracks).insert(TracksCompanion.insert(
-          id: newId(),
-          propertyId: propId,
-          startedAt: '2026-08-20T13:05:00Z',
-          endedAt: const Value('2026-08-20T14:10:00Z'),
-          distanceM: const Value(2180),
-          purpose: const Value('survey'),
-          geojson: Value(jsonEncode({'type': 'LineString', 'coordinates': line})),
-          createdBy: 'local',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.tracks)
+        .insert(
+          TracksCompanion.insert(
+            id: newId(),
+            propertyId: propId,
+            startedAt: '2026-08-20T13:05:00Z',
+            endedAt: const Value('2026-08-20T14:10:00Z'),
+            distanceM: const Value(2180),
+            purpose: const Value('survey'),
+            geojson: Value(
+              jsonEncode({'type': 'LineString', 'coordinates': line}),
+            ),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
 
     await db.close();
     expect(file.existsSync(), isTrue);

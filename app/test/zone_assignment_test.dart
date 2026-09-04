@@ -6,28 +6,35 @@ import 'package:field_notes/geo/zone_assignment.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 String polygon(List<List<double>> ring) => jsonEncode({
-      'type': 'Polygon',
-      'coordinates': [ring],
-    });
+  'type': 'Polygon',
+  'coordinates': [ring],
+});
 
 void main() {
   late FieldNotesDb db;
   late String propId;
 
-  Future<String> addZone(String name, List<List<double>> ring,
-      {String? parent}) async {
+  Future<String> addZone(
+    String name,
+    List<List<double>> ring, {
+    String? parent,
+  }) async {
     final id = newId();
     final now = nowUtcIso();
-    await db.into(db.zones).insert(ZonesCompanion.insert(
-          id: id,
-          propertyId: propId,
-          name: name,
-          geojson: polygon(ring),
-          parentZoneId: Value(parent),
-          createdBy: 'austin',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.zones)
+        .insert(
+          ZonesCompanion.insert(
+            id: id,
+            propertyId: propId,
+            name: name,
+            geojson: polygon(ring),
+            parentZoneId: Value(parent),
+            createdBy: 'austin',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     return id;
   }
 
@@ -35,13 +42,17 @@ void main() {
     db = FieldNotesDb.forTesting();
     propId = newId();
     final now = nowUtcIso();
-    await db.into(db.properties).insert(PropertiesCompanion.insert(
-          id: propId,
-          name: 'Test property',
-          createdBy: 'austin',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.properties)
+        .insert(
+          PropertiesCompanion.insert(
+            id: propId,
+            name: 'Test property',
+            createdBy: 'austin',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
   });
 
   tearDown(() => db.close());
@@ -80,16 +91,13 @@ void main() {
       [-98.20, 31.10],
       [-98.20, 31.00],
     ]);
-    final inner = await addZone(
-        'Wetland pocket',
-        [
-          [-98.16, 31.04],
-          [-98.14, 31.04],
-          [-98.14, 31.06],
-          [-98.16, 31.06],
-          [-98.16, 31.04],
-        ],
-        parent: outer);
+    final inner = await addZone('Wetland pocket', [
+      [-98.16, 31.04],
+      [-98.14, 31.04],
+      [-98.14, 31.06],
+      [-98.16, 31.06],
+      [-98.16, 31.04],
+    ], parent: outer);
     final got = await ZoneAssigner(db)
         .zoneIdFor(propertyId: propId, lat: 31.05, lng: -98.15);
     expect(got, inner);
@@ -97,15 +105,19 @@ void main() {
 
   test('malformed geometry is skipped, never throws', () async {
     final now = nowUtcIso();
-    await db.into(db.zones).insert(ZonesCompanion.insert(
-          id: newId(),
-          propertyId: propId,
-          name: 'Broken',
-          geojson: '{"type":"Garbage"}',
-          createdBy: 'austin',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.zones)
+        .insert(
+          ZonesCompanion.insert(
+            id: newId(),
+            propertyId: propId,
+            name: 'Broken',
+            geojson: '{"type":"Garbage"}',
+            createdBy: 'austin',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     final got = await ZoneAssigner(db)
         .zoneIdFor(propertyId: propId, lat: 31.05, lng: -98.15);
     expect(got, isNull);
@@ -121,23 +133,32 @@ void main() {
     ]);
     final now = nowUtcIso();
     final obsId = newId();
-    await db.into(db.observations).insert(ObservationsCompanion.insert(
-          id: obsId,
-          propertyId: propId,
-          observedAt: now,
-          localTz: 'CDT',
-          lat: 31.05,
-          lng: -98.15,
-          createdBy: 'austin',
-          createdAt: now,
-          updatedAt: now,
-        ));
-    final assigned = await assignZone(db,
-        observationId: obsId, propertyId: propId, lat: 31.05, lng: -98.15);
+    await db
+        .into(db.observations)
+        .insert(
+          ObservationsCompanion.insert(
+            id: obsId,
+            propertyId: propId,
+            observedAt: now,
+            localTz: 'CDT',
+            lat: 31.05,
+            lng: -98.15,
+            createdBy: 'austin',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final assigned = await assignZone(
+      db,
+      observationId: obsId,
+      propertyId: propId,
+      lat: 31.05,
+      lng: -98.15,
+    );
     expect(assigned, z);
-    final obs = await (db.select(db.observations)
-          ..where((o) => o.id.equals(obsId)))
-        .getSingle();
+    final obs = await (db.select(
+      db.observations,
+    )..where((o) => o.id.equals(obsId))).getSingle();
     expect(obs.zoneId, z);
   });
 }

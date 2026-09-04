@@ -220,6 +220,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
   bool _voiceSaved = false;
 
+  /// Make this spot a monitoring station too (Austin, 2026-09-04): the
+  /// record saves as always, and a photo point is anchored here facing
+  /// the way the phone was pointed.
+  bool _asPhotoPoint = false;
+
   /// Mic button: tap to start, tap to stop. The transcript lands in the
   /// notes field as it's recognised; the audio is kept regardless.
   Future<void> _toggleVoice() async {
@@ -530,6 +535,36 @@ class _CaptureScreenState extends State<CaptureScreen> {
             entityId: obsId,
             role: i == 0 ? 'primary' : 'attachment',
           );
+        }
+
+        // A station, pinned from the field: same spot, same aim, every
+        // visit from here on. The first ghost capture refines the bearing.
+        if (_asPhotoPoint && lat != null && lng != null) {
+          final heading = fix?.heading;
+          await db
+              .into(db.photoPoints)
+              .insert(
+                PhotoPointsCompanion.insert(
+                  id: newId(),
+                  propertyId: widget.property.id,
+                  name: _notesController.text.trim().isNotEmpty
+                      ? _notesController.text.trim().split('\n').first
+                      : 'Photo point ${now.substring(0, 10)}',
+                  lat: lat,
+                  lng: lng,
+                  bearingDeg: heading != null && heading >= 0 ? heading : 0,
+                  subject: Value(_taxon?.commonName ?? _taxon?.scientificName),
+                  cadenceDays: const Value(90),
+                  focalLengthMm: const Value(26),
+                  viewExtentM: const Value(60),
+                  referenceMediaId: Value(
+                    savedMediaIds.isEmpty ? null : savedMediaIds.first,
+                  ),
+                  createdBy: 'local',
+                  createdAt: now,
+                  updatedAt: now,
+                ),
+              );
         }
         if (voice != null) {
           await MediaStore(db).linkTo(
@@ -927,6 +962,28 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
+                    SizedBox(
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: _asPhotoPoint ? Press.ink : null,
+                          foregroundColor: _asPhotoPoint
+                              ? Press.paper
+                              : Press.ink,
+                        ),
+                        icon: Icon(
+                          _asPhotoPoint
+                              ? Icons.center_focus_strong
+                              : Icons.center_focus_weak,
+                          size: 18,
+                        ),
+                        label: Text(
+                          _asPhotoPoint ? 'PHOTO POINT ✓' : 'PHOTO POINT',
+                        ),
+                        onPressed: () =>
+                            setState(() => _asPhotoPoint = !_asPhotoPoint),
+                      ),
+                    ),
                     SizedBox(
                       height: 48,
                       child: OutlinedButton.icon(

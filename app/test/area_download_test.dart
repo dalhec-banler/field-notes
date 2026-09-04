@@ -13,10 +13,8 @@ void main() {
   final haveArchive = File(_lampasas).existsSync();
 
   group('PmTilesReader against the real Lampasas archive', () {
-    test('parses the header: bounds cover the property, zooms sane',
-        () async {
-      final reader =
-          await PmTilesReader.open(FileRangeSource(File(_lampasas)));
+    test('parses the header: bounds cover the property, zooms sane', () async {
+      final reader = await PmTilesReader.open(FileRangeSource(File(_lampasas)));
       final b = reader.header.bounds;
       // Extracted with bbox -98.75,30.65,-97.75,31.45.
       expect(b[0], lessThanOrEqualTo(-98.18));
@@ -28,8 +26,7 @@ void main() {
     });
 
     test('fetches a tile over the property and it is gzip MVT', () async {
-      final reader =
-          await PmTilesReader.open(FileRangeSource(File(_lampasas)));
+      final reader = await PmTilesReader.open(FileRangeSource(File(_lampasas)));
       final z = 10;
       final x = TileMath.lonToX(-98.18, z);
       final y = TileMath.latToY(31.06, z);
@@ -42,11 +39,13 @@ void main() {
     });
 
     test('returns null far outside the archive bounds', () async {
-      final reader =
-          await PmTilesReader.open(FileRangeSource(File(_lampasas)));
+      final reader = await PmTilesReader.open(FileRangeSource(File(_lampasas)));
       // Tokyo at z10 is not in a Lampasas County extract.
       final tile = await reader.getTile(
-          10, TileMath.lonToX(139.7, 10), TileMath.latToY(35.7, 10));
+        10,
+        TileMath.lonToX(139.7, 10),
+        TileMath.latToY(35.7, 10),
+      );
       expect(tile, isNull);
       reader.close();
     });
@@ -66,24 +65,36 @@ void main() {
     });
 
     test('cover produces the expected pyramid', () {
-      final tiles = TileMath.cover(-98.20, 31.05, -98.17, 31.07,
-          minZ: 0, maxZ: 10);
+      final tiles = TileMath.cover(
+        -98.20,
+        31.05,
+        -98.17,
+        31.07,
+        minZ: 0,
+        maxZ: 10,
+      );
       // One tile per low zoom at minimum; every zoom present.
       expect(tiles.where((t) => t.$1 == 0).length, 1);
       expect(tiles.where((t) => t.$1 == 10), isNotEmpty);
       // The z10 tile containing the point is covered.
       expect(
-          tiles.contains(
-              (10, TileMath.lonToX(-98.18, 10), TileMath.latToY(31.06, 10))),
-          isTrue);
+        tiles.contains((
+          10,
+          TileMath.lonToX(-98.18, 10),
+          TileMath.latToY(31.06, 10),
+        )),
+        isTrue,
+      );
     });
   });
 
   group('MbTilesStore', () {
     test('round-trips tiles with TMS flip and accumulates', () {
       final dir = Directory.systemTemp.createTempSync('mb');
-      final store =
-          MbTilesStore.open(File('${dir.path}/t.mbtiles'), create: true);
+      final store = MbTilesStore.open(
+        File('${dir.path}/t.mbtiles'),
+        create: true,
+      );
       final data = Uint8List.fromList([1, 2, 3, 4]);
       store.putTile(10, 236, 425, data);
       expect(store.getTile(10, 236, 425), data);
@@ -103,12 +114,19 @@ void main() {
       final dir = Directory.systemTemp.createTempSync('cap');
       // Redirect the target into the temp dir via a store opened directly:
       // exercise the pipeline pieces the downloader composes.
-      final reader =
-          await PmTilesReader.open(FileRangeSource(File(_lampasas)));
-      final store =
-          MbTilesStore.open(File('${dir.path}/cap.mbtiles'), create: true);
-      final tiles = TileMath.cover(-98.20, 31.05, -98.17, 31.07,
-          minZ: 8, maxZ: reader.header.maxZoom.clamp(8, 12));
+      final reader = await PmTilesReader.open(FileRangeSource(File(_lampasas)));
+      final store = MbTilesStore.open(
+        File('${dir.path}/cap.mbtiles'),
+        create: true,
+      );
+      final tiles = TileMath.cover(
+        -98.20,
+        31.05,
+        -98.17,
+        31.07,
+        minZ: 8,
+        maxZ: reader.header.maxZoom.clamp(8, 12),
+      );
       var written = 0;
       for (final (z, x, y) in tiles) {
         final data = await reader.getTile(z, x, y);

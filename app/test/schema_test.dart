@@ -11,31 +11,39 @@ void main() {
   test('schema creates and round-trips a property + observation', () async {
     final now = nowUtcIso();
     final propId = newId();
-    await db.into(db.properties).insert(PropertiesCompanion.insert(
-          id: propId,
-          name: 'Shorts Resort',
-          createdBy: 'austin',
-          createdAt: now,
-          updatedAt: now,
-          landTenure: const Value('owned'),
-        ));
+    await db
+        .into(db.properties)
+        .insert(
+          PropertiesCompanion.insert(
+            id: propId,
+            name: 'Shorts Resort',
+            createdBy: 'austin',
+            createdAt: now,
+            updatedAt: now,
+            landTenure: const Value('owned'),
+          ),
+        );
 
     final obsId = newId();
-    await db.into(db.observations).insert(ObservationsCompanion.insert(
-          id: obsId,
-          propertyId: propId,
-          observedAt: now,
-          localTz: 'CDT',
-          lat: 31.06,
-          lng: -98.18,
-          createdBy: 'austin',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.observations)
+        .insert(
+          ObservationsCompanion.insert(
+            id: obsId,
+            propertyId: propId,
+            observedAt: now,
+            localTz: 'CDT',
+            lat: 31.06,
+            lng: -98.18,
+            createdBy: 'austin',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
 
-    final obs = await (db.select(db.observations)
-          ..where((o) => o.id.equals(obsId)))
-        .getSingle();
+    final obs = await (db.select(
+      db.observations,
+    )..where((o) => o.id.equals(obsId))).getSingle();
     expect(obs.propertyId, propId);
     expect(obs.observationType, 'general');
     expect(obs.deletedAt, isNull);
@@ -44,14 +52,18 @@ void main() {
   test('land_tenure CHECK rejects invalid values', () async {
     final now = nowUtcIso();
     expect(
-      () => db.into(db.properties).insert(PropertiesCompanion.insert(
-            id: newId(),
-            name: 'Bad tenure',
-            createdBy: 'austin',
-            createdAt: now,
-            updatedAt: now,
-            landTenure: const Value('rented'),
-          )),
+      () => db
+          .into(db.properties)
+          .insert(
+            PropertiesCompanion.insert(
+              id: newId(),
+              name: 'Bad tenure',
+              createdBy: 'austin',
+              createdAt: now,
+              updatedAt: now,
+              landTenure: const Value('rented'),
+            ),
+          ),
       throwsA(anything),
     );
   });
@@ -59,17 +71,21 @@ void main() {
   test('foreign keys are enforced', () async {
     final now = nowUtcIso();
     expect(
-      () => db.into(db.observations).insert(ObservationsCompanion.insert(
-            id: newId(),
-            propertyId: 'no-such-property',
-            observedAt: now,
-            localTz: 'CDT',
-            lat: 0,
-            lng: 0,
-            createdBy: 'austin',
-            createdAt: now,
-            updatedAt: now,
-          )),
+      () => db
+          .into(db.observations)
+          .insert(
+            ObservationsCompanion.insert(
+              id: newId(),
+              propertyId: 'no-such-property',
+              observedAt: now,
+              localTz: 'CDT',
+              lat: 0,
+              lng: 0,
+              createdBy: 'austin',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          ),
       throwsA(anything),
     );
   });

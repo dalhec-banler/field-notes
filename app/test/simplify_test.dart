@@ -5,7 +5,8 @@ void main() {
   test('keeps endpoints and drops collinear points', () {
     // Straight north walk with tiny jitter well under 5 m.
     final points = [
-      for (var i = 0; i <= 20; i++) [-98.18 + i * 0.0000001, 31.05 + i * 0.0001]
+      for (var i = 0; i <= 20; i++)
+        [-98.18 + i * 0.0000001, 31.05 + i * 0.0001],
     ];
     final simplified = simplifyTrack(points);
     expect(simplified.length, lessThan(5));

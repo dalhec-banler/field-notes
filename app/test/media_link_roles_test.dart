@@ -14,13 +14,17 @@ void main() {
     db = FieldNotesDb.forTesting();
     final now = nowUtcIso();
     propId = newId();
-    await db.into(db.properties).insert(PropertiesCompanion.insert(
-          id: propId,
-          name: 'Yard',
-          createdBy: 'a',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.properties)
+        .insert(
+          PropertiesCompanion.insert(
+            id: propId,
+            name: 'Yard',
+            createdBy: 'a',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
   });
 
   tearDown(() => db.close());
@@ -28,19 +32,25 @@ void main() {
   Future<void> link(String role) async {
     final now = nowUtcIso();
     final mediaId = newId();
-    await db.into(db.media).insert(MediaCompanion.insert(
-          id: mediaId,
-          propertyId: propId,
-          mediaType: 'audio',
-          createdBy: 'a',
-          createdAt: now,
-          updatedAt: now,
-        ));
-    await MediaStore(db).linkTo(mediaId,
-        propertyId: propId,
-        entityType: 'observation',
-        entityId: newId(),
-        role: role);
+    await db
+        .into(db.media)
+        .insert(
+          MediaCompanion.insert(
+            id: mediaId,
+            propertyId: propId,
+            mediaType: 'audio',
+            createdBy: 'a',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    await MediaStore(db).linkTo(
+      mediaId,
+      propertyId: propId,
+      entityType: 'observation',
+      entityId: newId(),
+      role: role,
+    );
   }
 
   test('every role the app writes is accepted by the schema', () async {
@@ -51,7 +61,7 @@ void main() {
       'attachment',
       'reference',
       'before',
-      'after'
+      'after',
     ]) {
       await link(role);
     }

@@ -386,6 +386,9 @@ CREATE TABLE photo_points (
   lat REAL NOT NULL, lng REAL NOT NULL,
   bearing_deg   REAL NOT NULL,
   camera_height_cm REAL,
+  focal_length_mm REAL,              -- 35 mm equivalent; the 4th fixed axis
+  view_extent_m REAL,                -- how far out the frame reads, for the
+                                     -- map wedge (default 60 m)
   subject       TEXT,                -- 'looking downstream at willow planting'
   cadence_days  INTEGER,             -- reminder interval
   next_due_on   TEXT,

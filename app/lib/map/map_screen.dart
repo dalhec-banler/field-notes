@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
 import '../geo/site_presence.dart';
+import '../geo/view_wedge.dart';
 import '../main.dart' show locationHub;
 import 'area_downloader.dart';
 import 'basemap_style.dart';
@@ -45,6 +46,7 @@ class MapScreen extends StatefulWidget {
     this.onRecordTap,
     this.onClusterTap,
     this.onFeatureTap,
+    this.onPhotoPointTap,
     this.onLayersReady,
     this.onPresence,
     this.onRecordCount,
@@ -77,6 +79,9 @@ class MapScreen extends StatefulWidget {
 
   /// Tap on a feature marker → its id.
   final ValueChanged<String>? onFeatureTap;
+
+  /// Tap on a photo point station → its id.
+  final ValueChanged<String>? onPhotoPointTap;
 
   /// Fired once the style and every overlay layer exist — the moment chrome
   /// can safely apply filters/visibility.
@@ -407,6 +412,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     recordFilter.removeListener(_refreshRecords);
     _recordSub?.cancel();
     _featureSub?.cancel();
+    _photoPointSub?.cancel();
     _fixSub?.cancel();
     _server?.close();
     _mbtiles?.close();
@@ -461,6 +467,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     controller.onFeatureTapped.add((point, latLng, id, layerId, _) async {
       final hit = await _hitAt(point);
       if (hit == null) {
+        final ppid = await _photoPointAt(point);
+        if (ppid != null) {
+          widget.onPhotoPointTap?.call(ppid);
+          return;
+        }
         final fid = await _featureAt(point);
         if (fid != null) widget.onFeatureTap?.call(fid);
         return;
@@ -784,6 +795,59 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       ],
       enableInteraction: true,
     );
+    // Photo points: the station, the ground it frames, and its axis —
+    // a monitoring station is a spot AND a direction AND a field of view
+    // (Austin, 2026-09-04).
+    await controller.addImage('photo-point', await photoPointMarker());
+    await controller.addGeoJsonSource('photopoints', _emptyCollection);
+    await controller.addFillLayer(
+      'photopoints',
+      'pp-wedge',
+      const FillLayerProperties(fillColor: '#D9A521', fillOpacity: 0.20),
+      filter: [
+        '==',
+        ['geometry-type'],
+        'Polygon',
+      ],
+    );
+    await controller.addLineLayer(
+      'photopoints',
+      'pp-axis',
+      const LineLayerProperties(
+        lineColor: '#D9A521',
+        lineWidth: 2,
+        lineOpacity: 0.9,
+      ),
+      filter: [
+        '==',
+        ['geometry-type'],
+        'LineString',
+      ],
+    );
+    await controller.addSymbolLayer(
+      'photopoints',
+      'pp-pt',
+      const SymbolLayerProperties(
+        iconImage: 'photo-point',
+        iconSize: 1 / 3,
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+      ),
+      filter: [
+        '==',
+        ['geometry-type'],
+        'Point',
+      ],
+      enableInteraction: true,
+    );
+    _photoPointLayerReady = true;
+    await _refreshPhotoPoints();
+    _photoPointSub?.cancel();
+    _photoPointSub = db
+        .customSelect('SELECT 1', readsFrom: {db.photoPoints})
+        .watch()
+        .listen((_) => _refreshPhotoPoints());
+
     _featureLayerReady = true;
     await _refreshFeatures();
     _featureSub?.cancel();
@@ -892,6 +956,87 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
   bool _featureLayerReady = false;
   StreamSubscription<void>? _featureSub;
+  bool _photoPointLayerReady = false;
+  StreamSubscription<void>? _photoPointSub;
+
+  /// Every photo point on this property: the station, its view wedge, and
+  /// its axis. A point with no bearing yet (never captured) draws as a
+  /// station only — it doesn't claim to look anywhere.
+  Future<void> _refreshPhotoPoints() async {
+    final db = widget.db;
+    final property = widget.property;
+    final controller = _controller;
+    if (db == null || property == null || controller == null) return;
+    if (!_photoPointLayerReady) return;
+    try {
+      final points =
+          await (db.select(db.photoPoints)
+                ..where((p) => p.propertyId.equals(property.id))
+                ..where((p) => p.deletedAt.isNull()))
+              .get();
+      final out = <Map<String, dynamic>>[];
+      for (final p in points) {
+        out.add({
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [p.lng, p.lat],
+          },
+          'properties': {'ppid': p.id, 'name': p.name},
+        });
+        if (p.bearingDeg == 0 && p.referenceMediaId == null) continue;
+        final extent = p.viewExtentM ?? 60;
+        out.add({
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Polygon',
+            'coordinates': [
+              viewWedge(
+                lat: p.lat,
+                lng: p.lng,
+                bearingDeg: p.bearingDeg,
+                focalLengthMm: p.focalLengthMm,
+                extentM: extent,
+              ),
+            ],
+          },
+          'properties': {'ppid': p.id},
+        });
+        out.add({
+          'type': 'Feature',
+          'geometry': {
+            'type': 'LineString',
+            'coordinates': viewAxis(
+              lat: p.lat,
+              lng: p.lng,
+              bearingDeg: p.bearingDeg,
+              extentM: extent,
+            ),
+          },
+          'properties': {'ppid': p.id},
+        });
+      }
+      await controller.setGeoJsonSource('photopoints', {
+        'type': 'FeatureCollection',
+        'features': out,
+      });
+    } catch (_) {}
+  }
+
+  Future<String?> _photoPointAt(Point<double> point) async {
+    final controller = _controller;
+    if (controller == null) return null;
+    try {
+      final hits = await controller.queryRenderedFeatures(point, [
+        'pp-pt',
+      ], null);
+      for (final h in hits) {
+        final id = ((h as Map)['properties'] as Map?)?['ppid'] as String?;
+        if (id != null) return id;
+      }
+    } catch (_) {}
+    return null;
+  }
 
   /// Every live feature on this property, coloured and iconed by class.
   Future<void> _refreshFeatures() async {

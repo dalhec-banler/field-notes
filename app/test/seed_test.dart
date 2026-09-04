@@ -19,14 +19,14 @@ void main() {
     final inserted = await seedTaxaIfEmpty(db, csvText: csvText);
     expect(inserted, 179);
 
-    final favorites = await (db.select(db.taxa)
-          ..where((t) => t.isFavorite.equals(1)))
-        .get();
+    final favorites = await (db.select(
+      db.taxa,
+    )..where((t) => t.isFavorite.equals(1))).get();
     expect(favorites.length, 56);
 
-    final willow = await (db.select(db.taxa)
-          ..where((t) => t.scientificName.equals('Salix nigra')))
-        .getSingle();
+    final willow = await (db.select(
+      db.taxa,
+    )..where((t) => t.scientificName.equals('Salix nigra'))).getSingle();
     expect(willow.isFavorite, 1);
     expect(willow.propertyId, isNull);
   });
@@ -43,11 +43,22 @@ void main() {
     await seedTaxaIfEmpty(db, csvText: csvText);
     final all = await db.select(db.taxa).get();
     const forms = {
-      'tree', 'shrub', 'forb', 'graminoid', 'vine', 'succulent',
-      'fern', 'moss', 'other'
+      'tree',
+      'shrub',
+      'forb',
+      'graminoid',
+      'vine',
+      'succulent',
+      'fern',
+      'moss',
+      'other',
     };
     const nativities = {
-      'native', 'introduced', 'invasive', 'cultivated', 'unknown'
+      'native',
+      'introduced',
+      'invasive',
+      'cultivated',
+      'unknown',
     };
     for (final t in all) {
       if (t.growthForm != null) expect(forms, contains(t.growthForm));

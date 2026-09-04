@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:cryptography/cryptography.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:field_notes/backup/backup_crypto.dart';
@@ -16,39 +17,52 @@ void main() {
 
   // Fast KDF params for tests only; production uses the defaults.
   Future<PassphraseCipher> testCipher(String pass, List<int> salt) =>
-      PassphraseCipher.fromPassphrase(pass, salt,
-          memoryKiB: 256, iterations: 1);
+      PassphraseCipher.fromPassphrase(
+        pass,
+        salt,
+        memoryKiB: 256,
+        iterations: 1,
+      );
 
   Future<String> seedData() async {
     final now = nowUtcIso();
     final propId = newId();
-    await db.into(db.properties).insert(PropertiesCompanion.insert(
-          id: propId,
-          name: 'Shorts Resort',
-          createdBy: 'a',
-          createdAt: now,
-          updatedAt: now,
-        ));
+    await db
+        .into(db.properties)
+        .insert(
+          PropertiesCompanion.insert(
+            id: propId,
+            name: 'Shorts Resort',
+            createdBy: 'a',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
     // Two "photos" on disk with recorded hashes.
     for (var i = 0; i < 2; i++) {
       final bytes = Uint8List.fromList(
-          List.generate(50000 + i, (j) => (i + j) % 251));
+        List.generate(50000 + i, (j) => (i + j) % 251),
+      );
       final f = File('${photoDir.path}/p$i.jpg')..writeAsBytesSync(bytes);
       final digest = await Sha256().hash(bytes);
       final hex = digest.bytes
           .map((b) => b.toRadixString(16).padLeft(2, '0'))
           .join();
-      await db.into(db.media).insert(MediaCompanion.insert(
-            id: newId(),
-            propertyId: propId,
-            mediaType: 'photo',
-            localPath: Value(f.path),
-            sha256: Value(hex),
-            bytes: Value(bytes.length),
-            createdBy: 'a',
-            createdAt: now,
-            updatedAt: now,
-          ));
+      await db
+          .into(db.media)
+          .insert(
+            MediaCompanion.insert(
+              id: newId(),
+              propertyId: propId,
+              mediaType: 'photo',
+              localPath: Value(f.path),
+              sha256: Value(hex),
+              bytes: Value(bytes.length),
+              createdBy: 'a',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
     }
     return propId;
   }
@@ -74,8 +88,11 @@ void main() {
             ? await testCipher('correct horse', salt)
             : const PlainCipher();
         final engine = BackupEngine(
-            db, DirectoryTarget(targetDir), cipher,
-            envelopeExtra: encrypted ? {'salt': base64Encode(salt)} : null);
+          db,
+          DirectoryTarget(targetDir),
+          cipher,
+          envelopeExtra: encrypted ? {'salt': base64Encode(salt)} : null,
+        );
 
         final summary = await engine.backup();
         expect(summary, contains('2 new photos'));
@@ -84,7 +101,9 @@ void main() {
         final restoreDb = File('${work.path}/restore/db.sqlite');
         final restoreMedia = Directory('${work.path}/restore/media');
         final result = await engine.restore(
-            dbOut: restoreDb, mediaRestoreDir: restoreMedia);
+          dbOut: restoreDb,
+          mediaRestoreDir: restoreMedia,
+        );
         expect(result, contains('2 photos'));
 
         final copy = FieldNotesDb.fromFile(restoreDb);
@@ -109,8 +128,12 @@ void main() {
         final cipher = encrypted
             ? await testCipher('correct horse', salt)
             : const PlainCipher();
-        final engine = BackupEngine(db, DirectoryTarget(targetDir), cipher,
-            envelopeExtra: encrypted ? {'salt': base64Encode(salt)} : null);
+        final engine = BackupEngine(
+          db,
+          DirectoryTarget(targetDir),
+          cipher,
+          envelopeExtra: encrypted ? {'salt': base64Encode(salt)} : null,
+        );
         await engine.backup();
         final second = await engine.backup();
         expect(second, contains('Generation 2'));
@@ -124,42 +147,61 @@ void main() {
         final cipher = encrypted
             ? await testCipher('correct horse', salt)
             : const PlainCipher();
-        final engine = BackupEngine(db, DirectoryTarget(targetDir), cipher,
-            envelopeExtra: encrypted ? {'salt': base64Encode(salt)} : null);
+        final engine = BackupEngine(
+          db,
+          DirectoryTarget(targetDir),
+          cipher,
+          envelopeExtra: encrypted ? {'salt': base64Encode(salt)} : null,
+        );
         await engine.backup();
         expect(await engine.verify(), isNull);
       });
     });
   }
 
-  test('wrong passphrase fails cleanly, corrupts nothing (spec §11.10)',
-      () async {
-    await seedData();
-    final salt = BackupEngine.newSalt();
-    final good = await testCipher('correct horse', salt);
-    final engine = BackupEngine(db, DirectoryTarget(targetDir), good,
-        envelopeExtra: {'salt': base64Encode(salt)});
-    await engine.backup();
+  test(
+    'wrong passphrase fails cleanly, corrupts nothing (spec §11.10)',
+    () async {
+      await seedData();
+      final salt = BackupEngine.newSalt();
+      final good = await testCipher('correct horse', salt);
+      final engine = BackupEngine(
+        db,
+        DirectoryTarget(targetDir),
+        good,
+        envelopeExtra: {'salt': base64Encode(salt)},
+      );
+      await engine.backup();
 
-    final bad = await testCipher('battery staple', salt);
-    final badEngine = BackupEngine(db, DirectoryTarget(targetDir), bad,
-        envelopeExtra: {'salt': base64Encode(salt)});
-    expect(() => badEngine.readManifestBody(), throwsA(anything));
+      final bad = await testCipher('battery staple', salt);
+      final badEngine = BackupEngine(
+        db,
+        DirectoryTarget(targetDir),
+        bad,
+        envelopeExtra: {'salt': base64Encode(salt)},
+      );
+      expect(() => badEngine.readManifestBody(), throwsA(anything));
 
-    // The stored backup is untouched and still restores with the right key.
-    final restoreDb = File('${work.path}/restore/db.sqlite');
-    await engine.restore(
+      // The stored backup is untouched and still restores with the right key.
+      final restoreDb = File('${work.path}/restore/db.sqlite');
+      await engine.restore(
         dbOut: restoreDb,
-        mediaRestoreDir: Directory('${work.path}/restore/media'));
-    expect(restoreDb.existsSync(), isTrue);
-  });
+        mediaRestoreDir: Directory('${work.path}/restore/media'),
+      );
+      expect(restoreDb.existsSync(), isTrue);
+    },
+  );
 
   test('tampered blob fails verification', () async {
     await seedData();
     final salt = BackupEngine.newSalt();
     final cipher = await testCipher('correct horse', salt);
-    final engine = BackupEngine(db, DirectoryTarget(targetDir), cipher,
-        envelopeExtra: {'salt': base64Encode(salt)});
+    final engine = BackupEngine(
+      db,
+      DirectoryTarget(targetDir),
+      cipher,
+      envelopeExtra: {'salt': base64Encode(salt)},
+    );
     await engine.backup();
 
     // Flip bytes in every stored blob.
@@ -176,8 +218,12 @@ void main() {
     await seedData();
     final salt = BackupEngine.newSalt();
     final cipher = await testCipher('correct horse', salt);
-    final engine = BackupEngine(db, DirectoryTarget(targetDir), cipher,
-        envelopeExtra: {'salt': base64Encode(salt)});
+    final engine = BackupEngine(
+      db,
+      DirectoryTarget(targetDir),
+      cipher,
+      envelopeExtra: {'salt': base64Encode(salt)},
+    );
     await engine.backup();
 
     final media = await db.select(db.media).get();
@@ -187,8 +233,11 @@ void main() {
         .map((f) => f.path.split('/').last)
         .toList();
     for (final m in media) {
-      expect(names.any((n) => n.contains(m.sha256!)), isFalse,
-          reason: 'blob name must not contain the plaintext sha256');
+      expect(
+        names.any((n) => n.contains(m.sha256!)),
+        isFalse,
+        reason: 'blob name must not contain the plaintext sha256',
+      );
     }
   });
 }

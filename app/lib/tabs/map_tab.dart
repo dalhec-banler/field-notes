@@ -13,6 +13,7 @@ import '../services/record_filter.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../screens/photo_points/photo_point_history_screen.dart';
 import '../screens/polygon_editor_screen.dart';
 import '../widgets/feature_sheet.dart';
 import '../widgets/records_here_sheet.dart';
@@ -115,6 +116,7 @@ class _MapTabState extends State<MapTab> {
   bool _showZones = true;
   bool _showTracks = true;
   bool _showFeatures = true;
+  bool _showPhotoPoints = true;
 
   /// Satellite imagery draws over the offline vector map. The standard view
   /// (on by default, remembered): imagery is what the ground actually looks
@@ -236,6 +238,9 @@ class _MapTabState extends State<MapTab> {
       for (final id in ['features-fill', 'features-line', 'features-pt']) {
         await c.setLayerVisibility(id, _showFeatures);
       }
+      for (final id in ['pp-wedge', 'pp-axis', 'pp-pt']) {
+        await c.setLayerVisibility(id, _showPhotoPoints);
+      }
     } catch (_) {}
     try {
       await c.setLayerVisibility('satellite', _showSatellite);
@@ -279,6 +284,11 @@ class _MapTabState extends State<MapTab> {
                     setState(() {});
                     _applyLayers();
                   }),
+                  _pill('photo points', _showPhotoPoints, () {
+                    setSheet(() => _showPhotoPoints = !_showPhotoPoints);
+                    setState(() {});
+                    _applyLayers();
+                  }),
                   _pill('go to…', false, () {
                     Navigator.of(ctx).pop();
                     _gotoCoords();
@@ -295,6 +305,7 @@ class _MapTabState extends State<MapTab> {
                         _showZones = true;
                         _showTracks = true;
                         _showFeatures = true;
+                        _showPhotoPoints = true;
                         _showSatellite = true;
                         widget.prefs.mapSatellite = true;
                       });
@@ -672,6 +683,18 @@ class _MapTabState extends State<MapTab> {
               onLongPress: _captureMode ? null : widget.onDropRecord,
               visible: widget.active,
               onRecordTap: widget.onRecordTap,
+              onPhotoPointTap: (ppid) async {
+                final p = await (widget.db.select(
+                  widget.db.photoPoints,
+                )..where((x) => x.id.equals(ppid))).getSingleOrNull();
+                if (p == null || !context.mounted) return;
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        PhotoPointHistoryScreen(db: widget.db, point: p),
+                  ),
+                );
+              },
               onFeatureTap: (fid) => showFeatureSheet(
                 context,
                 db: widget.db,

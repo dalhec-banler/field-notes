@@ -8,8 +8,7 @@ void main() {
   Future<BackupKeyring> create(String pass) =>
       BackupKeyring.create(pass, memoryKiB: 256, iterations: 1);
 
-  test('creation yields a 12-word recovery phrase and sealed fields',
-      () async {
+  test('creation yields a 12-word recovery phrase and sealed fields', () async {
     final keyring = await create('correct horse');
     expect(keyring.recoveryPhrase!.split(' ').length, 12);
     expect(keyring.envelopeFields['scheme'], 'keyring-v1');
@@ -23,7 +22,9 @@ void main() {
     final sealed = await keyring.cipher.seal(data);
 
     final unlocked = await BackupKeyring.unlockWithPassphrase(
-        Map<String, dynamic>.from(keyring.envelopeFields), 'correct horse');
+      Map<String, dynamic>.from(keyring.envelopeFields),
+      'correct horse',
+    );
     expect(await unlocked.cipher.open(sealed), data);
   });
 
@@ -33,21 +34,27 @@ void main() {
     final sealed = await keyring.cipher.seal(data);
 
     final unlocked = await BackupKeyring.unlockWithRecoveryPhrase(
-        Map<String, dynamic>.from(keyring.envelopeFields),
-        keyring.recoveryPhrase!);
+      Map<String, dynamic>.from(keyring.envelopeFields),
+      keyring.recoveryPhrase!,
+    );
     expect(await unlocked.cipher.open(sealed), data);
   });
 
   test('wrong passphrase and wrong phrase both fail', () async {
     final keyring = await create('correct horse');
     final fields = Map<String, dynamic>.from(keyring.envelopeFields);
-    expect(() => BackupKeyring.unlockWithPassphrase(fields, 'battery staple'),
-        throwsA(anything));
     expect(
-        () => BackupKeyring.unlockWithRecoveryPhrase(
-            fields, 'abandon abandon abandon abandon abandon abandon '
-            'abandon abandon abandon abandon abandon about'),
-        throwsA(anything));
+      () => BackupKeyring.unlockWithPassphrase(fields, 'battery staple'),
+      throwsA(anything),
+    );
+    expect(
+      () => BackupKeyring.unlockWithRecoveryPhrase(
+        fields,
+        'abandon abandon abandon abandon abandon abandon '
+        'abandon abandon abandon abandon abandon about',
+      ),
+      throwsA(anything),
+    );
   });
 
   test('recovery phrase is case/whitespace tolerant', () async {
@@ -56,7 +63,9 @@ void main() {
     final sealed = await keyring.cipher.seal(data);
     final sloppy = '  ${keyring.recoveryPhrase!.toUpperCase()}  ';
     final unlocked = await BackupKeyring.unlockWithRecoveryPhrase(
-        Map<String, dynamic>.from(keyring.envelopeFields), sloppy);
+      Map<String, dynamic>.from(keyring.envelopeFields),
+      sloppy,
+    );
     expect(await unlocked.cipher.open(sealed), data);
   });
 }
