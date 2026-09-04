@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_static/shelf_static.dart';
 
+import 'imagery_sources.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
 
@@ -24,6 +26,10 @@ class TileServer {
   final Directory root;
   final PmTilesReader? _fallback;
 
+  /// One client for the satellite proxy — live tiles pass through
+  /// UNCACHED (Esri's terms), while captured NAIP is served from disk.
+  static final _proxy = http.Client();
+
   int get port => _server.port;
 
   /// URL for a file under [root], e.g. `urlFor('basemap.pmtiles')`.
@@ -36,12 +42,17 @@ class TileServer {
   String get mbtilesUrlTemplate =>
       'http://127.0.0.1:$port/mbtiles/{z}/{x}/{y}.pbf';
 
+  /// Satellite template: captured NAIP from disk first, the live source
+  /// proxied when the tile isn't captured, nothing when offline.
+  String get satUrlTemplate => 'http://127.0.0.1:$port/sat/{z}/{x}/{y}.jpg';
+
   /// Deepest zoom the fallback archive carries, if any.
   int? get fallbackMaxZoom => _fallback?.header.maxZoom;
 
   static Future<TileServer> start(
     Directory root, {
     MbTilesStore? mbtiles,
+    MbTilesStore? imagery,
     File? pmtilesFallback,
   }) async {
     PmTilesReader? fallback;
@@ -56,6 +67,34 @@ class TileServer {
     final static = createStaticHandler(root.path);
     Future<Response> handler(Request req) async {
       final segs = req.url.pathSegments;
+      if (segs.length == 4 && segs[0] == 'sat') {
+        final z = int.tryParse(segs[1]);
+        final x = int.tryParse(segs[2]);
+        final y = int.tryParse(segs[3].replaceAll('.jpg', ''));
+        if (z == null || x == null || y == null) return Response.badRequest();
+        final local = imagery?.getTile(z, x, y);
+        if (local != null) {
+          return Response.ok(local, headers: {'Content-Type': 'image/jpeg'});
+        }
+        try {
+          final url = activeImagery.template
+              .replaceAll('{z}', '$z')
+              .replaceAll('{x}', '$x')
+              .replaceAll('{y}', '$y');
+          final res = await _proxy
+              .get(Uri.parse(url), headers: {'User-Agent': 'FieldNotes/1.1'})
+              .timeout(const Duration(seconds: 15));
+          if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+            return Response.ok(
+              res.bodyBytes,
+              headers: {'Content-Type': 'image/jpeg'},
+            );
+          }
+        } catch (_) {
+          // Offline: fall through — no tile beats a broken one.
+        }
+        return Response.notFound('no imagery');
+      }
       if ((mbtiles != null || fallback != null) &&
           segs.length == 4 &&
           segs[0] == 'mbtiles') {

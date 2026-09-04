@@ -39,9 +39,26 @@ class PlantingsScreen extends StatelessWidget {
         builder: (context, snapshot) {
           final events = snapshot.data ?? [];
           if (events.isEmpty) {
-            return Center(child: Text('No plantings recorded yet.'));
+            return Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'Nothing planted out yet. When a batch leaves the bench — '
+                  'or trees go in straight from the nursery — record it '
+                  'here, and survival takes care of itself.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: Type.serif,
+                    fontSize: 15,
+                    height: 1.5,
+                    color: Press.inkSoft,
+                  ),
+                ),
+              ),
+            );
           }
           return ListView.builder(
+            padding: EdgeInsets.only(bottom: 140),
             itemCount: events.length,
             itemBuilder: (context, i) =>
                 _PlantingTile(db: db, event: events[i]),

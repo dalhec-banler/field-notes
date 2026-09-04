@@ -19,6 +19,7 @@ class BatchDetailScreen extends StatefulWidget {
 
 class _BatchDetailScreenState extends State<BatchDetailScreen> {
   PropagationBatche? _batch;
+  bool _gone = false;
   TaxaData? _taxon;
   CollectionEvent? _collection;
   SourcePlant? _sourcePlant;
@@ -36,7 +37,10 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     final batch = await (db.select(
       db.propagationBatches,
     )..where((b) => b.id.equals(widget.batchId))).getSingleOrNull();
-    if (batch == null) return;
+    if (batch == null) {
+      if (mounted) setState(() => _gone = true);
+      return;
+    }
     TaxaData? taxon;
     if (batch.taxonId != null) {
       taxon = await (db.select(
@@ -313,7 +317,21 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
   Widget build(BuildContext context) {
     final batch = _batch;
     if (batch == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: _gone
+              ? const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'This batch is gone from the ledger — removed here or '
+                    'on another device.',
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : const CircularProgressIndicator(),
+        ),
+      );
     }
     final species = _taxon?.commonName ?? _taxon?.scientificName ?? 'Unknown';
     return Scaffold(

@@ -1,5 +1,9 @@
 import 'dart:io';
 
+import '../services/desk.dart';
+
+import 'package:file_selector/file_selector.dart';
+
 import 'package:archive/archive_io.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -218,6 +222,19 @@ class _BackupScreenState extends State<BackupScreen> {
     encoder.create(zipPath);
     await encoder.addDirectory(Directory('${dir.path}/fieldnotes'));
     await encoder.close();
+    if (isDesk) {
+      // A desk saves to a place you choose; a mobile share sheet here was
+      // posture untruth (design audit).
+      final loc = await getSaveLocation(
+        suggestedName: 'fieldnotes-backup-$date.zip',
+        acceptedTypeGroups: [
+          const XTypeGroup(label: 'ZIP', extensions: ['zip']),
+        ],
+      );
+      if (loc == null) return 'Save cancelled.';
+      await File(zipPath).copy(loc.path);
+      return 'Backup saved to ${loc.path}.';
+    }
     await SharePlus.instance.share(
       ShareParams(files: [XFile(zipPath)], text: 'Field Notes backup'),
     );
@@ -312,8 +329,8 @@ class _BackupScreenState extends State<BackupScreen> {
           SizedBox(
             height: 56,
             child: OutlinedButton.icon(
-              icon: const Icon(Icons.ios_share),
-              label: const Text('SHARE BACKUP (ZIP)'),
+              icon: Icon(isDesk ? Icons.save_alt : Icons.ios_share),
+              label: Text(isDesk ? 'SAVE BACKUP (ZIP)' : 'SHARE BACKUP (ZIP)'),
               onPressed: _busy ? null : _shareZip,
             ),
           ),
@@ -346,9 +363,15 @@ class _BackupScreenState extends State<BackupScreen> {
             ),
           const SizedBox(height: 24),
           Text(
-            'Backups are written to the app\'s backups folder on this phone. '
-            'Share the zip to a computer, drive, or cloud folder to protect '
-            'against losing the phone. Direct Google Drive upload is coming.',
+            isDesk
+                ? 'Backups are written to the app\'s backups folder on this '
+                      'computer. Save the zip somewhere off this machine — '
+                      'another disk or a cloud folder — so it survives '
+                      'losing it.'
+                : 'Backups are written to the app\'s backups folder on this '
+                      'phone. Share the zip off the phone, or use Google '
+                      'Drive backup in Settings — it does this '
+                      'automatically.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

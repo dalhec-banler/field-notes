@@ -908,8 +908,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   ),
                 ),
                 SizedBox(
-                  width: 46,
-                  height: 46,
+                  width: 56,
+                  height: 56,
                   child: TextButton(
                     onPressed: _confirmDiscard,
                     child: Text('✕'),
@@ -1064,6 +1064,21 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       onPressed: _saving ? null : _save,
                       child: Text(_saving ? 'WRITING…' : 'SAVE OBSERVATION'),
                     ),
+                  ),
+                ),
+                SizedBox(width: 8),
+                SizedBox(
+                  height: 58,
+                  width: 58,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
+                    // Dictating beats typing with gloves on: one tap from
+                    // the photo to a running recording (spec §7.2).
+                    onPressed: () {
+                      setState(() => _step = 2);
+                      _toggleVoice();
+                    },
+                    child: Icon(Icons.mic_none, size: 22),
                   ),
                 ),
                 SizedBox(width: 8),

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../theme/tokens.dart';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -131,6 +133,7 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
       // Hub fix first (instant); otherwise a short wait, then the centroid.
       double? lat;
       double? lng;
+      var usedCentroid = false;
       final fresh = locationHub.fresh();
       if (fresh != null) {
         lat = fresh.latitude;
@@ -148,6 +151,7 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
             lng = fix.longitude;
           }
         } catch (_) {}
+        if (lat == null) usedCentroid = true;
         lat ??= widget.property.centroidLat;
         lng ??= widget.property.centroidLng;
       }
@@ -182,6 +186,16 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
               updatedAt: now,
             ),
           );
+      // Flagged, never faked (the capture rule applies to features too).
+      if (usedCentroid && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No GPS fix — placed at the property centre for now.',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -277,13 +291,76 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
     );
   }
 
-  Color _conditionColor(String? c) => switch (c) {
-    'good' => Colors.green.shade700,
-    'fair' => Colors.orange.shade700,
-    'poor' => Colors.deepOrange.shade700,
-    'critical' => Colors.red.shade700,
-    _ => Colors.grey,
-  };
+  /// One home for condition ink (tokens.conditionColor); the stoplight
+  /// Material shades were this screen's private dialect.
+  Color _conditionColor(String? c) => conditionColor(c);
+
+  Future<void> _openFeature(Feature f) async {
+    final logs =
+        await (widget.db.select(widget.db.featureConditionLogs)
+              ..where((l) => l.featureId.equals(f.id))
+              ..where((l) => l.deletedAt.isNull())
+              ..orderBy([(l) => OrderingTerm.desc(l.observedAt)]))
+            .get();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: [
+            Text(
+              f.name ?? _typeLabel(f.featureTypeId),
+              style: Theme.of(ctx).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${_typeLabel(f.featureTypeId)} · '
+              '${f.currentCondition ?? 'unknown'}',
+            ),
+            const SizedBox(height: 12),
+            if (logs.isEmpty)
+              const Text('No condition history yet — log the first look.')
+            else
+              for (final l in logs)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.circle,
+                    size: 12,
+                    color: conditionColor(l.condition),
+                  ),
+                  title: Text(
+                    '${l.observedAt.substring(0, 10)} · ${l.condition}',
+                  ),
+                  subtitle: (l.actionTaken ?? l.notes) == null
+                      ? null
+                      : Text(
+                          [
+                            if (l.actionTaken != null) l.actionTaken!,
+                            if (l.notes != null) l.notes!,
+                          ].join(' · '),
+                        ),
+                ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 52,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _logCondition(f);
+                },
+                child: const Text('LOG CONDITION'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -309,14 +386,26 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
         builder: (context, snapshot) {
           final features = snapshot.data ?? const [];
           if (features.isEmpty) {
-            return const Center(
-              child: Text(
-                'No features yet.\nSprings, guzzlers, headcuts, gates…',
-                textAlign: TextAlign.center,
+            return Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'No features marked yet. Springs, guzzlers, headcuts, '
+                  'gates — the built and the broken. Add one and its '
+                  'condition history starts.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: Type.serif,
+                    fontSize: 15,
+                    height: 1.5,
+                    color: Press.inkSoft,
+                  ),
+                ),
               ),
             );
           }
           return ListView.builder(
+            padding: EdgeInsets.only(bottom: 140),
             itemCount: features.length,
             itemBuilder: (context, i) {
               final f = features[i];
@@ -337,8 +426,15 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
                     f.currentCondition ?? 'unknown',
                   ].join(' · '),
                 ),
-                trailing: const Icon(Icons.fact_check_outlined),
-                onTap: () => _logCondition(f),
+                trailing: IconButton(
+                  tooltip: 'Log condition',
+                  icon: const Icon(Icons.fact_check_outlined),
+                  onPressed: () => _logCondition(f),
+                ),
+                // Tapping a row means LOOK at it, not fill in a form
+                // (design audit P2): detail + history, with the log one
+                // tap away.
+                onTap: () => _openFeature(f),
               );
             },
           );

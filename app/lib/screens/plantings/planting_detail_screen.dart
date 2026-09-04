@@ -26,6 +26,7 @@ class PlantingDetailScreen extends StatefulWidget {
 
 class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
   PlantingEvent? _event;
+  bool _gone = false;
   TaxaData? _taxon;
   SurvivalResult? _survival;
   List<Plant> _individuals = const [];
@@ -42,7 +43,10 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     final event = await (db.select(
       db.plantingEvents,
     )..where((e) => e.id.equals(widget.eventId))).getSingleOrNull();
-    if (event == null) return;
+    if (event == null) {
+      if (mounted) setState(() => _gone = true);
+      return;
+    }
     TaxaData? taxon;
     if (event.taxonId != null) {
       taxon = await (db.select(
@@ -281,7 +285,21 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
   Widget build(BuildContext context) {
     final event = _event;
     if (event == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: _gone
+              ? const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'This planting is gone from the ledger — removed here '
+                    'or on another device.',
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : const CircularProgressIndicator(),
+        ),
+      );
     }
     final species = _taxon?.scientificName ?? 'Unknown';
     final survival = _survival;
@@ -460,6 +478,18 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                                     ),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              tooltip: 'Check in',
+                              icon: const Icon(
+                                Icons.fact_check_outlined,
+                                size: 20,
+                              ),
+                              color: Press.inkSoft,
+                              // The return-visit loop was long-press-only —
+                              // undiscoverable (design audit P2).
+                              onPressed: () =>
+                                  _checkinIndividual(_individuals[i]),
                             ),
                             StatusPill(
                               _individuals[i].currentStatus,

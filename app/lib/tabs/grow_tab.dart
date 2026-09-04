@@ -54,7 +54,7 @@ class _GrowTabState extends State<GrowTab> {
         children: [
           ScreenHeader(kicker: _subs[_sub].$1, title: _subs[_sub].$2),
           SizedBox(
-            height: 44,
+            height: 56,
             child: Row(
               children: [
                 for (var i = 0; i < _subs.length; i++)

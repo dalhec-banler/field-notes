@@ -6,7 +6,13 @@ import 'imagery_sources.dart';
 /// loopback tile server. No glyphs or sprites — every layer here renders
 /// without font/icon assets, so the style is fully offline from day one.
 /// Labels come later with bundled glyphs.
-String basemapStyle({String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
+String basemapStyle({
+  String? pmtilesUrl,
+  String? tilesUrl,
+  int maxZoom = 15,
+  String? satTemplate,
+  int? satMaxZoom,
+}) {
   // No offline archive yet: imagery alone still gives a usable map wherever
   // there's signal, and every overlay (boundary, zones, pins) still draws.
   final satelliteOnly = pmtilesUrl == null && tilesUrl == null;
@@ -21,9 +27,9 @@ String basemapStyle({String? pmtilesUrl, String? tilesUrl, int maxZoom = 15}) {
       // of imagery tiles is a later step.
       'satellite': {
         'type': 'raster',
-        'tiles': [activeImagery.template],
+        'tiles': [satTemplate ?? activeImagery.template],
         'tileSize': 256,
-        'maxzoom': activeImagery.maxZoom,
+        'maxzoom': satMaxZoom ?? activeImagery.maxZoom,
         'attribution': activeImagery.attribution,
       },
       'basemap': pmtilesUrl != null

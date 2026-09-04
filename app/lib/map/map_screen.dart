@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' show Point;
+import 'dart:math' show Point, max;
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
@@ -16,6 +16,8 @@ import '../main.dart' show locationHub;
 import 'area_downloader.dart';
 import 'basemap_style.dart';
 import 'cluster_badge.dart';
+import 'imagery_capture.dart';
+import 'imagery_sources.dart';
 import 'map_markers.dart';
 import 'record_clusters.dart';
 import 'record_ink.dart';
@@ -101,6 +103,7 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   TileServer? _server;
   MbTilesStore? _mbtiles;
+  MbTilesStore? _imageryStore;
   String? _styleJson;
   String? _error;
   StreamSubscription<Position>? _fixSub;
@@ -167,6 +170,21 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       // the same merged endpoint.
       final mbFile = File(p.join(basemapDir.path, AreaDownloader.mbtilesName));
       final pmFile = File(p.join(basemapDir.path, _basemapFile));
+      // Captured NAIP imagery, if any: the satellite layer serves it
+      // offline through the loopback server.
+      final imgFile = File(p.join(basemapDir.path, ImageryCapture.fileName));
+      MbTilesStore? imagery;
+      if (imgFile.existsSync()) {
+        imagery = MbTilesStore.open(imgFile);
+        if (imagery.tileCount == 0) {
+          imagery.close();
+          imagery = null;
+        }
+      }
+      _imageryStore = imagery;
+      final imgMaxZ = imagery == null
+          ? 0
+          : int.tryParse(imagery.metadata['maxzoom'] ?? '') ?? 0;
       MbTilesStore? mbtiles;
       if (mbFile.existsSync()) {
         mbtiles = MbTilesStore.open(mbFile);
@@ -180,6 +198,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         try {
           server = await TileServer.start(
             basemapDir,
+            imagery: imagery,
             mbtiles: mbtiles,
             pmtilesFallback: pmFile.existsSync() ? pmFile : null,
           );
@@ -227,6 +246,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           _styleJson = basemapStyle(
             tilesUrl: server.mbtilesUrlTemplate,
             maxZoom: maxZoom,
+            satTemplate: server.satUrlTemplate,
+            satMaxZoom: max(activeImagery.maxZoom, imgMaxZ),
           );
         });
       } else if (pmFile.existsSync()) {
@@ -254,6 +275,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           _server = server;
           _styleJson = basemapStyle(
             pmtilesUrl: server.pmtilesUrlFor(_basemapFile),
+            satTemplate: server.satUrlTemplate,
+            satMaxZoom: max(activeImagery.maxZoom, imgMaxZ),
           );
         });
       } else {
@@ -399,6 +422,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _fixSub?.cancel();
     _server?.close();
     _mbtiles?.close();
+    _imageryStore?.close();
     super.dispose();
   }
 

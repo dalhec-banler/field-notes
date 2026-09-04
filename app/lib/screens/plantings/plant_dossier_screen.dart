@@ -26,6 +26,7 @@ class PlantDossierScreen extends StatefulWidget {
 
 class _PlantDossierScreenState extends State<PlantDossierScreen> {
   Plant? _plant;
+  bool _gone = false;
   PlantingEvent? _event;
   TaxaData? _taxon;
   Zone? _zone;
@@ -53,7 +54,10 @@ class _PlantDossierScreenState extends State<PlantDossierScreen> {
     final plant = await (db.select(
       db.plants,
     )..where((p) => p.id.equals(widget.plantId))).getSingleOrNull();
-    if (plant == null) return;
+    if (plant == null) {
+      if (mounted) setState(() => _gone = true);
+      return;
+    }
     final event = await (db.select(
       db.plantingEvents,
     )..where((e) => e.id.equals(plant.plantingEventId))).getSingleOrNull();
@@ -114,7 +118,21 @@ class _PlantDossierScreenState extends State<PlantDossierScreen> {
   Widget build(BuildContext context) {
     final plant = _plant;
     if (plant == null) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: _gone
+              ? const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'This plant is gone from the ledger — removed here or '
+                    'on another device.',
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : const CircularProgressIndicator(),
+        ),
+      );
     }
     final statusColor = plantStatusColor(plant.currentStatus);
     return Scaffold(

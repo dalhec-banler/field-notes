@@ -1,4 +1,7 @@
 import 'package:drift/drift.dart' hide Column;
+
+import '../../theme/tokens.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
@@ -36,9 +39,26 @@ class PropagationScreen extends StatelessWidget {
         builder: (context, snapshot) {
           final batches = snapshot.data ?? const [];
           if (batches.isEmpty) {
-            return const Center(child: Text('No propagation batches yet.'));
+            return Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'No batches on the bench yet. Start one from seed or '
+                  'cuttings and its whole story — sowing to planting out — '
+                  'collects here.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: Type.serif,
+                    fontSize: 15,
+                    height: 1.5,
+                    color: Press.inkSoft,
+                  ),
+                ),
+              ),
+            );
           }
           return ListView.builder(
+            padding: EdgeInsets.only(bottom: 140),
             itemCount: batches.length,
             itemBuilder: (context, i) => _BatchTile(db: db, batch: batches[i]),
           );

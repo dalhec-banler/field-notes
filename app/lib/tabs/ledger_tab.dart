@@ -233,7 +233,9 @@ class _LedgerTabState extends State<LedgerTab> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        height: 48,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: active ? Press.ink : null,
           border: Border.all(color: Press.borderInk, width: 1),

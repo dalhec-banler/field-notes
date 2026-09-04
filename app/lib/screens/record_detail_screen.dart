@@ -47,6 +47,7 @@ class RecordDetailScreen extends StatefulWidget {
 
 class _RecordDetailScreenState extends State<RecordDetailScreen> {
   Observation? _obs;
+  bool _gone = false;
   TaxaData? _taxon;
   Zone? _zone;
   EnvContext? _env;
@@ -71,7 +72,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     final obs = await (db.select(
       db.observations,
     )..where((o) => o.id.equals(widget.obsId))).getSingleOrNull();
-    if (obs == null) return;
+    if (obs == null) {
+      if (mounted) setState(() => _gone = true);
+      return;
+    }
     final property = await (db.select(
       db.properties,
     )..where((p) => p.id.equals(obs.propertyId))).getSingleOrNull();
@@ -489,7 +493,21 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   Widget build(BuildContext context) {
     final obs = _obs;
     if (obs == null) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: widget.embedded ? null : AppBar(),
+        body: Center(
+          child: _gone
+              ? const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'This record is gone from the ledger — removed here or '
+                    'on another device.',
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : const CircularProgressIndicator(),
+        ),
+      );
     }
     final typeColor = recordTypeColor(obs.observationType);
     // observed_at is stored UTC (spec §4); show it in the phone's local time
@@ -530,9 +548,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     ? Container(
                         color: widget.embedded ? Press.paperEdge : null,
                         child: GestureDetector(
-                          onTap: widget.embedded ? _openFullSize : null,
-                          // Hold the photo to remove just this picture.
-                          onLongPress: _deleteCurrentPhoto,
+                          // Tap to inspect, on phone and desk alike; the
+                          // full-size viewer carries the delete, visibly
+                          // (design audit P2 — a hidden long-press meant
+                          // "peek" sometimes offered REMOVE).
+                          onTap: _openFullSize,
                           child: Image.file(
                             File(_photos[_photoIndex].localPath!),
                             fit: widget.embedded

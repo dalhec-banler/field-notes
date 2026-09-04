@@ -8,6 +8,7 @@ import '../geo/site_presence.dart';
 import '../main.dart' show locationHub, trackRecorder;
 import '../map/area_downloader.dart';
 import '../map/map_screen.dart';
+import '../map/record_ink.dart';
 import '../services/app_prefs.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
@@ -265,13 +266,18 @@ class _MapTabState extends State<MapTab> {
                 runSpacing: 7,
                 children: [
                   for (final t in kObservationTypes)
-                    _pill(t, !_hiddenTypes.contains(t), () {
-                      setSheet(() {
-                        if (!_hiddenTypes.remove(t)) _hiddenTypes.add(t);
-                      });
-                      setState(() {});
-                      _applyLayers();
-                    }),
+                    _pill(
+                      t,
+                      !_hiddenTypes.contains(t),
+                      swatch: _typeSwatch(t),
+                      () {
+                        setSheet(() {
+                          if (!_hiddenTypes.remove(t)) _hiddenTypes.add(t);
+                        });
+                        setState(() {});
+                        _applyLayers();
+                      },
+                    ),
                 ],
               ),
               SizedBox(height: 14),
@@ -282,13 +288,25 @@ class _MapTabState extends State<MapTab> {
                 runSpacing: 7,
                 children: [
                   for (final g in _growthForms)
-                    _pill(_growthLabels[g]!, !_hiddenGrowth.contains(g), () {
-                      setSheet(() {
-                        if (!_hiddenGrowth.remove(g)) _hiddenGrowth.add(g);
-                      });
-                      setState(() {});
-                      _applyLayers();
-                    }),
+                    _pill(
+                      _growthLabels[g]!,
+                      !_hiddenGrowth.contains(g),
+                      swatch: Container(
+                        width: 11,
+                        height: 11,
+                        decoration: BoxDecoration(
+                          color: Color(growthFormInk[g] ?? 0xFF4E6B4A),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      () {
+                        setSheet(() {
+                          if (!_hiddenGrowth.remove(g)) _hiddenGrowth.add(g);
+                        });
+                        setState(() {});
+                        _applyLayers();
+                      },
+                    ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -341,7 +359,7 @@ class _MapTabState extends State<MapTab> {
     );
   }
 
-  Widget _pill(String label, bool on, VoidCallback onTap) {
+  Widget _pill(String label, bool on, VoidCallback onTap, {Widget? swatch}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -354,18 +372,46 @@ class _MapTabState extends State<MapTab> {
         ),
         child: Center(
           widthFactor: 1,
-          child: Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontFamily: Type.mono,
-              fontSize: 9.5,
-              letterSpacing: 1.4,
-              color: on ? Press.paper : Press.ink,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (swatch != null) ...[
+                Opacity(opacity: on ? 1 : 0.85, child: swatch),
+                const SizedBox(width: 7),
+              ],
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  fontFamily: Type.mono,
+                  fontSize: 9.5,
+                  letterSpacing: 1.4,
+                  color: on ? Press.paper : Press.ink,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  /// The mark the map draws for this type — in the filter sheet, so the
+  /// sheet doubles as the in-app legend (design audit P2).
+  Widget _typeSwatch(String t) {
+    final mark = markFor(t);
+    final color = Color(mark.argb);
+    return switch (mark.shape) {
+      RecordShape.circle => Container(
+        width: 11,
+        height: 11,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      RecordShape.square => Container(width: 10, height: 10, color: color),
+      RecordShape.triangle => CustomPaint(
+        size: const Size(12, 11),
+        painter: _TriSwatchPainter(color),
+      ),
+    };
   }
 
   /// Show the whole place: the boundary if there is one, else its centre.
@@ -526,6 +572,22 @@ class _MapTabState extends State<MapTab> {
   void initState() {
     super.initState();
     _loadCounts();
+    // One-time hint: long-press-to-place has zero discoverability
+    // otherwise (design audit P2).
+    if (!(widget.prefs.get<bool>('hint_hold_map') ?? false)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (!mounted) return;
+          widget.prefs.set('hint_hold_map', true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              duration: Duration(seconds: 5),
+              content: Text('Hold the map to place a record at that spot.'),
+            ),
+          );
+        });
+      });
+    }
   }
 
   @override
@@ -728,8 +790,8 @@ class _MapTabState extends State<MapTab> {
                           onTap: _editShapes,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
+                              horizontal: 12,
+                              vertical: 14,
                             ),
                             decoration: BoxDecoration(
                               color: Press.paper,
@@ -752,8 +814,8 @@ class _MapTabState extends State<MapTab> {
                               setState(() => _captureMode = !_captureMode),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
+                              horizontal: 12,
+                              vertical: 14,
                             ),
                             decoration: BoxDecoration(
                               color: _captureMode ? Press.oxblood : Press.paper,
@@ -776,8 +838,8 @@ class _MapTabState extends State<MapTab> {
                           onTap: _showLayersSheet,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
+                              horizontal: 12,
+                              vertical: 14,
                             ),
                             decoration: BoxDecoration(
                               color: _layersTouched ? Press.ink : Press.paper,
@@ -941,4 +1003,22 @@ class _TrackToggle extends StatelessWidget {
       },
     );
   }
+}
+
+class _TriSwatchPainter extends CustomPainter {
+  _TriSwatchPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final tri = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(tri, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TriSwatchPainter old) => old.color != color;
 }

@@ -157,7 +157,16 @@ class _IdentifySheetState extends State<_IdentifySheet> {
     } on LlmException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Identification failed: $e');
+      final offline = e is SocketException || '$e'.contains('SocketException');
+      if (mounted) {
+        setState(
+          () => _error = offline
+              ? 'No signal here — identification needs it. Your photos and '
+                    'record are safe on this phone; ask again from the '
+                    'record when you have coverage.'
+              : 'Identification failed: $e',
+        );
+      }
     } finally {
       if (mounted) setState(() => _running = false);
     }

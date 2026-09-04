@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'imagery_capture.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
 
@@ -172,7 +173,30 @@ class AreaDownloader extends ChangeNotifier {
       if (_cancelled) {
         status = 'Stopped · kept $written tiles';
       } else {
-        status = 'Captured $written new tiles · offline';
+        // Vector done: hi-res NAIP imagery (public domain) rides along so
+        // the captured area has real pixels offline too (2026-09-04).
+        var imgWrote = 0;
+        try {
+          status = 'Hi-res imagery…';
+          notifyListeners();
+          imgWrote = await ImageryCapture.capture(
+            minLon,
+            minLat,
+            maxLon,
+            maxLat,
+            basemapDir: file.parent,
+            onStatus: (s) {
+              status = s;
+              notifyListeners();
+            },
+            isCancelled: () => _cancelled,
+          );
+        } catch (_) {
+          // Imagery is a bonus; the vector capture already landed.
+        }
+        status = imgWrote > 0
+            ? 'Captured $written map + $imgWrote imagery tiles · offline'
+            : 'Captured $written new tiles · offline';
       }
       // A capture that got nothing must not leave an empty store behind —
       // the map would prefer it over the regional file and go blank.
