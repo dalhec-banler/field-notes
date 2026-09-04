@@ -401,12 +401,25 @@ class _MapTabState extends State<MapTab> {
     final mark = markFor(t);
     final color = Color(mark.argb);
     return switch (mark.shape) {
+      // Paper stroke on every swatch — ink-on-dark-pill was invisible
+      // (Austin, 2026-09-04).
       RecordShape.circle => Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFECE3CE), width: 1.5),
+        ),
+      ),
+      RecordShape.square => Container(
         width: 11,
         height: 11,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        decoration: BoxDecoration(
+          color: color,
+          border: Border.all(color: const Color(0xFFECE3CE), width: 1.5),
+        ),
       ),
-      RecordShape.square => Container(width: 10, height: 10, color: color),
       RecordShape.triangle => CustomPaint(
         size: const Size(12, 11),
         painter: _TriSwatchPainter(color),
@@ -1016,6 +1029,14 @@ class _TriSwatchPainter extends CustomPainter {
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
+    canvas.drawPath(
+      tri,
+      Paint()
+        ..color = const Color(0xFFECE3CE)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8
+        ..strokeJoin = StrokeJoin.round,
+    );
     canvas.drawPath(tri, Paint()..color = color);
   }
 
