@@ -52,6 +52,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   static int _lastTab = 0;
   int _tab = _lastTab;
 
+  /// The ledger's LOCATE hands the map a destination through this.
+  final _mapFocus = ValueNotifier<LatLng?>(null);
+
   @override
   void initState() {
     super.initState();
@@ -367,6 +370,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           property: widget.property,
           prefs: widget.prefs,
           active: _tab == 0,
+          focus: _mapFocus,
           onPropertyCardTap: _switchProperty,
           onDropRecord: (latLng) => _openCapture(placedAt: latLng),
           onRecordTap: (id) => Navigator.of(context).push(
@@ -379,6 +383,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           db: widget.db,
           property: widget.property,
           prefs: widget.prefs,
+          // LOCATE on a ledger row: hop to the map and fly there.
+          onLocate: (obs) {
+            _mapFocus.value = LatLng(obs.lat, obs.lng);
+            setState(() => _tab = 0);
+          },
         ),
         GrowTab(db: widget.db, property: widget.property),
         SpeciesTab(db: widget.db, property: widget.property),

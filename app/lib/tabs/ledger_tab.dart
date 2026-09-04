@@ -18,11 +18,16 @@ class LedgerTab extends StatefulWidget {
     required this.db,
     required this.property,
     required this.prefs,
+    this.onLocate,
   });
 
   final FieldNotesDb db;
   final Property property;
   final AppPrefs prefs;
+
+  /// LOCATE on a row: the shell hops to the map and flies there
+  /// (Austin, 2026-09-04 — same move as the desk panel).
+  final void Function(Observation obs)? onLocate;
 
   @override
   State<LedgerTab> createState() => _LedgerTabState();
@@ -215,6 +220,7 @@ class _LedgerTabState extends State<LedgerTab> {
                             );
                           }
                           return _LedgerRow(
+                            onLocate: widget.onLocate,
                             db: widget.db,
                             obs: obs[i],
                             em: _em,
@@ -358,7 +364,14 @@ class _LedgerTabState extends State<LedgerTab> {
 }
 
 class _LedgerRow extends StatelessWidget {
-  const _LedgerRow({required this.db, required this.obs, required this.em});
+  const _LedgerRow({
+    required this.db,
+    required this.obs,
+    required this.em,
+    this.onLocate,
+  });
+
+  final void Function(Observation obs)? onLocate;
 
   final FieldNotesDb db;
   final Observation obs;
@@ -550,7 +563,26 @@ class _LedgerRow extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: em * 0.5),
-                MonoLabel(_relativeTime(), size: em * 0.64, opacity: 0.6),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    MonoLabel(_relativeTime(), size: em * 0.64, opacity: 0.6),
+                    if (onLocate != null && obs.gpsAccuracyM != -1) ...[
+                      SizedBox(height: em * 0.4),
+                      InkWell(
+                        onTap: () => onLocate!(obs),
+                        child: Padding(
+                          padding: EdgeInsets.all(em * 0.3),
+                          child: Icon(
+                            Icons.location_searching,
+                            size: em * 1.2,
+                            color: Press.inkSoft,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),

@@ -290,6 +290,38 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     return out;
   }
 
+  /// Fly the camera to one mark (Austin: "click on the exact plant, and
+  /// the map will take you to it").
+  void _flyTo(double lat, double lng, {double? zoom}) {
+    _userMoved = true;
+    setState(() {
+      _lat = lat;
+      _lng = lng;
+      if (zoom != null) _zoom = zoom;
+    });
+  }
+
+  /// Frame every mark of one species — the per-row LOCATE.
+  void _fitGroup(List<PlateRecord> rs) {
+    if (rs.isEmpty) return;
+    final b = merc.LatLngBounds.ofPoints([for (final r in rs) (r.lat, r.lng)]);
+    if (b == null) return;
+    final bb = b.pad(0.35);
+    _userMoved = true;
+    setState(() {
+      _lat = (bb.north + bb.south) / 2;
+      _lng = (bb.east + bb.west) / 2;
+      _zoom = merc
+          .zoomFor(
+            bb,
+            _lastLayoutSize.width,
+            _lastLayoutSize.height,
+            maxZoom: activeImagery.maxZoom,
+          )
+          .toDouble();
+    });
+  }
+
   /// Fly to typed coordinates — "search by GPS" (Austin, 2026-09-04).
   /// Accepts "30.2617, -97.7281" and close variants.
   Future<void> _gotoCoords() async {
@@ -638,7 +670,10 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         InkWell(
-          onTap: () => setState(() => _highlightKey = open ? null : g.key),
+          onTap: () {
+            setState(() => _highlightKey = open ? null : g.key);
+            if (!open) _fitGroup(g.records);
+          },
           child: Container(
             constraints: const BoxConstraints(minHeight: 52),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -713,7 +748,10 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
                 for (final r in g.records)
                   if (r.id != null)
                     InkWell(
-                      onTap: () => setState(() => _selectedId = r.id),
+                      onTap: () {
+                        setState(() => _selectedId = r.id);
+                        _flyTo(r.lat, r.lng, zoom: activeImagery.maxZoom - 0.5);
+                      },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 7),
                         child: Row(
@@ -927,22 +965,54 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        InkWell(
-          onTap: () => setState(() => _selectedId = null),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Press.borderInk, width: 1.5),
+        Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Press.borderInk, width: 1.5),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _selectedId = null),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.chevron_left,
+                          size: 18,
+                          color: Press.inkSoft,
+                        ),
+                        const SizedBox(width: 4),
+                        MonoLabel('SPECIES LIST', size: 9, spacing: 1.6),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.chevron_left, size: 18, color: Press.inkSoft),
-                const SizedBox(width: 4),
-                MonoLabel('SPECIES LIST', size: 9, spacing: 1.6),
-              ],
-            ),
+              InkWell(
+                onTap: () {
+                  final r = _subject?.records
+                      .where((x) => x.id == _selectedId)
+                      .firstOrNull;
+                  if (r != null) {
+                    _flyTo(r.lat, r.lng, zoom: activeImagery.maxZoom - 0.5);
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  child: MonoLabel('⌖ LOCATE', size: 9, spacing: 1.6),
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(

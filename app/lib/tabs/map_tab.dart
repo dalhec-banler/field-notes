@@ -30,6 +30,7 @@ class MapTab extends StatefulWidget {
     this.onDropRecord,
     this.onRecordTap,
     this.active = true,
+    this.focus,
   });
 
   final FieldNotesDb db;
@@ -46,6 +47,10 @@ class MapTab extends StatefulWidget {
   /// Long-press on the map → capture a record placed at that point.
   final ValueChanged<LatLng>? onDropRecord;
 
+  /// Another tab asks the map to go somewhere (ledger LOCATE): set a
+  /// LatLng here; the map flies to it and clears it.
+  final ValueNotifier<LatLng?>? focus;
+
   @override
   State<MapTab> createState() => _MapTabState();
 }
@@ -53,12 +58,32 @@ class MapTab extends StatefulWidget {
 class _MapTabState extends State<MapTab> {
   int _zoneCount = 0;
   MapLibreMapController? _controller;
+
+  LatLng? _pendingFocus;
+
+  void _onFocusRequest() {
+    final v = widget.focus?.value;
+    if (v == null) return;
+    widget.focus?.value = null;
+    _pendingFocus = v;
+    _consumeFocus();
+  }
+
+  void _consumeFocus() {
+    final v = _pendingFocus;
+    final c = _controller;
+    if (v == null || c == null) return;
+    _pendingFocus = null;
+    c.animateCamera(CameraUpdate.newLatLngZoom(v, 17));
+  }
+
   bool _captureMode = false;
   final _downloader = AreaDownloader();
   int _mapEpoch = 0; // bump to rebuild the map after a capture
 
   @override
   void dispose() {
+    widget.focus?.removeListener(_onFocusRequest);
     _downloader.dispose();
     super.dispose();
   }
@@ -630,6 +655,7 @@ class _MapTabState extends State<MapTab> {
   @override
   void initState() {
     super.initState();
+    widget.focus?.addListener(_onFocusRequest);
     _loadCounts();
     // One-time hint: long-press-to-place has zero discoverability
     // otherwise (design audit P2).
@@ -676,7 +702,10 @@ class _MapTabState extends State<MapTab> {
               db: widget.db,
               property: widget.property,
               embedded: true,
-              onController: (c) => _controller = c,
+              onController: (c) {
+                _controller = c;
+                _consumeFocus();
+              },
               // Fires when the style and every overlay layer exist — the
               // only safe moment to re-apply toggles after a re-key.
               onLayersReady: _applyLayers,
