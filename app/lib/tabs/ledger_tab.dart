@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../db/database.dart';
 import '../screens/record_detail_screen.dart';
 import '../services/app_prefs.dart';
+import '../services/record_filter.dart';
 import '../theme/tokens.dart';
 import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
@@ -34,11 +35,23 @@ class LedgerTab extends StatefulWidget {
 }
 
 class _LedgerTabState extends State<LedgerTab> {
-  String? _zoneFilter;
-  String? _typeFilter;
-  String? _speciesFilter; // taxon id
-  String? _speciesLabel;
-  DateTimeRange? _dateFilter;
+  // The ledger IS the filter (Austin, 2026-09-04): these proxy the one
+  // shared RecordFilter, so the map shows what the ledger shows.
+  String? get _zoneFilter => recordFilter.zoneId;
+  set _zoneFilter(String? v) => recordFilter.update((f) {
+    f.zoneId = v;
+    f.zoneLabel = v == null
+        ? null
+        : _zones.where((z) => z.id == v).firstOrNull?.name;
+  });
+  String? get _typeFilter => recordFilter.type;
+  set _typeFilter(String? v) => recordFilter.update((f) => f.type = v);
+  String? get _speciesFilter => recordFilter.taxonId;
+  set _speciesFilter(String? v) => recordFilter.update((f) => f.taxonId = v);
+  String? get _speciesLabel => recordFilter.taxonLabel;
+  set _speciesLabel(String? v) => recordFilter.update((f) => f.taxonLabel = v);
+  DateTimeRange? get _dateFilter => recordFilter.dates;
+  set _dateFilter(DateTimeRange? v) => recordFilter.update((f) => f.dates = v);
   List<Zone> _zones = const [];
 
   bool get _anyFilter =>
@@ -52,7 +65,18 @@ class _LedgerTabState extends State<LedgerTab> {
   @override
   void initState() {
     super.initState();
+    recordFilter.addListener(_onFilter);
     _loadZones();
+  }
+
+  void _onFilter() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    recordFilter.removeListener(_onFilter);
+    super.dispose();
   }
 
   /// Switching place (D-003) swaps the widget's property in place — the tab

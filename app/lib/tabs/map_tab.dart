@@ -8,11 +8,10 @@ import '../geo/site_presence.dart';
 import '../main.dart' show locationHub, trackRecorder;
 import '../map/area_downloader.dart';
 import '../map/map_screen.dart';
-import '../map/record_ink.dart';
 import '../services/app_prefs.dart';
+import '../services/record_filter.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
-import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
 import '../screens/polygon_editor_screen.dart';
 import '../widgets/feature_sheet.dart';
@@ -84,6 +83,7 @@ class _MapTabState extends State<MapTab> {
   @override
   void dispose() {
     widget.focus?.removeListener(_onFocusRequest);
+    recordFilter.removeListener(_onFilterChanged);
     _downloader.dispose();
     super.dispose();
   }
@@ -103,31 +103,9 @@ class _MapTabState extends State<MapTab> {
 
   // Layer toggles (spec §7.1): record types, zones, tracks. Kept on the tab
   // so they survive the map being re-keyed after a capture.
-  final Set<String> _hiddenTypes = {};
 
   /// What a plant is, as the library records it. Filtering by this is the
   /// point of the map for a planting: where are the trees, where's the grass.
-  static const _growthForms = [
-    'tree',
-    'shrub',
-    'graminoid',
-    'forb',
-    'vine',
-    'succulent',
-    'fern',
-    'moss',
-  ];
-  static const _growthLabels = {
-    'tree': 'trees',
-    'shrub': 'shrubs',
-    'graminoid': 'grasses',
-    'forb': 'forbs',
-    'vine': 'vines',
-    'succulent': 'succulents',
-    'fern': 'ferns',
-    'moss': 'mosses',
-  };
-  final Set<String> _hiddenGrowth = {};
 
   /// Records to draw: how many are on the map right now.
   int _recordCount = 0;
@@ -146,12 +124,7 @@ class _MapTabState extends State<MapTab> {
   /// the vector map underneath carries on.
   late bool _showSatellite = widget.prefs.mapSatellite;
   bool get _layersTouched =>
-      _hiddenTypes.isNotEmpty ||
-      _hiddenGrowth.isNotEmpty ||
-      !_showZones ||
-      !_showTracks ||
-      !_showFeatures ||
-      !_showSatellite;
+      !_showZones || !_showTracks || !_showFeatures || !_showSatellite;
 
   /// Draw and adjust the boundary and zones on the imagery — the polygon
   /// editor (D-024 batch 1). Every save re-derives zone assignment.
@@ -286,54 +259,6 @@ class _MapTabState extends State<MapTab> {
                 spacing: 2,
               ),
               SizedBox(height: 8),
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: [
-                  for (final t in kObservationTypes)
-                    _pill(
-                      t,
-                      !_hiddenTypes.contains(t),
-                      swatch: _typeSwatch(t),
-                      () {
-                        setSheet(() {
-                          if (!_hiddenTypes.remove(t)) _hiddenTypes.add(t);
-                        });
-                        setState(() {});
-                        _applyLayers();
-                      },
-                    ),
-                ],
-              ),
-              SizedBox(height: 14),
-              MonoLabel('Plants by kind', size: 9, spacing: 2),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: [
-                  for (final g in _growthForms)
-                    _pill(
-                      _growthLabels[g]!,
-                      !_hiddenGrowth.contains(g),
-                      swatch: Container(
-                        width: 11,
-                        height: 11,
-                        decoration: BoxDecoration(
-                          color: Color(growthFormInk[g] ?? 0xFF4E6B4A),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      () {
-                        setSheet(() {
-                          if (!_hiddenGrowth.remove(g)) _hiddenGrowth.add(g);
-                        });
-                        setState(() {});
-                        _applyLayers();
-                      },
-                    ),
-                ],
-              ),
               const SizedBox(height: 14),
               Wrap(
                 spacing: 7,
@@ -367,8 +292,6 @@ class _MapTabState extends State<MapTab> {
                   if (_layersTouched)
                     _pill('reset', false, () {
                       setSheet(() {
-                        _hiddenTypes.clear();
-                        _hiddenGrowth.clear();
                         _showZones = true;
                         _showTracks = true;
                         _showFeatures = true;
@@ -464,38 +387,6 @@ class _MapTabState extends State<MapTab> {
         ),
       ),
     );
-  }
-
-  /// The mark the map draws for this type — in the filter sheet, so the
-  /// sheet doubles as the in-app legend (design audit P2).
-  Widget _typeSwatch(String t) {
-    final mark = markFor(t);
-    final color = Color(mark.argb);
-    return switch (mark.shape) {
-      // Paper stroke on every swatch — ink-on-dark-pill was invisible
-      // (Austin, 2026-09-04).
-      RecordShape.circle => Container(
-        width: 12,
-        height: 12,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFECE3CE), width: 1.5),
-        ),
-      ),
-      RecordShape.square => Container(
-        width: 11,
-        height: 11,
-        decoration: BoxDecoration(
-          color: color,
-          border: Border.all(color: const Color(0xFFECE3CE), width: 1.5),
-        ),
-      ),
-      RecordShape.triangle => CustomPaint(
-        size: const Size(12, 11),
-        painter: _TriSwatchPainter(color),
-      ),
-    };
   }
 
   /// Show the whole place: the boundary if there is one, else its centre.
@@ -655,6 +546,7 @@ class _MapTabState extends State<MapTab> {
   @override
   void initState() {
     super.initState();
+    recordFilter.addListener(_onFilterChanged);
     widget.focus?.addListener(_onFocusRequest);
     _loadCounts();
     // One-time hint: long-press-to-place has zero discoverability
@@ -673,6 +565,61 @@ class _MapTabState extends State<MapTab> {
         });
       });
     }
+  }
+
+  void _onFilterChanged() {
+    if (!mounted) return;
+    if (recordFilter.consumeJump()) _fitFiltered();
+    setState(() {});
+  }
+
+  /// Frame every record the filter keeps — the species jump's landing.
+  Future<void> _fitFiltered() async {
+    final rows =
+        await (widget.db.select(widget.db.observations)
+              ..where((o) => o.propertyId.equals(widget.property.id))
+              ..where((o) => o.deletedAt.isNull())
+              ..where(
+                (o) =>
+                    o.gpsAccuracyM.equals(-1).not() | o.gpsAccuracyM.isNull(),
+              ))
+            .get();
+    final f = recordFilter;
+    final pts = [
+      for (final o in rows)
+        if ((f.type == null || o.observationType == f.type) &&
+            (f.taxonId == null || o.taxonId == f.taxonId) &&
+            (f.zoneId == null || o.zoneId == f.zoneId))
+          o,
+    ];
+    final controller = _controller;
+    if (pts.isEmpty || controller == null || !mounted) return;
+    if (pts.length == 1) {
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(pts.first.lat, pts.first.lng), 17),
+      );
+      return;
+    }
+    var minLat = pts.first.lat, maxLat = pts.first.lat;
+    var minLng = pts.first.lng, maxLng = pts.first.lng;
+    for (final o in pts) {
+      if (o.lat < minLat) minLat = o.lat;
+      if (o.lat > maxLat) maxLat = o.lat;
+      if (o.lng < minLng) minLng = o.lng;
+      if (o.lng > maxLng) maxLng = o.lng;
+    }
+    await controller.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(minLat, minLng),
+          northeast: LatLng(maxLat, maxLng),
+        ),
+        left: 60,
+        top: 140,
+        right: 60,
+        bottom: 180,
+      ),
+    );
   }
 
   @override
@@ -717,8 +664,6 @@ class _MapTabState extends State<MapTab> {
                   _presence = p;
                 }
               },
-              hiddenTypes: _hiddenTypes,
-              hiddenGrowthForms: _hiddenGrowth,
               onRecordCount: (n) {
                 if (mounted && n != _recordCount) {
                   setState(() => _recordCount = n);
@@ -743,6 +688,47 @@ class _MapTabState extends State<MapTab> {
           ),
         ),
         // Capture-area frame: the visible region is what gets captured.
+        // The one filter, made visible and killable: the map shows only
+        // what the ledger shows (Austin, 2026-09-04).
+        if (recordFilter.active)
+          Positioned(
+            left: Metrics.gutter,
+            right: Metrics.gutter,
+            bottom: 104,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                color: Press.ink,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: MonoLabel(
+                        'ONLY ' + recordFilter.describe(),
+                        size: 9,
+                        spacing: 1.2,
+                        color: Press.paperRaised,
+                        maxLines: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    InkWell(
+                      onTap: recordFilter.clear,
+                      child: MonoLabel(
+                        'CLEAR',
+                        size: 9,
+                        spacing: 1.2,
+                        color: Press.ochreLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         if (_captureMode)
           Positioned.fill(
             child: IgnorePointer(
@@ -1091,30 +1077,4 @@ class _TrackToggle extends StatelessWidget {
       },
     );
   }
-}
-
-class _TriSwatchPainter extends CustomPainter {
-  _TriSwatchPainter(this.color);
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final tri = Path()
-      ..moveTo(size.width / 2, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(
-      tri,
-      Paint()
-        ..color = const Color(0xFFECE3CE)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8
-        ..strokeJoin = StrokeJoin.round,
-    );
-    canvas.drawPath(tri, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(covariant _TriSwatchPainter old) => old.color != color;
 }

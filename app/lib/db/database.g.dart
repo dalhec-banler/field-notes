@@ -27907,6 +27907,679 @@ class ReviewItemsCompanion extends UpdateCompanion<ReviewItem> {
   }
 }
 
+class ConditionLogs extends Table with TableInfo<ConditionLogs, ConditionLog> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  ConditionLogs(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'PRIMARY KEY NOT NULL',
+  );
+  static const VerificationMeta _propertyIdMeta = const VerificationMeta(
+    'propertyId',
+  );
+  late final GeneratedColumn<String> propertyId = GeneratedColumn<String>(
+    'property_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _observationIdMeta = const VerificationMeta(
+    'observationId',
+  );
+  late final GeneratedColumn<String> observationId = GeneratedColumn<String>(
+    'observation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES observations(id)',
+  );
+  static const VerificationMeta _observedAtMeta = const VerificationMeta(
+    'observedAt',
+  );
+  late final GeneratedColumn<String> observedAt = GeneratedColumn<String>(
+    'observed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _conditionMeta = const VerificationMeta(
+    'condition',
+  );
+  late final GeneratedColumn<String> condition = GeneratedColumn<String>(
+    'condition',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL CHECK (condition IN (\'good\', \'fair\', \'poor\', \'critical\', \'unknown\'))',
+  );
+  static const VerificationMeta _actionTakenMeta = const VerificationMeta(
+    'actionTaken',
+  );
+  late final GeneratedColumn<String> actionTaken = GeneratedColumn<String>(
+    'action_taken',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  late final GeneratedColumn<String> updatedAt = GeneratedColumn<String>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  late final GeneratedColumn<String> deletedAt = GeneratedColumn<String>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    propertyId,
+    observationId,
+    observedAt,
+    condition,
+    actionTaken,
+    notes,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'condition_logs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ConditionLog> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('property_id')) {
+      context.handle(
+        _propertyIdMeta,
+        propertyId.isAcceptableOrUnknown(data['property_id']!, _propertyIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_propertyIdMeta);
+    }
+    if (data.containsKey('observation_id')) {
+      context.handle(
+        _observationIdMeta,
+        observationId.isAcceptableOrUnknown(
+          data['observation_id']!,
+          _observationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_observationIdMeta);
+    }
+    if (data.containsKey('observed_at')) {
+      context.handle(
+        _observedAtMeta,
+        observedAt.isAcceptableOrUnknown(data['observed_at']!, _observedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_observedAtMeta);
+    }
+    if (data.containsKey('condition')) {
+      context.handle(
+        _conditionMeta,
+        condition.isAcceptableOrUnknown(data['condition']!, _conditionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_conditionMeta);
+    }
+    if (data.containsKey('action_taken')) {
+      context.handle(
+        _actionTakenMeta,
+        actionTaken.isAcceptableOrUnknown(
+          data['action_taken']!,
+          _actionTakenMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdByMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ConditionLog map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ConditionLog(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      propertyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}property_id'],
+      )!,
+      observationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}observation_id'],
+      )!,
+      observedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}observed_at'],
+      )!,
+      condition: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}condition'],
+      )!,
+      actionTaken: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action_taken'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  ConditionLogs createAlias(String alias) {
+    return ConditionLogs(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class ConditionLog extends DataClass implements Insertable<ConditionLog> {
+  final String id;
+  final String propertyId;
+  final String observationId;
+  final String observedAt;
+  final String condition;
+  final String? actionTaken;
+  final String? notes;
+  final String createdBy;
+  final String createdAt;
+  final String updatedAt;
+  final String? deletedAt;
+  const ConditionLog({
+    required this.id,
+    required this.propertyId,
+    required this.observationId,
+    required this.observedAt,
+    required this.condition,
+    this.actionTaken,
+    this.notes,
+    required this.createdBy,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['property_id'] = Variable<String>(propertyId);
+    map['observation_id'] = Variable<String>(observationId);
+    map['observed_at'] = Variable<String>(observedAt);
+    map['condition'] = Variable<String>(condition);
+    if (!nullToAbsent || actionTaken != null) {
+      map['action_taken'] = Variable<String>(actionTaken);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_by'] = Variable<String>(createdBy);
+    map['created_at'] = Variable<String>(createdAt);
+    map['updated_at'] = Variable<String>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<String>(deletedAt);
+    }
+    return map;
+  }
+
+  ConditionLogsCompanion toCompanion(bool nullToAbsent) {
+    return ConditionLogsCompanion(
+      id: Value(id),
+      propertyId: Value(propertyId),
+      observationId: Value(observationId),
+      observedAt: Value(observedAt),
+      condition: Value(condition),
+      actionTaken: actionTaken == null && nullToAbsent
+          ? const Value.absent()
+          : Value(actionTaken),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdBy: Value(createdBy),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory ConditionLog.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ConditionLog(
+      id: serializer.fromJson<String>(json['id']),
+      propertyId: serializer.fromJson<String>(json['property_id']),
+      observationId: serializer.fromJson<String>(json['observation_id']),
+      observedAt: serializer.fromJson<String>(json['observed_at']),
+      condition: serializer.fromJson<String>(json['condition']),
+      actionTaken: serializer.fromJson<String?>(json['action_taken']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdBy: serializer.fromJson<String>(json['created_by']),
+      createdAt: serializer.fromJson<String>(json['created_at']),
+      updatedAt: serializer.fromJson<String>(json['updated_at']),
+      deletedAt: serializer.fromJson<String?>(json['deleted_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'property_id': serializer.toJson<String>(propertyId),
+      'observation_id': serializer.toJson<String>(observationId),
+      'observed_at': serializer.toJson<String>(observedAt),
+      'condition': serializer.toJson<String>(condition),
+      'action_taken': serializer.toJson<String?>(actionTaken),
+      'notes': serializer.toJson<String?>(notes),
+      'created_by': serializer.toJson<String>(createdBy),
+      'created_at': serializer.toJson<String>(createdAt),
+      'updated_at': serializer.toJson<String>(updatedAt),
+      'deleted_at': serializer.toJson<String?>(deletedAt),
+    };
+  }
+
+  ConditionLog copyWith({
+    String? id,
+    String? propertyId,
+    String? observationId,
+    String? observedAt,
+    String? condition,
+    Value<String?> actionTaken = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    String? createdBy,
+    String? createdAt,
+    String? updatedAt,
+    Value<String?> deletedAt = const Value.absent(),
+  }) => ConditionLog(
+    id: id ?? this.id,
+    propertyId: propertyId ?? this.propertyId,
+    observationId: observationId ?? this.observationId,
+    observedAt: observedAt ?? this.observedAt,
+    condition: condition ?? this.condition,
+    actionTaken: actionTaken.present ? actionTaken.value : this.actionTaken,
+    notes: notes.present ? notes.value : this.notes,
+    createdBy: createdBy ?? this.createdBy,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  ConditionLog copyWithCompanion(ConditionLogsCompanion data) {
+    return ConditionLog(
+      id: data.id.present ? data.id.value : this.id,
+      propertyId: data.propertyId.present
+          ? data.propertyId.value
+          : this.propertyId,
+      observationId: data.observationId.present
+          ? data.observationId.value
+          : this.observationId,
+      observedAt: data.observedAt.present
+          ? data.observedAt.value
+          : this.observedAt,
+      condition: data.condition.present ? data.condition.value : this.condition,
+      actionTaken: data.actionTaken.present
+          ? data.actionTaken.value
+          : this.actionTaken,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ConditionLog(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('observationId: $observationId, ')
+          ..write('observedAt: $observedAt, ')
+          ..write('condition: $condition, ')
+          ..write('actionTaken: $actionTaken, ')
+          ..write('notes: $notes, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    propertyId,
+    observationId,
+    observedAt,
+    condition,
+    actionTaken,
+    notes,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ConditionLog &&
+          other.id == this.id &&
+          other.propertyId == this.propertyId &&
+          other.observationId == this.observationId &&
+          other.observedAt == this.observedAt &&
+          other.condition == this.condition &&
+          other.actionTaken == this.actionTaken &&
+          other.notes == this.notes &&
+          other.createdBy == this.createdBy &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class ConditionLogsCompanion extends UpdateCompanion<ConditionLog> {
+  final Value<String> id;
+  final Value<String> propertyId;
+  final Value<String> observationId;
+  final Value<String> observedAt;
+  final Value<String> condition;
+  final Value<String?> actionTaken;
+  final Value<String?> notes;
+  final Value<String> createdBy;
+  final Value<String> createdAt;
+  final Value<String> updatedAt;
+  final Value<String?> deletedAt;
+  final Value<int> rowid;
+  const ConditionLogsCompanion({
+    this.id = const Value.absent(),
+    this.propertyId = const Value.absent(),
+    this.observationId = const Value.absent(),
+    this.observedAt = const Value.absent(),
+    this.condition = const Value.absent(),
+    this.actionTaken = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ConditionLogsCompanion.insert({
+    required String id,
+    required String propertyId,
+    required String observationId,
+    required String observedAt,
+    required String condition,
+    this.actionTaken = const Value.absent(),
+    this.notes = const Value.absent(),
+    required String createdBy,
+    required String createdAt,
+    required String updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       propertyId = Value(propertyId),
+       observationId = Value(observationId),
+       observedAt = Value(observedAt),
+       condition = Value(condition),
+       createdBy = Value(createdBy),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<ConditionLog> custom({
+    Expression<String>? id,
+    Expression<String>? propertyId,
+    Expression<String>? observationId,
+    Expression<String>? observedAt,
+    Expression<String>? condition,
+    Expression<String>? actionTaken,
+    Expression<String>? notes,
+    Expression<String>? createdBy,
+    Expression<String>? createdAt,
+    Expression<String>? updatedAt,
+    Expression<String>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (propertyId != null) 'property_id': propertyId,
+      if (observationId != null) 'observation_id': observationId,
+      if (observedAt != null) 'observed_at': observedAt,
+      if (condition != null) 'condition': condition,
+      if (actionTaken != null) 'action_taken': actionTaken,
+      if (notes != null) 'notes': notes,
+      if (createdBy != null) 'created_by': createdBy,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ConditionLogsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? propertyId,
+    Value<String>? observationId,
+    Value<String>? observedAt,
+    Value<String>? condition,
+    Value<String?>? actionTaken,
+    Value<String?>? notes,
+    Value<String>? createdBy,
+    Value<String>? createdAt,
+    Value<String>? updatedAt,
+    Value<String?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return ConditionLogsCompanion(
+      id: id ?? this.id,
+      propertyId: propertyId ?? this.propertyId,
+      observationId: observationId ?? this.observationId,
+      observedAt: observedAt ?? this.observedAt,
+      condition: condition ?? this.condition,
+      actionTaken: actionTaken ?? this.actionTaken,
+      notes: notes ?? this.notes,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (propertyId.present) {
+      map['property_id'] = Variable<String>(propertyId.value);
+    }
+    if (observationId.present) {
+      map['observation_id'] = Variable<String>(observationId.value);
+    }
+    if (observedAt.present) {
+      map['observed_at'] = Variable<String>(observedAt.value);
+    }
+    if (condition.present) {
+      map['condition'] = Variable<String>(condition.value);
+    }
+    if (actionTaken.present) {
+      map['action_taken'] = Variable<String>(actionTaken.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<String>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<String>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ConditionLogsCompanion(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('observationId: $observationId, ')
+          ..write('observedAt: $observedAt, ')
+          ..write('condition: $condition, ')
+          ..write('actionTaken: $actionTaken, ')
+          ..write('notes: $notes, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$FieldNotesDb extends GeneratedDatabase {
   _$FieldNotesDb(QueryExecutor e) : super(e);
   $FieldNotesDbManager get managers => $FieldNotesDbManager(this);
@@ -27977,6 +28650,11 @@ abstract class _$FieldNotesDb extends GeneratedDatabase {
     'idx_review_pending',
     'CREATE INDEX idx_review_pending ON review_items (property_id, state)',
   );
+  late final ConditionLogs conditionLogs = ConditionLogs(this);
+  late final Index idxConditionObs = Index(
+    'idx_condition_obs',
+    'CREATE INDEX idx_condition_obs ON condition_logs (observation_id, observed_at DESC)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -28022,6 +28700,8 @@ abstract class _$FieldNotesDb extends GeneratedDatabase {
     practiceActivities,
     reviewItems,
     idxReviewPending,
+    conditionLogs,
+    idxConditionObs,
   ];
 }
 
@@ -35335,6 +36015,24 @@ final class $ObservationsReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<ConditionLogs, List<ConditionLog>>
+  _conditionLogsRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.conditionLogs,
+    aliasName: 'observations__id__condition_logs__observation_id',
+  );
+
+  $ConditionLogsProcessedTableManager get conditionLogsRefs {
+    final manager = $ConditionLogsTableManager(
+      $_db,
+      $_db.conditionLogs,
+    ).filter((f) => f.observationId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_conditionLogsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $ObservationsFilterComposer
@@ -35577,6 +36275,31 @@ class $ObservationsFilterComposer
           }) => $IdentificationSuggestionsFilterComposer(
             $db: $db,
             $table: $db.identificationSuggestions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> conditionLogsRefs(
+    Expression<bool> Function($ConditionLogsFilterComposer f) f,
+  ) {
+    final $ConditionLogsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.conditionLogs,
+      getReferencedColumn: (t) => t.observationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ConditionLogsFilterComposer(
+            $db: $db,
+            $table: $db.conditionLogs,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -36039,6 +36762,31 @@ class $ObservationsAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> conditionLogsRefs<T extends Object>(
+    Expression<T> Function($ConditionLogsAnnotationComposer a) f,
+  ) {
+    final $ConditionLogsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.conditionLogs,
+      getReferencedColumn: (t) => t.observationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ConditionLogsAnnotationComposer(
+            $db: $db,
+            $table: $db.conditionLogs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $ObservationsTableManager
@@ -36061,6 +36809,7 @@ class $ObservationsTableManager
             bool taxonId,
             bool envContextId,
             bool identificationSuggestionsRefs,
+            bool conditionLogsRefs,
           })
         > {
   $ObservationsTableManager(_$FieldNotesDb db, Observations table)
@@ -36200,12 +36949,14 @@ class $ObservationsTableManager
                 taxonId = false,
                 envContextId = false,
                 identificationSuggestionsRefs = false,
+                conditionLogsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (identificationSuggestionsRefs)
                       db.identificationSuggestions,
+                    if (conditionLogsRefs) db.conditionLogs,
                   ],
                   addJoins:
                       <
@@ -36304,6 +37055,27 @@ class $ObservationsTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (conditionLogsRefs)
+                        await $_getPrefetchedData<
+                          Observation,
+                          Observations,
+                          ConditionLog
+                        >(
+                          currentTable: table,
+                          referencedTable: $ObservationsReferences
+                              ._conditionLogsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $ObservationsReferences(
+                                db,
+                                table,
+                                p0,
+                              ).conditionLogsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.observationId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -36331,6 +37103,7 @@ typedef $ObservationsProcessedTableManager =
         bool taxonId,
         bool envContextId,
         bool identificationSuggestionsRefs,
+        bool conditionLogsRefs,
       })
     >;
 typedef $IdentificationSuggestionsCreateCompanionBuilder =
@@ -49134,6 +49907,439 @@ typedef $ReviewItemsProcessedTableManager =
       ReviewItem,
       PrefetchHooks Function()
     >;
+typedef $ConditionLogsCreateCompanionBuilder = ConditionLogsCompanion Function({
+  required String id,
+  required String propertyId,
+  required String observationId,
+  required String observedAt,
+  required String condition,
+  Value<String?> actionTaken,
+  Value<String?> notes,
+  required String createdBy,
+  required String createdAt,
+  required String updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+typedef $ConditionLogsUpdateCompanionBuilder = ConditionLogsCompanion Function({
+  Value<String> id,
+  Value<String> propertyId,
+  Value<String> observationId,
+  Value<String> observedAt,
+  Value<String> condition,
+  Value<String?> actionTaken,
+  Value<String?> notes,
+  Value<String> createdBy,
+  Value<String> createdAt,
+  Value<String> updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+
+final class $ConditionLogsReferences
+    extends BaseReferences<_$FieldNotesDb, ConditionLogs, ConditionLog> {
+  $ConditionLogsReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static Observations _observationIdTable(_$FieldNotesDb db) => db.observations
+      .createAlias('condition_logs__observation_id__observations__id');
+
+  $ObservationsProcessedTableManager get observationId {
+    final $_column = $_itemColumn<String>('observation_id')!;
+
+    final manager = $ObservationsTableManager(
+      $_db,
+      $_db.observations,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_observationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $ConditionLogsFilterComposer
+    extends Composer<_$FieldNotesDb, ConditionLogs> {
+  $ConditionLogsFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get propertyId => $composableBuilder(
+    column: $table.propertyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get observedAt => $composableBuilder(
+    column: $table.observedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get condition => $composableBuilder(
+    column: $table.condition,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actionTaken => $composableBuilder(
+    column: $table.actionTaken,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $ObservationsFilterComposer get observationId {
+    final $ObservationsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.observationId,
+      referencedTable: $db.observations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ObservationsFilterComposer(
+            $db: $db,
+            $table: $db.observations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $ConditionLogsOrderingComposer
+    extends Composer<_$FieldNotesDb, ConditionLogs> {
+  $ConditionLogsOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get propertyId => $composableBuilder(
+    column: $table.propertyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get observedAt => $composableBuilder(
+    column: $table.observedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get condition => $composableBuilder(
+    column: $table.condition,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get actionTaken => $composableBuilder(
+    column: $table.actionTaken,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $ObservationsOrderingComposer get observationId {
+    final $ObservationsOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.observationId,
+      referencedTable: $db.observations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ObservationsOrderingComposer(
+            $db: $db,
+            $table: $db.observations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $ConditionLogsAnnotationComposer
+    extends Composer<_$FieldNotesDb, ConditionLogs> {
+  $ConditionLogsAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get propertyId => $composableBuilder(
+    column: $table.propertyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get observedAt => $composableBuilder(
+    column: $table.observedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get condition =>
+      $composableBuilder(column: $table.condition, builder: (column) => column);
+
+  GeneratedColumn<String> get actionTaken => $composableBuilder(
+    column: $table.actionTaken,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $ObservationsAnnotationComposer get observationId {
+    final $ObservationsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.observationId,
+      referencedTable: $db.observations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ObservationsAnnotationComposer(
+            $db: $db,
+            $table: $db.observations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $ConditionLogsTableManager
+    extends
+        RootTableManager<
+          _$FieldNotesDb,
+          ConditionLogs,
+          ConditionLog,
+          $ConditionLogsFilterComposer,
+          $ConditionLogsOrderingComposer,
+          $ConditionLogsAnnotationComposer,
+          $ConditionLogsCreateCompanionBuilder,
+          $ConditionLogsUpdateCompanionBuilder,
+          (ConditionLog, $ConditionLogsReferences),
+          ConditionLog,
+          PrefetchHooks Function({bool observationId})
+        > {
+  $ConditionLogsTableManager(_$FieldNotesDb db, ConditionLogs table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $ConditionLogsFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $ConditionLogsOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $ConditionLogsAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> propertyId = const Value.absent(),
+                Value<String> observationId = const Value.absent(),
+                Value<String> observedAt = const Value.absent(),
+                Value<String> condition = const Value.absent(),
+                Value<String?> actionTaken = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<String> updatedAt = const Value.absent(),
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ConditionLogsCompanion(
+                id: id,
+                propertyId: propertyId,
+                observationId: observationId,
+                observedAt: observedAt,
+                condition: condition,
+                actionTaken: actionTaken,
+                notes: notes,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String propertyId,
+                required String observationId,
+                required String observedAt,
+                required String condition,
+                Value<String?> actionTaken = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                required String createdBy,
+                required String createdAt,
+                required String updatedAt,
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ConditionLogsCompanion.insert(
+                id: id,
+                propertyId: propertyId,
+                observationId: observationId,
+                observedAt: observedAt,
+                condition: condition,
+                actionTaken: actionTaken,
+                notes: notes,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $ConditionLogsReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({observationId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (observationId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.observationId,
+                        referencedTable: $ConditionLogsReferences
+                            ._observationIdTable(db),
+                        referencedColumn: $ConditionLogsReferences
+                            ._observationIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $ConditionLogsProcessedTableManager =
+    ProcessedTableManager<
+      _$FieldNotesDb,
+      ConditionLogs,
+      ConditionLog,
+      $ConditionLogsFilterComposer,
+      $ConditionLogsOrderingComposer,
+      $ConditionLogsAnnotationComposer,
+      $ConditionLogsCreateCompanionBuilder,
+      $ConditionLogsUpdateCompanionBuilder,
+      (ConditionLog, $ConditionLogsReferences),
+      ConditionLog,
+      PrefetchHooks Function({bool observationId})
+    >;
 
 class $FieldNotesDbManager {
   final _$FieldNotesDb _db;
@@ -49198,4 +50404,6 @@ class $FieldNotesDbManager {
       $PracticeActivitiesTableManager(_db, _db.practiceActivities);
   $ReviewItemsTableManager get reviewItems =>
       $ReviewItemsTableManager(_db, _db.reviewItems);
+  $ConditionLogsTableManager get conditionLogs =>
+      $ConditionLogsTableManager(_db, _db.conditionLogs);
 }

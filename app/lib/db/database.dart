@@ -20,7 +20,7 @@ class FieldNotesDb extends _$FieldNotesDb {
   FieldNotesDb.fromFile(File file) : super(NativeDatabase(file));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -90,6 +90,61 @@ class FieldNotesDb extends _$FieldNotesDb {
       if (from < 2) {
         await m.createTable(reviewItems);
         await m.createIndex(idxReviewPending);
+      }
+      // v5 LAST (it inserts 'infrastructure'-typed rows, which need the
+      // v4 CHECK already in place): features fold into records (Austin,
+      // 2026-09-04). Live features become observations — SAME id on every
+      // device, so the sync merge is deterministic — their condition logs
+      // copy to the new timeline, and the old rows soft-delete.
+      if (from < 5) {
+        await m.createTable(conditionLogs);
+        await m.createIndex(idxConditionObs);
+        await m.database.customStatement('''
+          INSERT INTO condition_logs (id, property_id, observation_id,
+            observed_at, condition, action_taken, notes,
+            created_by, created_at, updated_at, deleted_at)
+          SELECT id, property_id, feature_id, observed_at, condition,
+            action_taken, notes, created_by, created_at, updated_at,
+            deleted_at
+          FROM feature_condition_logs''');
+        await m.database.customStatement('''
+          INSERT OR IGNORE INTO observations (id, property_id, zone_id,
+            observed_at, local_tz, lat, lng, gps_accuracy_m,
+            observation_type, notes, created_by, created_at, updated_at,
+            deleted_at)
+          SELECT f.id, f.property_id, f.zone_id, f.created_at, 'UTC',
+            COALESCE(f.lat, 0), COALESCE(f.lng, 0),
+            CASE WHEN f.lat IS NULL THEN -1 ELSE NULL END,
+            CASE COALESCE(t.feature_class, 'natural')
+              WHEN 'infrastructure' THEN 'infrastructure'
+              WHEN 'problem' THEN 'problem'
+              ELSE CASE
+                WHEN lower(COALESCE(t.label, '')) LIKE '%spring%'
+                  OR lower(COALESCE(t.label, '')) LIKE '%creek%'
+                  OR lower(COALESCE(t.label, '')) LIKE '%pond%'
+                  OR lower(COALESCE(t.label, '')) LIKE '%tank%'
+                  OR lower(COALESCE(t.label, '')) LIKE '%well%'
+                  THEN 'water'
+                WHEN lower(COALESCE(t.label, '')) LIKE '%den%'
+                  OR lower(COALESCE(t.label, '')) LIKE '%nest%'
+                  OR lower(COALESCE(t.label, '')) LIKE '%burrow%'
+                  THEN 'wildlife'
+                ELSE 'general'
+              END
+            END,
+            TRIM(COALESCE(t.label, 'Feature')
+              || CASE WHEN f.name IS NOT NULL
+                   THEN ': ' || f.name ELSE '' END
+              || CASE WHEN f.notes IS NOT NULL
+                   THEN char(10) || f.notes ELSE '' END),
+            f.created_by, f.created_at, f.updated_at, f.deleted_at
+          FROM features f
+          LEFT JOIN feature_types t ON t.id = f.feature_type_id''');
+        await m.database.customStatement('''
+          UPDATE features SET
+            deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          WHERE deleted_at IS NULL''');
       }
     },
     beforeOpen: (details) async {

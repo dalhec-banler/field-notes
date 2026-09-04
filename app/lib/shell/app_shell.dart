@@ -12,6 +12,7 @@ import '../screens/identify_sheet.dart';
 import '../screens/record_detail_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/observation_ops.dart';
+import '../services/record_filter.dart';
 import '../widgets/new_place_dialog.dart';
 import '../widgets/save_toast.dart';
 import '../tabs/grow_tab.dart';
@@ -59,10 +60,20 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Registered BEFORE the tabs build, so this listener runs before the
+    // map consumes the jump.
+    recordFilter.addListener(_onFilterJump);
+  }
+
+  void _onFilterJump() {
+    if (recordFilter.jumpPending && _tab != 0 && mounted) {
+      setState(() => _tab = 0);
+    }
   }
 
   @override
   void dispose() {
+    recordFilter.removeListener(_onFilterJump);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

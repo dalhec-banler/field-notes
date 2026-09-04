@@ -9,6 +9,7 @@ import '../db/database.dart';
 import '../geo/simplify.dart' show distanceM;
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../widgets/condition_log_dialog.dart';
 import '../widgets/confirm.dart';
 import '../widgets/edit_record_sheet.dart';
 
@@ -16,6 +17,7 @@ import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../geo/zone_assignment.dart';
 import '../services/desk.dart';
+import '../services/record_filter.dart';
 import '../services/media_store.dart';
 import '../services/observation_ops.dart' show eraseMedia;
 import '../services/review.dart';
@@ -773,12 +775,32 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               child: Column(
                 children: [
                   FactRow('when', '$when ${obs.localTz}'),
-                  FactRow(
-                    'where',
-                    obs.gpsAccuracyM == -1
-                        ? 'no GPS fix — flagged, never faked'
-                        : '${obs.lat.toStringAsFixed(5)}, ${obs.lng.toStringAsFixed(5)}'
-                              '${obs.gpsAccuracyM != null ? '  ±${obs.gpsAccuracyM!.toStringAsFixed(0)} m' : ''}',
+                  InkWell(
+                    // Tap the place line → the map, showing ONLY this
+                    // species (Austin, 2026-09-04). No species: no jump.
+                    onTap: obs.taxonId == null || obs.gpsAccuracyM == -1
+                        ? null
+                        : () {
+                            recordFilter.update((f) {
+                              f.taxonId = obs.taxonId;
+                              f.taxonLabel =
+                                  _taxon?.commonName ??
+                                  _taxon?.scientificName ??
+                                  'species';
+                            });
+                            recordFilter.jumpToMap();
+                            if (!widget.embedded) {
+                              Navigator.of(context).popUntil((r) => r.isFirst);
+                            }
+                          },
+                    child: FactRow(
+                      'where',
+                      obs.gpsAccuracyM == -1
+                          ? 'no GPS fix — flagged, never faked'
+                          : '${obs.lat.toStringAsFixed(5)}, ${obs.lng.toStringAsFixed(5)}'
+                                '${obs.gpsAccuracyM != null ? '  ±${obs.gpsAccuracyM!.toStringAsFixed(0)} m' : ''}'
+                                '${obs.taxonId != null ? '  ·  ⌖ all on map' : ''}',
+                    ),
                   ),
                   FactRow('zone', _zone?.name ?? noZoneLabel(_zoneCount)),
                   if (_env != null) ...[
@@ -818,6 +840,83 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     FactRow('media', 'none', last: true),
                 ],
               ),
+            ),
+          ),
+
+          // Condition — the merged feature timeline (2026-09-04): a spring,
+          // a gate, a diseased oak — any record can carry one.
+          Padding(
+            padding: EdgeInsets.fromLTRB(Metrics.gutter, 0, Metrics.gutter, 14),
+            child: StreamBuilder<List<ConditionLog>>(
+              stream:
+                  (widget.db.select(widget.db.conditionLogs)
+                        ..where((l) => l.observationId.equals(obs.id))
+                        ..where((l) => l.deletedAt.isNull())
+                        ..orderBy([(l) => OrderingTerm.desc(l.observedAt)]))
+                      .watch(),
+              builder: (context, snapshot) {
+                final logs = snapshot.data ?? const <ConditionLog>[];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Kicker('Condition'),
+                        Spacer(),
+                        if (logs.isNotEmpty)
+                          StatusPill(
+                            logs.first.condition.toUpperCase(),
+                            color: conditionColor(logs.first.condition),
+                            filled: true,
+                          ),
+                      ],
+                    ),
+                    SizedBox(height: 6),
+                    for (final l in logs)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Diamond(
+                              size: 10,
+                              color: conditionColor(l.condition),
+                              filled: true,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                [
+                                  '${l.observedAt.substring(0, 10)} · '
+                                      '${l.condition}',
+                                  if (l.actionTaken != null) l.actionTaken!,
+                                  if (l.notes != null) l.notes!,
+                                ].join(' · '),
+                                style: TextStyle(
+                                  fontFamily: Type.serif,
+                                  fontSize: 14.5,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    SizedBox(height: 4),
+                    SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => showConditionLogDialog(
+                          context,
+                          db: widget.db,
+                          obs: obs,
+                        ),
+                        child: Text('LOG CONDITION'),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
 

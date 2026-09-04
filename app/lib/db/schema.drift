@@ -598,3 +598,21 @@ CREATE TABLE review_items (
   UNIQUE (entity_type, entity_id)
 );
 CREATE INDEX idx_review_pending ON review_items(property_id, state);
+
+-- v5 (2026-09-04, Austin: "merge features per your rec"): any record can
+-- carry a condition timeline. Features fold into records; this is the
+-- timeline that used to be feature_condition_logs, now on observations.
+CREATE TABLE condition_logs (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL,
+  observation_id TEXT NOT NULL REFERENCES observations(id),
+  observed_at   TEXT NOT NULL,
+  condition     TEXT NOT NULL CHECK (condition IN
+                 ('good','fair','poor','critical','unknown')),
+  action_taken  TEXT,
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE INDEX idx_condition_obs
+  ON condition_logs(observation_id, observed_at DESC);

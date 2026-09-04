@@ -21,6 +21,7 @@ import 'imagery_sources.dart';
 import 'map_markers.dart';
 import 'record_clusters.dart';
 import 'record_ink.dart';
+import '../services/record_filter.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
 import 'tile_server.dart';
@@ -47,8 +48,6 @@ class MapScreen extends StatefulWidget {
     this.onLayersReady,
     this.onPresence,
     this.onRecordCount,
-    this.hiddenTypes = const {},
-    this.hiddenGrowthForms = const {},
   });
 
   final FieldNotesDb? db;
@@ -89,13 +88,6 @@ class MapScreen extends StatefulWidget {
   /// How many located records are currently drawn.
   final ValueChanged<int>? onRecordCount;
 
-  /// Record types the chrome has switched off.
-  final Set<String> hiddenTypes;
-
-  /// Plant growth forms the chrome has switched off. A record that names no
-  /// plant is never hidden by these.
-  final Set<String> hiddenGrowthForms;
-
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
@@ -119,6 +111,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    recordFilter.addListener(_refreshRecords);
     // Learn where this place is from its own records before deciding where
     // to open, for a property that has never had a boundary imported.
     _loadRecordCentre().whenComplete(() {
@@ -132,12 +125,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   void didUpdateWidget(MapScreen old) {
     super.didUpdateWidget(old);
     if (old.visible != widget.visible) _syncPositionWatch();
-    if (old.hiddenTypes.length != widget.hiddenTypes.length ||
-        old.hiddenGrowthForms.length != widget.hiddenGrowthForms.length ||
-        !old.hiddenTypes.containsAll(widget.hiddenTypes) ||
-        !old.hiddenGrowthForms.containsAll(widget.hiddenGrowthForms)) {
-      _refreshRecords();
-    }
   }
 
   /// Battery (spec §7): the live dot only costs GPS while the map is on
@@ -417,6 +404,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    recordFilter.removeListener(_refreshRecords);
     _recordSub?.cancel();
     _featureSub?.cancel();
     _fixSub?.cancel();
@@ -1059,6 +1047,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           .customSelect(
             'SELECT o.id AS id, o.lat AS lat, o.lng AS lng, '
             'o.observation_type AS type, o.gps_accuracy_m AS acc, '
+            'o.taxon_id AS taxon, o.zone_id AS zone, '
+            'o.observed_at AS at, '
             't.growth_form AS growth, '
             'COALESCE(t.common_name, t.scientific_name) AS species '
             'FROM observations o LEFT JOIN taxa t ON t.id = o.taxon_id '
@@ -1068,14 +1058,34 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             readsFrom: {db.observations, db.taxa},
           )
           .get();
+      // The ledger is the filter: the map draws exactly what it lists.
+      final flt = recordFilter;
+      String? dFrom;
+      String? dTo;
+      final dr = flt.dates;
+      if (dr != null) {
+        dFrom = DateTime(
+          dr.start.year,
+          dr.start.month,
+          dr.start.day,
+        ).toUtc().toIso8601String();
+        dTo = DateTime(
+          dr.end.year,
+          dr.end.month,
+          dr.end.day + 1,
+        ).toUtc().toIso8601String();
+      }
       final features = <Map<String, dynamic>>[];
       for (final r in rows) {
         final growth = r.data['growth'] as String?;
         final type = r.data['type'] as String? ?? 'general';
         final species = r.data['species'] as String?;
-        if (widget.hiddenTypes.contains(type)) continue;
-        if (growth != null && widget.hiddenGrowthForms.contains(growth)) {
-          continue;
+        if (flt.type != null && type != flt.type) continue;
+        if (flt.taxonId != null && r.data['taxon'] != flt.taxonId) continue;
+        if (flt.zoneId != null && r.data['zone'] != flt.zoneId) continue;
+        if (dFrom != null) {
+          final at = r.data['at'] as String? ?? '';
+          if (at.compareTo(dFrom) < 0 || at.compareTo(dTo!) >= 0) continue;
         }
         features.add({
           'type': 'Feature',
