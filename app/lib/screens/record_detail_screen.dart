@@ -318,7 +318,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   /// Carousel arrow for the desk plate; wraps at either end.
   Widget _arrow(IconData icon, int step) => Material(
-    color: Color(0xCCF7F6F2),
+    color: Press.paperRaised.withValues(alpha: 0.8),
     shape: CircleBorder(side: BorderSide(color: Press.borderInk, width: 1)),
     child: InkWell(
       customBorder: CircleBorder(),

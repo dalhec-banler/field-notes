@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart' hide Column;
 
+import '../theme/tokens.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -483,12 +485,7 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
     _load();
   }
 
-  Color _statusColor(String? s) => switch (s) {
-    'complete' || 'certified' => Colors.green.shade700,
-    'in_progress' => Colors.orange.shade800,
-    'cancelled' => Colors.grey,
-    _ => Colors.blueGrey,
-  };
+  Color _statusColor(String? s) => programStatusColor(s);
 
   @override
   Widget build(BuildContext context) {

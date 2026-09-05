@@ -1,4 +1,7 @@
 import 'package:drift/drift.dart' hide Column;
+
+import '../../theme/tokens.dart';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -91,10 +94,12 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
               return ListTile(
                 minTileHeight: 64,
                 leading: CircleAvatar(
-                  backgroundColor: due ? Colors.orange.shade100 : null,
+                  backgroundColor: due
+                      ? Press.ochre.withValues(alpha: 0.15)
+                      : null,
                   child: Icon(
                     Icons.photo_camera_outlined,
-                    color: due ? Colors.orange.shade800 : null,
+                    color: due ? Press.ochre : null,
                   ),
                 ),
                 title: Text(p.name),

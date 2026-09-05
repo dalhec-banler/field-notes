@@ -107,3 +107,13 @@ Color nativityColor(String nativity) => switch (nativity) {
   'invasive' => Press.oxblood,
   _ => Press.ochre, // introduced, cultivated
 };
+
+/// Programme status → ink, beside the other semantic maps (design audit
+/// P3: this lived in the programmes screen as stock Material stoplight
+/// shades that belong to no skin).
+Color programStatusColor(String? status) => switch (status) {
+  'complete' || 'certified' => Press.sage,
+  'in_progress' => Press.ochre,
+  'cancelled' => Press.inkSoft,
+  _ => Press.river,
+};

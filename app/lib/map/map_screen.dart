@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as mathlib;
 import 'dart:math' show Point, max;
 
 import 'package:drift/drift.dart' hide Column;
@@ -392,19 +393,51 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  Map<String, dynamic> _positionGeoJson(Position pos) => {
-    'type': 'FeatureCollection',
-    'features': [
-      {
-        'type': 'Feature',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [pos.longitude, pos.latitude],
+  Map<String, dynamic> _positionGeoJson(Position pos) {
+    final acc = pos.accuracy;
+    return {
+      'type': 'FeatureCollection',
+      'features': [
+        if (acc.isFinite && acc > 1)
+          {
+            'type': 'Feature',
+            'geometry': {
+              'type': 'Polygon',
+              'coordinates': [_accuracyRing(pos.latitude, pos.longitude, acc)],
+            },
+            'properties': {'acc': acc},
+          },
+        {
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [pos.longitude, pos.latitude],
+          },
+          'properties': {'acc': acc},
         },
-        'properties': {'acc': pos.accuracy},
-      },
-    ],
-  };
+      ],
+    };
+  }
+
+  /// The accuracy circle as ground coordinates, so it scales with the map
+  /// instead of pretending to be a fixed number of pixels.
+  static List<List<double>> _accuracyRing(
+    double lat,
+    double lng,
+    double metres, {
+    int steps = 36,
+  }) {
+    final dLat = metres / 111320.0;
+    final dLng =
+        metres / (111320.0 * mathlib.cos(lat * mathlib.pi / 180).abs());
+    return [
+      for (var i = 0; i <= steps; i++)
+        [
+          lng + dLng * mathlib.sin(2 * mathlib.pi * i / steps),
+          lat + dLat * mathlib.cos(2 * mathlib.pi * i / steps),
+        ],
+    ];
+  }
 
   @override
   void dispose() {
@@ -642,6 +675,33 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       seed != null
           ? _positionGeoJson(seed)
           : {'type': 'FeatureCollection', 'features': []},
+    );
+    // How well the phone knows where it is, drawn to scale on the ground
+    // (design audit P3: accuracy was plumbed into the source and never
+    // shown). A wide ring in the trees is the truth, not a defect.
+    await controller.addFillLayer(
+      'me',
+      'me-accuracy',
+      const FillLayerProperties(fillColor: '#1D6FE0', fillOpacity: 0.10),
+      filter: [
+        '==',
+        ['geometry-type'],
+        'Polygon',
+      ],
+    );
+    await controller.addLineLayer(
+      'me',
+      'me-accuracy-edge',
+      const LineLayerProperties(
+        lineColor: '#1D6FE0',
+        lineWidth: 1,
+        lineOpacity: 0.35,
+      ),
+      filter: [
+        '==',
+        ['geometry-type'],
+        'Polygon',
+      ],
     );
     await controller.addImage('me-reticle', await positionReticle());
     await controller.addSymbolLayer(

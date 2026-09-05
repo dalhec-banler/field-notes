@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import '../../theme/tokens.dart';
+
 import 'dart:io';
 
 import 'package:camera/camera.dart';
@@ -299,15 +302,15 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
                                           'and capture. This anchors the '
                                           'point.',
                                 _anchorWaiting != null
-                                    ? Colors.black54
-                                    : Colors.blueGrey.shade700,
+                                    ? Press.cameraDark.withValues(alpha: 0.6)
+                                    : Press.river,
                               )
                             : _readout(
                                 '${distance == null ? '— m' : '${distance.toStringAsFixed(1)} m'} from point   ·   '
                                 '${bearingOff == null ? '—°' : '${bearingOff > 0 ? '+' : ''}${bearingOff.toStringAsFixed(0)}°'} off bearing',
                                 _aligned
-                                    ? Colors.green.shade700
-                                    : Colors.black54,
+                                    ? Press.sage
+                                    : Press.cameraDark.withValues(alpha: 0.6),
                               ),
                       ),
                     ],

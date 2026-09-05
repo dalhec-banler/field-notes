@@ -277,7 +277,11 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                             margin: EdgeInsets.only(right: 6),
                             foregroundDecoration: _picked.contains(i)
                                 ? null
-                                : BoxDecoration(color: const Color(0xB3F7F6F2)),
+                                : BoxDecoration(
+                                    color: Press.paperRaised.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                  ),
                             decoration: BoxDecoration(
                               border: Border.all(
                                 color: _picked.contains(i)

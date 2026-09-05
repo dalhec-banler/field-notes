@@ -385,6 +385,18 @@ class _DesktopShellState extends State<DesktopShell> {
     );
   }
 
+  /// Writes captured by the oplog and not yet carried anywhere.
+  Future<int> _pendingWrites() async {
+    try {
+      final row = await widget.db
+          .customSelect('SELECT COUNT(*) AS n FROM sync_ops')
+          .getSingleOrNull();
+      return (row?.data['n'] as int?) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Widget _statusBar() {
     final sentences = [
       'The record in place · click a mark to open it',
@@ -405,7 +417,24 @@ class _DesktopShellState extends State<DesktopShell> {
         children: [
           MonoLabel(sentences[_view], size: 9.5, opacity: 0.8),
           Spacer(),
-          MonoLabel('Write queue empty | Sync off', size: 9.5, opacity: 0.8),
+          // Derived, not decorative (design audit P3): the write queue is
+          // the oplog's own count, and sync is honestly off until D-026's
+          // carrier work lands.
+          FutureBuilder<int>(
+            future: _pendingWrites(),
+            builder: (context, snap) {
+              final n = snap.data;
+              return MonoLabel(
+                n == null
+                    ? 'Sync off · edits stay on this computer'
+                    : n == 0
+                    ? 'Nothing waiting · sync off'
+                    : '$n write${n == 1 ? '' : 's'} captured · sync off',
+                size: 9.5,
+                opacity: 0.8,
+              );
+            },
+          ),
         ],
       ),
     );
