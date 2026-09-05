@@ -285,9 +285,22 @@ class BackupEngine {
       final body = await readManifestBody();
       final blobs = (body['blobs'] as List).cast<Map<String, dynamic>>();
       if (blobs.isEmpty) return null;
+      // Every photo the manifest promises must be in the store, because
+      // restore now refuses a backup it cannot complete (D-026 audit,
+      // finding 4). Checking one at random answered a question nobody
+      // asked; this answers "will this restore?".
+      var missing = 0;
+      for (final blob in blobs) {
+        if (!await target.exists(blob['blob'] as String)) missing++;
+      }
+      if (missing > 0) {
+        return '$missing of ${blobs.length} photos are missing from the '
+            'store. This backup will not restore completely — run a new '
+            'backup to fill the gaps.';
+      }
+      // Then prove one is really readable and really itself.
       final pick = blobs[Random().nextInt(blobs.length)];
       final path = pick['blob'] as String;
-      if (!await target.exists(path)) return 'Blob missing: $path';
       final plain = await cipher.open(await target.read(path));
       final hash = await _sha256Hex(plain);
       if (hash != pick['sha256']) return 'Hash mismatch on $path';
