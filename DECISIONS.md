@@ -359,3 +359,49 @@ Drive. The desk auto-backs-up locally only.
 Deferred to M4b: the desk writing to the shared folder (as oplog, not
 backup generations), a Devices section in Settings distinct from Backup,
 and key handoff at pairing time over the LAN channel.
+
+### D-026 · Sync exchange stays blocked until the merge model is sound
+
+2026-09-04. An external audit of commit `081be17` found fourteen issues;
+`docs/EXTERNAL-AUDIT-2026-09-04.md` is the report and
+`app/tool/external_audit_test.dart` its reproductions. Nine were live
+defects and are fixed. Five concern the oplog, which captures writes but
+is wired to no carrier — `push` and `pull` have no production caller.
+
+Those five are not bugs to file and forget; they are the reasons exchange
+does not turn on yet:
+
+1. **Identity travelled inside the journal.** A restored database carried
+   the phone's device id, so a desk restored from it wrote the same batch
+   names and skipped the phone's work as its own. **Fixed:** the device id
+   lives in a file beside the database, never in a backup; a journal that
+   arrives from elsewhere earns a new identity and its inherited cursors
+   are cleared.
+2. **Sync batches are plaintext.** Encryption lives in `BackupEngine`,
+   which the oplog never calls; any shared carrier would receive readable
+   coordinates and notes and could forge input. **Guarded, not fixed:**
+   `push`/`pull` now require an explicit `allowPlaintext: true`, so no
+   future wiring can hand these bytes to a carrier by accident. Sealing
+   and authenticating batches with the keyring is a precondition of
+   activation.
+3. **Tombstones are forgotten.** Applying a delete removes the row and its
+   version with it, so a peer that was offline during the deletion
+   resurrects the row with a stale edit. D-012's brief local undo does not
+   license discarding a deletion already exchanged with peers.
+4. **The equal-timestamp tiebreak compares the wrong device.** It uses the
+   receiving device's id rather than the id of the writer whose value is
+   currently stored, so three peers can settle on different rows and stay
+   that way.
+5. **The clock is the version.** A corrected clock loses a later edit, and
+   ISO strings of differing precision compare wrongly as text.
+
+3, 4 and 5 are one piece of work, not three patches: a persisted logical
+version per row — monotonic, canonical in representation, carrying the
+winning writer's id, and retained for deletions independently of whether
+the row still exists. That replaces raw `updated_at` comparison as the
+merge rule in SYNC-DESIGN.md.
+
+Until that lands and batches are sealed, sync stays off. The audit's S2,
+S3, S4, S4b and S5 reproductions are kept failing on purpose: they are the
+specification of done, and they should pass before any carrier is
+connected.

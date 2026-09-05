@@ -55,7 +55,11 @@ Future<void> main() async {
   // M4a: capture every write from the first launch that has this build —
   // sync needs the history to exist before anyone flips it on.
   try {
-    await OpLog.install(db);
+    final docs = await getApplicationDocumentsDirectory();
+    await OpLog.install(
+      db,
+      identityFile: File(p.join(docs.path, 'device_id.txt')),
+    );
   } catch (_) {
     // Capture must never block startup; sync just starts later.
   }

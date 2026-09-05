@@ -26,12 +26,18 @@ class FieldNotesDb extends _$FieldNotesDb {
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async => m.createAll(),
     onUpgrade: (m, from, to) async {
-      if (from < 4) {
-        // v4: 'infrastructure' joins the record types (Austin, 2026-09-01:
-        // weather leaves the pickers — context is captured automatically —
-        // but stays legal for old rows). SQLite can't loosen a CHECK, so
-        // the table is rebuilt: FKs are still off during migration.
-        await m.database.customStatement("""
+      // ATOMIC (external audit 2026-09-04, finding 1): the native executor
+      // gives migrations no implicit transaction, so an upgrade interrupted
+      // partway left committed tables and indexes with user_version still
+      // behind — and the retry then died on "index already exists". All or
+      // nothing, or the database can't be reopened at all.
+      await m.database.transaction(() async {
+        if (from < 4) {
+          // v4: 'infrastructure' joins the record types (Austin, 2026-09-01:
+          // weather leaves the pickers — context is captured automatically —
+          // but stays legal for old rows). SQLite can't loosen a CHECK, so
+          // the table is rebuilt: FKs are still off during migration.
+          await m.database.customStatement("""
           CREATE TABLE observations_v4 (
             id            TEXT PRIMARY KEY NOT NULL,
             property_id   TEXT NOT NULL REFERENCES properties(id),
@@ -63,68 +69,80 @@ class FieldNotesDb extends _$FieldNotesDb {
             created_by TEXT NOT NULL, created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL, deleted_at TEXT
           )""");
-        await m.database.customStatement(
-          'INSERT INTO observations_v4 SELECT * FROM observations',
-        );
-        await m.database.customStatement('DROP TABLE observations');
-        await m.database.customStatement(
-          'ALTER TABLE observations_v4 RENAME TO observations',
-        );
-        await m.database.customStatement(
-          'CREATE INDEX idx_obs_prop_time ON observations(property_id, observed_at DESC)',
-        );
-        await m.database.customStatement(
-          'CREATE INDEX idx_obs_bbox ON observations(property_id, lat, lng)',
-        );
-        await m.database.customStatement(
-          'CREATE INDEX idx_obs_taxon ON observations(taxon_id)',
-        );
-      }
-      if (from < 3) {
-        // v3: suggestion runs are distinguishable (review finding 7).
-        await m.database.customStatement(
-          'ALTER TABLE identification_suggestions ADD COLUMN run_id TEXT',
-        );
-      }
-      // v2: review_items — pending-visible owner review (SYNC-DESIGN).
-      if (from < 2) {
-        await m.createTable(reviewItems);
-        await m.createIndex(idxReviewPending);
-      }
-      // v6: a photo point is a station — same spot, height, DIRECTION and
-      // FOCAL LENGTH (Austin, 2026-09-04). The first two were stored; these
-      // are the rest, and they let the map draw what the frame looks at.
-      if (from < 6) {
-        for (final col in const [
-          'focal_length_mm REAL',
-          'view_extent_m REAL',
-        ]) {
-          try {
-            await m.database.customStatement(
-              'ALTER TABLE photo_points ADD COLUMN $col',
-            );
-          } catch (_) {
-            // Already there (a re-run): nothing to do.
+          await m.database.customStatement(
+            'INSERT INTO observations_v4 SELECT * FROM observations',
+          );
+          await m.database.customStatement('DROP TABLE observations');
+          await m.database.customStatement(
+            'ALTER TABLE observations_v4 RENAME TO observations',
+          );
+          await m.database.customStatement(
+            'CREATE INDEX idx_obs_prop_time ON observations(property_id, observed_at DESC)',
+          );
+          await m.database.customStatement(
+            'CREATE INDEX idx_obs_bbox ON observations(property_id, lat, lng)',
+          );
+          await m.database.customStatement(
+            'CREATE INDEX idx_obs_taxon ON observations(taxon_id)',
+          );
+        }
+        if (from < 3) {
+          // v3: suggestion runs are distinguishable (review finding 7).
+          await m.database.customStatement(
+            'ALTER TABLE identification_suggestions ADD COLUMN run_id TEXT',
+          );
+        }
+        // v2: review_items — pending-visible owner review (SYNC-DESIGN).
+        if (from < 2) {
+          await m.createTable(reviewItems);
+          await m.createIndex(idxReviewPending);
+        }
+        // v6: a photo point is a station — same spot, height, DIRECTION and
+        // FOCAL LENGTH (Austin, 2026-09-04). The first two were stored; these
+        // are the rest, and they let the map draw what the frame looks at.
+        if (from < 6) {
+          for (final col in const [
+            'focal_length_mm REAL',
+            'view_extent_m REAL',
+          ]) {
+            try {
+              await m.database.customStatement(
+                'ALTER TABLE photo_points ADD COLUMN $col',
+              );
+            } catch (e) {
+              // Only "already there" is survivable; anything else is a real
+              // failure and must abort the migration (audit finding 1).
+              if (!'$e'.toLowerCase().contains('duplicate column')) rethrow;
+            }
           }
         }
-      }
-      // v5 LAST (it inserts 'infrastructure'-typed rows, which need the
-      // v4 CHECK already in place): features fold into records (Austin,
-      // 2026-09-04). Live features become observations — SAME id on every
-      // device, so the sync merge is deterministic — their condition logs
-      // copy to the new timeline, and the old rows soft-delete.
-      if (from < 5) {
-        await m.createTable(conditionLogs);
-        await m.createIndex(idxConditionObs);
-        await m.database.customStatement('''
+        // v5 LAST (it inserts 'infrastructure'-typed rows, which need the
+        // v4 CHECK already in place): features fold into records (Austin,
+        // 2026-09-04). Live features become observations — SAME id on every
+        // device, so the sync merge is deterministic — their condition logs
+        // copy to the new timeline, and the old rows soft-delete.
+        if (from < 5) {
+          await m.createTable(conditionLogs);
+          await m.createIndex(idxConditionObs);
+          await m.database.customStatement('''
           INSERT INTO condition_logs (id, property_id, observation_id,
             observed_at, condition, action_taken, notes,
             created_by, created_at, updated_at, deleted_at)
-          SELECT id, property_id, feature_id, observed_at, condition,
-            action_taken, notes, created_by, created_at, updated_at,
-            deleted_at
+          SELECT id, property_id, feature_id, observed_at,
+            CASE WHEN condition IN
+                 ('good','fair','poor','critical','unknown')
+              THEN condition ELSE 'unknown' END,
+            action_taken,
+            -- A legacy value the new CHECK won't take is preserved as
+            -- text rather than failing the upgrade (audit finding 5).
+            CASE WHEN condition IN
+                 ('good','fair','poor','critical','unknown')
+              THEN notes
+              ELSE TRIM(COALESCE(notes || char(10), '')
+                   || 'condition recorded as: ' || condition) END,
+            created_by, created_at, updated_at, deleted_at
           FROM feature_condition_logs''');
-        await m.database.customStatement('''
+          await m.database.customStatement('''
           INSERT OR IGNORE INTO observations (id, property_id, zone_id,
             observed_at, local_tz, lat, lng, gps_accuracy_m,
             observation_type, notes, created_by, created_at, updated_at,
@@ -157,12 +175,29 @@ class FieldNotesDb extends _$FieldNotesDb {
             f.created_by, f.created_at, f.updated_at, f.deleted_at
           FROM features f
           LEFT JOIN feature_types t ON t.id = f.feature_type_id''');
-        await m.database.customStatement('''
+          // Attachments follow the identity: a feature's photos are the
+          // record's photos now, or the migrated record looks empty while
+          // its media sits on disk (audit finding 12).
+          await m.database.customStatement('''
+          UPDATE media_links SET entity_type = 'observation'
+          WHERE entity_type = 'feature'
+            AND entity_id IN (SELECT id FROM observations)''');
+          await m.database.customStatement('''
+          UPDATE media_links SET
+            entity_type = 'observation',
+            entity_id = (SELECT l.feature_id FROM feature_condition_logs l
+                         WHERE l.id = media_links.entity_id)
+          WHERE entity_type = 'feature_condition_log'
+            AND (SELECT l.feature_id FROM feature_condition_logs l
+                 WHERE l.id = media_links.entity_id) IN
+                (SELECT id FROM observations)''');
+          await m.database.customStatement('''
           UPDATE features SET
             deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
           WHERE deleted_at IS NULL''');
-      }
+        }
+      });
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

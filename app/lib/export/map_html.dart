@@ -159,11 +159,11 @@ ${legend.isEmpty ? '' : '<div class="legend">$legendHtml</div>'}
 <script>
 const DATA = {
   bounds: [[${bounds.west}, ${bounds.south}], [${bounds.east}, ${bounds.north}]],
-  zones: ${jsonEncode(zones)},
-  boundary: ${jsonEncode(boundary)},
-  features: ${jsonEncode(features)},
-  records: ${jsonEncode(records)},
-  tracks: ${jsonEncode(tracks)}
+  zones: ${_scriptJson(zones)},
+  boundary: ${_scriptJson(boundary)},
+  features: ${_scriptJson(features)},
+  records: ${_scriptJson(records)},
+  tracks: ${_scriptJson(tracks)}
 };
 const map = new maplibregl.Map({
   container: 'map',
@@ -198,10 +198,20 @@ map.on('load', () => {
   map.addLayer({ id: 'records-pt', type: 'circle', source: 'records', filter: ['!', ['has', 'point_count']], paint: { 'circle-radius': 5.5, 'circle-color': ['get', 'color'], 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 1.5 } });
   map.addLayer({ id: 'zones-label', type: 'symbol', source: 'zones', layout: { 'text-field': ['get', 'name'], 'text-size': 12, 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'] }, paint: { 'text-color': '#1B1813', 'text-halo-color': '#F7F6F2', 'text-halo-width': 1.5 } });
 
-  const popup = (e, html) => new maplibregl.Popup({ closeButton: false }).setLngLat(e.lngLat).setHTML(html).addTo(map);
-  map.on('click', 'zones-fill', e => { const p = e.features[0].properties; popup(e, '<b>' + p.name + '</b>' + (p.acres ? '<br>' + Number(p.acres).toFixed(1) + ' ac' : '')); });
-  map.on('click', 'features-pt', e => { const p = e.features[0].properties; popup(e, '<b>' + p.name + '</b><br>' + p.class); });
-  map.on('click', 'records-pt', e => { const p = e.features[0].properties; popup(e, '<b>' + p.label + '</b><br>' + p.type); });
+  // Names come from the journal and are shown as TEXT, never parsed as
+  // markup (audit finding 13).
+  const popup = (e, lines) => {
+    const el = document.createElement('div');
+    lines.filter(Boolean).forEach((line, i) => {
+      const row = document.createElement(i === 0 ? 'b' : 'div');
+      row.textContent = line;
+      el.appendChild(row);
+    });
+    new maplibregl.Popup({ closeButton: false }).setLngLat(e.lngLat).setDOMContent(el).addTo(map);
+  };
+  map.on('click', 'zones-fill', e => { const p = e.features[0].properties; popup(e, [p.name, p.acres ? Number(p.acres).toFixed(1) + ' ac' : null]); });
+  map.on('click', 'features-pt', e => { const p = e.features[0].properties; popup(e, [p.name, p.class]); });
+  map.on('click', 'records-pt', e => { const p = e.features[0].properties; popup(e, [p.label, p.type]); });
   map.on('click', 'records-cluster', e => {
     const f = map.queryRenderedFeatures(e.point, { layers: ['records-cluster'] })[0];
     map.getSource('records').getClusterExpansionZoom(f.properties.cluster_id).then(z => map.easeTo({ center: f.geometry.coordinates, zoom: z }));
@@ -218,6 +228,19 @@ map.on('load', () => {
   }
 
   static String _esc(String s) => escapeXml(s);
+
+  /// JSON for embedding inside a <script> element. Valid JSON escaping is
+  /// not enough: the HTML parser ends the script at the first `</script`
+  /// it sees, wherever it sits — so a zone named
+  /// `</script><script>…</script>` used to execute when the exported page
+  /// was opened (external audit 2026-09-04, finding 13).
+  static String _scriptJson(Object? value) =>
+      jsonEncode(value)
+          .replaceAll('<', r'\u003c')
+          .replaceAll('>', r'\u003e')
+          .replaceAll('&', r'\u0026')
+          .replaceAll('\u2028', r'\u2028')
+          .replaceAll('\u2029', r'\u2029');
 
   static String _today() {
     final d = DateTime.now();

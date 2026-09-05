@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
@@ -41,7 +42,19 @@ class OpLog {
   /// Create the sync tables if needed, remember (or adopt) this device's
   /// id, and install the capture triggers for this connection. Call once
   /// per open database, before the first write that should be captured.
-  static Future<OpLog> install(FieldNotesDb db, {String? deviceId}) async {
+  /// [identityFile] holds this INSTALLATION's device id, deliberately
+  /// outside the journal. It used to live only in `sync_meta`, which
+  /// travels inside a backup: restoring the phone onto the desk cloned the
+  /// phone's identity, and two devices then wrote the same batch names and
+  /// skipped each other's work as their own (external audit 2026-09-04,
+  /// finding 7). A database that arrives from somewhere else gets a new
+  /// identity and a clean slate of cursors, because this installation has
+  /// pushed nothing.
+  static Future<OpLog> install(
+    FieldNotesDb db, {
+    String? deviceId,
+    File? identityFile,
+  }) async {
     await db.customStatement('''
       CREATE TABLE IF NOT EXISTS sync_ops (
         seq        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,14 +70,32 @@ class OpLog {
         key TEXT PRIMARY KEY, value TEXT NOT NULL
       )''');
 
+    final carried =
+        (await db
+                    .customSelect(
+                      "SELECT value FROM sync_meta WHERE key = 'device_id'",
+                    )
+                    .getSingleOrNull())
+                ?.data['value']
+            as String?;
     var id = deviceId;
-    if (id == null) {
-      final row = await db
-          .customSelect("SELECT value FROM sync_meta WHERE key = 'device_id'")
-          .getSingleOrNull();
-      id = row?.data['value'] as String?;
+    if (id == null && identityFile != null && identityFile.existsSync()) {
+      final held = identityFile.readAsStringSync().trim();
+      if (held.isNotEmpty) id = held;
     }
+    final fresh = id == null;
     id ??= newId();
+    if (fresh && carried != null && carried != id) {
+      // This journal was written by another installation. Its cursors and
+      // push position describe that device's exchange history, not ours.
+      await db.customStatement(
+        "DELETE FROM sync_meta WHERE key = 'pushed_seq' OR key LIKE 'cursor_%'",
+      );
+    }
+    if (identityFile != null && !identityFile.existsSync()) {
+      identityFile.parent.createSync(recursive: true);
+      identityFile.writeAsStringSync(id);
+    }
     await db.customStatement(
       "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('device_id', ?)",
       [id],
@@ -79,6 +110,19 @@ class OpLog {
     final log = OpLog._(db, id);
     await log._installTriggers();
     return log;
+  }
+
+  /// Sync batches are not yet encrypted or authenticated; see D-026. A
+  /// caller that wants them anyway has to say it out loud.
+  static void _requireSealedOrAcknowledged(bool allowPlaintext) {
+    if (!allowPlaintext) {
+      throw StateError(
+        'Sync batches are written in the clear and are not authenticated. '
+        'Wiring them to a shared carrier is blocked until they are sealed '
+        '(see DECISIONS.md D-026). Pass allowPlaintext: true only for '
+        'local tests.',
+      );
+    }
   }
 
   /// The row timestamp expression for LWW, per table shape.
@@ -161,7 +205,15 @@ class OpLog {
 
   /// Append everything new to `sync/<device>/` on [target]. One batch file
   /// per call; zero ops writes nothing. Returns the number pushed.
-  Future<int> push(BackupTarget target) async {
+  ///
+  /// [allowPlaintext] is required and has no default on purpose. Batches
+  /// are written as READABLE JSON — full row payloads, coordinates and
+  /// notes — because encryption lives in [BackupEngine] and this engine
+  /// does not call it (external audit 2026-09-04, finding 11). Until sync
+  /// batches are sealed and authenticated, nothing may hand these bytes to
+  /// a shared carrier without saying so in the call.
+  Future<int> push(BackupTarget target, {required bool allowPlaintext}) async {
+    _requireSealedOrAcknowledged(allowPlaintext);
     final last = int.tryParse(await _meta('pushed_seq') ?? '0') ?? 0;
     final rows = await db
         .customSelect(
@@ -202,7 +254,11 @@ class OpLog {
   /// Read every other device's batches in order and apply what's new.
   /// Idempotent: cursors advance only after a batch applies, and applying
   /// the same op twice changes nothing (LWW compares equal and moves on).
-  Future<SyncPullResult> pull(BackupTarget target) async {
+  Future<SyncPullResult> pull(
+    BackupTarget target, {
+    required bool allowPlaintext,
+  }) async {
+    _requireSealedOrAcknowledged(allowPlaintext);
     var applied = 0;
     var skipped = 0;
     final files = await target.list(_root);

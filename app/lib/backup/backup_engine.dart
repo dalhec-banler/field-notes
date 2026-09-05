@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart' show Sha256;
 import 'package:drift/drift.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import '../db/database.dart';
 import '../id/id_keys.dart';
@@ -21,6 +22,17 @@ import 'target.dart';
 /// The manifest envelope is never encrypted (it holds the salt needed to
 /// derive the key); the sensitive inner manifest (blob inventory, property
 /// names) is sealed with the same cipher as everything else.
+/// A backup that cannot be trusted as written — a photo that doesn't match
+/// its recorded fingerprint, or an inventory the store can't satisfy.
+/// Loud on purpose: a restore that quietly drops evidence is worse than one
+/// that stops (external audit 2026-09-04, findings 3 and 4).
+class BackupException implements Exception {
+  const BackupException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 class BackupEngine {
   BackupEngine(
     this.db,
@@ -58,12 +70,35 @@ class BackupEngine {
   /// Runs a backup. Returns a human-readable summary.
   Future<String> backup() async {
     // 1. Consistent DB snapshot via VACUUM INTO (spec §11.7).
-    final tmp = File(
-      '${Directory.systemTemp.createTempSync('fnbk').path}/dump.sqlite',
-    );
+    final tmpDir = Directory.systemTemp.createTempSync('fnbk');
+    final tmp = File('${tmpDir.path}/dump.sqlite');
     await db.customStatement("VACUUM INTO '${tmp.path.replaceAll("'", "''")}'");
     final dbBytes = tmp.readAsBytesSync();
-    tmp.parent.deleteSync(recursive: true);
+
+    // The inventory is read from the SNAPSHOT, not the running database
+    // (external audit 2026-09-04, finding 6): a photo deleted while the
+    // dump uploaded used to leave a manifest whose inventory disagreed
+    // with the very database it described — and verification passed
+    // because the inventory was simply empty.
+    final snapshotMedia =
+        <({String id, String sha, int? bytes, String? path})>[];
+    final snapshot = sqlite3.open(tmp.path);
+    try {
+      for (final r in snapshot.select(
+        'SELECT id, sha256, bytes, local_path FROM media '
+        'WHERE deleted_at IS NULL AND sha256 IS NOT NULL',
+      )) {
+        snapshotMedia.add((
+          id: r['id'] as String,
+          sha: r['sha256'] as String,
+          bytes: r['bytes'] as int?,
+          path: r['local_path'] as String?,
+        ));
+      }
+    } finally {
+      snapshot.dispose();
+    }
+    tmpDir.deleteSync(recursive: true);
 
     // 2. Determine generation number from the previous manifest.
     final previous = await _readManifest();
@@ -75,21 +110,16 @@ class BackupEngine {
 
     // 4. Media blobs: write-once by content hash (spec §11.3). Only blobs
     //    absent from the target are uploaded — this is the incremental part.
-    final media =
-        await (db.select(db.media)
-              ..where((m) => m.deletedAt.isNull())
-              ..where((m) => m.sha256.isNotNull()))
-            .get();
     var uploaded = 0;
     var skipped = 0;
     var missing = 0;
     final inventory = <Map<String, Object?>>[];
-    for (final m in media) {
-      final name = await cipher.blobName(m.sha256!);
+    for (final m in snapshotMedia) {
+      final name = await cipher.blobName(m.sha);
       final blobPath = '$root/blobs/${name.substring(0, 2)}/$name${cipher.ext}';
       inventory.add({
         'media_id': m.id,
-        'sha256': m.sha256,
+        'sha256': m.sha,
         'blob': blobPath,
         'bytes': m.bytes,
       });
@@ -97,7 +127,7 @@ class BackupEngine {
         skipped++;
         continue;
       }
-      final src = m.localPath;
+      final src = m.path;
       if (src == null || !File(src).existsSync()) {
         missing++;
         continue;
@@ -182,9 +212,17 @@ class BackupEngine {
   /// Restore (spec §11.9): DB first — the app is usable immediately — then
   /// media blobs into [mediaRestoreDir], remapped onto their original paths
   /// where recorded.
+  /// Photos the last restore expected and the store did not hold. Empty
+  /// after a complete restore.
+  List<String> lastMissingMedia = const [];
+
   Future<String> restore({
     required File dbOut,
     required Directory mediaRestoreDir,
+
+    /// Accept a backup whose store is missing some photos. Off by default:
+    /// the caller has to choose the lossy path out loud.
+    bool allowMissingMedia = false,
   }) async {
     final body = await readManifestBody();
     final dbBytes = await cipher.open(
@@ -198,17 +236,46 @@ class BackupEngine {
     }
 
     var restored = 0;
+    final missing = <String>[];
     final blobs = (body['blobs'] as List).cast<Map<String, dynamic>>();
     for (final blob in blobs) {
       final path = blob['blob'] as String;
-      if (!await target.exists(path)) continue;
+      final want = '${blob['sha256']}';
+      if (!await target.exists(path)) {
+        // Named, not shrugged off (audit finding 4): a photo the manifest
+        // promised and the store doesn't hold is a hole in the evidence.
+        missing.add(want);
+        continue;
+      }
       final plain = await cipher.open(await target.read(path));
-      final out = File('${mediaRestoreDir.path}/${blob['sha256']}.bin');
+      // A valid AEAD tag proves the bytes were sealed with this key — NOT
+      // that they are the photo this record expects. Two blobs under one
+      // key can be swapped with no key at all (audit finding 3), so the
+      // content hash decides identity.
+      final got = await _sha256Hex(plain);
+      if (got != want) {
+        throw BackupException(
+          'Backup is corrupt: a photo does not match its recorded '
+          'fingerprint (expected $want, found $got). Nothing was restored '
+          'from it.',
+        );
+      }
+      final out = File('${mediaRestoreDir.path}/$want.bin');
       out.parent.createSync(recursive: true);
       out.writeAsBytesSync(plain);
       restored++;
     }
-    return 'Restored DB (${_fmt(dbBytes.length)}) and $restored photos';
+    if (missing.isNotEmpty && !allowMissingMedia) {
+      throw BackupException(
+        'This backup is incomplete: ${missing.length} of ${blobs.length} '
+        'photos are missing from the store. Restore was stopped so nothing '
+        'is silently lost — restore again allowing gaps if you want the '
+        'records without them.',
+      );
+    }
+    lastMissingMedia = List.unmodifiable(missing);
+    final gap = missing.isEmpty ? '' : ' · ${missing.length} missing';
+    return 'Restored DB (${_fmt(dbBytes.length)}) and $restored photos$gap';
   }
 
   /// Weekly verification (spec §11.8): decrypt the manifest and one blob,

@@ -34,7 +34,17 @@ Future<PlateSubject> loadPlateSubject(
   final observations =
       await (db.select(db.observations)
             ..where((o) => o.propertyId.equals(property.id))
-            ..where((o) => o.deletedAt.isNull()))
+            ..where((o) => o.deletedAt.isNull())
+            // A record saved without a fix carries gps_accuracy_m = -1 and
+            // placeholder coordinates. It must not be drawn as though it
+            // were surveyed — it used to land at (0, 0) or at a fabricated
+            // centroid, and it stretched the desk map's framing across the
+            // ocean (external audit 2026-09-04, finding 14). The full
+            // GeoJSON export always honoured the flag; now the plate,
+            // the desk map and the HTML agree with it.
+            ..where(
+              (o) => o.gpsAccuracyM.equals(-1).not() | o.gpsAccuracyM.isNull(),
+            ))
           .get();
   final tracks =
       await (db.select(db.tracks)

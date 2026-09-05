@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:native_exif/native_exif.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart';
 
 import '../db/database.dart';
 import 'survival_report.dart';
@@ -35,7 +36,7 @@ class Exporter {
     final audioDir = Directory(p.join(dir.path, 'media', 'audio'))
       ..createSync(recursive: true);
 
-    await _dumpDatabase(File(p.join(dir.path, 'database.sqlite')));
+    await _dumpDatabase(File(p.join(dir.path, 'database.sqlite')), property.id);
     await _writeCsvs(property.id, dataDir);
     await _writeGeojson(property.id, geoDir);
     _writeKml(property, File(p.join(geoDir.path, 'property.kml')));
@@ -52,11 +53,62 @@ class Exporter {
     return dir;
   }
 
-  Future<void> _dumpDatabase(File out) async {
+  Future<void> _dumpDatabase(File out, String propertyId) async {
     // VACUUM INTO produces a clean, consistent single-file copy (spec §11.7).
     if (out.existsSync()) out.deleteSync();
     final path = out.path.replaceAll("'", "''");
     await db.customStatement("VACUUM INTO '$path'");
+
+    // Then it is CUT DOWN to this place (external audit 2026-09-04,
+    // finding 2). The CSVs and GeoJSON were always filtered, but the
+    // SQLite file was the whole journal: hand a partner the export of a
+    // public collection site and they also received the home property —
+    // its coordinates, its notes, its deleted rows, its sync history.
+    // The folder is named for one place; it now contains one place.
+    final copy = sqlite3.open(out.path);
+    try {
+      copy.execute('PRAGMA foreign_keys = OFF');
+      final tables = [
+        for (final r in copy.select(
+          "SELECT name FROM sqlite_master WHERE type = 'table' "
+          "AND name NOT LIKE 'sqlite_%'",
+        ))
+          r['name'] as String,
+      ];
+      for (final name in tables) {
+        // Sync bookkeeping is this device's own business, never a
+        // recipient's.
+        if (name == 'sync_ops' || name == 'sync_meta') {
+          copy.execute('DELETE FROM "$name"');
+          continue;
+        }
+        if (name == 'properties') {
+          copy.execute('DELETE FROM properties WHERE id != ?', [propertyId]);
+          continue;
+        }
+        final cols = [
+          for (final r in copy.select('PRAGMA table_info("$name")'))
+            r['name'] as String,
+        ];
+        // Reference data (taxa, feature types) has no property and stays.
+        if (cols.contains('property_id')) {
+          copy.execute('DELETE FROM "$name" WHERE property_id != ?', [
+            propertyId,
+          ]);
+        }
+      }
+      // Media rows for other places go with them; keep what this place
+      // still links to.
+      if (tables.contains('media') && tables.contains('media_links')) {
+        copy.execute(
+          'DELETE FROM media WHERE id NOT IN '
+          '(SELECT media_id FROM media_links)',
+        );
+      }
+      copy.execute('VACUUM');
+    } finally {
+      copy.dispose();
+    }
   }
 
   Future<void> _writeCsvs(String propertyId, Directory dataDir) async {

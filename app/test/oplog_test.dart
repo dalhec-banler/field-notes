@@ -81,8 +81,11 @@ void main() {
       final propId = await seedProperty(a, name: 'Shorts');
       final obsId = await addObservation(a, propId, notes: 'first');
       expect(await logA.pendingCount, greaterThanOrEqualTo(2));
-      expect(await logA.push(store), greaterThanOrEqualTo(2));
-      final res = await logB.pull(store);
+      expect(
+        await logA.push(store, allowPlaintext: true),
+        greaterThanOrEqualTo(2),
+      );
+      final res = await logB.pull(store, allowPlaintext: true);
       expect(res.applied, greaterThanOrEqualTo(2));
 
       final obs = await (b.select(
@@ -99,8 +102,8 @@ void main() {
   test('concurrent edits: the newer updated_at wins on both sides', () async {
     final propId = await seedProperty(a);
     final obsId = await addObservation(a, propId);
-    await logA.push(store);
-    await logB.pull(store);
+    await logA.push(store, allowPlaintext: true);
+    await logB.pull(store, allowPlaintext: true);
 
     // B edits later than A: B's note must win everywhere.
     await (a.update(a.observations)..where((o) => o.id.equals(obsId))).write(
@@ -115,10 +118,10 @@ void main() {
         updatedAt: const Value('2026-09-01T11:00:00.000Z'),
       ),
     );
-    await logA.push(store);
-    await logB.push(store);
-    await logA.pull(store);
-    await logB.pull(store);
+    await logA.push(store, allowPlaintext: true);
+    await logB.push(store, allowPlaintext: true);
+    await logA.pull(store, allowPlaintext: true);
+    await logB.pull(store, allowPlaintext: true);
 
     final onA = await (a.select(
       a.observations,
@@ -135,8 +138,8 @@ void main() {
     () async {
       final propId = await seedProperty(a);
       final obsId = await addObservation(a, propId);
-      await logA.push(store);
-      await logB.pull(store);
+      await logA.push(store, allowPlaintext: true);
+      await logB.pull(store, allowPlaintext: true);
       const ts = '2026-09-01T12:00:00.000Z';
       await (a.update(a.observations)..where((o) => o.id.equals(obsId))).write(
         ObservationsCompanion(
@@ -150,10 +153,10 @@ void main() {
           updatedAt: const Value(ts),
         ),
       );
-      await logA.push(store);
-      await logB.push(store);
-      await logA.pull(store);
-      await logB.pull(store);
+      await logA.push(store, allowPlaintext: true);
+      await logB.push(store, allowPlaintext: true);
+      await logA.pull(store, allowPlaintext: true);
+      await logB.pull(store, allowPlaintext: true);
       final onA = await (a.select(
         a.observations,
       )..where((o) => o.id.equals(obsId))).getSingle();
@@ -167,11 +170,11 @@ void main() {
   test('a hard delete travels as a tombstone', () async {
     final propId = await seedProperty(a);
     final obsId = await addObservation(a, propId);
-    await logA.push(store);
-    await logB.pull(store);
+    await logA.push(store, allowPlaintext: true);
+    await logB.pull(store, allowPlaintext: true);
     await (a.delete(a.observations)..where((o) => o.id.equals(obsId))).go();
-    await logA.push(store);
-    await logB.pull(store);
+    await logA.push(store, allowPlaintext: true);
+    await logB.pull(store, allowPlaintext: true);
     final gone = await (b.select(
       b.observations,
     )..where((o) => o.id.equals(obsId))).getSingleOrNull();
@@ -183,23 +186,23 @@ void main() {
     () async {
       final propId = await seedProperty(a);
       await addObservation(a, propId);
-      await logA.push(store);
-      final first = await logB.pull(store);
+      await logA.push(store, allowPlaintext: true);
+      final first = await logB.pull(store, allowPlaintext: true);
       expect(first.applied, greaterThan(0));
       // B captured nothing while applying: nothing to push back but its own
       // writes (none).
       expect(await logB.pendingCount, 0);
-      final again = await logB.pull(store);
+      final again = await logB.pull(store, allowPlaintext: true);
       expect(again.applied, 0);
     },
   );
 
   test('push is incremental: a second push writes only what is new', () async {
     final propId = await seedProperty(a);
-    await logA.push(store);
-    expect(await logA.push(store), 0);
+    await logA.push(store, allowPlaintext: true);
+    expect(await logA.push(store, allowPlaintext: true), 0);
     await addObservation(a, propId);
-    expect(await logA.push(store), 1);
+    expect(await logA.push(store, allowPlaintext: true), 1);
     final files = await store.list('sync/device-a');
     expect(files.length, 2);
   });
