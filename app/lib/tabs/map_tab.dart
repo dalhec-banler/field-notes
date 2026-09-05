@@ -178,10 +178,16 @@ class _MapTabState extends State<MapTab> {
       ),
     );
     if (choice == null || !mounted) return;
-    // Open where the work is: the property centre, else the records' mean —
-    // never the editor's own fallback coordinates.
+    // Open exactly where the map is looking: anything else reads as the
+    // editor throwing you somewhere else (Austin, 2026-09-04).
     LatLng? target;
-    final c = propertyCentre(widget.property);
+    double? zoom;
+    final cam = _controller?.cameraPosition;
+    if (cam != null) {
+      target = cam.target;
+      zoom = cam.zoom;
+    }
+    final c = target != null ? null : propertyCentre(widget.property);
     if (c != null) {
       target = LatLng(c[1], c[0]);
     } else {
@@ -208,17 +214,21 @@ class _MapTabState extends State<MapTab> {
                 db: widget.db,
                 property: widget.property,
                 initialTarget: target,
+                initialZoom: zoom,
               )
             : choice == 'new'
             ? PolygonEditorScreen.newZone(
                 db: widget.db,
                 property: widget.property,
                 initialTarget: target,
+                initialZoom: zoom,
               )
             : PolygonEditorScreen.zone(
                 db: widget.db,
                 property: widget.property,
                 zone: choice as Zone,
+                initialTarget: target,
+                initialZoom: zoom,
               ),
       ),
     );
