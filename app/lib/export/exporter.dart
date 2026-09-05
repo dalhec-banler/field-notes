@@ -78,7 +78,7 @@ class Exporter {
       for (final name in tables) {
         // Sync bookkeeping is this device's own business, never a
         // recipient's.
-        if (name == 'sync_ops' || name == 'sync_meta') {
+        if (name.startsWith('sync_')) {
           copy.execute('DELETE FROM "$name"');
           continue;
         }

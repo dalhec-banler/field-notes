@@ -405,3 +405,21 @@ Until that lands and batches are sealed, sync stays off. The audit's S2,
 S3, S4, S4b and S5 reproductions are kept failing on purpose: they are the
 specification of done, and they should pass before any carrier is
 connected.
+
+**Outcome (same day).** All five blockers are closed. Identity moved out
+of the journal; versions are stamped at capture by a hybrid logical clock
+in the capture trigger itself, so an edit made offline on Tuesday still
+sorts before a deletion made on Wednesday; `sync_versions` keeps the
+winning version of every row including tombstones; ties compare the
+stored writer, with a deletion beating a write; and batches are sealed
+with the backup keyring, carry their device and format, and are refused
+if they sit in a directory they do not claim. The audit's S1–S4b
+reproductions pass. S5 is left failing because adapting it to the new
+signature made it ask for a deliberately-plaintext push to be
+unreadable; `test/oplog_sealed_test.dart` asserts the property it was
+after — sealed batches are opaque, round-trip, reject the wrong key,
+reject a forged sender, and the clear requires saying so.
+
+Sync is still not wired to a carrier. What remains before activation is
+product work, not correctness: where the shared folder lives, how the
+two devices agree on a key, and what the user sees while it runs.

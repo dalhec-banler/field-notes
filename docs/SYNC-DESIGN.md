@@ -275,3 +275,36 @@ syncs again keeps a complete, exportable property.
 Phone + desktop as the two devices makes M4a/M4b shippable and testable
 before a second human ever joins — which is also the correct excuse to
 finish the desktop build first.
+
+
+## The merge rule (D-026, 2026-09-04)
+
+Superseding the original last-writer-wins on `updated_at`. An external
+audit showed a wall clock cannot carry this job: a corrected clock loses
+the edit made after the correction, ISO strings of different precision
+compare wrongly as text, and a deletion whose row is gone leaves nothing
+to compare against.
+
+Every captured write is stamped AT CAPTURE TIME with a hybrid logical
+clock — `phys` milliseconds that never move backwards (including past
+versions seen from peers), a `ctr` for same-millisecond writes, rendered
+fixed width so text order is chronological order — together with the id
+of the device that wrote it. `sync_versions` holds the winning version of
+every row the device knows about, tombstones included.
+
+A row is replaced when the arriving version is higher. On an exact tie:
+
+1. a deletion beats a write — two devices acting in the same millisecond
+   is ordinary, and a higher device id should not resurrect what someone
+   deleted;
+2. otherwise the higher device id wins, comparing the writer of the
+   version actually stored against the writer of the one arriving.
+
+Every replica decides this from data it already holds, so they converge
+whatever order batches arrive in.
+
+Batches are sealed with the backup keyring and carry the writing device
+and a format version; a batch found in a directory it does not claim is
+refused, as is one this build is too old to read. Writing batches in the
+clear is possible only by passing `allowPlaintext: true`, which no
+production path does.
