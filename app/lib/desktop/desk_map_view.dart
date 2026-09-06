@@ -74,7 +74,9 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   late TileFetcher _fetch = _buildFetcher();
   final _images = <String, ui.Image>{};
   final _inflight = <String>{};
-  final _missing = <String>{};
+  // A failed tile is retried after a beat — one bad request must
+  // not blank that tile for the whole session (audit 2026-09-04).
+  final _missing = <String, int>{};
   String _fetchSourceId = activeImagery.id;
   int _tileEpoch = 0;
 
@@ -156,6 +158,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   }
 
   Size _lastLayoutSize = const Size(900, 700);
+  double _panZoomScale = 1.0;
   bool _sizedFrame = false;
   bool _userMoved = false;
 
@@ -231,18 +234,21 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
       for (var tx = left; tx <= right; tx++) {
         if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
         final key = '$z/$tx/$ty';
+        final missedAt = _missing[key];
         if (_images.containsKey(key) ||
             _inflight.contains(key) ||
-            _missing.contains(key)) {
+            (missedAt != null &&
+                DateTime.now().millisecondsSinceEpoch - missedAt < 15000)) {
           continue;
         }
+        _missing.remove(key);
         _inflight.add(key);
         final epoch = _tileEpoch;
         _fetch(z, tx, ty).then((bytes) async {
           if (epoch != _tileEpoch) return; // source swapped mid-flight
           _inflight.remove(key);
           if (bytes == null) {
-            _missing.add(key);
+            _missing[key] = DateTime.now().millisecondsSinceEpoch;
             return;
           }
           try {
@@ -255,7 +261,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
             }
             setState(() => _images[key] = img);
           } catch (_) {
-            _missing.add(key);
+            _missing[key] = DateTime.now().millisecondsSinceEpoch;
           }
         });
       }
@@ -468,6 +474,21 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
                   e.localPosition,
                   size,
                 );
+              }
+            },
+            // A Mac trackpad never sends PointerScrollEvent: two-finger
+            // scroll and pinch arrive as pan-zoom events. The drag
+            // recognizer already turns the scroll into a pan; the pinch's
+            // scale was going nowhere — "only panning works" (Austin,
+            // 2026-09-04). Zoom by the change in cumulative scale, anchored
+            // on the fingers.
+            onPointerPanZoomStart: (e) => _panZoomScale = 1.0,
+            onPointerPanZoomUpdate: (e) {
+              if (e.scale <= 0) return;
+              final dz = math.log(e.scale / _panZoomScale) / math.ln2;
+              if (dz.abs() > 0.001) {
+                _zoomBy(dz, e.localPosition, size);
+                _panZoomScale = e.scale;
               }
             },
             child: GestureDetector(
@@ -791,9 +812,17 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
 
   /// A clicked feature: what it is, its condition history, and the
   /// controls the phone has — log lives there; DELETE lives here too.
+  Future<List<Object?>>? _featureLoad;
+  String? _featureLoadId;
+
   Widget _featurePanel(String featureId) {
-    return FutureBuilder(
-      future: Future.wait([
+    // Memoized: this build runs on every pan frame, and an inline
+    // Future.wait would refire three queries per frame and flash the
+    // spinner while the map moves under an open panel (audit
+    // 2026-09-04).
+    if (_featureLoadId != featureId) {
+      _featureLoadId = featureId;
+      _featureLoad = Future.wait([
         (widget.db.select(
           widget.db.features,
         )..where((f) => f.id.equals(featureId))).getSingleOrNull(),
@@ -803,7 +832,10 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
               ..orderBy([(l) => OrderingTerm.desc(l.observedAt)]))
             .get(),
         widget.db.select(widget.db.featureTypes).get(),
-      ]),
+      ]);
+    }
+    return FutureBuilder(
+      future: _featureLoad,
       builder: (context, snapshot) {
         final data = snapshot.data;
         if (data == null) {

@@ -13,6 +13,18 @@ class AppPrefs extends ChangeNotifier {
   final File _file;
   final Map<String, dynamic> _data;
 
+  /// A prefs store for widget tests: real behaviour, throwaway file.
+  @visibleForTesting
+  factory AppPrefs.inMemory([Map<String, dynamic>? data]) => AppPrefs._(
+    File(
+      p.join(
+        Directory.systemTemp.createTempSync('fn-prefs').path,
+        'prefs.json',
+      ),
+    ),
+    data ?? <String, dynamic>{},
+  );
+
   static Future<AppPrefs> load() async {
     final docs = await getApplicationDocumentsDirectory();
     final file = File(p.join(docs.path, 'prefs.json'));

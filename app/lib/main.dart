@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:archive/archive_io.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -292,6 +293,20 @@ Future<void> exportAndShare(
     await encoder.addDirectory(dir);
     await encoder.close();
     messenger.hideCurrentSnackBar();
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      // The desk saves a file where you point it; the mobile share sheet
+      // on macOS was design-audit P2-9.
+      final loc = await getSaveLocation(
+        suggestedName: p.basename(zipPath),
+        acceptedTypeGroups: [
+          const XTypeGroup(label: 'ZIP', extensions: ['zip']),
+        ],
+      );
+      if (loc == null) return;
+      await File(zipPath).copy(loc.path);
+      messenger.showSnackBar(SnackBar(content: Text('SAVED ${loc.path}')));
+      return;
+    }
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(zipPath)],

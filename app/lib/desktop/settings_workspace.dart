@@ -70,8 +70,20 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
       }
       return;
     }
-    widget.prefs.pressUnlocked = true;
-    widget.prefs.skinName = 'press';
+    // The seventh tap must answer visibly: reveal the Appearance group
+    // right here and say what happened (audit 2026-09-05) — on the phone
+    // the unlock toast does this job.
+    setState(() {
+      widget.prefs.pressUnlocked = true;
+      widget.prefs.skinName = 'press';
+    });
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('THE PRESS IS YOURS · Appearance unlocked below'),
+        ),
+      );
   }
 
   @override

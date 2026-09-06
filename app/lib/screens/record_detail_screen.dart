@@ -60,7 +60,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   Property? _property;
   int _photoIndex = 0;
   int _zoneCount = -1;
-  final _player = AudioPlayer();
+  // Lazy: the audio engine exists only once a voice note actually
+  // plays — a record with no recording must not spin one up (and the
+  // desk test host has no audio plugin at all). Audit 2026-09-05.
+  AudioPlayer? _playerInstance;
+  AudioPlayer get _player => _playerInstance ??= AudioPlayer();
   String? _playingId;
 
   @override
@@ -179,7 +183,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   @override
   void dispose() {
-    _player.dispose();
+    _playerInstance?.dispose();
     super.dispose();
   }
 
@@ -861,8 +865,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                   children: [
                     Row(
                       children: [
-                        Kicker('Condition'),
-                        Spacer(),
+                        // Kicker stretches its rule with an Expanded; as a
+                        // plain Row child its width is unbounded and layout
+                        // throws — every record with this section red-screens
+                        // (audit 2026-09-05). Give it the bounded slot.
+                        Expanded(child: Kicker('Condition')),
                         if (logs.isNotEmpty)
                           StatusPill(
                             logs.first.condition.toUpperCase(),

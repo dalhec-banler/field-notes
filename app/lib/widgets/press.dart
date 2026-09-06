@@ -79,10 +79,15 @@ class Kicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      // Flexible, not Expanded: a Kicker dropped into another Row gets
+      // unbounded width, and a flex child there is a layout crash — the
+      // 2026-09-04 Condition header red-screened exactly that way
+      // (audit 2026-09-05). Loose fit reads identically when bounded.
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(width: 14, height: 2, color: Press.oxblood),
         SizedBox(width: 7),
-        Expanded(
+        Flexible(
           child: Text(
             text.toUpperCase(),
             style: TextStyle(

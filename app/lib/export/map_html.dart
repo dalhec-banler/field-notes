@@ -17,6 +17,12 @@ class MapHtml {
   static String build(
     PlateSubject subject, {
     PlateLayers layers = const PlateLayers(),
+
+    /// Species mode, exactly as [MapPlate.render] drew it: only the chosen
+    /// species ship, in their plate colours. Without this the preview was
+    /// a filtered plate and the saved HTML carried every record's
+    /// coordinates (audit 2026-09-04).
+    List<PlateSpecies>? species,
     String? title,
 
     /// The document's date line ([MapDocument.dateLine]) so an explicitly
@@ -77,21 +83,30 @@ class MapHtml {
             'geometry': jsonDecode(f.geojson),
           },
     ]);
+    final speciesInk = (species == null || species.isEmpty)
+        ? null
+        : {for (final sp in species) sp.key: sp.ink};
     final records = fc([
       if (layers.records)
         for (final r in subject.records)
-          {
-            'type': 'Feature',
-            'properties': {
-              'type': r.type,
-              'label': r.label ?? r.type,
-              'color': cssHex(markFor(r.type).argb),
+          if (speciesInk == null ||
+              speciesInk.containsKey(r.label ?? '__type:${r.type}'))
+            {
+              'type': 'Feature',
+              'properties': {
+                'type': r.type,
+                'label': r.label ?? r.type,
+                'color': speciesInk == null
+                    ? cssHex(markFor(r.type).argb)
+                    : _argbToHex(
+                        speciesInk[r.label ?? '__type:${r.type}']!,
+                      ),
+              },
+              'geometry': {
+                'type': 'Point',
+                'coordinates': [r.lng, r.lat],
+              },
             },
-            'geometry': {
-              'type': 'Point',
-              'coordinates': [r.lng, r.lat],
-            },
-          },
     ]);
     final tracks = fc([
       if (layers.tracks)
@@ -118,11 +133,14 @@ class MapHtml {
       if (layers.tracks && subject.tracks.isNotEmpty)
         (_hex(_argbToHex(PlateInk.ink)), 'Walked track'),
       if (layers.records && subject.records.isNotEmpty)
-        for (final t in {for (final r in subject.records) r.type})
-          (
-            cssHex(markFor(t).argb),
-            '${t[0].toUpperCase()}${t.substring(1)} record',
-          ),
+        if (species != null && species.isNotEmpty)
+          for (final sp in species) (_hex(_argbToHex(sp.ink)), sp.label)
+        else
+          for (final t in {for (final r in subject.records) r.type})
+            (
+              cssHex(markFor(t).argb),
+              '${t[0].toUpperCase()}${t.substring(1)} record',
+            ),
     ];
 
     final legendHtml = [

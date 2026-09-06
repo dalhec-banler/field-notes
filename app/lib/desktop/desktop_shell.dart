@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -67,11 +69,33 @@ class _DesktopShellState extends State<DesktopShell> {
   /// The phone has put a newer copy in Drive than the one this desk holds.
   DriveNews? _news;
 
+  StreamSubscription<void>? _statusWatch;
+
   @override
   void initState() {
     super.initState();
     _loadStatus();
     _checkDrive();
+    // The title bar's size / media / places readouts follow the journal;
+    // loaded-once numbers went stale after an import or ADD PHOTOS
+    // (audit 2026-09-04).
+    _statusWatch = widget.db
+        .customSelect(
+          'SELECT 1',
+          readsFrom: {
+            widget.db.media,
+            widget.db.properties,
+            widget.db.observations,
+          },
+        )
+        .watch()
+        .listen((_) => _loadStatus());
+  }
+
+  @override
+  void dispose() {
+    _statusWatch?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkDrive() async {
@@ -311,7 +335,10 @@ class _DesktopShellState extends State<DesktopShell> {
         children: [
           for (var i = 0; i < _views.length; i++)
             InkWell(
-              onTap: () => setState(() => _view = i),
+              onTap: () => setState(() {
+                _view = i;
+                _visited.add(i);
+              }),
               child: Container(
                 constraints: BoxConstraints(minHeight: 50),
                 padding: EdgeInsets.symmetric(horizontal: 18),
@@ -358,28 +385,48 @@ class _DesktopShellState extends State<DesktopShell> {
     );
   }
 
+  /// Workspaces a person has actually opened. The stack keeps their state
+  /// alive after that, but nothing builds — or fetches — before its first
+  /// visit: at launch the Export bench was already rendering pages and
+  /// requesting imagery for a tab nobody had opened (audit 2026-09-04).
+  final Set<int> _visited = {0};
+
   Widget _workspace() {
     // IndexedStack, not a switch: composing a plate, then checking one
     // record in Review, must come back to the same plate (design audit
     // 2026-09-03 finding 1). Keyed by property so switching place resets.
+    Widget lazy(int i, Widget Function() build) =>
+        _visited.contains(i) ? build() : const SizedBox.shrink();
     return IndexedStack(
       key: ValueKey(widget.property.id),
       index: _view,
       children: [
-        DeskMapWorkspace(db: widget.db, property: widget.property),
-        LedgerTab(
-          db: widget.db,
-          property: widget.property,
-          prefs: widget.prefs,
+        lazy(0, () => DeskMapWorkspace(db: widget.db, property: widget.property)),
+        lazy(
+          1,
+          () => LedgerTab(
+            db: widget.db,
+            property: widget.property,
+            prefs: widget.prefs,
+          ),
         ),
-        GrowTab(db: widget.db, property: widget.property),
-        SpeciesTab(db: widget.db, property: widget.property),
-        _ReviewWorkspace(db: widget.db, property: widget.property),
-        ExportWorkspace(db: widget.db, property: widget.property),
-        SettingsWorkspace(
-          db: widget.db,
-          property: widget.property,
-          prefs: widget.prefs,
+        lazy(2, () => GrowTab(db: widget.db, property: widget.property)),
+        lazy(3, () => SpeciesTab(db: widget.db, property: widget.property)),
+        lazy(
+          4,
+          () => _ReviewWorkspace(db: widget.db, property: widget.property),
+        ),
+        lazy(
+          5,
+          () => ExportWorkspace(db: widget.db, property: widget.property),
+        ),
+        lazy(
+          6,
+          () => SettingsWorkspace(
+            db: widget.db,
+            property: widget.property,
+            prefs: widget.prefs,
+          ),
         ),
       ],
     );
@@ -454,15 +501,66 @@ class _ReviewWorkspace extends StatefulWidget {
 
 class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
   String? _selectedId;
+  List<Observation> _rows = const [];
+  final FocusNode _keys = FocusNode(debugLabel: 'review-keys');
   bool _pendingOnly = false;
   Set<String> _pendingIds = const {};
   Map<String, String> _taxonNames = const {};
   late final _review = ReviewService(widget.db);
 
+  StreamSubscription<void>? _pendingWatch;
+
   @override
   void initState() {
     super.initState();
     _loadPending();
+    // Rulings and fresh contributor edits land while this queue is open;
+    // the pending set must follow the table (audit 2026-09-04).
+    _pendingWatch = widget.db
+        .customSelect('SELECT 1', readsFrom: {widget.db.reviewItems})
+        .watch()
+        .listen((_) => _loadPending());
+  }
+
+  @override
+  void dispose() {
+    _pendingWatch?.cancel();
+    _keys.dispose();
+    super.dispose();
+  }
+
+  /// The reviewer's hands stay on the keys (design audit 2026-09-03):
+  /// arrows walk the queue, A approves, R removes — acting on the
+  /// selected record's pending item when there is one.
+  Future<void> _onKey(KeyEvent e) async {
+    if (e is! KeyDownEvent) return;
+    final rows = _rows;
+    if (rows.isEmpty) return;
+    final i = rows.indexWhere((o) => o.id == _selectedId);
+    if (e.logicalKey == LogicalKeyboardKey.arrowDown) {
+      setState(
+        () => _selectedId = rows[(i + 1).clamp(0, rows.length - 1)].id,
+      );
+    } else if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
+      setState(
+        () => _selectedId = rows[i <= 0 ? 0 : i - 1].id,
+      );
+    } else if (e.logicalKey == LogicalKeyboardKey.keyA ||
+        e.logicalKey == LogicalKeyboardKey.keyR) {
+      final id = _selectedId;
+      if (id == null) return;
+      final item = await _review.forEntity('observation', id);
+      if (item == null || !mounted) return;
+      if (e.logicalKey == LogicalKeyboardKey.keyA) {
+        if (item.state != 'pending') return;
+        await _review.approve(item.id, by: 'owner');
+      } else {
+        if (item.state == 'removed') return;
+        await _review.remove(item.id, by: 'owner');
+      }
+      _loadPending();
+      setState(() {});
+    }
   }
 
   Future<void> _loadPending() async {
@@ -486,7 +584,11 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
       ..where((o) => o.propertyId.equals(widget.property.id))
       ..where((o) => o.deletedAt.isNull())
       ..orderBy([(o) => OrderingTerm.desc(o.observedAt)]));
-    return Row(
+    return KeyboardListener(
+      focusNode: _keys,
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Queue.
@@ -508,6 +610,7 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
                           if (_pendingIds.contains(o.id)) o,
                       ]
                     : all;
+                _rows = obs;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -662,6 +765,7 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
                 ),
         ),
       ],
+      ),
     );
   }
 }

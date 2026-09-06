@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -326,10 +327,13 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
           final html = MapHtml.build(
             d.subject,
             layers: d.layers,
+            species: d.species,
             title: d.title,
             dateLine: d.dateLine,
           );
-          return Uint8List.fromList(html.codeUnits);
+          // utf8, not codeUnits: an em dash or a species name with an
+          // accent must survive the trip to disk (audit 2026-09-04).
+          return Uint8List.fromList(utf8.encode(html));
         });
     }
   }
