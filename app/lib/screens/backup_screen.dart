@@ -2,13 +2,10 @@ import 'dart:io';
 
 import '../services/desk.dart';
 
-import 'package:file_selector/file_selector.dart';
-
 import 'package:archive/archive_io.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../backup/backup_service.dart';
 import '../db/database.dart';
@@ -222,23 +219,9 @@ class _BackupScreenState extends State<BackupScreen> {
     encoder.create(zipPath);
     await encoder.addDirectory(Directory('${dir.path}/fieldnotes'));
     await encoder.close();
-    if (isDesk) {
-      // A desk saves to a place you choose; a mobile share sheet here was
-      // posture untruth (design audit).
-      final loc = await getSaveLocation(
-        suggestedName: 'fieldnotes-backup-$date.zip',
-        acceptedTypeGroups: [
-          const XTypeGroup(label: 'ZIP', extensions: ['zip']),
-        ],
-      );
-      if (loc == null) return 'Save cancelled.';
-      await File(zipPath).copy(loc.path);
-      return 'Backup saved to ${loc.path}.';
-    }
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(zipPath)], text: 'Field Notes backup'),
-    );
-    return 'Backup shared.';
+    final at = await deliverFile(zipPath, text: 'Field Notes backup');
+    if (at == null) return 'Save cancelled.';
+    return isDesk ? 'Backup saved to $at.' : 'Backup shared.';
   });
 
   String _ago(String? iso) {

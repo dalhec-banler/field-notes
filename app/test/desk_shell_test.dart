@@ -105,7 +105,9 @@ void main() {
     final now = nowUtcIso();
     final propId = newId();
     const lng = -98.5470, lat = 30.8830;
-    await db.into(db.properties).insert(
+    await db
+        .into(db.properties)
+        .insert(
           PropertiesCompanion.insert(
             id: propId,
             name: 'Cedar Break Ranch',
@@ -123,7 +125,9 @@ void main() {
       ('North Pasture', -0.0015, 0.0035),
       ('Creek Corridor', 0.0005, -0.0005),
     ]) {
-      await db.into(db.zones).insert(
+      await db
+          .into(db.zones)
+          .insert(
             ZonesCompanion.insert(
               id: newId(),
               propertyId: propId,
@@ -136,7 +140,9 @@ void main() {
           );
     }
     final taxonId = newId();
-    await db.into(db.taxa).insert(
+    await db
+        .into(db.taxa)
+        .insert(
           TaxaCompanion.insert(
             id: taxonId,
             scientificName: 'Quercus macrocarpa',
@@ -153,7 +159,9 @@ void main() {
       double j = 0,
     }) async {
       final id = newId();
-      await db.into(db.observations).insert(
+      await db
+          .into(db.observations)
+          .insert(
             ObservationsCompanion.insert(
               id: id,
               propertyId: propId,
@@ -164,7 +172,9 @@ void main() {
               gpsAccuracyM: const Value(4.0),
               observationType: Value(type),
               taxonId: Value(taxon),
-              taxonConfidence: Value(taxon == null ? 'unidentified' : 'certain'),
+              taxonConfidence: Value(
+                taxon == null ? 'unidentified' : 'certain',
+              ),
               notes: const Value('audit fixture'),
               createdBy: by,
               createdAt: now,
@@ -185,7 +195,9 @@ void main() {
       author: 'wylder',
     );
     final types = await db.select(db.featureTypes).get();
-    await db.into(db.features).insert(
+    await db
+        .into(db.features)
+        .insert(
           FeaturesCompanion.insert(
             id: newId(),
             propertyId: propId,
@@ -203,12 +215,21 @@ void main() {
             updatedAt: now,
           ),
         );
-    property =
-        await (db.select(db.properties)..where((p) => p.id.equals(propId)))
-            .getSingle();
+    property = await (db.select(
+      db.properties,
+    )..where((p) => p.id.equals(propId))).getSingle();
   });
 
   tearDown(() async => db.close());
+
+  /// Pump, let real async (drift queries, tile fetches) run for [ms], pump.
+  Future<void> settle(WidgetTester tester, int ms) async {
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(Duration(milliseconds: ms)),
+    );
+    await tester.pump();
+  }
 
   Future<void> boot(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(1360, 860));
@@ -226,21 +247,14 @@ void main() {
       ),
     );
     // Let the map's tile fetches fail and the subject load settle.
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 600)),
-    );
-    await tester.pump();
+    await settle(tester, 600);
     await tester.pump(const Duration(milliseconds: 100));
   }
 
   Future<void> tab(WidgetTester tester, String label) async {
     // Nav labels are MonoLabels — they render uppercased.
     await tester.tap(find.text(label.toUpperCase()).first);
-    await tester.pump();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 900)),
-    );
-    await tester.pump();
+    await settle(tester, 900);
     await tester.pump(const Duration(milliseconds: 100));
   }
 
@@ -263,10 +277,7 @@ void main() {
   Future<void> waitForPlate(WidgetTester tester) async {
     for (var i = 0; i < 16; i++) {
       if (tester.any(find.byType(Image))) break;
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 500)),
-      );
-      await tester.pump();
+      await settle(tester, 500);
     }
     await tester.pump(const Duration(milliseconds: 50));
   }
@@ -319,10 +330,7 @@ void main() {
     // And it survives leaving: IndexedStack keeps the composed page
     // offstage (so the finder must not skip offstage).
     await tab(tester, 'Ledger');
-    expect(
-      find.byType(ExportWorkspace, skipOffstage: false),
-      findsOneWidget,
-    );
+    expect(find.byType(ExportWorkspace, skipOffstage: false), findsOneWidget);
     await unmount(tester);
   });
 
@@ -330,18 +338,10 @@ void main() {
     await boot(tester);
     // Two Bur Oak records group into one species row.
     await tester.tap(find.text('Bur Oak').first);
-    await tester.pump();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 300)),
-    );
-    await tester.pump();
+    await settle(tester, 300);
     // The opened card lists its sightings; tapping one opens the record.
     await tester.tap(find.textContaining(' · plant').first);
-    await tester.pump();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 600)),
-    );
-    await tester.pump();
+    await settle(tester, 600);
     expect(find.byType(RecordDetailScreen), findsOneWidget);
     await shoot(tester, '08-map-record');
     await unmount(tester);
@@ -353,28 +353,20 @@ void main() {
     await tester.tap(find.text('PENDING 1'));
     await tester.pump();
     await tester.tap(find.text('Bur Oak').first);
-    await tester.pump();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 600)),
-    );
-    await tester.pump();
+    await settle(tester, 600);
     expect(find.textContaining('PENDING ·'), findsOneWidget);
     await shoot(tester, '09-review-pending');
     await tester.tap(find.text('APPROVE'));
-    await tester.pump();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 400)),
-    );
-    await tester.pump();
+    await settle(tester, 400);
     expect(find.textContaining('APPROVED'), findsWidgets);
-    final item =
-        await ReviewService(db).forEntity('observation', pendingObsId);
+    final item = await ReviewService(db).forEntity('observation', pendingObsId);
     expect(item?.state, 'approved');
     await unmount(tester);
   });
 
-  testWidgets('export warns when record locations go on the file',
-      (tester) async {
+  testWidgets('export warns when record locations go on the file', (
+    tester,
+  ) async {
     await boot(tester);
     await tab(tester, 'Export');
     await waitForPlate(tester);

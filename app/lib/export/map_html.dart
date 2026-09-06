@@ -86,21 +86,24 @@ class MapHtml {
     final speciesInk = (species == null || species.isEmpty)
         ? null
         : {for (final sp in species) sp.key: sp.ink};
+    // Species mode ships only the chosen species — null means the record
+    // stays off the file.
+    String? colorFor(PlateRecord r) {
+      if (speciesInk == null) return cssHex(markFor(r.type).argb);
+      final ink = speciesInk[r.label ?? '__type:${r.type}'];
+      return ink == null ? null : cssHex(ink);
+    }
+
     final records = fc([
       if (layers.records)
         for (final r in subject.records)
-          if (speciesInk == null ||
-              speciesInk.containsKey(r.label ?? '__type:${r.type}'))
+          if (colorFor(r) case final color?)
             {
               'type': 'Feature',
               'properties': {
                 'type': r.type,
                 'label': r.label ?? r.type,
-                'color': speciesInk == null
-                    ? cssHex(markFor(r.type).argb)
-                    : _argbToHex(
-                        speciesInk[r.label ?? '__type:${r.type}']!,
-                      ),
+                'color': color,
               },
               'geometry': {
                 'type': 'Point',
@@ -133,8 +136,8 @@ class MapHtml {
       if (layers.tracks && subject.tracks.isNotEmpty)
         (_hex(_argbToHex(PlateInk.ink)), 'Walked track'),
       if (layers.records && subject.records.isNotEmpty)
-        if (species != null && species.isNotEmpty)
-          for (final sp in species) (_hex(_argbToHex(sp.ink)), sp.label)
+        if (speciesInk != null)
+          for (final sp in species!) (cssHex(sp.ink), sp.label)
         else
           for (final t in {for (final r in subject.records) r.type})
             (

@@ -46,4 +46,40 @@ void main() {
     expect(lat, closeTo(31.06, 1e-9));
     expect(lng, closeTo(-98.05, 1e-9));
   });
+
+  test('the desk groups plate-shaped items the way the phone groups pins', () {
+    // Same points as GeoJSON and as bare records: identical cells, so the
+    // two maps badge the same clusters at the same zoom.
+    final asFeatures = [
+      pt('a', 31.06, -98.05),
+      pt('b', 31.0605, -98.0505),
+      pt('c', 31.10, -98.10),
+    ];
+    final asRecords = [
+      ('a', 31.06, -98.05),
+      ('b', 31.0605, -98.0505),
+      ('c', 31.10, -98.10),
+    ];
+    (double, double) coords((String, double, double) r) => (r.$2, r.$3);
+    for (final z in [11.0, 13.5, 16.0]) {
+      final phone = clusterFeatures(
+        asFeatures,
+        z,
+      ).map((g) => g.ids.join(',')).toSet();
+      final desk = clusterBy(
+        asRecords,
+        coords,
+        z,
+      ).map((c) => c.map((r) => r.$1).join(',')).toSet();
+      expect(desk, phone, reason: 'zoom $z');
+    }
+    final ab = asRecords.sublist(0, 2);
+    expect(
+      expansionZoomBy(ab, coords, 11),
+      expansionZoom(asFeatures.sublist(0, 2), 11),
+    );
+    final (lat, lng) = centreOf(ab, coords);
+    expect(lat, closeTo(31.06025, 1e-9));
+    expect(lng, closeTo(-98.05025, 1e-9));
+  });
 }

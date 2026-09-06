@@ -520,7 +520,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       if (z != null) {
         final (lat, lng) = hit.centre;
         await controller.animateCamera(
-          CameraUpdate.newLatLngZoom(LatLng(lat, lng), z + 0.4),
+          CameraUpdate.newLatLngZoom(LatLng(lat, lng), z),
         );
       } else {
         widget.onClusterTap?.call(hit.ids);

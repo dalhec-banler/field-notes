@@ -7,11 +7,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../export/evidence_packet.dart';
 
 import '../db/database.dart';
+import '../services/desk.dart';
 
 /// Cost-share program tracking (spec §4.14, §7.10): EQIP / TPWD PUB
 /// programs, their practices, and dated activities with costs.
@@ -261,12 +261,13 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
       );
       file.writeAsBytesSync(bytes);
       messenger.hideCurrentSnackBar();
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          text: 'Evidence packet — ${program.name}',
-        ),
+      final at = await deliverFile(
+        file.path,
+        text: 'Evidence packet — ${program.name}',
       );
+      if (at != null && isDesk) {
+        messenger.showSnackBar(SnackBar(content: Text('Saved to $at.')));
+      }
     } catch (e) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(

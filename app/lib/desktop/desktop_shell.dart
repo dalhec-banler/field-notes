@@ -70,15 +70,19 @@ class _DesktopShellState extends State<DesktopShell> {
   DriveNews? _news;
 
   StreamSubscription<void>? _statusWatch;
+  Timer? _statusDebounce;
 
   @override
   void initState() {
     super.initState();
-    _loadStatus();
     _checkDrive();
     // The title bar's size / media / places readouts follow the journal;
     // loaded-once numbers went stale after an import or ADD PHOTOS
-    // (audit 2026-09-04).
+    // (audit 2026-09-04). The watch emits once on listen, so it is also
+    // the first load — taken at once, the title bar must not open blank;
+    // a photo import writes per photo, so later bursts settle before the
+    // counts are re-read.
+    var first = true;
     _statusWatch = widget.db
         .customSelect(
           'SELECT 1',
@@ -89,11 +93,23 @@ class _DesktopShellState extends State<DesktopShell> {
           },
         )
         .watch()
-        .listen((_) => _loadStatus());
+        .listen((_) {
+          if (first) {
+            first = false;
+            _loadStatus();
+            return;
+          }
+          _statusDebounce?.cancel();
+          _statusDebounce = Timer(
+            const Duration(milliseconds: 250),
+            _loadStatus,
+          );
+        });
   }
 
   @override
   void dispose() {
+    _statusDebounce?.cancel();
     _statusWatch?.cancel();
     super.dispose();
   }
@@ -161,14 +177,15 @@ class _DesktopShellState extends State<DesktopShell> {
   Future<void> _loadStatus() async {
     final docs = await getApplicationDocumentsDirectory();
     final dbFile = File(p.join(docs.path, 'field_notes.sqlite'));
-    final media = await (widget.db.selectOnly(
-      widget.db.media,
-    )..addColumns([widget.db.media.id.count()])).getSingle();
-    final properties =
-        await (widget.db.select(widget.db.properties)
-              ..where((p) => p.deletedAt.isNull())
-              ..orderBy([(p) => OrderingTerm.asc(p.name)]))
-            .get();
+    final (media, properties) = await (
+      (widget.db.selectOnly(
+        widget.db.media,
+      )..addColumns([widget.db.media.id.count()])).getSingle(),
+      (widget.db.select(widget.db.properties)
+            ..where((p) => p.deletedAt.isNull())
+            ..orderBy([(p) => OrderingTerm.asc(p.name)]))
+          .get(),
+    ).wait;
     // Where this copy came from — the honest thing to put in a title bar.
     final from = RestorePipeline(docs).lastRestoredFrom;
     String copyLine;
@@ -335,10 +352,7 @@ class _DesktopShellState extends State<DesktopShell> {
         children: [
           for (var i = 0; i < _views.length; i++)
             InkWell(
-              onTap: () => setState(() {
-                _view = i;
-                _visited.add(i);
-              }),
+              onTap: () => setState(() => _view = i),
               child: Container(
                 constraints: BoxConstraints(minHeight: 50),
                 padding: EdgeInsets.symmetric(horizontal: 18),
@@ -389,45 +403,40 @@ class _DesktopShellState extends State<DesktopShell> {
   /// alive after that, but nothing builds — or fetches — before its first
   /// visit: at launch the Export bench was already rendering pages and
   /// requesting imagery for a tab nobody had opened (audit 2026-09-04).
-  final Set<int> _visited = {0};
+  final Set<int> _visited = {};
+
+  /// In `_views` order.
+  late final List<Widget Function()> _builders = [
+    () => DeskMapWorkspace(db: widget.db, property: widget.property),
+    () => LedgerTab(
+      db: widget.db,
+      property: widget.property,
+      prefs: widget.prefs,
+    ),
+    () => GrowTab(db: widget.db, property: widget.property),
+    () => SpeciesTab(db: widget.db, property: widget.property),
+    () => _ReviewWorkspace(db: widget.db, property: widget.property),
+    () => ExportWorkspace(db: widget.db, property: widget.property),
+    () => SettingsWorkspace(
+      db: widget.db,
+      property: widget.property,
+      prefs: widget.prefs,
+    ),
+  ];
 
   Widget _workspace() {
     // IndexedStack, not a switch: composing a plate, then checking one
     // record in Review, must come back to the same plate (design audit
     // 2026-09-03 finding 1). Keyed by property so switching place resets.
-    Widget lazy(int i, Widget Function() build) =>
-        _visited.contains(i) ? build() : const SizedBox.shrink();
+    // Visited is marked here, where the view is shown, so any path that
+    // sets `_view` gets a built workspace.
+    _visited.add(_view);
     return IndexedStack(
       key: ValueKey(widget.property.id),
       index: _view,
       children: [
-        lazy(0, () => DeskMapWorkspace(db: widget.db, property: widget.property)),
-        lazy(
-          1,
-          () => LedgerTab(
-            db: widget.db,
-            property: widget.property,
-            prefs: widget.prefs,
-          ),
-        ),
-        lazy(2, () => GrowTab(db: widget.db, property: widget.property)),
-        lazy(3, () => SpeciesTab(db: widget.db, property: widget.property)),
-        lazy(
-          4,
-          () => _ReviewWorkspace(db: widget.db, property: widget.property),
-        ),
-        lazy(
-          5,
-          () => ExportWorkspace(db: widget.db, property: widget.property),
-        ),
-        lazy(
-          6,
-          () => SettingsWorkspace(
-            db: widget.db,
-            property: widget.property,
-            prefs: widget.prefs,
-          ),
-        ),
+        for (var i = 0; i < _builders.length; i++)
+          _visited.contains(i) ? _builders[i]() : const SizedBox.shrink(),
       ],
     );
   }
@@ -509,22 +518,30 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
   late final _review = ReviewService(widget.db);
 
   StreamSubscription<void>? _pendingWatch;
+  StreamSubscription<void>? _taxaWatch;
 
   @override
   void initState() {
     super.initState();
-    _loadPending();
     // Rulings and fresh contributor edits land while this queue is open;
-    // the pending set must follow the table (audit 2026-09-04).
+    // the pending set must follow the table (audit 2026-09-04). Species
+    // names follow theirs — an identification made in the inspector adds
+    // a taxon this queue then has to name. Each watch emits once on
+    // listen, so they are also the first loads.
     _pendingWatch = widget.db
         .customSelect('SELECT 1', readsFrom: {widget.db.reviewItems})
         .watch()
         .listen((_) => _loadPending());
+    _taxaWatch = widget.db
+        .customSelect('SELECT 1', readsFrom: {widget.db.taxa})
+        .watch()
+        .listen((_) => _loadTaxa());
   }
 
   @override
   void dispose() {
     _pendingWatch?.cancel();
+    _taxaWatch?.cancel();
     _keys.dispose();
     super.dispose();
   }
@@ -538,13 +555,9 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
     if (rows.isEmpty) return;
     final i = rows.indexWhere((o) => o.id == _selectedId);
     if (e.logicalKey == LogicalKeyboardKey.arrowDown) {
-      setState(
-        () => _selectedId = rows[(i + 1).clamp(0, rows.length - 1)].id,
-      );
+      setState(() => _selectedId = rows[(i + 1).clamp(0, rows.length - 1)].id);
     } else if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
-      setState(
-        () => _selectedId = rows[i <= 0 ? 0 : i - 1].id,
-      );
+      setState(() => _selectedId = rows[(i - 1).clamp(0, rows.length - 1)].id);
     } else if (e.logicalKey == LogicalKeyboardKey.keyA ||
         e.logicalKey == LogicalKeyboardKey.keyR) {
       final id = _selectedId;
@@ -558,20 +571,25 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
         if (item.state == 'removed') return;
         await _review.remove(item.id, by: 'owner');
       }
-      _loadPending();
-      setState(() {});
+      // The ruling writes review_items; _pendingWatch reloads the queue.
     }
   }
 
   Future<void> _loadPending() async {
     final items = await _review.pending(widget.property.id);
-    final taxa = await widget.db.select(widget.db.taxa).get();
     if (!mounted) return;
     setState(() {
       _pendingIds = {
         for (final i in items)
           if (i.entityType == 'observation') i.entityId,
       };
+    });
+  }
+
+  Future<void> _loadTaxa() async {
+    final taxa = await widget.db.select(widget.db.taxa).get();
+    if (!mounted) return;
+    setState(() {
       _taxonNames = {
         for (final t in taxa) t.id: t.commonName ?? t.scientificName,
       };
@@ -589,182 +607,178 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
       autofocus: true,
       onKeyEvent: _onKey,
       child: Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Queue.
-        SizedBox(
-          width: 330,
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(color: Press.borderInk, width: 1.5),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Queue.
+          SizedBox(
+            width: 330,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(color: Press.borderInk, width: 1.5),
+                ),
               ),
-            ),
-            child: StreamBuilder<List<Observation>>(
-              stream: query.watch(),
-              builder: (context, snapshot) {
-                final all = snapshot.data ?? [];
-                final obs = _pendingOnly
-                    ? [
-                        for (final o in all)
-                          if (_pendingIds.contains(o.id)) o,
-                      ]
-                    : all;
-                _rows = obs;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(14, 12, 14, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Kicker('Queue'),
-                          SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Text(
-                                _pendingOnly ? 'PENDING' : 'RECORDS',
-                                style: TextStyle(
-                                  fontFamily: Type.slab,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 22,
-                                  height: 0.9,
+              child: StreamBuilder<List<Observation>>(
+                stream: query.watch(),
+                builder: (context, snapshot) {
+                  final all = snapshot.data ?? [];
+                  final obs = _pendingOnly
+                      ? [
+                          for (final o in all)
+                            if (_pendingIds.contains(o.id)) o,
+                        ]
+                      : all;
+                  _rows = obs;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(14, 12, 14, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Kicker('Queue'),
+                            SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(
+                                  _pendingOnly ? 'PENDING' : 'RECORDS',
+                                  style: TextStyle(
+                                    fontFamily: Type.slab,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 22,
+                                    height: 0.9,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                '${obs.length}',
-                                style: TextStyle(
-                                  fontFamily: Type.slab,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 22,
-                                  color: Press.oxblood,
+                                SizedBox(width: 8),
+                                Text(
+                                  '${obs.length}',
+                                  style: TextStyle(
+                                    fontFamily: Type.slab,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 22,
+                                    color: Press.oxblood,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 8),
-                          Row(
-                            children: [
-                              _QueueToggle(
-                                label: 'ALL',
-                                on: !_pendingOnly,
-                                onTap: () =>
-                                    setState(() => _pendingOnly = false),
-                              ),
-                              SizedBox(width: 6),
-                              _QueueToggle(
-                                label: 'PENDING ${_pendingIds.length}',
-                                on: _pendingOnly,
-                                onTap: () =>
-                                    setState(() => _pendingOnly = true),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              children: [
+                                _QueueToggle(
+                                  label: 'ALL',
+                                  on: !_pendingOnly,
+                                  onTap: () =>
+                                      setState(() => _pendingOnly = false),
+                                ),
+                                SizedBox(width: 6),
+                                _QueueToggle(
+                                  label: 'PENDING ${_pendingIds.length}',
+                                  on: _pendingOnly,
+                                  onTap: () =>
+                                      setState(() => _pendingOnly = true),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: obs.length,
-                        itemBuilder: (context, i) {
-                          final o = obs[i];
-                          final selected = o.id == _selectedId;
-                          return InkWell(
-                            onTap: () => setState(() => _selectedId = o.id),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: selected ? Press.paperRaised : null,
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: Press.divider,
-                                    width: 1,
-                                  ),
-                                  left: BorderSide(
-                                    color: selected
-                                        ? Press.oxblood
-                                        : Colors.transparent,
-                                    width: 3,
-                                  ),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: obs.length,
+                          itemBuilder: (context, i) {
+                            final o = obs[i];
+                            final selected = o.id == _selectedId;
+                            return InkWell(
+                              onTap: () => setState(() => _selectedId = o.id),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Diamond(
-                                    size: 9,
-                                    color: recordTypeColor(o.observationType),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        MonoLabel(
-                                          o.observationType,
-                                          size: 8.5,
-                                          spacing: 1.6,
-                                          color: recordTypeColor(
-                                            o.observationType,
-                                          ),
-                                        ),
-                                        if (_taxonNames[o.taxonId] != null)
-                                          Text(
-                                            _taxonNames[o.taxonId]!,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontFamily: Type.serif,
-                                              fontSize: 14,
-                                              color: Press.ink,
-                                            ),
-                                          ),
-                                        MonoLabel(
-                                          o.observedAt
-                                              .replaceFirst('T', ' ')
-                                              .substring(0, 16),
-                                          size: 9,
-                                          opacity: 0.7,
-                                        ),
-                                      ],
+                                decoration: BoxDecoration(
+                                  color: selected ? Press.paperRaised : null,
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: Press.divider,
+                                      width: 1,
+                                    ),
+                                    left: BorderSide(
+                                      color: selected
+                                          ? Press.oxblood
+                                          : Colors.transparent,
+                                      width: 3,
                                     ),
                                   ),
-                                ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Diamond(
+                                      size: 9,
+                                      color: recordTypeColor(o.observationType),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          MonoLabel(
+                                            o.observationType,
+                                            size: 8.5,
+                                            spacing: 1.6,
+                                            color: recordTypeColor(
+                                              o.observationType,
+                                            ),
+                                          ),
+                                          if (_taxonNames[o.taxonId] != null)
+                                            Text(
+                                              _taxonNames[o.taxonId]!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontFamily: Type.serif,
+                                                fontSize: 14,
+                                                color: Press.ink,
+                                              ),
+                                            ),
+                                          MonoLabel(
+                                            o.observedAt
+                                                .replaceFirst('T', ' ')
+                                                .substring(0, 16),
+                                            size: 9,
+                                            opacity: 0.7,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
-                );
-              },
+                    ],
+                  );
+                },
+              ),
             ),
           ),
-        ),
-        // Inspector.
-        Expanded(
-          child: _selectedId == null
-              ? Center(
-                  child: MonoLabel(
-                    '— select a record —',
-                    size: 9.5,
-                    spacing: 2,
-                    opacity: 0.5,
-                  ),
-                )
-              : _Inspector(
-                  db: widget.db,
-                  obsId: _selectedId!,
-                  onChanged: _loadPending,
-                ),
-        ),
-      ],
+          // Inspector.
+          Expanded(
+            child: _selectedId == null
+                ? Center(
+                    child: MonoLabel(
+                      '— select a record —',
+                      size: 9.5,
+                      spacing: 2,
+                      opacity: 0.5,
+                    ),
+                  )
+                : _Inspector(db: widget.db, obsId: _selectedId!),
+          ),
+        ],
       ),
     );
   }
@@ -807,10 +821,9 @@ class _QueueToggle extends StatelessWidget {
 /// capabilities, minus the mobile affordances), with the steward's ruling
 /// strip above it — approve or remove a contributor's edit.
 class _Inspector extends StatefulWidget {
-  _Inspector({required this.db, required this.obsId, this.onChanged});
+  _Inspector({required this.db, required this.obsId});
   final FieldNotesDb db;
   final String obsId;
-  final VoidCallback? onChanged;
 
   @override
   State<_Inspector> createState() => _InspectorState();
@@ -840,7 +853,6 @@ class _InspectorState extends State<_Inspector> {
   Future<void> _approve(ReviewItem item) async {
     await _review.approve(item.id, by: 'owner');
     await _loadItem();
-    widget.onChanged?.call();
   }
 
   Future<void> _remove(ReviewItem item) async {
@@ -868,7 +880,6 @@ class _InspectorState extends State<_Inspector> {
     if (sure != true) return;
     await _review.remove(item.id, by: 'owner');
     await _loadItem();
-    widget.onChanged?.call();
   }
 
   @override

@@ -12,7 +12,9 @@ import '../db/database.dart';
 import '../export/map_plate.dart';
 import '../export/plate_subject_loader.dart';
 import '../export/web_mercator.dart' as merc;
+import '../map/cluster_badge.dart';
 import '../map/imagery_sources.dart';
+import '../map/record_clusters.dart';
 import '../map/record_ink.dart';
 import '../map/tile_cache.dart';
 import '../screens/record_detail_screen.dart';
@@ -76,7 +78,8 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   final _inflight = <String>{};
   // A failed tile is retried after a beat — one bad request must
   // not blank that tile for the whole session (audit 2026-09-04).
-  final _missing = <String, int>{};
+  final _retryAt = <String, DateTime>{};
+  static const _retryAfter = Duration(seconds: 15);
   String _fetchSourceId = activeImagery.id;
   int _tileEpoch = 0;
 
@@ -102,13 +105,16 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     }
     _images.clear();
     _inflight.clear();
-    _missing.clear();
+    _retryAt.clear();
   }
 
   @override
   void initState() {
     super.initState();
-    _load(frame: true);
+    // The watch emits once on listen, so it is also the first load — and
+    // that load frames, since nothing has moved the camera yet. The
+    // feature panel's tables are here too: a fresh subject is what
+    // re-reads an open panel.
     _watch = widget.db
         .customSelect(
           'SELECT 1',
@@ -116,6 +122,8 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
             widget.db.observations,
             widget.db.zones,
             widget.db.features,
+            widget.db.featureConditionLogs,
+            widget.db.featureTypes,
             widget.db.tracks,
             widget.db.properties,
           },
@@ -133,11 +141,11 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     super.dispose();
   }
 
-  Future<void> _load({bool frame = false}) async {
+  Future<void> _load() async {
     final s = await loadPlateSubject(widget.db, widget.property);
     if (!mounted) return;
     setState(() => _subject = s);
-    if (frame || _lat == null) _frameSubject(s, _lastLayoutSize);
+    if (_lat == null) _frameSubject(s, _lastLayoutSize);
   }
 
   /// The camera's opening question is "where are my marks?" — records
@@ -219,6 +227,113 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     return merc.unproject(wx / _tileScale, wy / _tileScale, _zInt);
   }
 
+  // ── clusters ─────────────────────────────────────────────────────
+
+  /// Records grouped for the current zoom exactly as the phone groups
+  /// them (record_clusters.dart): one screen cell, one badge with a count
+  /// (Austin, 2026-09-06: "the dots don't combine into 1 with a number").
+  /// Lit and dimmed sets group separately, so a highlighted species'
+  /// badge counts only that species; the selected record always stands
+  /// alone so its halo shows. Regrouped when zoom, subject, highlight or
+  /// selection change — a pan reuses the last grouping.
+  (List<List<PlateRecord>>, List<List<PlateRecord>>) _clusters = (
+    const [],
+    const [],
+  );
+  (double, PlateSubject, String?, String?)? _clusterKey;
+
+  static (double, double) _coordsOf(PlateRecord r) => (r.lat, r.lng);
+
+  bool _isLit(PlateRecord r) =>
+      _highlightKey == null || (r.label ?? '__type:${r.type}') == _highlightKey;
+
+  (List<List<PlateRecord>> lit, List<List<PlateRecord>> dimmed) _clustersFor(
+    PlateSubject s,
+  ) {
+    final key = (_zoom, s, _highlightKey, _selectedId);
+    if (_clusterKey == key) return _clusters;
+    _clusterKey = key;
+    final lit = <PlateRecord>[];
+    final dimmed = <PlateRecord>[];
+    PlateRecord? selected;
+    for (final r in s.records) {
+      if (r.id != null && r.id == _selectedId) {
+        selected = r;
+        continue;
+      }
+      (_isLit(r) ? lit : dimmed).add(r);
+    }
+    final litCells = clusterBy(lit, _coordsOf, _zoom);
+    final dimCells = clusterBy(dimmed, _coordsOf, _zoom);
+    if (selected != null) {
+      (_isLit(selected) ? litCells : dimCells).add([selected]);
+    }
+    return _clusters = (litCells, dimCells);
+  }
+
+  /// The phone's Zillow move: click a badge, land where it splits. A
+  /// cell that never splits — repeat visits to one marked tree, or points
+  /// closer than this imagery can separate — lists what's here instead.
+  void _expandCluster(List<PlateRecord> cell) {
+    final maxZ = activeImagery.maxZoom.toDouble();
+    final z = expansionZoomBy(cell, _coordsOf, _zoom, maxZoom: maxZ);
+    if (z == null) {
+      _recordsHere(cell);
+      return;
+    }
+    final (lat, lng) = centreOf(cell, _coordsOf);
+    _userMoved = true;
+    setState(() {
+      _lat = lat;
+      _lng = lng;
+      _zoom = z.clamp(4.0, maxZ + 0.99);
+    });
+  }
+
+  /// The phone's "what's here" sheet, as a dialog: every record in the
+  /// cell, pick one to open it.
+  Future<void> _recordsHere(List<PlateRecord> cell) async {
+    final id = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('${cell.length} RECORDS HERE'),
+        children: [
+          for (final r in cell)
+            if (r.id != null)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, r.id),
+                child: Row(
+                  children: [
+                    Diamond(size: 8, color: Color(markFor(r.type).argb)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        [
+                          if (r.observedAt != null &&
+                              r.observedAt!.length >= 10)
+                            r.observedAt!.substring(0, 10),
+                          r.label ?? _cap(r.type),
+                        ].join(' · '),
+                        style: TextStyle(
+                          fontFamily: Type.serif,
+                          fontSize: 13.5,
+                          color: Press.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+    if (id == null || !mounted) return;
+    setState(() {
+      _selectedId = id;
+      _closeFeature();
+    });
+  }
+
   // ── tiles ────────────────────────────────────────────────────────
 
   void _ensureVisibleTiles(Size size) {
@@ -234,21 +349,21 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
       for (var tx = left; tx <= right; tx++) {
         if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
         final key = '$z/$tx/$ty';
-        final missedAt = _missing[key];
+        final retryAt = _retryAt[key];
         if (_images.containsKey(key) ||
             _inflight.contains(key) ||
-            (missedAt != null &&
-                DateTime.now().millisecondsSinceEpoch - missedAt < 15000)) {
+            (retryAt != null && DateTime.now().isBefore(retryAt))) {
           continue;
         }
-        _missing.remove(key);
+        _retryAt.remove(key);
         _inflight.add(key);
         final epoch = _tileEpoch;
+        void miss() => _retryAt[key] = DateTime.now().add(_retryAfter);
         _fetch(z, tx, ty).then((bytes) async {
           if (epoch != _tileEpoch) return; // source swapped mid-flight
           _inflight.remove(key);
           if (bytes == null) {
-            _missing[key] = DateTime.now().millisecondsSinceEpoch;
+            miss();
             return;
           }
           try {
@@ -261,7 +376,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
             }
             setState(() => _images[key] = img);
           } catch (_) {
-            _missing[key] = DateTime.now().millisecondsSinceEpoch;
+            miss();
           }
         });
       }
@@ -377,14 +492,24 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     if (s == null) return;
     String? bestRecord;
     String? bestFeature;
+    List<PlateRecord>? bestCluster;
     var bestD = 16.0; // px
-    for (final r in s.records) {
-      if (r.id == null) continue;
-      final (x, y) = _screenOf(r.lat, r.lng, size);
+    final (lit, dimmed) = _clustersFor(s);
+    for (final cell in lit.followedBy(dimmed)) {
+      final double x, y;
+      if (cell.length > 1) {
+        final (lat, lng) = centreOf(cell, _coordsOf);
+        (x, y) = _screenOf(lat, lng, size);
+      } else {
+        final r = cell.single;
+        if (r.id == null) continue;
+        (x, y) = _screenOf(r.lat, r.lng, size);
+      }
       final dist = (Offset(x, y) - d.localPosition).distance;
       if (dist < bestD) {
         bestD = dist;
-        bestRecord = r.id;
+        bestCluster = cell.length > 1 ? cell : null;
+        bestRecord = cell.length > 1 ? null : cell.single.id;
         bestFeature = null;
       }
     }
@@ -406,13 +531,16 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
           bestD = dist;
           bestFeature = f.id;
           bestRecord = null;
+          bestCluster = null;
         }
       } catch (_) {}
     }
-    if (bestRecord != null) {
+    if (bestCluster != null) {
+      _expandCluster(bestCluster);
+    } else if (bestRecord != null) {
       setState(() {
         _selectedId = bestRecord;
-        _selectedFeatureId = null;
+        _closeFeature();
       });
     } else if (bestFeature != null) {
       setState(() {
@@ -465,6 +593,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
           });
         }
         _ensureVisibleTiles(size);
+        final (lit, dimmed) = _clustersFor(s);
         return ClipRect(
           child: Listener(
             onPointerSignal: (e) {
@@ -502,6 +631,8 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
                   CustomPaint(
                     painter: _DeskMapPainter(
                       subject: s,
+                      lit: lit,
+                      dimmed: dimmed,
                       images: _images,
                       zInt: _zInt,
                       tileScale: _tileScale,
@@ -813,15 +944,24 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   /// A clicked feature: what it is, its condition history, and the
   /// controls the phone has — log lives there; DELETE lives here too.
   Future<List<Object?>>? _featureLoad;
-  String? _featureLoadId;
+  (String, PlateSubject?)? _featureLoadKey;
+
+  /// Inside setState.
+  void _closeFeature() {
+    _selectedFeatureId = null;
+    _featureLoad = null;
+    _featureLoadKey = null;
+  }
 
   Widget _featurePanel(String featureId) {
-    // Memoized: this build runs on every pan frame, and an inline
-    // Future.wait would refire three queries per frame and flash the
-    // spinner while the map moves under an open panel (audit
-    // 2026-09-04).
-    if (_featureLoadId != featureId) {
-      _featureLoadId = featureId;
+    // Memoized on the feature and the subject it was read against: this
+    // build runs on every pan frame, and an inline Future.wait would
+    // refire three queries per frame (audit 2026-09-04). The watch
+    // replaces the subject when any of its tables change, which is when
+    // the panel re-reads.
+    final key = (featureId, _subject);
+    if (_featureLoadKey != key) {
+      _featureLoadKey = key;
       _featureLoad = Future.wait([
         (widget.db.select(
           widget.db.features,
@@ -852,7 +992,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             InkWell(
-              onTap: () => setState(() => _selectedFeatureId = null),
+              onTap: () => setState(_closeFeature),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -976,9 +1116,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
                             updatedAt: Value(now),
                           ),
                         );
-                        if (mounted) {
-                          setState(() => _selectedFeatureId = null);
-                        }
+                        if (mounted) setState(_closeFeature);
                       },
                       child: const Text('DELETE FEATURE'),
                     ),
@@ -1124,6 +1262,8 @@ class _TriPainter extends CustomPainter {
 class _DeskMapPainter extends CustomPainter {
   _DeskMapPainter({
     required this.subject,
+    required this.lit,
+    required this.dimmed,
     required this.images,
     required this.zInt,
     required this.tileScale,
@@ -1134,6 +1274,11 @@ class _DeskMapPainter extends CustomPainter {
   });
 
   final PlateSubject subject;
+
+  /// Records already grouped by the state for this zoom: a one-record
+  /// cell draws its mark, a fuller cell draws a badge.
+  final List<List<PlateRecord>> lit;
+  final List<List<PlateRecord>> dimmed;
   final Map<String, ui.Image> images;
   final int zInt;
   final double tileScale;
@@ -1341,21 +1486,51 @@ class _DeskMapPainter extends CustomPainter {
       } catch (_) {}
     }
 
-    // Records — the shared shape language, paper stroke. With a species
-    // highlighted, everything else dims and the highlighted marks draw
-    // last with a gold ring: the map becomes that species' map.
-    final dimmed = <PlateRecord>[];
-    final lit = <PlateRecord>[];
-    for (final r in subject.records) {
-      final key = r.label ?? '__type:${r.type}';
-      (highlightKey == null || key == highlightKey ? lit : dimmed).add(r);
+    // Records — the shared shape language, paper stroke; a cell with more
+    // than one wears the phone's badge. With a species highlighted,
+    // everything else dims and the highlighted marks draw last with a
+    // gold ring: the map becomes that species' map.
+    for (final cell in dimmed) {
+      if (cell.length > 1) {
+        _drawCluster(canvas, size, cell, dim: true);
+      } else {
+        _drawRecord(canvas, size, cell.single, dim: true);
+      }
     }
-    for (final r in dimmed) {
-      _drawRecord(canvas, size, r, dim: true);
+    for (final cell in lit) {
+      if (cell.length > 1) {
+        _drawCluster(canvas, size, cell);
+      } else {
+        _drawRecord(canvas, size, cell.single, ringed: highlightKey != null);
+      }
     }
-    for (final r in lit) {
-      _drawRecord(canvas, size, r, ringed: highlightKey != null);
+  }
+
+  /// The phone's badge at desk scale: cluster_badge.dart draws it in the
+  /// phone's device pixels; 0.4 lands it just over the desk's dots.
+  static const clusterScale = 0.4;
+
+  void _drawCluster(
+    ui.Canvas canvas,
+    Size size,
+    List<PlateRecord> cell, {
+    bool dim = false,
+  }) {
+    final (lat, lng) = centreOf(cell, _DeskMapWorkspaceState._coordsOf);
+    final (x, y) = screenOf(lat, lng, size);
+    if (x < -30 || y < -30 || x > size.width + 30 || y > size.height + 30) {
+      return;
     }
+    canvas.save();
+    canvas.translate(x, y);
+    canvas.scale(clusterScale);
+    paintClusterBadge(
+      canvas,
+      ui.Offset.zero,
+      cell.length,
+      alpha: dim ? 0.30 : 1.0,
+    );
+    canvas.restore();
   }
 
   void _drawRecord(
