@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
 import '../services/app_prefs.dart';
+import '../services/press_unlock.dart';
 import '../services/review.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
@@ -75,6 +76,13 @@ class _DesktopShellState extends State<DesktopShell> {
   @override
   void initState() {
     super.initState();
+    // The press unlock re-keys the root, so this shell is brand new:
+    // come back up on Settings, where the person was, and deliver the
+    // reveal the old tree couldn't (audit 2026-09-05).
+    if (PressUnlock.takePending()) {
+      _view = _views.indexOf('Settings');
+      PressUnlock.reveal(this);
+    }
     _checkDrive();
     // The title bar's size / media / places readouts follow the journal;
     // loaded-once numbers went stale after an import or ADD PHOTOS

@@ -22,6 +22,7 @@ import '../screens/species_import_screen.dart';
 import '../screens/restore_screen.dart';
 import '../map/imagery_sources.dart';
 import '../services/app_prefs.dart';
+import '../services/press_unlock.dart';
 import '../theme/tokens.dart';
 import '../main.dart' show exportAndShare;
 import '../widgets/press.dart';
@@ -46,7 +47,6 @@ class SettingsTab extends StatefulWidget {
 
 class _SettingsTabState extends State<SettingsTab> {
   /// Taps on the version row since the last timeout. Seven finds the press.
-  int _versionTaps = 0;
   String? _lastBackup;
   String? _lastVerify;
   bool _basemapInstalled = false;
@@ -57,7 +57,7 @@ class _SettingsTabState extends State<SettingsTab> {
     super.initState();
     _load();
     _loadVersion();
-    _deliverUnlockToastIfPending();
+    PressUnlock.revealIfPending(this);
   }
 
   Future<void> _load() async {
@@ -522,69 +522,9 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
-  /// Set when the unlock flips the skin: the flip rebuilds the whole tree
-  /// (D-023), which destroys the ScaffoldMessenger the toast would have
-  /// shown on. The freshly built SettingsTab finds this flag and delivers
-  /// the toast from the new tree instead.
-  static bool _pendingUnlockToast = false;
+  late final _unlock = PressUnlock(widget.prefs);
 
-  /// Seven taps on the version row wakes the press (D-023). The Android
-  /// developer-options gesture: the curious find it, nobody trips it.
-  void _versionTapped() {
-    if (widget.prefs.pressUnlocked) {
-      // Already found; the row is just a version row now.
-      return;
-    }
-    _versionTaps++;
-    if (_versionTaps < 7) {
-      if (_versionTaps >= 4 && mounted) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text('${7 - _versionTaps} more…'),
-              duration: const Duration(milliseconds: 700),
-            ),
-          );
-      }
-      return;
-    }
-    // The toast can't be shown from here: flipping the skin re-keys the
-    // root MaterialApp, and this tree — messenger included — is gone before
-    // the snackbar draws. Leave a note for the successor tab instead.
-    _pendingUnlockToast = true;
-    widget.prefs.pressUnlocked = true;
-    widget.prefs.skinName = 'press'; // notifies → root rebuild
-  }
-
-  /// Delivered from the freshly built tree, first frame after the flip.
-  /// The reveal speaks in the voice just found — these values are the
-  /// press's own, not the active skin's, so the toast IS the easter egg
-  /// whatever the app happens to be wearing.
-  void _deliverUnlockToastIfPending() {
-    if (!_pendingUnlockToast) return;
-    _pendingUnlockToast = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: pressSkin.ink,
-          duration: const Duration(seconds: 6),
-          content: Text(
-            '◆ YOU FOUND THE PRESS — SHORT\'S RESORT FIELD STATION.\n'
-            'SWITCH SKINS ANY TIME UNDER APPEARANCE.',
-            style: TextStyle(
-              fontFamily: 'JetBrainsMono',
-              fontSize: 10,
-              letterSpacing: 1.2,
-              height: 1.6,
-              color: pressSkin.paper,
-            ),
-          ),
-        ),
-      );
-    });
-  }
+  void _versionTapped() => _unlock.tap(context);
 
   Widget _group(
     String label,

@@ -13,6 +13,7 @@ import '../screens/review_feed_screen.dart';
 import '../screens/species_id_settings_screen.dart';
 import '../screens/species_import_screen.dart';
 import '../services/app_prefs.dart';
+import '../services/press_unlock.dart';
 import '../map/imagery_sources.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
@@ -38,7 +39,6 @@ class SettingsWorkspace extends StatefulWidget {
 
 class _SettingsWorkspaceState extends State<SettingsWorkspace> {
   String _version = '…';
-  int _versionTaps = 0;
 
   @override
   void initState() {
@@ -54,37 +54,11 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
   /// Same easter egg as the phone (D-023): seven taps on the version.
-  void _versionTapped() {
-    if (widget.prefs.pressUnlocked) return;
-    _versionTaps++;
-    if (_versionTaps < 7) {
-      if (_versionTaps >= 4) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text('${7 - _versionTaps} more…'),
-              duration: const Duration(milliseconds: 700),
-            ),
-          );
-      }
-      return;
-    }
-    // The seventh tap must answer visibly: reveal the Appearance group
-    // right here and say what happened (audit 2026-09-05) — on the phone
-    // the unlock toast does this job.
-    setState(() {
-      widget.prefs.pressUnlocked = true;
-      widget.prefs.skinName = 'press';
-    });
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('THE PRESS IS YOURS · Appearance unlocked below'),
-        ),
-      );
-  }
+  /// The reveal itself comes from the shell the flip rebuilds — this
+  /// tree is gone before a toast shown here would draw.
+  late final _unlock = PressUnlock(widget.prefs);
+
+  void _versionTapped() => _unlock.tap(context);
 
   @override
   Widget build(BuildContext context) {
