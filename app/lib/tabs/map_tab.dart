@@ -9,6 +9,7 @@ import '../main.dart' show locationHub, trackRecorder;
 import '../map/area_downloader.dart';
 import '../map/map_screen.dart';
 import '../services/app_prefs.dart';
+import '../services/map_jump.dart';
 import '../services/record_filter.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
@@ -77,6 +78,17 @@ class _MapTabState extends State<MapTab> {
     c.animateCamera(CameraUpdate.newLatLngZoom(v, 17));
   }
 
+  /// A jump for this place (D-029) is taken as soon as a controller can:
+  /// on the notifier firing when the map is already up, or on the new
+  /// controller after the shell switched place to get here.
+  void _onMapJump() {
+    final j = mapJump.value;
+    final c = _controller;
+    if (j == null || c == null || j.propertyId != widget.property.id) return;
+    mapJump.value = null;
+    c.animateCamera(CameraUpdate.newLatLngZoom(LatLng(j.lat, j.lng), 17.5));
+  }
+
   bool _captureMode = false;
   final _downloader = AreaDownloader();
   int _mapEpoch = 0; // bump to rebuild the map after a capture
@@ -84,6 +96,7 @@ class _MapTabState extends State<MapTab> {
   @override
   void dispose() {
     widget.focus?.removeListener(_onFocusRequest);
+    mapJump.removeListener(_onMapJump);
     recordFilter.removeListener(_onFilterChanged);
     _downloader.dispose();
     super.dispose();
@@ -569,6 +582,7 @@ class _MapTabState extends State<MapTab> {
     super.initState();
     recordFilter.addListener(_onFilterChanged);
     widget.focus?.addListener(_onFocusRequest);
+    mapJump.addListener(_onMapJump);
     _loadCounts();
     // One-time hint: long-press-to-place has zero discoverability
     // otherwise (design audit P2).
@@ -673,6 +687,7 @@ class _MapTabState extends State<MapTab> {
               onController: (c) {
                 _controller = c;
                 _consumeFocus();
+                _onMapJump();
               },
               // Fires when the style and every overlay layer exist — the
               // only safe moment to re-apply toggles after a re-key.

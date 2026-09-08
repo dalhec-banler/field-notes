@@ -38,7 +38,7 @@ class FieldNotesDb extends _$FieldNotesDb {
   }
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -144,6 +144,26 @@ class FieldNotesDb extends _$FieldNotesDb {
             try {
               await m.database.customStatement(
                 'ALTER TABLE observations ADD COLUMN $col',
+              );
+            } catch (e) {
+              if (!'$e'.toLowerCase().contains('duplicate column')) rethrow;
+            }
+          }
+        }
+        // v8 (D-029): a batch can say what "other" method it used, and a
+        // mother plant can point at the record it was found as — the map
+        // link from bench back to the ground.
+        if (from < 8) {
+          for (final (table, col) in const [
+            ('propagation_batches', 'method_other TEXT'),
+            (
+              'source_plants',
+              'observation_id TEXT REFERENCES observations(id)',
+            ),
+          ]) {
+            try {
+              await m.database.customStatement(
+                'ALTER TABLE $table ADD COLUMN $col',
               );
             } catch (e) {
               if (!'$e'.toLowerCase().contains('duplicate column')) rethrow;

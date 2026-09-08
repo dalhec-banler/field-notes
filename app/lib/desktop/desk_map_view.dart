@@ -18,6 +18,7 @@ import '../map/record_clusters.dart';
 import '../map/record_ink.dart';
 import '../map/tile_cache.dart';
 import '../screens/record_detail_screen.dart';
+import '../services/map_jump.dart';
 import '../theme/tokens.dart';
 import '../widgets/confirm.dart';
 import '../widgets/press.dart';
@@ -119,6 +120,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   @override
   void initState() {
     super.initState();
+    mapJump.addListener(_onMapJump);
     // The watch emits once on listen, so it is also the first load — and
     // that load frames, since nothing has moved the camera yet. The
     // feature panel's tables are here too: a fresh subject is what
@@ -138,6 +140,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
 
   @override
   void dispose() {
+    mapJump.removeListener(_onMapJump);
     _watch?.cancel();
     for (final img in _images.values) {
       img.dispose();
@@ -150,6 +153,18 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     if (!mounted) return;
     setState(() => _subject = s);
     if (_lat == null) _frameSubject(s, _lastLayoutSize);
+    _onMapJump();
+  }
+
+  /// A jump for this place (D-029): fly there and light the record, taken
+  /// on the notifier firing or on the first load after a place switch.
+  void _onMapJump() {
+    final j = mapJump.value;
+    if (j == null || j.propertyId != widget.property.id) return;
+    if (_subject == null) return; // the load that follows takes it
+    mapJump.value = null;
+    setState(() => _selectedId = j.recordId);
+    _flyTo(j.lat, j.lng, zoom: activeImagery.maxZoom - 0.5);
   }
 
   /// The camera's opening question is "where are my marks?" — records

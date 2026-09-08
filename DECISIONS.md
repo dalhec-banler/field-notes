@@ -492,3 +492,41 @@ deduplicated; photos wait for Wi-Fi unless cellular is allowed (D-016).
 cross as a row and a file, an edit comes back, a deletion travels, paths
 never cross, a 1,200-op history goes up in bounded batches, and an
 adopted desk pushes only its own work.
+
+### D-029 · A batch lives where the bench is; the story reads from either end
+
+2026-09-08. Austin found that Grow follows the map you stand on ("that
+also totally makes sense, so we should leave it that way"), then asked
+where a batch should live when the bench is at home, the material came
+from a lake, a road, or a seed order, and nine in ten plants are bound
+for Shorts. Four readings were laid out — the bench, the destination,
+the origin, no place at all — and the bench won: it is honest about
+where the trays are, keeps one bench one list, and survives a second
+bench someday.
+
+What changed so the other ends can be seen:
+
+1. **Propagation reads from wherever you stand.** Three groups instead
+   of one: *on the bench here*, *collected from here*, *planted out
+   here* — the last two only for batches whose bench is elsewhere, so
+   nothing lists twice. Standing on Shorts you see what is coming; on a
+   collection site, what left it and where it went.
+2. **A mother plant is filed where it grows.** The batch form asks the
+   material (seed, cutting, sucker…) and where from: one of the places,
+   or ordered with a vendor. On a place, the mother plant can be linked
+   to the record it was found as — `source_plants.observation_id`, an
+   approved §4 deviation — and that link is the map button: it opens
+   that place's map on that pin, on the phone and the desk.
+3. **A planting can come from anywhere.** Own propagation picks a batch
+   from any bench and the batch logs the count that left (status
+   planted out once the bench is empty); nursery stock names the
+   nursery (`vendor`) and lot; volunteers and transplants stay as they
+   were. Plant out from a batch asks the place, defaulting to where the
+   batch last went.
+4. **"Other" gets a blank.** `propagation_batches.method_other`, the
+   second §4 deviation. And *Medium* reads *Soil mix*.
+
+Schema v8 adds the two columns; sync carries them like any other.
+`test/lineage_test.dart` is the acceptance: a batch on one bench with
+material from a second place and a planting on a third appears in all
+three lists, and a planting from a batch takes its count off the bench.

@@ -17,6 +17,7 @@ import '../services/observation_ops.dart';
 import '../services/record_filter.dart';
 import '../widgets/new_place_dialog.dart';
 import '../widgets/save_toast.dart';
+import '../services/map_jump.dart';
 import '../tabs/grow_tab.dart';
 import '../tabs/ledger_tab.dart';
 import '../tabs/map_tab.dart';
@@ -65,6 +66,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     // Registered BEFORE the tabs build, so this listener runs before the
     // map consumes the jump.
     recordFilter.addListener(_onFilterJump);
+    mapJump.addListener(_onMapJump);
   }
 
   void _onFilterJump() {
@@ -76,6 +78,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     recordFilter.removeListener(_onFilterJump);
+    mapJump.removeListener(_onMapJump);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -171,6 +174,24 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       property: widget.property,
       photos: photos,
     );
+  }
+
+  /// A jump names a place (D-029): switch to it if it isn't the one open,
+  /// and come to the map. The map itself flies once its controller is up.
+  Future<void> _onMapJump() async {
+    final j = mapJump.value;
+    if (j == null) return;
+    if (j.propertyId != widget.property.id) {
+      final p = await (widget.db.select(
+        widget.db.properties,
+      )..where((x) => x.id.equals(j.propertyId))).getSingleOrNull();
+      if (p == null) {
+        mapJump.value = null;
+        return;
+      }
+      widget.onSwitchProperty(p);
+    }
+    if (mounted && _tab != 0) setState(() => _tab = _lastTab = 0);
   }
 
   Future<void> _switchProperty() async {

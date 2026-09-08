@@ -26,6 +26,7 @@ import '../tabs/ledger_tab.dart';
 import '../tabs/species_tab.dart';
 import 'desk_map_view.dart';
 import 'drive_watch.dart';
+import '../services/map_jump.dart';
 import 'export_workspace.dart';
 import 'settings_workspace.dart';
 
@@ -97,6 +98,7 @@ class _DesktopShellState extends State<DesktopShell>
       PressUnlock.reveal(this);
     }
     WidgetsBinding.instance.addObserver(this);
+    mapJump.addListener(_onMapJump);
     _checkDrive();
     _autoSync();
     _syncTimer = Timer.periodic(const Duration(minutes: 5), (_) => _autoSync());
@@ -131,6 +133,7 @@ class _DesktopShellState extends State<DesktopShell>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    mapJump.removeListener(_onMapJump);
     _syncTimer?.cancel();
     _statusDebounce?.cancel();
     _statusWatch?.cancel();
@@ -502,6 +505,24 @@ class _DesktopShellState extends State<DesktopShell>
         ],
       ),
     );
+  }
+
+  /// A jump names a place (D-029): switch to it if it isn't the one open,
+  /// and show the map. The map workspace flies once it has the subject.
+  Future<void> _onMapJump() async {
+    final j = mapJump.value;
+    if (j == null) return;
+    if (j.propertyId != widget.property.id) {
+      final p = await (widget.db.select(
+        widget.db.properties,
+      )..where((x) => x.id.equals(j.propertyId))).getSingleOrNull();
+      if (p == null) {
+        mapJump.value = null;
+        return;
+      }
+      widget.onSwitchProperty(p);
+    }
+    if (mounted && _view != 0) setState(() => _view = 0);
   }
 
   /// Workspaces a person has actually opened. The stack keeps their state

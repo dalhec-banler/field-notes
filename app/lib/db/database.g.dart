@@ -10761,6 +10761,17 @@ class SourcePlants extends Table with TableInfo<SourcePlants, SourcePlant> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _observationIdMeta = const VerificationMeta(
+    'observationId',
+  );
+  late final GeneratedColumn<String> observationId = GeneratedColumn<String>(
+    'observation_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'REFERENCES observations(id)',
+  );
   static const VerificationMeta _createdByMeta = const VerificationMeta(
     'createdBy',
   );
@@ -10816,6 +10827,7 @@ class SourcePlants extends Table with TableInfo<SourcePlants, SourcePlant> {
     zoneId,
     isOnProperty,
     originNotes,
+    observationId,
     createdBy,
     createdAt,
     updatedAt,
@@ -10896,6 +10908,15 @@ class SourcePlants extends Table with TableInfo<SourcePlants, SourcePlant> {
         ),
       );
     }
+    if (data.containsKey('observation_id')) {
+      context.handle(
+        _observationIdMeta,
+        observationId.isAcceptableOrUnknown(
+          data['observation_id']!,
+          _observationIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_by')) {
       context.handle(
         _createdByMeta,
@@ -10971,6 +10992,10 @@ class SourcePlants extends Table with TableInfo<SourcePlants, SourcePlant> {
         DriftSqlType.string,
         data['${effectivePrefix}origin_notes'],
       ),
+      observationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}observation_id'],
+      ),
       createdBy: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}created_by'],
@@ -11013,6 +11038,9 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
   final String? originNotes;
 
   /// 'Terlingua, 2019' — offsite provenance
+  final String? observationId;
+
+  /// the record it was found as (D-029)
   final String createdBy;
   final String createdAt;
   final String updatedAt;
@@ -11027,6 +11055,7 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
     this.zoneId,
     required this.isOnProperty,
     this.originNotes,
+    this.observationId,
     required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -11054,6 +11083,9 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
     if (!nullToAbsent || originNotes != null) {
       map['origin_notes'] = Variable<String>(originNotes);
     }
+    if (!nullToAbsent || observationId != null) {
+      map['observation_id'] = Variable<String>(observationId);
+    }
     map['created_by'] = Variable<String>(createdBy);
     map['created_at'] = Variable<String>(createdAt);
     map['updated_at'] = Variable<String>(updatedAt);
@@ -11080,6 +11112,9 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
       originNotes: originNotes == null && nullToAbsent
           ? const Value.absent()
           : Value(originNotes),
+      observationId: observationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(observationId),
       createdBy: Value(createdBy),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -11104,6 +11139,7 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
       zoneId: serializer.fromJson<String?>(json['zone_id']),
       isOnProperty: serializer.fromJson<int>(json['is_on_property']),
       originNotes: serializer.fromJson<String?>(json['origin_notes']),
+      observationId: serializer.fromJson<String?>(json['observation_id']),
       createdBy: serializer.fromJson<String>(json['created_by']),
       createdAt: serializer.fromJson<String>(json['created_at']),
       updatedAt: serializer.fromJson<String>(json['updated_at']),
@@ -11123,6 +11159,7 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
       'zone_id': serializer.toJson<String?>(zoneId),
       'is_on_property': serializer.toJson<int>(isOnProperty),
       'origin_notes': serializer.toJson<String?>(originNotes),
+      'observation_id': serializer.toJson<String?>(observationId),
       'created_by': serializer.toJson<String>(createdBy),
       'created_at': serializer.toJson<String>(createdAt),
       'updated_at': serializer.toJson<String>(updatedAt),
@@ -11140,6 +11177,7 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
     Value<String?> zoneId = const Value.absent(),
     int? isOnProperty,
     Value<String?> originNotes = const Value.absent(),
+    Value<String?> observationId = const Value.absent(),
     String? createdBy,
     String? createdAt,
     String? updatedAt,
@@ -11154,6 +11192,9 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
     zoneId: zoneId.present ? zoneId.value : this.zoneId,
     isOnProperty: isOnProperty ?? this.isOnProperty,
     originNotes: originNotes.present ? originNotes.value : this.originNotes,
+    observationId: observationId.present
+        ? observationId.value
+        : this.observationId,
     createdBy: createdBy ?? this.createdBy,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -11176,6 +11217,9 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
       originNotes: data.originNotes.present
           ? data.originNotes.value
           : this.originNotes,
+      observationId: data.observationId.present
+          ? data.observationId.value
+          : this.observationId,
       createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -11195,6 +11239,7 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
           ..write('zoneId: $zoneId, ')
           ..write('isOnProperty: $isOnProperty, ')
           ..write('originNotes: $originNotes, ')
+          ..write('observationId: $observationId, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -11214,6 +11259,7 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
     zoneId,
     isOnProperty,
     originNotes,
+    observationId,
     createdBy,
     createdAt,
     updatedAt,
@@ -11232,6 +11278,7 @@ class SourcePlant extends DataClass implements Insertable<SourcePlant> {
           other.zoneId == this.zoneId &&
           other.isOnProperty == this.isOnProperty &&
           other.originNotes == this.originNotes &&
+          other.observationId == this.observationId &&
           other.createdBy == this.createdBy &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -11248,6 +11295,7 @@ class SourcePlantsCompanion extends UpdateCompanion<SourcePlant> {
   final Value<String?> zoneId;
   final Value<int> isOnProperty;
   final Value<String?> originNotes;
+  final Value<String?> observationId;
   final Value<String> createdBy;
   final Value<String> createdAt;
   final Value<String> updatedAt;
@@ -11263,6 +11311,7 @@ class SourcePlantsCompanion extends UpdateCompanion<SourcePlant> {
     this.zoneId = const Value.absent(),
     this.isOnProperty = const Value.absent(),
     this.originNotes = const Value.absent(),
+    this.observationId = const Value.absent(),
     this.createdBy = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -11279,6 +11328,7 @@ class SourcePlantsCompanion extends UpdateCompanion<SourcePlant> {
     this.zoneId = const Value.absent(),
     this.isOnProperty = const Value.absent(),
     this.originNotes = const Value.absent(),
+    this.observationId = const Value.absent(),
     required String createdBy,
     required String createdAt,
     required String updatedAt,
@@ -11300,6 +11350,7 @@ class SourcePlantsCompanion extends UpdateCompanion<SourcePlant> {
     Expression<String>? zoneId,
     Expression<int>? isOnProperty,
     Expression<String>? originNotes,
+    Expression<String>? observationId,
     Expression<String>? createdBy,
     Expression<String>? createdAt,
     Expression<String>? updatedAt,
@@ -11316,6 +11367,7 @@ class SourcePlantsCompanion extends UpdateCompanion<SourcePlant> {
       if (zoneId != null) 'zone_id': zoneId,
       if (isOnProperty != null) 'is_on_property': isOnProperty,
       if (originNotes != null) 'origin_notes': originNotes,
+      if (observationId != null) 'observation_id': observationId,
       if (createdBy != null) 'created_by': createdBy,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -11334,6 +11386,7 @@ class SourcePlantsCompanion extends UpdateCompanion<SourcePlant> {
     Value<String?>? zoneId,
     Value<int>? isOnProperty,
     Value<String?>? originNotes,
+    Value<String?>? observationId,
     Value<String>? createdBy,
     Value<String>? createdAt,
     Value<String>? updatedAt,
@@ -11350,6 +11403,7 @@ class SourcePlantsCompanion extends UpdateCompanion<SourcePlant> {
       zoneId: zoneId ?? this.zoneId,
       isOnProperty: isOnProperty ?? this.isOnProperty,
       originNotes: originNotes ?? this.originNotes,
+      observationId: observationId ?? this.observationId,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -11388,6 +11442,9 @@ class SourcePlantsCompanion extends UpdateCompanion<SourcePlant> {
     if (originNotes.present) {
       map['origin_notes'] = Variable<String>(originNotes.value);
     }
+    if (observationId.present) {
+      map['observation_id'] = Variable<String>(observationId.value);
+    }
     if (createdBy.present) {
       map['created_by'] = Variable<String>(createdBy.value);
     }
@@ -11418,6 +11475,7 @@ class SourcePlantsCompanion extends UpdateCompanion<SourcePlant> {
           ..write('zoneId: $zoneId, ')
           ..write('isOnProperty: $isOnProperty, ')
           ..write('originNotes: $originNotes, ')
+          ..write('observationId: $observationId, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -12327,6 +12385,17 @@ class PropagationBatches extends Table
     requiredDuringInsert: false,
     $customConstraints: 'CHECK (method IN (\'water_rooting\', \'perlite_coir\', \'direct_stick\', \'flood_tray\', \'cold_moist_strat\', \'warm_strat\', \'scarification\', \'direct_sow\', \'other\'))',
   );
+  static const VerificationMeta _methodOtherMeta = const VerificationMeta(
+    'methodOther',
+  );
+  late final GeneratedColumn<String> methodOther = GeneratedColumn<String>(
+    'method_other',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   static const VerificationMeta _containerMeta = const VerificationMeta(
     'container',
   );
@@ -12451,6 +12520,7 @@ class PropagationBatches extends Table
     batchCode,
     startedOn,
     method,
+    methodOther,
     container,
     medium,
     location,
@@ -12521,6 +12591,15 @@ class PropagationBatches extends Table
       context.handle(
         _methodMeta,
         method.isAcceptableOrUnknown(data['method']!, _methodMeta),
+      );
+    }
+    if (data.containsKey('method_other')) {
+      context.handle(
+        _methodOtherMeta,
+        methodOther.isAcceptableOrUnknown(
+          data['method_other']!,
+          _methodOtherMeta,
+        ),
       );
     }
     if (data.containsKey('container')) {
@@ -12638,6 +12717,10 @@ class PropagationBatches extends Table
         DriftSqlType.string,
         data['${effectivePrefix}method'],
       ),
+      methodOther: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}method_other'],
+      ),
       container: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}container'],
@@ -12705,6 +12788,9 @@ class PropagationBatche extends DataClass
   /// user-facing label, e.g. 'M-07'
   final String startedOn;
   final String? method;
+  final String? methodOther;
+
+  /// the blank behind 'other' (D-029)
   final String? container;
 
   /// 'Stuewe D40 deepot'
@@ -12728,6 +12814,7 @@ class PropagationBatche extends DataClass
     this.batchCode,
     required this.startedOn,
     this.method,
+    this.methodOther,
     this.container,
     this.medium,
     this.location,
@@ -12757,6 +12844,9 @@ class PropagationBatche extends DataClass
     map['started_on'] = Variable<String>(startedOn);
     if (!nullToAbsent || method != null) {
       map['method'] = Variable<String>(method);
+    }
+    if (!nullToAbsent || methodOther != null) {
+      map['method_other'] = Variable<String>(methodOther);
     }
     if (!nullToAbsent || container != null) {
       map['container'] = Variable<String>(container);
@@ -12805,6 +12895,9 @@ class PropagationBatche extends DataClass
       method: method == null && nullToAbsent
           ? const Value.absent()
           : Value(method),
+      methodOther: methodOther == null && nullToAbsent
+          ? const Value.absent()
+          : Value(methodOther),
       container: container == null && nullToAbsent
           ? const Value.absent()
           : Value(container),
@@ -12850,6 +12943,7 @@ class PropagationBatche extends DataClass
       batchCode: serializer.fromJson<String?>(json['batch_code']),
       startedOn: serializer.fromJson<String>(json['started_on']),
       method: serializer.fromJson<String?>(json['method']),
+      methodOther: serializer.fromJson<String?>(json['method_other']),
       container: serializer.fromJson<String?>(json['container']),
       medium: serializer.fromJson<String?>(json['medium']),
       location: serializer.fromJson<String?>(json['location']),
@@ -12874,6 +12968,7 @@ class PropagationBatche extends DataClass
       'batch_code': serializer.toJson<String?>(batchCode),
       'started_on': serializer.toJson<String>(startedOn),
       'method': serializer.toJson<String?>(method),
+      'method_other': serializer.toJson<String?>(methodOther),
       'container': serializer.toJson<String?>(container),
       'medium': serializer.toJson<String?>(medium),
       'location': serializer.toJson<String?>(location),
@@ -12896,6 +12991,7 @@ class PropagationBatche extends DataClass
     Value<String?> batchCode = const Value.absent(),
     String? startedOn,
     Value<String?> method = const Value.absent(),
+    Value<String?> methodOther = const Value.absent(),
     Value<String?> container = const Value.absent(),
     Value<String?> medium = const Value.absent(),
     Value<String?> location = const Value.absent(),
@@ -12917,6 +13013,7 @@ class PropagationBatche extends DataClass
     batchCode: batchCode.present ? batchCode.value : this.batchCode,
     startedOn: startedOn ?? this.startedOn,
     method: method.present ? method.value : this.method,
+    methodOther: methodOther.present ? methodOther.value : this.methodOther,
     container: container.present ? container.value : this.container,
     medium: medium.present ? medium.value : this.medium,
     location: location.present ? location.value : this.location,
@@ -12942,6 +13039,9 @@ class PropagationBatche extends DataClass
       batchCode: data.batchCode.present ? data.batchCode.value : this.batchCode,
       startedOn: data.startedOn.present ? data.startedOn.value : this.startedOn,
       method: data.method.present ? data.method.value : this.method,
+      methodOther: data.methodOther.present
+          ? data.methodOther.value
+          : this.methodOther,
       container: data.container.present ? data.container.value : this.container,
       medium: data.medium.present ? data.medium.value : this.medium,
       location: data.location.present ? data.location.value : this.location,
@@ -12970,6 +13070,7 @@ class PropagationBatche extends DataClass
           ..write('batchCode: $batchCode, ')
           ..write('startedOn: $startedOn, ')
           ..write('method: $method, ')
+          ..write('methodOther: $methodOther, ')
           ..write('container: $container, ')
           ..write('medium: $medium, ')
           ..write('location: $location, ')
@@ -12994,6 +13095,7 @@ class PropagationBatche extends DataClass
     batchCode,
     startedOn,
     method,
+    methodOther,
     container,
     medium,
     location,
@@ -13017,6 +13119,7 @@ class PropagationBatche extends DataClass
           other.batchCode == this.batchCode &&
           other.startedOn == this.startedOn &&
           other.method == this.method &&
+          other.methodOther == this.methodOther &&
           other.container == this.container &&
           other.medium == this.medium &&
           other.location == this.location &&
@@ -13038,6 +13141,7 @@ class PropagationBatchesCompanion extends UpdateCompanion<PropagationBatche> {
   final Value<String?> batchCode;
   final Value<String> startedOn;
   final Value<String?> method;
+  final Value<String?> methodOther;
   final Value<String?> container;
   final Value<String?> medium;
   final Value<String?> location;
@@ -13058,6 +13162,7 @@ class PropagationBatchesCompanion extends UpdateCompanion<PropagationBatche> {
     this.batchCode = const Value.absent(),
     this.startedOn = const Value.absent(),
     this.method = const Value.absent(),
+    this.methodOther = const Value.absent(),
     this.container = const Value.absent(),
     this.medium = const Value.absent(),
     this.location = const Value.absent(),
@@ -13079,6 +13184,7 @@ class PropagationBatchesCompanion extends UpdateCompanion<PropagationBatche> {
     this.batchCode = const Value.absent(),
     required String startedOn,
     this.method = const Value.absent(),
+    this.methodOther = const Value.absent(),
     this.container = const Value.absent(),
     this.medium = const Value.absent(),
     this.location = const Value.absent(),
@@ -13105,6 +13211,7 @@ class PropagationBatchesCompanion extends UpdateCompanion<PropagationBatche> {
     Expression<String>? batchCode,
     Expression<String>? startedOn,
     Expression<String>? method,
+    Expression<String>? methodOther,
     Expression<String>? container,
     Expression<String>? medium,
     Expression<String>? location,
@@ -13126,6 +13233,7 @@ class PropagationBatchesCompanion extends UpdateCompanion<PropagationBatche> {
       if (batchCode != null) 'batch_code': batchCode,
       if (startedOn != null) 'started_on': startedOn,
       if (method != null) 'method': method,
+      if (methodOther != null) 'method_other': methodOther,
       if (container != null) 'container': container,
       if (medium != null) 'medium': medium,
       if (location != null) 'location': location,
@@ -13149,6 +13257,7 @@ class PropagationBatchesCompanion extends UpdateCompanion<PropagationBatche> {
     Value<String?>? batchCode,
     Value<String>? startedOn,
     Value<String?>? method,
+    Value<String?>? methodOther,
     Value<String?>? container,
     Value<String?>? medium,
     Value<String?>? location,
@@ -13170,6 +13279,7 @@ class PropagationBatchesCompanion extends UpdateCompanion<PropagationBatche> {
       batchCode: batchCode ?? this.batchCode,
       startedOn: startedOn ?? this.startedOn,
       method: method ?? this.method,
+      methodOther: methodOther ?? this.methodOther,
       container: container ?? this.container,
       medium: medium ?? this.medium,
       location: location ?? this.location,
@@ -13208,6 +13318,9 @@ class PropagationBatchesCompanion extends UpdateCompanion<PropagationBatche> {
     }
     if (method.present) {
       map['method'] = Variable<String>(method.value);
+    }
+    if (methodOther.present) {
+      map['method_other'] = Variable<String>(methodOther.value);
     }
     if (container.present) {
       map['container'] = Variable<String>(container.value);
@@ -13258,6 +13371,7 @@ class PropagationBatchesCompanion extends UpdateCompanion<PropagationBatche> {
           ..write('batchCode: $batchCode, ')
           ..write('startedOn: $startedOn, ')
           ..write('method: $method, ')
+          ..write('methodOther: $methodOther, ')
           ..write('container: $container, ')
           ..write('medium: $medium, ')
           ..write('location: $location, ')
@@ -36244,6 +36358,24 @@ final class $ObservationsReferences
     );
   }
 
+  static MultiTypedResultKey<SourcePlants, List<SourcePlant>>
+  _sourcePlantsRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.sourcePlants,
+    aliasName: 'observations__id__source_plants__observation_id',
+  );
+
+  $SourcePlantsProcessedTableManager get sourcePlantsRefs {
+    final manager = $SourcePlantsTableManager(
+      $_db,
+      $_db.sourcePlants,
+    ).filter((f) => f.observationId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_sourcePlantsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<ConditionLogs, List<ConditionLog>>
   _conditionLogsRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
     db.conditionLogs,
@@ -36513,6 +36645,31 @@ class $ObservationsFilterComposer
           }) => $IdentificationSuggestionsFilterComposer(
             $db: $db,
             $table: $db.identificationSuggestions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> sourcePlantsRefs(
+    Expression<bool> Function($SourcePlantsFilterComposer f) f,
+  ) {
+    final $SourcePlantsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.sourcePlants,
+      getReferencedColumn: (t) => t.observationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $SourcePlantsFilterComposer(
+            $db: $db,
+            $table: $db.sourcePlants,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -37019,6 +37176,31 @@ class $ObservationsAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> sourcePlantsRefs<T extends Object>(
+    Expression<T> Function($SourcePlantsAnnotationComposer a) f,
+  ) {
+    final $SourcePlantsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.sourcePlants,
+      getReferencedColumn: (t) => t.observationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $SourcePlantsAnnotationComposer(
+            $db: $db,
+            $table: $db.sourcePlants,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> conditionLogsRefs<T extends Object>(
     Expression<T> Function($ConditionLogsAnnotationComposer a) f,
   ) {
@@ -37065,6 +37247,7 @@ class $ObservationsTableManager
             bool taxonId,
             bool envContextId,
             bool identificationSuggestionsRefs,
+            bool sourcePlantsRefs,
             bool conditionLogsRefs,
           })
         > {
@@ -37213,6 +37396,7 @@ class $ObservationsTableManager
                 taxonId = false,
                 envContextId = false,
                 identificationSuggestionsRefs = false,
+                sourcePlantsRefs = false,
                 conditionLogsRefs = false,
               }) {
                 return PrefetchHooks(
@@ -37220,6 +37404,7 @@ class $ObservationsTableManager
                   explicitlyWatchedTables: [
                     if (identificationSuggestionsRefs)
                       db.identificationSuggestions,
+                    if (sourcePlantsRefs) db.sourcePlants,
                     if (conditionLogsRefs) db.conditionLogs,
                   ],
                   addJoins:
@@ -37319,6 +37504,27 @@ class $ObservationsTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (sourcePlantsRefs)
+                        await $_getPrefetchedData<
+                          Observation,
+                          Observations,
+                          SourcePlant
+                        >(
+                          currentTable: table,
+                          referencedTable: $ObservationsReferences
+                              ._sourcePlantsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $ObservationsReferences(
+                                db,
+                                table,
+                                p0,
+                              ).sourcePlantsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.observationId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (conditionLogsRefs)
                         await $_getPrefetchedData<
                           Observation,
@@ -37367,6 +37573,7 @@ typedef $ObservationsProcessedTableManager =
         bool taxonId,
         bool envContextId,
         bool identificationSuggestionsRefs,
+        bool sourcePlantsRefs,
         bool conditionLogsRefs,
       })
     >;
@@ -38042,6 +38249,7 @@ typedef $SourcePlantsCreateCompanionBuilder = SourcePlantsCompanion Function({
   Value<String?> zoneId,
   Value<int> isOnProperty,
   Value<String?> originNotes,
+  Value<String?> observationId,
   required String createdBy,
   required String createdAt,
   required String updatedAt,
@@ -38058,6 +38266,7 @@ typedef $SourcePlantsUpdateCompanionBuilder = SourcePlantsCompanion Function({
   Value<String?> zoneId,
   Value<int> isOnProperty,
   Value<String?> originNotes,
+  Value<String?> observationId,
   Value<String> createdBy,
   Value<String> createdAt,
   Value<String> updatedAt,
@@ -38097,6 +38306,23 @@ final class $SourcePlantsReferences
       $_db.zones,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_zoneIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static Observations _observationIdTable(_$FieldNotesDb db) => db.observations
+      .createAlias('source_plants__observation_id__observations__id');
+
+  $ObservationsProcessedTableManager? get observationId {
+    final $_column = $_itemColumn<String>('observation_id');
+    if ($_column == null) return null;
+    final manager = $ObservationsTableManager(
+      $_db,
+      $_db.observations,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_observationIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -38226,6 +38452,29 @@ class $SourcePlantsFilterComposer
           }) => $ZonesFilterComposer(
             $db: $db,
             $table: $db.zones,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ObservationsFilterComposer get observationId {
+    final $ObservationsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.observationId,
+      referencedTable: $db.observations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ObservationsFilterComposer(
+            $db: $db,
+            $table: $db.observations,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -38370,6 +38619,29 @@ class $SourcePlantsOrderingComposer
     );
     return composer;
   }
+
+  $ObservationsOrderingComposer get observationId {
+    final $ObservationsOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.observationId,
+      referencedTable: $db.observations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ObservationsOrderingComposer(
+            $db: $db,
+            $table: $db.observations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $SourcePlantsAnnotationComposer
@@ -38466,6 +38738,29 @@ class $SourcePlantsAnnotationComposer
     return composer;
   }
 
+  $ObservationsAnnotationComposer get observationId {
+    final $ObservationsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.observationId,
+      referencedTable: $db.observations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ObservationsAnnotationComposer(
+            $db: $db,
+            $table: $db.observations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
   Expression<T> collectionEventsRefs<T extends Object>(
     Expression<T> Function($CollectionEventsAnnotationComposer a) f,
   ) {
@@ -38508,6 +38803,7 @@ class $SourcePlantsTableManager
           PrefetchHooks Function({
             bool taxonId,
             bool zoneId,
+            bool observationId,
             bool collectionEventsRefs,
           })
         > {
@@ -38533,6 +38829,7 @@ class $SourcePlantsTableManager
                 Value<String?> zoneId = const Value.absent(),
                 Value<int> isOnProperty = const Value.absent(),
                 Value<String?> originNotes = const Value.absent(),
+                Value<String?> observationId = const Value.absent(),
                 Value<String> createdBy = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
                 Value<String> updatedAt = const Value.absent(),
@@ -38548,6 +38845,7 @@ class $SourcePlantsTableManager
                 zoneId: zoneId,
                 isOnProperty: isOnProperty,
                 originNotes: originNotes,
+                observationId: observationId,
                 createdBy: createdBy,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -38565,6 +38863,7 @@ class $SourcePlantsTableManager
                 Value<String?> zoneId = const Value.absent(),
                 Value<int> isOnProperty = const Value.absent(),
                 Value<String?> originNotes = const Value.absent(),
+                Value<String?> observationId = const Value.absent(),
                 required String createdBy,
                 required String createdAt,
                 required String updatedAt,
@@ -38580,6 +38879,7 @@ class $SourcePlantsTableManager
                 zoneId: zoneId,
                 isOnProperty: isOnProperty,
                 originNotes: originNotes,
+                observationId: observationId,
                 createdBy: createdBy,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -38596,6 +38896,7 @@ class $SourcePlantsTableManager
               ({
                 taxonId = false,
                 zoneId = false,
+                observationId = false,
                 collectionEventsRefs = false,
               }) {
                 return PrefetchHooks(
@@ -38638,6 +38939,17 @@ class $SourcePlantsTableManager
                                 ._zoneIdTable(db),
                             referencedColumn: $SourcePlantsReferences
                                 ._zoneIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (observationId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.observationId,
+                            referencedTable: $SourcePlantsReferences
+                                ._observationIdTable(db),
+                            referencedColumn: $SourcePlantsReferences
+                                ._observationIdTable(db)
                                 .id,
                           ) as T;
                         }
@@ -38690,6 +39002,7 @@ typedef $SourcePlantsProcessedTableManager =
       PrefetchHooks Function({
         bool taxonId,
         bool zoneId,
+        bool observationId,
         bool collectionEventsRefs,
       })
     >;
@@ -39294,6 +39607,7 @@ typedef $PropagationBatchesCreateCompanionBuilder =
       Value<String?> batchCode,
       required String startedOn,
       Value<String?> method,
+      Value<String?> methodOther,
       Value<String?> container,
       Value<String?> medium,
       Value<String?> location,
@@ -39316,6 +39630,7 @@ typedef $PropagationBatchesUpdateCompanionBuilder =
       Value<String?> batchCode,
       Value<String> startedOn,
       Value<String?> method,
+      Value<String?> methodOther,
       Value<String?> container,
       Value<String?> medium,
       Value<String?> location,
@@ -39439,6 +39754,11 @@ class $PropagationBatchesFilterComposer
 
   ColumnFilters<String> get method => $composableBuilder(
     column: $table.method,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get methodOther => $composableBuilder(
+    column: $table.methodOther,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -39628,6 +39948,11 @@ class $PropagationBatchesOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get methodOther => $composableBuilder(
+    column: $table.methodOther,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get container => $composableBuilder(
     column: $table.container,
     builder: (column) => ColumnOrderings(column),
@@ -39755,6 +40080,11 @@ class $PropagationBatchesAnnotationComposer
 
   GeneratedColumn<String> get method =>
       $composableBuilder(column: $table.method, builder: (column) => column);
+
+  GeneratedColumn<String> get methodOther => $composableBuilder(
+    column: $table.methodOther,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get container =>
       $composableBuilder(column: $table.container, builder: (column) => column);
@@ -39930,6 +40260,7 @@ class $PropagationBatchesTableManager
                 Value<String?> batchCode = const Value.absent(),
                 Value<String> startedOn = const Value.absent(),
                 Value<String?> method = const Value.absent(),
+                Value<String?> methodOther = const Value.absent(),
                 Value<String?> container = const Value.absent(),
                 Value<String?> medium = const Value.absent(),
                 Value<String?> location = const Value.absent(),
@@ -39950,6 +40281,7 @@ class $PropagationBatchesTableManager
                 batchCode: batchCode,
                 startedOn: startedOn,
                 method: method,
+                methodOther: methodOther,
                 container: container,
                 medium: medium,
                 location: location,
@@ -39972,6 +40304,7 @@ class $PropagationBatchesTableManager
                 Value<String?> batchCode = const Value.absent(),
                 required String startedOn,
                 Value<String?> method = const Value.absent(),
+                Value<String?> methodOther = const Value.absent(),
                 Value<String?> container = const Value.absent(),
                 Value<String?> medium = const Value.absent(),
                 Value<String?> location = const Value.absent(),
@@ -39992,6 +40325,7 @@ class $PropagationBatchesTableManager
                 batchCode: batchCode,
                 startedOn: startedOn,
                 method: method,
+                methodOther: methodOther,
                 container: container,
                 medium: medium,
                 location: location,

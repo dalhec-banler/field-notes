@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
+import '../../services/lineage.dart';
 import '../../widgets/nativity_chip.dart';
 import '../../services/survival.dart';
 import '../../theme/tokens.dart';
@@ -70,12 +71,20 @@ class PlantingsScreen extends StatelessWidget {
   }
 
   Future<void> _newPlanting(BuildContext context) async {
+    // Stock from the bench links back to its batch (D-029); stock from a
+    // nursery names the nursery. Batches from every bench, since the
+    // trees rarely go in where they were grown.
+    final batches = await plantableBatches(db);
+    if (!context.mounted) return;
     TaxaData? taxon;
     var stockSource = 'own_propagation';
     var protection = 'welded_wire_cage';
     var plantedOn = DateTime.now();
+    BatchLineage? batch;
     final countController = TextEditingController();
     final notesController = TextEditingController();
+    final vendorController = TextEditingController();
+    final lotController = TextEditingController();
     // Validated inside the sheet (audit M12): the button stays off until the
     // count is a whole number above zero, so nothing typed is ever discarded.
     int? parsedCount() {
@@ -105,7 +114,7 @@ class PlantingsScreen extends StatelessWidget {
               SpeciesField(
                 db: db,
                 label: 'Species',
-                onSelected: (t) => taxon = t,
+                onSelected: (t) => setSheet(() => taxon = t),
               ),
               SizedBox(height: 12),
               TextField(
@@ -130,33 +139,71 @@ class PlantingsScreen extends StatelessWidget {
                   border: OutlineInputBorder(),
                 ),
                 items: [
-                  DropdownMenuItem(
-                    value: 'own_propagation',
-                    child: Text('Own propagation'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'purchased_container',
-                    child: Text('Purchased container'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'purchased_bareroot',
-                    child: Text('Purchased bareroot'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'direct_seed',
-                    child: Text('Direct seed'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'volunteer',
-                    child: Text('Volunteer'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'transplant_onsite',
-                    child: Text('Transplant on-site'),
-                  ),
+                  for (final (v, label) in stockSources)
+                    DropdownMenuItem(value: v, child: Text(label)),
                 ],
-                onChanged: (v) => stockSource = v ?? stockSource,
+                onChanged: (v) => setSheet(() {
+                  stockSource = v ?? stockSource;
+                  if (stockSource != 'own_propagation') batch = null;
+                }),
               ),
+              if (stockSource == 'own_propagation') ...[
+                SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: batch?.batch.id,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'From batch',
+                    helperText: batches.isEmpty
+                        ? 'No batch is on a bench right now'
+                        : null,
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: null,
+                      child: Text('Not from a batch'),
+                    ),
+                    for (final l in batches)
+                      DropdownMenuItem(
+                        value: l.batch.id,
+                        child: Text(
+                          '${l.batch.batchCode != null ? '${l.batch.batchCode} · ' : ''}'
+                          '${l.species} · ${l.benchName} · '
+                          '${l.batch.countCurrent ?? l.batch.countStarted ?? '?'} left',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) => setSheet(() {
+                    batch = v == null
+                        ? null
+                        : batches.firstWhere((l) => l.batch.id == v);
+                    // The batch knows its species; save the typing.
+                    if (batch?.taxon != null && taxon == null) {
+                      taxon = batch!.taxon;
+                    }
+                  }),
+                ),
+              ],
+              if (stockSource.startsWith('purchased')) ...[
+                SizedBox(height: 12),
+                TextField(
+                  controller: vendorController,
+                  decoration: InputDecoration(
+                    labelText: 'Nursery',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                SizedBox(height: 12),
+                TextField(
+                  controller: lotController,
+                  decoration: InputDecoration(
+                    labelText: 'Lot / tag code (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
               SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: protection,
@@ -227,27 +274,43 @@ class PlantingsScreen extends StatelessWidget {
     final count = parsedCount();
     if (count == null) return; // unreachable: the button was disabled
     final now = nowUtcIso();
+    String? text(TextEditingController c) =>
+        c.text.trim().isEmpty ? null : c.text.trim();
+    final linked = stockSource == 'own_propagation' ? batch : null;
     await db
         .into(db.plantingEvents)
         .insert(
           PlantingEventsCompanion.insert(
             id: newId(),
             propertyId: property.id,
-            taxonId: Value(taxon?.id),
+            taxonId: Value(taxon?.id ?? linked?.batch.taxonId),
             plantedOn: plantedOn.toIso8601String().substring(0, 10),
             stockSource: stockSource,
+            batchId: Value(linked?.batch.id),
+            vendor: Value(
+              stockSource.startsWith('purchased')
+                  ? text(vendorController)
+                  : null,
+            ),
+            lotCode: Value(
+              stockSource.startsWith('purchased') ? text(lotController) : null,
+            ),
             countPlanted: count,
             protection: Value(protection),
-            plantingNotes: Value(
-              notesController.text.trim().isEmpty
-                  ? null
-                  : notesController.text.trim(),
-            ),
+            plantingNotes: Value(text(notesController)),
             createdBy: 'local',
             createdAt: now,
             updatedAt: now,
           ),
         );
+    if (linked != null) {
+      await recordPlantedOut(
+        db,
+        linked.batch,
+        propertyId: property.id,
+        count: count,
+      );
+    }
   }
 }
 

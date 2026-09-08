@@ -1,15 +1,19 @@
 import 'package:drift/drift.dart' hide Column;
-
-import '../../theme/tokens.dart';
-
 import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
+import '../../services/lineage.dart';
+import '../../theme/tokens.dart';
 import '../../widgets/nativity_chip.dart';
+import '../../widgets/press.dart';
+import '../../widgets/record_picker.dart';
 import '../../widgets/species_field.dart';
 import 'batch_detail_screen.dart';
 
-/// Propagation (spec §7.6): batches with counts and status.
+/// Propagation (spec §7.6, D-029): a batch lives where the bench is, and
+/// this list reads from wherever you stand — the batches on the bench
+/// here, the ones whose material was collected here, and the ones that
+/// went into the ground here.
 class PropagationScreen extends StatelessWidget {
   const PropagationScreen({
     super.key,
@@ -24,10 +28,6 @@ class PropagationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final query = (db.select(db.propagationBatches)
-      ..where((b) => b.propertyId.equals(property.id))
-      ..where((b) => b.deletedAt.isNull())
-      ..orderBy([(b) => OrderingTerm.desc(b.startedOn)]));
     return Scaffold(
       appBar: embedded ? null : AppBar(title: const Text('Propagation')),
       floatingActionButton: FloatingActionButton.extended(
@@ -35,18 +35,21 @@ class PropagationScreen extends StatelessWidget {
         label: const Text('New batch'),
         onPressed: () => _newBatch(context),
       ),
-      body: StreamBuilder<List<PropagationBatche>>(
-        stream: query.watch(),
+      body: StreamBuilder<GrowGroups>(
+        stream: db
+            .changes(lineageTables(db))
+            .asyncMap((_) => growGroupsFor(db, property.id)),
         builder: (context, snapshot) {
-          final batches = snapshot.data ?? const [];
-          if (batches.isEmpty) {
+          final g = snapshot.data;
+          if (g == null) return const SizedBox.shrink();
+          if (g.isEmpty) {
             return Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Text(
                   'No batches on the bench yet. Start one from seed or '
-                  'cuttings and its whole story — sowing to planting out — '
-                  'collects here.',
+                  'cuttings and its whole story — where it came from to '
+                  'where it went — collects here.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: Type.serif,
@@ -58,23 +61,76 @@ class PropagationScreen extends StatelessWidget {
               ),
             );
           }
-          return ListView.builder(
-            padding: EdgeInsets.only(bottom: 140),
-            itemCount: batches.length,
-            itemBuilder: (context, i) => _BatchTile(db: db, batch: batches[i]),
+          return ListView(
+            padding: const EdgeInsets.only(bottom: 140),
+            children: [
+              _section(
+                'On the bench here',
+                g.onBench,
+                empty: 'Nothing on a bench at ${property.name}.',
+                line: (l) => null,
+              ),
+              if (g.collectedHere.isNotEmpty)
+                _section(
+                  'Collected from here',
+                  g.collectedHere,
+                  line: (l) => 'bench · ${l.benchName}',
+                ),
+              if (g.plantedHere.isNotEmpty)
+                _section(
+                  'Planted out here',
+                  g.plantedHere,
+                  line: (l) => 'bench · ${l.benchName}',
+                ),
+            ],
           );
         },
       ),
     );
   }
 
+  Widget _section(
+    String title,
+    List<BatchLineage> rows, {
+    String? empty,
+    required String? Function(BatchLineage) line,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(Metrics.gutter, 16, Metrics.gutter, 4),
+          child: MonoLabel(title.toUpperCase(), size: 9.5, spacing: 2),
+        ),
+        if (rows.isEmpty && empty != null)
+          Padding(
+            padding: EdgeInsets.fromLTRB(Metrics.gutter, 8, Metrics.gutter, 8),
+            child: Text(
+              empty,
+              style: TextStyle(fontFamily: Type.serif, color: Press.inkSoft),
+            ),
+          ),
+        for (final l in rows) _BatchTile(db: db, lineage: l, extra: line(l)),
+      ],
+    );
+  }
+
   Future<void> _newBatch(BuildContext context) async {
+    final places = await allProperties(db);
+    if (!context.mounted) return;
     TaxaData? taxon;
     var method = 'perlite_coir';
+    var material = 'hardwood_cutting';
+    // Where the material came from: one of the places, or ordered.
+    String? originId = property.id;
+    PickedRecord? record;
     final codeController = TextEditingController();
     final countController = TextEditingController();
     final containerController = TextEditingController();
+    final mixController = TextEditingController();
+    final methodOtherController = TextEditingController();
     final sourceLabelController = TextEditingController();
+    final vendorController = TextEditingController();
 
     // Validated inside the sheet (audit M12): a batch needs at least a
     // species or a code, or it can never be found again.
@@ -97,6 +153,13 @@ class PropagationScreen extends StatelessWidget {
               Text(
                 'New propagation batch',
                 style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 4),
+              MonoLabel(
+                'bench · ${property.name}',
+                size: 9,
+                spacing: 1.5,
+                opacity: 0.7,
               ),
               const SizedBox(height: 12),
               SpeciesField(
@@ -130,43 +193,23 @@ class PropagationScreen extends StatelessWidget {
                   labelText: 'Method',
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'water_rooting',
-                    child: Text('Water rooting'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'perlite_coir',
-                    child: Text('Perlite/coir'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'direct_stick',
-                    child: Text('Direct stick'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'flood_tray',
-                    child: Text('Flood tray'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'cold_moist_strat',
-                    child: Text('Cold moist stratification'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'warm_strat',
-                    child: Text('Warm stratification'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'scarification',
-                    child: Text('Scarification'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'direct_sow',
-                    child: Text('Direct sow'),
-                  ),
-                  DropdownMenuItem(value: 'other', child: Text('Other')),
+                items: [
+                  for (final (v, label) in propagationMethods)
+                    DropdownMenuItem(value: v, child: Text(label)),
                 ],
-                onChanged: (v) => method = v ?? method,
+                onChanged: (v) => setSheet(() => method = v ?? method),
               ),
+              if (method == 'other') ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: methodOtherController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Which method?',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               TextField(
                 controller: containerController,
@@ -177,15 +220,97 @@ class PropagationScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: sourceLabelController,
+                controller: mixController,
                 decoration: const InputDecoration(
-                  labelText:
-                      'Mother plant (optional, e.g. Riverbank willow #3)',
-                  helperText:
-                      'Creates the source plant + collection event for lineage',
+                  labelText: 'Soil mix (e.g. 50/50 perlite and coir)',
                   border: OutlineInputBorder(),
                 ),
               ),
+              const SizedBox(height: 20),
+              MonoLabel('WHERE THE MATERIAL CAME FROM', size: 9.5, spacing: 2),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                initialValue: material,
+                decoration: const InputDecoration(
+                  labelText: 'Material',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final (v, label) in materialTypes)
+                    DropdownMenuItem(value: v, child: Text(label)),
+                ],
+                onChanged: (v) => material = v ?? material,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String?>(
+                initialValue: originId,
+                decoration: const InputDecoration(
+                  labelText: 'From',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final p in places)
+                    DropdownMenuItem(value: p.id, child: Text(p.name)),
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('Ordered / nursery'),
+                  ),
+                ],
+                onChanged: (v) => setSheet(() {
+                  originId = v;
+                  record = null;
+                }),
+              ),
+              const SizedBox(height: 12),
+              if (originId == null)
+                TextField(
+                  controller: vendorController,
+                  decoration: const InputDecoration(
+                    labelText: 'Vendor (e.g. Sheffield\'s Seed Co)',
+                    border: OutlineInputBorder(),
+                  ),
+                )
+              else ...[
+                TextField(
+                  controller: sourceLabelController,
+                  decoration: const InputDecoration(
+                    labelText: 'Mother plant (e.g. Riverbank willow #3)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // The link back to the ground: the record you found it as.
+                Row(
+                  children: [
+                    Expanded(
+                      child: record == null
+                          ? MonoLabel(
+                              'no record linked',
+                              size: 9.5,
+                              opacity: 0.6,
+                            )
+                          : MonoLabel(
+                              'record · ${record!.label}',
+                              size: 9.5,
+                              color: Press.ink,
+                            ),
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.place_outlined, size: 18),
+                      label: Text(record == null ? 'LINK A RECORD' : 'CHANGE'),
+                      onPressed: () async {
+                        final picked = await showRecordPicker(
+                          context,
+                          db: db,
+                          propertyId: originId!,
+                          taxonId: taxon?.id,
+                        );
+                        if (picked != null) setSheet(() => record = picked);
+                      },
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               SizedBox(
                 height: 56,
@@ -205,43 +330,66 @@ class PropagationScreen extends StatelessWidget {
     final now = nowUtcIso();
     final today = now.substring(0, 10);
     final count = int.tryParse(countController.text.trim());
+    final species = taxon?.commonName ?? taxon?.scientificName;
 
     // Lineage chain: source plant → collection event → batch (spec §4.7).
-    String? collectionEventId;
-    final sourceLabel = sourceLabelController.text.trim();
-    if (sourceLabel.isNotEmpty) {
-      final sourcePlantId = newId();
-      await db
-          .into(db.sourcePlants)
-          .insert(
-            SourcePlantsCompanion.insert(
-              id: sourcePlantId,
-              propertyId: property.id,
-              taxonId: Value(taxon?.id),
-              label: sourceLabel,
-              createdBy: 'local',
-              createdAt: now,
-              updatedAt: now,
+    // The mother plant is filed where it grows (D-029); ordered material
+    // is filed on the bench, marked offsite, with the vendor as its origin.
+    final origin = originId == null
+        ? null
+        : places.firstWhere((p) => p.id == originId);
+    final ordered = origin == null;
+    final label = ordered
+        ? (vendorController.text.trim().isEmpty
+              ? 'Ordered'
+              : vendorController.text.trim())
+        : (sourceLabelController.text.trim().isEmpty
+              ? '${species ?? 'Mother plant'} · ${origin.name}'
+              : sourceLabelController.text.trim());
+    final sourcePlantId = newId();
+    await db
+        .into(db.sourcePlants)
+        .insert(
+          SourcePlantsCompanion.insert(
+            id: sourcePlantId,
+            propertyId: origin?.id ?? property.id,
+            taxonId: Value(taxon?.id),
+            label: label,
+            lat: Value(record?.lat),
+            lng: Value(record?.lng),
+            isOnProperty: Value(ordered ? 0 : 1),
+            originNotes: Value(
+              ordered && vendorController.text.trim().isNotEmpty
+                  ? vendorController.text.trim()
+                  : null,
             ),
-          );
-      collectionEventId = newId();
-      await db
-          .into(db.collectionEvents)
-          .insert(
-            CollectionEventsCompanion.insert(
-              id: collectionEventId,
-              propertyId: property.id,
-              sourcePlantId: Value(sourcePlantId),
-              collectedOn: today,
-              materialType: 'hardwood_cutting',
-              quantity: Value(count),
-              createdBy: 'local',
-              createdAt: now,
-              updatedAt: now,
-            ),
-          );
-    }
+            observationId: Value(record?.id),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    final collectionEventId = newId();
+    await db
+        .into(db.collectionEvents)
+        .insert(
+          CollectionEventsCompanion.insert(
+            id: collectionEventId,
+            propertyId: origin?.id ?? property.id,
+            sourcePlantId: Value(sourcePlantId),
+            collectedOn: today,
+            materialType: material,
+            quantity: Value(count),
+            lat: Value(record?.lat),
+            lng: Value(record?.lng),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
 
+    String? text(TextEditingController c) =>
+        c.text.trim().isEmpty ? null : c.text.trim();
     await db
         .into(db.propagationBatches)
         .insert(
@@ -250,18 +398,14 @@ class PropagationScreen extends StatelessWidget {
             propertyId: property.id,
             collectionEventId: Value(collectionEventId),
             taxonId: Value(taxon?.id),
-            batchCode: Value(
-              codeController.text.trim().isEmpty
-                  ? null
-                  : codeController.text.trim(),
-            ),
+            batchCode: Value(text(codeController)),
             startedOn: today,
             method: Value(method),
-            container: Value(
-              containerController.text.trim().isEmpty
-                  ? null
-                  : containerController.text.trim(),
+            methodOther: Value(
+              method == 'other' ? text(methodOtherController) : null,
             ),
+            container: Value(text(containerController)),
+            medium: Value(text(mixController)),
             countStarted: Value(count),
             countCurrent: Value(count),
             status: const Value('active'),
@@ -274,58 +418,50 @@ class PropagationScreen extends StatelessWidget {
 }
 
 class _BatchTile extends StatelessWidget {
-  const _BatchTile({required this.db, required this.batch});
+  const _BatchTile({required this.db, required this.lineage, this.extra});
 
   final FieldNotesDb db;
-  final PropagationBatche batch;
+  final BatchLineage lineage;
 
-  Future<TaxaData?> _taxon() async {
-    if (batch.taxonId == null) return null;
-    return (db.select(
-      db.taxa,
-    )..where((x) => x.id.equals(batch.taxonId!))).getSingleOrNull();
-  }
+  /// A second line for a batch listed away from its bench.
+  final String? extra;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<TaxaData?>(
-      future: _taxon(),
-      builder: (context, snapshot) {
-        final t = snapshot.data;
-        final species = snapshot.connectionState != ConnectionState.done
-            ? '…'
-            : t?.commonName ?? t?.scientificName ?? 'Unknown species';
-        return ListTile(
-          minTileHeight: 64,
-          leading: CircleAvatar(
-            child: Text(batch.batchCode?.substring(0, 1) ?? 'B'),
-          ),
-          title: Row(
-            children: [
-              Flexible(
-                child: Text(
-                  '${batch.batchCode != null ? '${batch.batchCode} · ' : ''}$species',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (t?.nativity != null) ...[
-                const SizedBox(width: 8),
-                NativityChip(t!.nativity),
-              ],
-            ],
-          ),
-          subtitle: Text(
-            '${batch.status ?? 'active'} · '
-            '${batch.countCurrent ?? batch.countStarted ?? '?'} of '
-            '${batch.countStarted ?? '?'} · started ${batch.startedOn}',
-          ),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => BatchDetailScreen(db: db, batchId: batch.id),
+    final batch = lineage.batch;
+    final t = lineage.taxon;
+    return ListTile(
+      minTileHeight: 64,
+      leading: CircleAvatar(
+        child: Text(batch.batchCode?.substring(0, 1) ?? 'B'),
+      ),
+      title: Row(
+        children: [
+          Flexible(
+            child: Text(
+              '${batch.batchCode != null ? '${batch.batchCode} · ' : ''}'
+              '${lineage.species}',
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-        );
-      },
+          if (t?.nativity != null) ...[
+            const SizedBox(width: 8),
+            NativityChip(t!.nativity),
+          ],
+        ],
+      ),
+      subtitle: Text(
+        '${batch.status ?? 'active'} · '
+        '${batch.countCurrent ?? batch.countStarted ?? '?'} of '
+        '${batch.countStarted ?? '?'} · started ${batch.startedOn}'
+        '${extra != null ? '\n$extra' : ''}',
+      ),
+      isThreeLine: extra != null,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => BatchDetailScreen(db: db, batchId: batch.id),
+        ),
+      ),
     );
   }
 }

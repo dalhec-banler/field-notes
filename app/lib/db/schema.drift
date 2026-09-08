@@ -258,6 +258,7 @@ CREATE TABLE source_plants (
   zone_id       TEXT REFERENCES zones(id),
   is_on_property INTEGER NOT NULL DEFAULT 1,
   origin_notes  TEXT,                -- 'Terlingua, 2019' — offsite provenance
+  observation_id TEXT REFERENCES observations(id), -- the record it was found as (D-029)
   created_by TEXT NOT NULL, created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL, deleted_at TEXT
 );
@@ -288,6 +289,7 @@ CREATE TABLE propagation_batches (
   method        TEXT CHECK (method IN
                  ('water_rooting','perlite_coir','direct_stick','flood_tray',
                   'cold_moist_strat','warm_strat','scarification','direct_sow','other')),
+  method_other  TEXT,                -- the blank behind 'other' (D-029)
   container     TEXT,                -- 'Stuewe D40 deepot'
   medium        TEXT,
   location      TEXT,                -- 'indoor bench, ebb-and-flow'

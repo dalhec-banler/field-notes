@@ -2,10 +2,13 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
+import '../../services/lineage.dart';
+import '../../services/map_jump.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/edit_sheet.dart';
 import '../../widgets/nativity_chip.dart';
 import '../../widgets/press.dart';
+import '../../widgets/record_picker.dart';
 
 /// Batch detail (spec §7.6): event log, status, counts, and the lineage view
 /// from mother plant → collection → batch → plantings.
@@ -25,6 +28,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
   TaxaData? _taxon;
   CollectionEvent? _collection;
   SourcePlant? _sourcePlant;
+  BatchLineage? _lineage;
   List<BatchEvent> _events = const [];
   List<PlantingEvent> _plantings = const [];
 
@@ -36,66 +40,30 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
 
   Future<void> _load() async {
     final db = widget.db;
-    final batch = await (db.select(
-      db.propagationBatches,
-    )..where((b) => b.id.equals(widget.batchId))).getSingleOrNull();
-    if (batch == null) {
+    final l = await lineageOf(db, widget.batchId);
+    if (l == null) {
       if (mounted) setState(() => _gone = true);
       return;
     }
-    TaxaData? taxon;
-    if (batch.taxonId != null) {
-      taxon = await (db.select(
-        db.taxa,
-      )..where((t) => t.id.equals(batch.taxonId!))).getSingleOrNull();
-    }
-    CollectionEvent? collection;
-    SourcePlant? sourcePlant;
-    if (batch.collectionEventId != null) {
-      collection = await (db.select(
-        db.collectionEvents,
-      )..where((c) => c.id.equals(batch.collectionEventId!))).getSingleOrNull();
-      if (collection?.sourcePlantId != null) {
-        sourcePlant =
-            await (db.select(db.sourcePlants)
-                  ..where((s) => s.id.equals(collection!.sourcePlantId!)))
-                .getSingleOrNull();
-      }
-    }
     final events =
         await (db.select(db.batchEvents)
-              ..where((e) => e.batchId.equals(batch.id))
+              ..where((e) => e.batchId.equals(l.batch.id))
               ..where((e) => e.deletedAt.isNull())
               ..orderBy([(e) => OrderingTerm.desc(e.occurredAt)]))
             .get();
-    final plantings =
-        await (db.select(db.plantingEvents)
-              ..where((p) => p.batchId.equals(batch.id))
-              ..where((p) => p.deletedAt.isNull()))
-            .get();
     if (mounted) {
       setState(() {
-        _batch = batch;
-        _taxon = taxon;
-        _collection = collection;
-        _sourcePlant = sourcePlant;
+        _lineage = l;
+        _batch = l.batch;
+        _taxon = l.taxon;
+        _collection = l.collection;
+        _sourcePlant = l.source;
         _events = events;
-        _plantings = plantings;
+        _plantings = l.plantings;
       });
     }
   }
 
-  static const _methods = [
-    ('water_rooting', 'Water rooting'),
-    ('perlite_coir', 'Perlite/coir'),
-    ('direct_stick', 'Direct stick'),
-    ('flood_tray', 'Flood tray'),
-    ('cold_moist_strat', 'Cold moist stratification'),
-    ('warm_strat', 'Warm stratification'),
-    ('scarification', 'Scarification'),
-    ('direct_sow', 'Direct sow'),
-    ('other', 'Other'),
-  ];
   static const _eventTypes = [
     ('check', 'Check'),
     ('water', 'Water'),
@@ -107,17 +75,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     ('move', 'Move'),
     ('harden_off', 'Harden off'),
     ('note', 'Note'),
-  ];
-  static const _materials = [
-    ('hardwood_cutting', 'Hardwood cutting'),
-    ('softwood_cutting', 'Softwood cutting'),
-    ('semi_hardwood_cutting', 'Semi-hardwood cutting'),
-    ('seed', 'Seed'),
-    ('sucker', 'Sucker'),
-    ('division', 'Division'),
-    ('layer', 'Layer'),
-    ('transplant', 'Transplant'),
-    ('scion', 'Scion'),
   ];
 
   /// Everything the batch was started with, including the day — a batch
@@ -133,9 +90,19 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         SpeciesEdit('taxon', 'Species', initial: _taxon),
         TextEdit('code', 'Batch code', initial: b.batchCode),
         DateEdit('started', 'Started on', initial: b.startedOn),
-        ChoiceEdit('method', 'Method', options: _methods, initial: b.method),
+        ChoiceEdit(
+          'method',
+          'Method',
+          options: propagationMethods,
+          initial: b.method,
+        ),
+        TextEdit(
+          'method_other',
+          'Which method, if other',
+          initial: b.methodOther,
+        ),
         TextEdit('container', 'Container', initial: b.container),
-        TextEdit('medium', 'Medium', initial: b.medium),
+        TextEdit('medium', 'Soil mix', initial: b.medium),
         TextEdit('location', 'Location', initial: b.location),
         NumberEdit('started_n', 'Count started', initial: b.countStarted),
         NumberEdit('current_n', 'Count now', initial: b.countCurrent),
@@ -164,6 +131,9 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         batchCode: Value(r.text('code')),
         startedOn: Value(r.day('started') ?? b.startedOn),
         method: Value(r.text('method')),
+        methodOther: Value(
+          r.text('method') == 'other' ? r.text('method_other') : null,
+        ),
         container: Value(r.text('container')),
         medium: Value(r.text('medium')),
         location: Value(r.text('location')),
@@ -232,29 +202,79 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     _load();
   }
 
+  static const _ordered = '__ordered__';
+
+  /// Where the mother plant grows (D-029): one of the places — which is
+  /// where the map link goes — or ordered, with the vendor as its origin.
   Future<void> _editSourcePlant(SourcePlant s) async {
+    final places = await allProperties(widget.db);
+    if (!mounted) return;
     final r = await showEditSheet(
       context,
       title: 'Edit mother plant',
       fields: [
         TextEdit('label', 'Label', initial: s.label, required: true),
-        ToggleEdit('on', 'On this property', initial: s.isOnProperty == 1),
+        ChoiceEdit(
+          'place',
+          'Grows at',
+          options: [
+            for (final p in places) (p.id, p.name),
+            (_ordered, 'Ordered / nursery'),
+          ],
+          initial: s.isOnProperty == 1 ? s.propertyId : _ordered,
+        ),
         TextEdit(
           'origin',
-          'Origin notes',
+          'Vendor / origin notes',
           initial: s.originNotes,
-          hint: 'Where it came from, if offsite',
+          hint: 'Sheffield\'s Seed Co, or where offsite',
         ),
       ],
     );
     if (r == null || r.deleted) return;
+    final place = r.text('place');
+    final ordered = place == null || place == _ordered;
     await (widget.db.update(
       widget.db.sourcePlants,
     )..where((x) => x.id.equals(s.id))).write(
       SourcePlantsCompanion(
         label: Value(r.text('label') ?? s.label),
-        isOnProperty: Value(r.flag('on') ? 1 : 0),
+        propertyId: ordered ? const Value.absent() : Value(place),
+        isOnProperty: Value(ordered ? 0 : 1),
         originNotes: Value(r.text('origin')),
+        // A plant that moved places no longer points at the old record.
+        observationId: !ordered && place != s.propertyId
+            ? const Value(null)
+            : const Value.absent(),
+        lat: !ordered && place != s.propertyId
+            ? const Value(null)
+            : const Value.absent(),
+        lng: !ordered && place != s.propertyId
+            ? const Value(null)
+            : const Value.absent(),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
+    _load();
+  }
+
+  /// Point the mother plant at the record it was found as; the map link
+  /// and the plate take their spot from it.
+  Future<void> _linkRecord(SourcePlant s) async {
+    final picked = await showRecordPicker(
+      context,
+      db: widget.db,
+      propertyId: s.propertyId,
+      taxonId: s.taxonId ?? _batch?.taxonId,
+    );
+    if (picked == null) return;
+    await (widget.db.update(
+      widget.db.sourcePlants,
+    )..where((x) => x.id.equals(s.id))).write(
+      SourcePlantsCompanion(
+        observationId: Value(picked.id),
+        lat: Value(picked.lat),
+        lng: Value(picked.lng),
         updatedAt: Value(nowUtcIso()),
       ),
     );
@@ -270,7 +290,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         ChoiceEdit(
           'material',
           'Material',
-          options: _materials,
+          options: materialTypes,
           initial: c.materialType,
         ),
         NumberEdit('qty', 'Quantity', initial: c.quantity),
@@ -458,67 +478,98 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     _load();
   }
 
-  /// "Plant out": creates a planting event carrying the lineage link.
+  /// "Plant out": a planting somewhere carrying the lineage link. The
+  /// bench is rarely where the trees end up (D-029), so the place is asked
+  /// — the last place this batch went to, else the bench.
   Future<void> _plantOut() async {
     final batch = _batch!;
+    final places = await allProperties(widget.db);
+    if (!mounted) return;
+    var placeId = _plantings.isNotEmpty
+        ? _plantings.last.propertyId
+        : batch.propertyId;
+    var protection = 'welded_wire_cage';
     final countController = TextEditingController(
       text: '${batch.countCurrent ?? batch.countStarted ?? ''}',
     );
     final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Plant out'),
-        content: TextField(
-          controller: countController,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Count planted'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialog) => AlertDialog(
+          title: const Text('Plant out'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: placeId,
+                decoration: const InputDecoration(labelText: 'Where'),
+                items: [
+                  for (final p in places)
+                    DropdownMenuItem(value: p.id, child: Text(p.name)),
+                ],
+                onChanged: (v) => setDialog(() => placeId = v ?? placeId),
+              ),
+              TextField(
+                controller: countController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Count planted'),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: protection,
+                decoration: const InputDecoration(labelText: 'Protection'),
+                items: const [
+                  DropdownMenuItem(value: 'none', child: Text('None')),
+                  DropdownMenuItem(
+                    value: 'welded_wire_cage',
+                    child: Text('Welded wire cage'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'tree_tube',
+                    child: Text('Tree tube'),
+                  ),
+                  DropdownMenuItem(value: 'fencing', child: Text('Fencing')),
+                  DropdownMenuItem(
+                    value: 'mulch_only',
+                    child: Text('Mulch only'),
+                  ),
+                  DropdownMenuItem(value: 'other', child: Text('Other')),
+                ],
+                onChanged: (v) => protection = v ?? protection,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Create planting'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Create planting'),
-          ),
-        ],
       ),
     );
     if (saved != true) return;
     final count = int.tryParse(countController.text.trim());
     if (count == null || count <= 0) return;
-    final now = nowUtcIso();
-    await widget.db
-        .into(widget.db.plantingEvents)
-        .insert(
-          PlantingEventsCompanion.insert(
-            id: newId(),
-            propertyId: batch.propertyId,
-            taxonId: Value(batch.taxonId),
-            plantedOn: now.substring(0, 10),
-            stockSource: 'own_propagation',
-            batchId: Value(batch.id),
-            countPlanted: count,
-            createdBy: 'local',
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-    await (widget.db.update(
-      widget.db.propagationBatches,
-    )..where((b) => b.id.equals(batch.id))).write(
-      PropagationBatchesCompanion(
-        status: const Value('planted_out'),
-        updatedAt: Value(now),
-      ),
+    await plantOutFromBatch(
+      widget.db,
+      batch,
+      propertyId: placeId,
+      count: count,
+      plantedOn: nowUtcIso().substring(0, 10),
+      protection: protection,
     );
     _load();
     if (mounted) {
+      final place = places.firstWhere((p) => p.id == placeId);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Planting created — find it under Plantings'),
+        SnackBar(
+          content: Text(
+            'Planting created — find it under Plantings at ${place.name}',
+          ),
         ),
       );
     }
@@ -581,13 +632,10 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                   onTap: _sourcePlant == null
                       ? null
                       : () => _editSourcePlant(_sourcePlant!),
-                  _sourcePlant != null
-                      ? (_sourcePlant!.isOnProperty == 1
-                            ? 'on property'
-                            : _sourcePlant!.originNotes ?? 'offsite')
-                      : 'chain starts at collection',
+                  _lineage?.originLine ?? 'chain starts at collection',
                   _sourcePlant != null,
                   first: true,
+                  trailing: _sourceActions(),
                 ),
                 _stageRow(
                   'collection_events',
@@ -595,7 +643,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                       ? null
                       : () => _editCollection(_collection!),
                   _collection != null
-                      ? '${_collection!.materialType.replaceAll('_', ' ')} × ${_collection!.quantity ?? '?'}'
+                      ? '${labelFor(materialTypes, _collection!.materialType)} × ${_collection!.quantity ?? '?'}'
                       : 'No collection event',
                   _collection?.collectedOn ?? 'purchased or unknown lot',
                   _collection != null,
@@ -603,16 +651,26 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                 _stageRow(
                   'propagation_batches',
                   species,
-                  '${batch.method?.replaceAll('_', ' ') ?? 'method unknown'} · started ${batch.startedOn}',
+                  '${methodLabel(batch)} · started ${batch.startedOn} · '
+                      'bench ${_lineage?.benchName ?? ''}',
                   true,
                 ),
                 for (var i = 0; i < _plantings.length; i++)
                   _stageRow(
                     'planting_events',
-                    'Planted ${_plantings[i].countPlanted}',
+                    'Planted ${_plantings[i].countPlanted} at '
+                        '${_lineage?.plantingPropertyNames[_plantings[i].propertyId] ?? '?'}',
                     _plantings[i].plantedOn,
                     true,
                     last: i == _plantings.length - 1,
+                    trailing:
+                        _plantings[i].lat != null && _plantings[i].lng != null
+                        ? _mapButton(
+                            _plantings[i].propertyId,
+                            _plantings[i].lat!,
+                            _plantings[i].lng!,
+                          )
+                        : null,
                   ),
                 if (_plantings.isEmpty)
                   _stageRow(
@@ -691,6 +749,48 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     );
   }
 
+  /// The way back to the ground (D-029): fly the map to this spot, on
+  /// whichever place it belongs to.
+  Widget _mapButton(String propertyId, double lat, double lng, {String? id}) {
+    return IconButton(
+      tooltip: 'Show on the map',
+      icon: const Icon(Icons.map_outlined, size: 20),
+      onPressed: () {
+        mapJump.value = MapJump(
+          propertyId: propertyId,
+          lat: lat,
+          lng: lng,
+          recordId: id,
+        );
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      },
+    );
+  }
+
+  Widget? _sourceActions() {
+    final s = _sourcePlant;
+    final l = _lineage;
+    if (s == null || l == null || s.isOnProperty != 1) return null;
+    final spot = l.sourceSpot;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (spot != null)
+          _mapButton(s.propertyId, spot.$1, spot.$2, id: s.observationId),
+        IconButton(
+          tooltip: spot == null ? 'Link the record' : 'Change the record',
+          icon: Icon(
+            spot == null
+                ? Icons.add_location_alt_outlined
+                : Icons.edit_location_alt_outlined,
+            size: 20,
+          ),
+          onPressed: () => _linkRecord(s),
+        ),
+      ],
+    );
+  }
+
   Widget _stageRow(
     String stage,
     String title,
@@ -699,6 +799,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     bool first = false,
     bool last = false,
     VoidCallback? onTap,
+    Widget? trailing,
   }) {
     final color = present ? Press.sage : Press.inkSoft.withValues(alpha: 0.4);
     final row = IntrinsicHeight(
@@ -743,6 +844,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
               ),
             ),
           ),
+          if (trailing != null) trailing,
         ],
       ),
     );

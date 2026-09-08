@@ -2,6 +2,8 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
+import '../../services/lineage.dart';
+import '../propagation/batch_detail_screen.dart';
 import '../../services/survival.dart';
 import '../../services/tag_codes.dart';
 import '../../widgets/plant_checkin_dialog.dart';
@@ -30,6 +32,7 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
   PlantingEvent? _event;
   bool _gone = false;
   TaxaData? _taxon;
+  BatchLineage? _batch;
   SurvivalResult? _survival;
   List<Plant> _individuals = const [];
   List<PlantCheckin> _cohortCheckins = const [];
@@ -68,9 +71,13 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
               ..orderBy([(c) => OrderingTerm.desc(c.checkedAt)]))
             .get();
     final survival = await survivalFor(db, event);
+    final batch = event.batchId == null
+        ? null
+        : await lineageOf(widget.db, event.batchId!);
     if (mounted) {
       setState(() {
         _event = event;
+        _batch = batch;
         _taxon = taxon;
         _individuals = individuals;
         _cohortCheckins = checkins;
@@ -187,14 +194,6 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     _load();
   }
 
-  static const _stockSources = [
-    ('own_propagation', 'Own propagation'),
-    ('purchased_container', 'Purchased (container)'),
-    ('purchased_bareroot', 'Purchased (bare root)'),
-    ('direct_seed', 'Direct seed'),
-    ('volunteer', 'Volunteer'),
-    ('transplant_onsite', 'Transplant (on site)'),
-  ];
   static const _protections = [
     ('none', 'None'),
     ('welded_wire_cage', 'Welded wire cage'),
@@ -225,9 +224,11 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
         ChoiceEdit(
           'stock',
           'Stock source',
-          options: _stockSources,
+          options: stockSources,
           initial: e.stockSource,
         ),
+        TextEdit('vendor', 'Nursery', initial: e.vendor),
+        TextEdit('lot', 'Lot / tag code', initial: e.lotCode),
         NumberEdit('count', 'Count planted', initial: e.countPlanted),
         ChoiceEdit(
           'protection',
@@ -260,6 +261,8 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
         taxonId: Value(r.taxon('taxon')?.id),
         plantedOn: Value(r.day('on') ?? e.plantedOn),
         stockSource: Value(r.text('stock') ?? e.stockSource),
+        vendor: Value(r.text('vendor')),
+        lotCode: Value(r.text('lot')),
         countPlanted: Value(
           count == null || count <= 0 ? e.countPlanted : count,
         ),
@@ -526,10 +529,42 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                 const SizedBox(height: 8),
                 MonoLabel(
                   'planted ${event.plantedOn} · ${event.countPlanted} '
-                  '${event.stockSource.replaceAll('_', ' ')}',
+                  '${labelFor(stockSources, event.stockSource).toLowerCase()}'
+                  '${event.vendor != null ? ' · ${event.vendor}' : ''}'
+                  '${event.lotCode != null ? ' · lot ${event.lotCode}' : ''}',
                   size: 9.5,
                   opacity: 0.8,
                 ),
+                // The way back to the bench (D-029).
+                if (_batch != null)
+                  InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BatchDetailScreen(
+                          db: widget.db,
+                          batchId: _batch!.batch.id,
+                        ),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.grass, size: 14, color: Press.sage),
+                          const SizedBox(width: 5),
+                          MonoLabel(
+                            'from batch '
+                            '${_batch!.batch.batchCode ?? _batch!.species}'
+                            ' · bench ${_batch!.benchName}',
+                            size: 9.5,
+                            color: Press.ink,
+                            weight: FontWeight.w600,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 if (event.protection != null)
                   MonoLabel(
                     event.protection!.replaceAll('_', ' '),
