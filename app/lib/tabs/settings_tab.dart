@@ -220,6 +220,33 @@ class _SettingsTabState extends State<SettingsTab> {
                             ),
                           ],
                         ),
+                        // One tap to Drive (Austin, 2026-09-07). Opens the
+                        // Drive screen already uploading, so what leaves the
+                        // phone is still shown step by step.
+                        SizedBox(height: 8),
+                        SizedBox(
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            icon: Icon(Icons.cloud_upload_outlined, size: 18),
+                            label: Text(
+                              widget.prefs.driveEmail == null
+                                  ? 'BACK UP TO GOOGLE DRIVE'
+                                  : 'BACK UP TO DRIVE · ${widget.prefs.driveEmail}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onPressed: () => Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute(
+                                    builder: (_) => DriveBackupScreen(
+                                      db: widget.db,
+                                      prefs: widget.prefs,
+                                      autoRun: true,
+                                    ),
+                                  ),
+                                )
+                                .then((_) => _load()),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -426,6 +453,21 @@ class _SettingsTabState extends State<SettingsTab> {
               widget.prefs.autoBackup ? 'On' : 'Off',
               () => setState(
                 () => widget.prefs.autoBackup = !widget.prefs.autoBackup,
+              ),
+            ),
+            (
+              'Drive auto-backup',
+              !widget.prefs.autoBackup
+                  ? 'needs Automatic backup on'
+                  : widget.prefs.driveEmail == null
+                  ? 'connect Google Drive first (Backup · below)'
+                  : widget.prefs.driveAutoBackup
+                  ? 'once a day on Wi-Fi · ${widget.prefs.driveEmail}'
+                  : 'off · only when you tap Back up to Drive',
+              widget.prefs.driveAutoBackup ? 'On' : 'Off',
+              () => setState(
+                () => widget.prefs.driveAutoBackup =
+                    !widget.prefs.driveAutoBackup,
               ),
             ),
             // Off by default and described in terms of what leaves the phone

@@ -69,9 +69,10 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
         _group('Pairing & backup', [
           _panel(ReceiveBackupPanel(padding: EdgeInsets.zero)),
           _row(
-            'Google Drive',
-            'The same hidden app folder the phone backs up to — back up, '
-                'verify, or restore from it.',
+            'Sync with Drive',
+            'Brings the phone\'s Drive backup to this computer. One way '
+                'until two-way sync is ready: the phone is where records '
+                'are born.',
             prefs.driveEmail ?? 'Not connected',
             () => _push(DriveBackupScreen(db: widget.db, prefs: prefs)),
           ),

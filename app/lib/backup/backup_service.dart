@@ -312,6 +312,7 @@ class BackupService {
     // (D-025 decides how the desk shares that folder).
     final isFieldDevice = Platform.isAndroid || Platform.isIOS;
     if (isFieldDevice &&
+        prefs.driveAutoBackup &&
         prefs.driveEmail != null &&
         due('last_drive_backup', autoInterval)) {
       notes.add(await _autoDrive(prefs));

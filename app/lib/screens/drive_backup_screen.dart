@@ -24,11 +24,17 @@ class DriveBackupScreen extends StatefulWidget {
     required this.db,
     required this.prefs,
     this.intake = false,
+    this.autoRun = false,
   });
 
   /// Intake (D-024): a computer with no record yet. There is nothing to back
   /// up, so the screen is Connect → Restore → reopen, and says so.
   final bool intake;
+
+  /// Start the backup as the screen opens — the one-tap button on the
+  /// phone's Settings (Austin, 2026-09-07). The screen still shows every
+  /// step, and still asks for the account or passphrase if it must.
+  final bool autoRun;
 
   final FieldNotesDb db;
   final AppPrefs prefs;
@@ -57,6 +63,11 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
   void initState() {
     super.initState();
     _refresh();
+    if (widget.autoRun && !_receiveOnly) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _backup();
+      });
+    }
   }
 
   /// Opening this screen must not talk to Google. The remembered address is
@@ -303,9 +314,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _receiveOnly
-              ? 'Bring the record from Drive'
-              : 'Back up to Google Drive',
+          _receiveOnly ? 'Sync with Drive' : 'Back up to Google Drive',
         ),
       ),
       body: ListView(
@@ -313,10 +322,12 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
         children: [
           if (_receiveOnly) ...[
             Text(
-              'If the phone backs up to Google Drive, this computer can fetch '
-              'that copy. Connect with the same Google account, restore, and '
-              'reopen Field Notes. The copy is encrypted; you will be asked '
-              'for the passphrase or recovery phrase to open it.',
+              'The phone backs up to Google Drive; this computer brings that '
+              'copy down. One way for now — the phone is where records are '
+              'born, and nothing here writes back to its copy. Connect with '
+              'the same Google account, sync, and reopen Field Notes. The '
+              'copy is encrypted; you will be asked for the passphrase or '
+              'recovery phrase to open it.',
               style: TextStyle(
                 fontFamily: Type.serif,
                 fontSize: 15.5,
@@ -398,7 +409,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
                         _busy
                             ? 'WORKING…'
                             : _receiveOnly
-                            ? 'RESTORE FROM DRIVE'
+                            ? 'SYNC FROM DRIVE'
                             : 'BACK UP NOW',
                       ),
                     ),

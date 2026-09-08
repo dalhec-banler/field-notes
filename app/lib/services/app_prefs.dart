@@ -81,6 +81,12 @@ class AppPrefs extends ChangeNotifier {
   bool get autoBackup => get<bool>('auto_backup') ?? true;
   set autoBackup(bool v) => set('auto_backup', v);
 
+  /// The Drive leg of the daily backup (Austin, 2026-09-07: "a setting
+  /// for Drive autobackup"). On by default; it only ever runs when Drive
+  /// is connected, on Wi-Fi, with the passphrase already cached.
+  bool get driveAutoBackup => get<bool>('drive_auto_backup') ?? true;
+  set driveAutoBackup(bool v) => set('drive_auto_backup', v);
+
   /// Weather + soil lookup for each record (spec §4.11).
   ///
   /// Defaults to **off**, and is the only setting in the app whose default is
