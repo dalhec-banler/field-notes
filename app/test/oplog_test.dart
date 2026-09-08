@@ -99,6 +99,24 @@ void main() {
     },
   );
 
+  test('a pull wakes the live streams on the tables it wrote', () async {
+    final propId = await seedProperty(a, name: 'Shorts');
+    await addObservation(a, propId);
+    await logA.push(store, allowPlaintext: true);
+    var obsTicks = 0;
+    var taxaTicks = 0;
+    final obsSub = b.changes({b.observations}).listen((_) => obsTicks++);
+    final taxaSub = b.changes({b.taxa}).listen((_) => taxaTicks++);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(obsTicks, 1, reason: 'once on listen');
+    await logB.pull(store, allowPlaintext: true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(obsTicks, 2, reason: 'the pulled observation wakes its watch');
+    expect(taxaTicks, 1, reason: 'a table the pull never wrote stays quiet');
+    await obsSub.cancel();
+    await taxaSub.cancel();
+  });
+
   test('concurrent edits: the newer updated_at wins on both sides', () async {
     final propId = await seedProperty(a);
     final obsId = await addObservation(a, propId);

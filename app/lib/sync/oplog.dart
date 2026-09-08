@@ -541,6 +541,10 @@ class OpLog {
     await _settle();
     var applied = 0;
     var skipped = 0;
+    // Rows land here by raw SQL, which drift's live streams never hear
+    // about — the desk's species panel kept a phone edit's old shape until
+    // a relaunch (2026-09-08). Every table written is announced at the end.
+    final touched = <String>{};
     final files = await target.list(_root);
     // Group by device dir; process each device's files in name order
     // (zero-padded first-seq makes lexicographic == numeric).
@@ -603,6 +607,7 @@ class OpLog {
               if (seq <= cursor) continue;
               final did = await _apply(op, entry.key, tables);
               did ? applied++ : skipped++;
+              if (did) touched.add(op['table'] as String);
               cursor = seq;
             }
           } finally {
@@ -611,6 +616,9 @@ class OpLog {
         });
         await _setMeta('cursor_${entry.key}', '$cursor');
       }
+    }
+    if (touched.isNotEmpty) {
+      db.notifyUpdates({for (final t in touched) TableUpdate(t)});
     }
     return SyncPullResult(applied: applied, skipped: skipped);
   }
