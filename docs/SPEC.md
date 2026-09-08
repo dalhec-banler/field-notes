@@ -309,7 +309,7 @@ CREATE INDEX idx_taxa_sci ON taxa(scientific_name);
 CREATE INDEX idx_taxa_common ON taxa(common_name);
 ```
 
-**Seed requirement:** ship a starter library for the target region. For SFS that's the ~41-species working palette plus common Edwards Plateau / Lampasas Cut Plain natives and the usual invasive suspects (KR bluestem, Johnsongrass, ligustrum, chinaberry, Chinese tallow, Malta star-thistle). Species search must be typo-tolerant and match on common name, scientific name, and family.
+**Seed requirement:** ship a starter library for the target region. For SFS that's the ~41-species working palette plus common Limestone Cut Plain (Cross Timbers) / Lampasas Cut Plain natives and the usual invasive suspects (KR bluestem, Johnsongrass, ligustrum, chinaberry, Chinese tallow, Malta star-thistle). Species search must be typo-tolerant and match on common name, scientific name, and family.
 
 ### 4.5 Observations — the general record
 
