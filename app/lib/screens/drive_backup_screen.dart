@@ -208,12 +208,17 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('RESTORE FROM DRIVE?'),
+        title: Text(
+          _receiveOnly
+              ? 'REPLACE THIS COMPUTER\'S COPY?'
+              : 'RESTORE FROM DRIVE?',
+        ),
         content: Text(
           _receiveOnly
               ? 'The copy in Drive becomes this computer\'s record the next time '
-                    'Field Notes opens. Nothing changes until the copy has been '
-                    'read back whole and checked.'
+                    'Field Notes opens, and anything only on this computer is '
+                    'set aside. If this computer already syncs with the phone, '
+                    'cancel and use Sync instead.'
               : 'The backup in Drive will replace what is on this device the '
                     'next time the app starts. The current database is kept '
                     'aside, and nothing changes until the backup has been read '
@@ -314,7 +319,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _receiveOnly ? 'Sync with Drive' : 'Back up to Google Drive',
+          _receiveOnly ? 'Bring the phone\'s copy' : 'Back up to Google Drive',
         ),
       ),
       body: ListView(
@@ -322,12 +327,12 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
         children: [
           if (_receiveOnly) ...[
             Text(
-              'The phone backs up to Google Drive; this computer brings that '
-              'copy down. One way for now — the phone is where records are '
-              'born, and nothing here writes back to its copy. Connect with '
-              'the same Google account, sync, and reopen Field Notes. The '
-              'copy is encrypted; you will be asked for the passphrase or '
-              'recovery phrase to open it.',
+              'For a computer with nothing on it yet: the phone\'s Drive '
+              'backup becomes this computer\'s record, whole. This REPLACES '
+              'whatever is here — a computer that already syncs with the '
+              'phone should never need it. Connect with the same Google '
+              'account, restore, and reopen Field Notes; you will be asked '
+              'for the passphrase or recovery phrase to open the copy.',
               style: TextStyle(
                 fontFamily: Type.serif,
                 fontSize: 15.5,
@@ -409,7 +414,7 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
                         _busy
                             ? 'WORKING…'
                             : _receiveOnly
-                            ? 'SYNC FROM DRIVE'
+                            ? 'REPLACE WITH THE PHONE\'S COPY'
                             : 'BACK UP NOW',
                       ),
                     ),

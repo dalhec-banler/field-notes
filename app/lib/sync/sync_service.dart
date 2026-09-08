@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -9,6 +10,7 @@ import '../backup/backup_engine.dart';
 import '../backup/backup_service.dart';
 import '../backup/drive_auth.dart';
 import '../backup/drive_target.dart';
+import '../backup/key_cache.dart';
 import '../backup/keyring.dart';
 import '../backup/target.dart';
 import '../db/database.dart';
@@ -127,30 +129,70 @@ class SyncService {
 
   /// The keyring's data-key cipher. Sync is never plain: a batch carries
   /// coordinates and notes, and Drive holds ciphertext only (D-026).
-  Future<BackupCipher?> _cipher(
+  ///
+  /// The keyring is the PHONE's (D-028): its salts and wrapped keys ride
+  /// in the plaintext envelope of Drive's manifest, which is how the desk
+  /// unlocked the copy it restored — and the desk never kept those
+  /// fields, its own local backup being plain. So: this device's config
+  /// if it has a keyring, else the envelope in the folder; the cached
+  /// data key if there is one, else the passphrase, asked once and
+  /// cached. Returns the cipher, or the sentence to show instead.
+  Future<(BackupCipher?, String?)> _cipher(
+    BackupTarget target,
     Future<String?> Function()? askPassphrase,
     void Function(String)? onStatus,
   ) async {
-    if (_openCipher != null) return _openCipher(askPassphrase, onStatus);
+    if (_openCipher != null) {
+      return (await _openCipher(askPassphrase, onStatus), null);
+    }
     final config = await _backup.loadConfigOrNull();
     if (config == null) {
-      onStatus?.call('Backup settings file is damaged — see Settings.');
-      return null;
+      return (null, 'Backup settings file is damaged — see Settings.');
     }
-    if (config['wrap_pass'] == null) {
-      onStatus?.call(
-        'Sync needs an encrypted backup: set a passphrase under Backup first.',
+    Map<String, dynamic> fields = config;
+    if (fields['wrap_pass'] == null) {
+      const path = '${BackupEngine.root}/manifest.json';
+      if (!await target.exists(path)) {
+        return (
+          null,
+          'No backup in Drive yet — back the phone up to Drive first.',
+        );
+      }
+      try {
+        fields = jsonDecode(
+          utf8.decode(await target.read(path)),
+        ) as Map<String, dynamic>;
+      } catch (e) {
+        return (null, 'Could not read the backup envelope in Drive: $e');
+      }
+      if (fields['wrap_pass'] == null) {
+        return (
+          null,
+          'Sync needs the Drive backup to be encrypted — set a passphrase '
+              'under Backup on the phone, back up, then sync.',
+        );
+      }
+    }
+    final cache = BackupKeyCache();
+    final cached = await cache.read();
+    if (cached != null) {
+      return (BackupKeyring.fromCachedKey(cached, fields).cipher, null);
+    }
+    final passphrase = await askPassphrase?.call();
+    if (passphrase == null || passphrase.isEmpty) {
+      return (null, 'Sync needs the backup passphrase once — open Sync.');
+    }
+    onStatus?.call('Unlocking…');
+    try {
+      final keyring = await BackupKeyring.unlockWithPassphrase(
+        fields,
+        passphrase,
       );
-      return null;
+      await cache.write(await keyring.dataKeyBytes());
+      return (keyring.cipher, null);
+    } catch (_) {
+      return (null, 'Wrong passphrase.');
     }
-    // engineForTarget owns the cache-or-ask logic; the target is a
-    // throwaway — only the cipher is wanted.
-    final engine = await _backup.engineForTarget(
-      _NullTarget(),
-      askPassphrase: askPassphrase,
-      onStatus: onStatus,
-    );
-    return engine?.cipher;
   }
 
   Future<bool> _bulkOk() async {
@@ -193,14 +235,9 @@ class SyncService {
           ),
         );
       }
-      final cipher = await _cipher(askPassphrase, onStatus);
+      final (cipher, why) = await _cipher(target, askPassphrase, onStatus);
       if (cipher == null) {
-        return await _done(
-          const SyncReport(
-            note: 'Sync needs the backup passphrase once — open Sync.',
-            failed: true,
-          ),
-        );
+        return await _done(SyncReport(note: why, failed: true));
       }
 
       // 1. Push, in bounded batches.
@@ -341,23 +378,6 @@ class SyncService {
     }
     return down;
   }
-}
-
-/// A target that holds nothing: for borrowing the backup service's key
-/// handling without touching a store.
-class _NullTarget implements BackupTarget {
-  @override
-  String get description => 'none';
-  @override
-  Future<void> delete(String path) async {}
-  @override
-  Future<bool> exists(String path) async => false;
-  @override
-  Future<List<String>> list(String prefix) async => const [];
-  @override
-  Future<Uint8List> read(String path) async => throw StateError('nothing here');
-  @override
-  Future<void> write(String path, Uint8List bytes) async {}
 }
 
 /// A cipher for tests and plain stores: the keyring's, when there is one.

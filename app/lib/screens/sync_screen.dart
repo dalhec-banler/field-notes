@@ -200,7 +200,7 @@ class _SyncScreenState extends State<SyncScreen> {
             value: widget.prefs.driveSync,
             onChanged: (v) => setState(() => widget.prefs.driveSync = v),
           ),
-          if (isDesk && (!_hasProperty || _lastAt == null)) ...[
+          if (isDesk && !_hasProperty) ...[
             const SizedBox(height: 14),
             RailNote(
               color: Press.sage,

@@ -144,10 +144,23 @@ class OpLog {
     // restore, and its exchange history is theirs.
     if (carried != null && carried != id) {
       // This journal was written by another installation. Its cursors and
-      // push position describe that device's exchange history, not ours.
+      // push position describe that device's exchange history, not ours,
+      // and every op in it is that device's to push. Start our cursor for
+      // it at what the copy already holds.
       await db.customStatement(
         "DELETE FROM sync_meta WHERE key = 'pushed_seq' OR key LIKE 'cursor_%'",
       );
+      final top = await db
+          .customSelect('SELECT COALESCE(MAX(seq), 0) AS n FROM sync_ops')
+          .getSingle();
+      final n = top.data['n'] as int;
+      if (n > 0) {
+        await db.customStatement(
+          'INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)',
+          ['cursor_$carried', '$n'],
+        );
+      }
+      await db.customStatement('DELETE FROM sync_ops');
     }
     if (identityFile != null && !identityFile.existsSync()) {
       identityFile.parent.createSync(recursive: true);
@@ -197,6 +210,12 @@ class OpLog {
           [id],
         );
       }
+      // Ops captured before D-026 carry no version and name no writer.
+      // A device that has never pushed has nothing to lose by shedding
+      // them: a peer bootstraps from a restore, never from this backlog,
+      // and pushing a stale full-row snapshot of every old record helps
+      // no one (on the desk it was the phone's history, re-authored).
+      await db.customStatement('DELETE FROM sync_ops WHERE version IS NULL');
     }
 
     // The apply guard: while a row exists here, triggers stay silent so

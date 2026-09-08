@@ -196,8 +196,8 @@ class _DesktopShellState extends State<DesktopShell>
   /// phone hasn't got. Before the first sync, the old one-way mirror
   /// banner (D-024) still says a newer copy is waiting in Drive.
   Widget _driveBanner() {
-    if (widget.prefs.driveEmail != null && _lastSync != null) {
-      if (_pendingSync == 0) return SizedBox.shrink();
+    if (widget.prefs.driveEmail != null && _properties.isNotEmpty) {
+      if (_lastSync != null && _pendingSync == 0) return SizedBox.shrink();
       return Container(
         color: Press.sageLight,
         padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -207,8 +207,10 @@ class _DesktopShellState extends State<DesktopShell>
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                '$_pendingSync ${_pendingSync == 1 ? 'edit' : 'edits'} on '
-                'this desk not yet on the phone.',
+                _lastSync == null
+                    ? 'This desk has not synced with the phone yet.'
+                    : '$_pendingSync ${_pendingSync == 1 ? 'edit' : 'edits'} '
+                          'on this desk not yet on the phone.',
                 style: TextStyle(
                   fontFamily: Type.serif,
                   fontSize: 14,
