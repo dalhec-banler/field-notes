@@ -108,15 +108,11 @@ class _DesktopShellState extends State<DesktopShell>
     // counts are re-read.
     var first = true;
     _statusWatch = widget.db
-        .customSelect(
-          'SELECT 1',
-          readsFrom: {
-            widget.db.media,
-            widget.db.properties,
-            widget.db.observations,
-          },
-        )
-        .watch()
+        .changes({
+          widget.db.media,
+          widget.db.properties,
+          widget.db.observations,
+        })
         .listen((_) {
           if (first) {
             first = false;
@@ -639,13 +635,9 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
     // a taxon this queue then has to name. Each watch emits once on
     // listen, so they are also the first loads.
     _pendingWatch = widget.db
-        .customSelect('SELECT 1', readsFrom: {widget.db.reviewItems})
-        .watch()
+        .changes({widget.db.reviewItems})
         .listen((_) => _loadPending());
-    _taxaWatch = widget.db
-        .customSelect('SELECT 1', readsFrom: {widget.db.taxa})
-        .watch()
-        .listen((_) => _loadTaxa());
+    _taxaWatch = widget.db.changes({widget.db.taxa}).listen((_) => _loadTaxa());
   }
 
   @override

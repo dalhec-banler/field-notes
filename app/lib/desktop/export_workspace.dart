@@ -121,17 +121,13 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
     _scheduleRender(immediate: true);
     // A desk edit a minute ago belongs on the plate without a button.
     _watch = widget.db
-        .customSelect(
-          'SELECT 1',
-          readsFrom: {
-            widget.db.observations,
-            widget.db.zones,
-            widget.db.features,
-            widget.db.tracks,
-            widget.db.properties,
-          },
-        )
-        .watch()
+        .changes({
+          widget.db.observations,
+          widget.db.zones,
+          widget.db.features,
+          widget.db.tracks,
+          widget.db.properties,
+        })
         .listen((_) => _scheduleRender());
   }
 

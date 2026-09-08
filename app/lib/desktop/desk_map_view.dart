@@ -116,19 +116,15 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
     // feature panel's tables are here too: a fresh subject is what
     // re-reads an open panel.
     _watch = widget.db
-        .customSelect(
-          'SELECT 1',
-          readsFrom: {
-            widget.db.observations,
-            widget.db.zones,
-            widget.db.features,
-            widget.db.featureConditionLogs,
-            widget.db.featureTypes,
-            widget.db.tracks,
-            widget.db.properties,
-          },
-        )
-        .watch()
+        .changes({
+          widget.db.observations,
+          widget.db.zones,
+          widget.db.features,
+          widget.db.featureConditionLogs,
+          widget.db.featureTypes,
+          widget.db.tracks,
+          widget.db.properties,
+        })
         .listen((_) => _load());
   }
 

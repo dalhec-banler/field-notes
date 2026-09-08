@@ -19,6 +19,24 @@ class FieldNotesDb extends _$FieldNotesDb {
   /// Opens an existing database file (restore/verification flows).
   FieldNotesDb.fromFile(File file) : super(NativeDatabase(file));
 
+  /// Fires once on listen, then again whenever any of [tables] changes.
+  ///
+  /// drift hands the same live stream to every watcher whose SQL text and
+  /// variables match, and `readsFrom` is not part of that match — so two
+  /// `SELECT 1` watches on different tables quietly became one stream that
+  /// followed only the first set registered. The map's pins stopped
+  /// following record edits that way: the photo-point watch had claimed
+  /// `SELECT 1` first (2026-09-08). Naming the tables in the text keys each
+  /// watch by what it watches, so equal sets share and different sets
+  /// never do.
+  Stream<void> changes(Set<ResultSetImplementation> tables) {
+    final names = tables.map((t) => t.entityName).toList()..sort();
+    return customSelect(
+      'SELECT 1 /* ${names.join(',')} */',
+      readsFrom: tables,
+    ).watch();
+  }
+
   @override
   int get schemaVersion => 7;
 

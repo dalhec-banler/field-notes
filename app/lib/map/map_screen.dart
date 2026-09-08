@@ -942,17 +942,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     await _refreshPhotoPoints();
     _photoPointSub?.cancel();
     _photoPointSub = db
-        .customSelect('SELECT 1', readsFrom: {db.photoPoints})
-        .watch()
+        .changes({db.photoPoints})
         .listen((_) => _refreshPhotoPoints());
 
     _featureLayerReady = true;
     await _refreshFeatures();
     _featureSub?.cancel();
-    _featureSub = db
-        .customSelect('SELECT 1', readsFrom: {db.features})
-        .watch()
-        .listen((_) => _refreshFeatures());
+    _featureSub = db.changes({db.features}).listen((_) => _refreshFeatures());
   }
 
   /// Record pins. The source is created empty and then kept in step with
@@ -1231,8 +1227,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null) return;
     _recordSub?.cancel();
     _recordSub = db
-        .customSelect('SELECT 1', readsFrom: {db.observations, db.taxa})
-        .watch()
+        .changes({db.observations, db.taxa})
         .listen((_) => _refreshRecords());
   }
 
