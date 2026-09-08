@@ -55,6 +55,14 @@ class _SpeciesGroup {
 
   RecordRealm get realm =>
       records.first.label != null ? RecordRealm.species : realmOfType(type);
+
+  /// D-027 for the row: red while any of these is flagged, ink once every
+  /// one of them is out, nothing while the group is simply growing.
+  String? get removal {
+    if (records.any((r) => r.removal == 'flagged')) return 'flagged';
+    if (records.every((r) => r.removal == 'removed')) return 'removed';
+    return null;
+  }
 }
 
 class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
@@ -837,7 +845,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
             ),
             child: Row(
               children: [
-                _MarkSwatch(type: g.type),
+                _MarkSwatch(type: g.type, removal: g.removal),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -904,9 +912,12 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
                         padding: const EdgeInsets.symmetric(vertical: 7),
                         child: Row(
                           children: [
-                            Diamond(
-                              size: 8,
-                              color: Color(markFor(r.type).argb),
+                            _RemovalRing(
+                              removal: r.removal,
+                              child: Diamond(
+                                size: 8,
+                                color: Color(markFor(r.type).argb),
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -1194,15 +1205,43 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
   }
 }
 
+/// The ring the map draws around a record that is coming out (D-027),
+/// at list size: red while flagged, ink once removed, nothing otherwise.
+/// Too small for the tick; the colour carries the difference.
+class _RemovalRing extends StatelessWidget {
+  const _RemovalRing({required this.removal, required this.child});
+  final String? removal;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (removal == null) return child;
+    final ink = removal == 'flagged' ? Color(removalRed) : Press.ink;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: ink, width: 1.5),
+      ),
+      child: child,
+    );
+  }
+}
+
 /// The mark swatch beside a species row — same shape language as the map.
 class _MarkSwatch extends StatelessWidget {
-  const _MarkSwatch({required this.type});
+  const _MarkSwatch({required this.type, this.removal});
   final String type;
+  final String? removal;
 
   @override
   Widget build(BuildContext context) {
     final mark = markFor(type);
     final color = Color(mark.argb);
+    return _RemovalRing(removal: removal, child: _shape(mark, color));
+  }
+
+  Widget _shape(RecordMark mark, Color color) {
     return switch (mark.shape) {
       RecordShape.circle => Container(
         width: 13,
