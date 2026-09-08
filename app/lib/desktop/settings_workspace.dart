@@ -4,7 +4,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../db/database.dart';
 import '../main.dart' show exportAndShare;
 import '../screens/backup_screen.dart';
-import '../screens/drive_backup_screen.dart';
 import '../screens/kml_import_screen.dart';
 import '../screens/photo_import_screen.dart';
 import '../screens/programs_screen.dart';
@@ -12,6 +11,7 @@ import '../screens/restore_screen.dart';
 import '../screens/review_feed_screen.dart';
 import '../screens/species_id_settings_screen.dart';
 import '../screens/species_import_screen.dart';
+import '../screens/sync_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/press_unlock.dart';
 import '../map/imagery_sources.dart';
@@ -70,11 +70,11 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
           _panel(ReceiveBackupPanel(padding: EdgeInsets.zero)),
           _row(
             'Sync with Drive',
-            'Brings the phone\'s Drive backup to this computer. One way '
-                'until two-way sync is ready: the phone is where records '
-                'are born.',
+            'Edits made here reach the phone and the phone\'s reach here, '
+                'through the hidden Drive folder the backup uses. Sealed; '
+                'photos on Wi-Fi.',
             prefs.driveEmail ?? 'Not connected',
-            () => _push(DriveBackupScreen(db: widget.db, prefs: prefs)),
+            () => _push(SyncScreen(db: widget.db, prefs: prefs)),
           ),
           _row(
             'Encrypted backup on this computer',

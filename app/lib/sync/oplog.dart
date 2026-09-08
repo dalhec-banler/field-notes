@@ -60,6 +60,14 @@ class OpLog {
     'sync_clock',
   };
 
+  /// Columns that describe THIS device's disk, not the record: a photo's
+  /// path on the phone means nothing on the desk. They are captured (the
+  /// trigger snapshots the row) but never applied; the receiving device
+  /// fetches the blob and files it where it likes.
+  static const _deviceLocal = {
+    'media': {'local_path', 'thumb_path', 'remote_path', 'upload_state'},
+  };
+
   /// Create the sync tables if needed, remember (or adopt) this device's
   /// id, and install the capture triggers for this connection. Call once
   /// per open database, before the first write that should be captured.
@@ -130,9 +138,11 @@ class OpLog {
       final held = identityFile.readAsStringSync().trim();
       if (held.isNotEmpty) id = held;
     }
-    final fresh = id == null;
     id ??= newId();
-    if (fresh && carried != null && carried != id) {
+    // Whether this installation is brand new or has had an identity for
+    // months: a journal that carries somebody else's device id arrived by
+    // restore, and its exchange history is theirs.
+    if (carried != null && carried != id) {
       // This journal was written by another installation. Its cursors and
       // push position describe that device's exchange history, not ours.
       await db.customStatement(
@@ -147,6 +157,47 @@ class OpLog {
       "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('device_id', ?)",
       [id],
     );
+
+    // A device that has never pushed owns only the ops for rows it wrote
+    // (sync_versions says who wrote every row). Anything else in its
+    // journal arrived by restore and belongs to the writer, who pushes
+    // its own — pushing it from here would re-author the phone's whole
+    // history as this desk's (D-028). Drop those, and start this device's
+    // cursor for that writer at what the copy already holds, so the first
+    // pull doesn't re-apply a history this database was born with. Keyed
+    // on "never pushed", not on the identity change, so a desk adopted
+    // before this rule existed heals itself on its next launch.
+    final pushed = await db
+        .customSelect("SELECT value FROM sync_meta WHERE key = 'pushed_seq'")
+        .getSingleOrNull();
+    if (pushed == null) {
+      final foreign = await db
+          .customSelect(
+            'SELECT v.device AS device, MAX(o.seq) AS top, COUNT(*) AS n '
+            'FROM sync_ops o JOIN sync_versions v '
+            'ON v.table_name = o.table_name AND v.row_id = o.row_id '
+            'WHERE v.device != ? GROUP BY v.device',
+            variables: [Variable.withString(id)],
+          )
+          .get();
+      for (final r in foreign) {
+        final device = r.data['device'] as String;
+        if (device.isEmpty) continue;
+        await db.customStatement(
+          'INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)',
+          ['cursor_$device', '${r.data['top']}'],
+        );
+      }
+      if (foreign.isNotEmpty) {
+        await db.customStatement(
+          'DELETE FROM sync_ops WHERE seq IN ('
+          'SELECT o.seq FROM sync_ops o JOIN sync_versions v '
+          'ON v.table_name = o.table_name AND v.row_id = o.row_id '
+          'WHERE v.device != ?)',
+          [id],
+        );
+      }
+    }
 
     // The apply guard: while a row exists here, triggers stay silent so
     // remote ops don't re-capture as local ones.
@@ -348,6 +399,23 @@ class OpLog {
     );
   }
 
+  /// Local bookkeeping the carrier layer keeps beside the cursors (last
+  /// sync time, the last note).
+  Future<String?> meta(String key) => _meta(key);
+  Future<void> setMeta(String key, String value) => _setMeta(key, value);
+
+  /// Run [body] with capture switched off: for writes that are this
+  /// device's own business — filing a fetched blob under a local path —
+  /// and must not be pushed to anyone.
+  Future<T> quietly<T>(Future<T> Function() body) async {
+    await db.customStatement('INSERT INTO _sync_guard VALUES (1)');
+    try {
+      return await body();
+    } finally {
+      await db.customStatement('DELETE FROM _sync_guard');
+    }
+  }
+
   Future<String?> _meta(String key) async {
     final row = await db
         .customSelect(
@@ -390,12 +458,16 @@ class OpLog {
     );
   }
 
-  /// Append everything new to `sync/<device>/` on [target]. One batch file
-  /// per call; zero ops writes nothing. Returns the number pushed.
+  /// Append what's new to `sync/<device>/` on [target]: one batch file per
+  /// call, at most [maxOps] ops (a phone's first push carries its whole
+  /// history — the carrier loops until [pendingCount] is zero rather than
+  /// writing one file the size of the journal). Zero ops writes nothing.
+  /// Returns the number pushed.
   Future<int> push(
     BackupTarget target, {
     BackupCipher? cipher,
     bool allowPlaintext = false,
+    int maxOps = 500,
   }) async {
     _requireSealedOrAcknowledged(cipher, allowPlaintext);
     await _settle();
@@ -403,8 +475,8 @@ class OpLog {
     final rows = await db
         .customSelect(
           'SELECT seq, table_name, row_id, op, row_ts, wall, payload, version '
-          'FROM sync_ops WHERE seq > ? ORDER BY seq',
-          variables: [Variable.withInt(last)],
+          'FROM sync_ops WHERE seq > ? ORDER BY seq LIMIT ?',
+          variables: [Variable.withInt(last), Variable.withInt(maxOps)],
         )
         .get();
     if (rows.isEmpty) return 0;
@@ -593,9 +665,11 @@ class OpLog {
     final payload = (op['payload'] as Map?)?.cast<String, Object?>();
     if (payload == null) return false;
     // Only columns both sides know: an older app applies what it can.
+    // Never a column that describes the writer's disk.
+    final deviceLocal = _deviceLocal[table] ?? const <String>{};
     final use = [
       for (final c in payload.keys)
-        if (cols.contains(c)) c,
+        if (cols.contains(c) && !deviceLocal.contains(c)) c,
     ];
     if (use.isEmpty) return false;
     final present =

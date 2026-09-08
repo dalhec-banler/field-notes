@@ -19,12 +19,14 @@ import '../screens/photo_import_screen.dart';
 import '../screens/programs_screen.dart';
 import '../screens/species_id_settings_screen.dart';
 import '../screens/species_import_screen.dart';
+import '../screens/sync_screen.dart';
+import '../sync/sync_service.dart';
 import '../screens/restore_screen.dart';
 import '../map/imagery_sources.dart';
 import '../services/app_prefs.dart';
 import '../services/press_unlock.dart';
 import '../theme/tokens.dart';
-import '../main.dart' show exportAndShare;
+import '../main.dart' show exportAndShare, opLog;
 import '../widgets/press.dart';
 
 /// Settings & backup (design README §3.6). Order is the argument:
@@ -57,6 +59,7 @@ class _SettingsTabState extends State<SettingsTab> {
     super.initState();
     _load();
     _loadVersion();
+    _loadSync();
     PressUnlock.revealIfPending(this);
   }
 
@@ -103,6 +106,23 @@ class _SettingsTabState extends State<SettingsTab> {
     if (d.inDays > 0) return '${d.inDays} d ago';
     if (d.inHours > 0) return '${d.inHours} h ago';
     return 'just now';
+  }
+
+  String _syncLine = 'edits cross both ways through your Drive';
+
+  Future<void> _loadSync() async {
+    final log = opLog;
+    if (log == null || widget.prefs.driveEmail == null) return;
+    final s = SyncService(widget.db, widget.prefs, log);
+    final at = await s.lastSyncAt;
+    final pending = await s.pending;
+    if (!mounted) return;
+    setState(() {
+      _syncLine = [
+        at == null ? 'never synced' : 'synced ${_ago(at)}',
+        if (pending > 0) '$pending waiting',
+      ].join(' · ');
+    });
   }
 
   /// Nag logic (spec §11.8): banner after 14 days without a backup.
@@ -379,6 +399,23 @@ class _SettingsTabState extends State<SettingsTab> {
                       DriveBackupScreen(db: widget.db, prefs: widget.prefs),
                 ),
               ),
+            ),
+            (
+              'Sync with the desk',
+              _syncLine,
+              widget.prefs.driveEmail == null
+                  ? ''
+                  : widget.prefs.driveSync
+                  ? 'On'
+                  : 'Off',
+              () => Navigator.of(context)
+                  .push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SyncScreen(db: widget.db, prefs: widget.prefs),
+                    ),
+                  )
+                  .then((_) => _loadSync()),
             ),
           ]),
           _group('Sharing', [

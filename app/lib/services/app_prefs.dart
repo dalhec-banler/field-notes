@@ -87,6 +87,11 @@ class AppPrefs extends ChangeNotifier {
   bool get driveAutoBackup => get<bool>('drive_auto_backup') ?? true;
   set driveAutoBackup(bool v) => set('drive_auto_backup', v);
 
+  /// Two-way sync through the Drive app folder (D-028): on by default
+  /// once Drive is connected; it never prompts on its own.
+  bool get driveSync => get<bool>('drive_sync') ?? true;
+  set driveSync(bool v) => set('drive_sync', v);
+
   /// Weather + soil lookup for each record (spec §4.11).
   ///
   /// Defaults to **off**, and is the only setting in the app whose default is

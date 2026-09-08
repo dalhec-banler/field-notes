@@ -1,7 +1,10 @@
 # Sync & sharing design — serverless, over the stores we already trust
 
-Status: DESIGN — approved direction (Austin, 2026-09-01: "option B, Drive is
-the way to go"). No code yet. This document is the thing to argue with.
+Status: SHIPPING for one human's devices (D-028, 2026-09-07): phone and
+desk exchange sealed op batches and media through the Drive APP folder
+(`lib/sync/sync_service.dart`). The shared `drive.file` folder, join flow
+and members registry below are still ahead. Approved direction (Austin,
+2026-09-01: "option B, Drive is the way to go").
 
 ## The promise this must not break
 

@@ -10,6 +10,9 @@ import 'package:path_provider/path_provider.dart';
 import '../db/database.dart';
 import '../services/app_prefs.dart';
 import '../services/press_unlock.dart';
+import '../main.dart' show opLog;
+import '../sync/sync_service.dart';
+import '../widgets/passphrase_dialog.dart';
 import '../services/review.dart';
 import '../widgets/nativity_chip.dart';
 import '../widgets/removal_chip.dart';
@@ -49,7 +52,8 @@ class DesktopShell extends StatefulWidget {
   State<DesktopShell> createState() => _DesktopShellState();
 }
 
-class _DesktopShellState extends State<DesktopShell> {
+class _DesktopShellState extends State<DesktopShell>
+    with WidgetsBindingObserver {
   int _view = 0;
 
   /// The phone's five tabs, in the phone's order, plus the desk's two
@@ -75,6 +79,13 @@ class _DesktopShellState extends State<DesktopShell> {
   StreamSubscription<void>? _statusWatch;
   Timer? _statusDebounce;
 
+  /// D-028: what this desk has that the phone doesn't yet, and when the
+  /// two last spoke. Sync runs on open, on focus, and every few minutes.
+  int _pendingSync = 0;
+  String? _lastSync;
+  bool _syncing = false;
+  Timer? _syncTimer;
+
   @override
   void initState() {
     super.initState();
@@ -85,7 +96,10 @@ class _DesktopShellState extends State<DesktopShell> {
       _view = _views.indexOf('Settings');
       PressUnlock.reveal(this);
     }
+    WidgetsBinding.instance.addObserver(this);
     _checkDrive();
+    _autoSync();
+    _syncTimer = Timer.periodic(const Duration(minutes: 5), (_) => _autoSync());
     // The title bar's size / media / places readouts follow the journal;
     // loaded-once numbers went stale after an import or ADD PHOTOS
     // (audit 2026-09-04). The watch emits once on listen, so it is also
@@ -107,21 +121,70 @@ class _DesktopShellState extends State<DesktopShell> {
           if (first) {
             first = false;
             _loadStatus();
+            _loadSyncStatus();
             return;
           }
           _statusDebounce?.cancel();
-          _statusDebounce = Timer(
-            const Duration(milliseconds: 250),
-            _loadStatus,
-          );
+          _statusDebounce = Timer(const Duration(milliseconds: 250), () {
+            _loadStatus();
+            _loadSyncStatus();
+          });
         });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _syncTimer?.cancel();
     _statusDebounce?.cancel();
     _statusWatch?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _autoSync();
+  }
+
+  Future<void> _autoSync() async {
+    final log = opLog;
+    if (log == null) return;
+    final r = await SyncService(
+      widget.db,
+      widget.prefs,
+      log,
+    ).maybeRunAutomatic().catchError((_) => null);
+    if (r != null) _loadSyncStatus();
+  }
+
+  Future<void> _loadSyncStatus() async {
+    final log = opLog;
+    if (log == null) return;
+    final s = SyncService(widget.db, widget.prefs, log);
+    final pending = await s.pending;
+    final at = await s.lastSyncAt;
+    if (mounted) {
+      setState(() {
+        _pendingSync = pending;
+        _lastSync = at;
+      });
+    }
+  }
+
+  Future<void> _syncNow() async {
+    final log = opLog;
+    if (log == null) return;
+    setState(() => _syncing = true);
+    final r = await SyncService(widget.db, widget.prefs, log).sync(
+      interactive: true,
+      askPassphrase: () => askPassphraseDialog(context),
+    );
+    if (!mounted) return;
+    setState(() => _syncing = false);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(r.summary.toUpperCase())));
+    _loadSyncStatus();
+    _checkDrive();
   }
 
   Future<void> _checkDrive() async {
@@ -129,8 +192,42 @@ class _DesktopShellState extends State<DesktopShell> {
     if (mounted) setState(() => _news = news);
   }
 
-  /// One-way mirror until sync (D-024): say so, and make it one click.
+  /// Synced desk (D-028): the only thing worth a banner is work here the
+  /// phone hasn't got. Before the first sync, the old one-way mirror
+  /// banner (D-024) still says a newer copy is waiting in Drive.
   Widget _driveBanner() {
+    if (widget.prefs.driveEmail != null && _lastSync != null) {
+      if (_pendingSync == 0) return SizedBox.shrink();
+      return Container(
+        color: Press.sageLight,
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        child: Row(
+          children: [
+            Diamond(size: 9, color: Press.sage, filled: true),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$_pendingSync ${_pendingSync == 1 ? 'edit' : 'edits'} on '
+                'this desk not yet on the phone.',
+                style: TextStyle(
+                  fontFamily: Type.serif,
+                  fontSize: 14,
+                  color: Press.ink,
+                ),
+              ),
+            ),
+            SizedBox(width: 12),
+            SizedBox(
+              height: 36,
+              child: FilledButton(
+                onPressed: _syncing ? null : _syncNow,
+                child: Text(_syncing ? 'SYNCING…' : 'SYNC NOW'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final news = _news;
     if (news == null) return SizedBox.shrink();
     final when = news.createdAt.replaceFirst('T', ' ');

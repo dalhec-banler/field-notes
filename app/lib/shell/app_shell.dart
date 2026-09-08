@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../backup/backup_service.dart';
+import '../main.dart' show opLog;
+import '../sync/sync_service.dart';
 import '../db/database.dart';
 import '../id/id_keys.dart';
 import '../screens/capture_screen.dart';
@@ -87,6 +89,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       BackupService(widget.db)
           .maybeRunAutomatic(widget.prefs)
           .catchError((_) => null);
+      final log = opLog;
+      if (log != null) {
+        SyncService(
+          widget.db,
+          widget.prefs,
+          log,
+        ).maybeRunAutomatic().catchError((_) => null);
+      }
     }
   }
 

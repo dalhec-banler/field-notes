@@ -18,6 +18,43 @@ class MediaStore {
 
   final FieldNotesDb db;
 
+  /// File bytes that arrived by sync under this device's own layout —
+  /// the photo's original plus its working copy and thumbnail, or the
+  /// audio file — and return (local, thumb). The row is updated by the
+  /// caller, quietly: paths are this device's business (D-028).
+  Future<(String, String?)> placeBytes(
+    Uint8List bytes, {
+    required String id,
+    required String mediaType,
+    required String when,
+  }) async {
+    final docs = await getApplicationDocumentsDirectory();
+    final ym = when.length >= 7
+        ? when.substring(0, 7).split('-')
+        : ['0000', '00'];
+    if (mediaType == 'audio') {
+      final dir = Directory(p.join(docs.path, 'media', 'audio', ym[0], ym[1]))
+        ..createSync(recursive: true);
+      final dest = p.join(dir.path, '$id.m4a');
+      File(dest).writeAsBytesSync(bytes);
+      return (dest, null);
+    }
+    final dir = Directory(p.join(docs.path, 'media', 'photos', ym[0], ym[1]))
+      ..createSync(recursive: true);
+    final originalPath = p.join(dir.path, '$id.jpg');
+    File(originalPath).writeAsBytesSync(bytes);
+    try {
+      final derived = await compute(_deriveCopies, bytes);
+      File(p.join(dir.path, '$id.work.jpg')).writeAsBytesSync(derived.working);
+      final thumbPath = p.join(dir.path, '$id.thumb.jpg');
+      File(thumbPath).writeAsBytesSync(derived.thumb);
+      return (originalPath, thumbPath);
+    } catch (_) {
+      // Not an image we can decode: the original is still the record.
+      return (originalPath, null);
+    }
+  }
+
   Future<MediaData> savePhoto(
     Uint8List originalBytes, {
     required String propertyId,

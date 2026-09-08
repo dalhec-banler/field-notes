@@ -21,11 +21,17 @@ import 'services/track_recorder.dart';
 import 'map/imagery_sources.dart';
 import 'shell/app_shell.dart';
 import 'sync/oplog.dart';
+import 'sync/sync_service.dart';
+
 import 'theme/theme.dart';
 import 'theme/tokens.dart';
 import 'screens/onboarding_screen.dart';
 import 'widgets/new_place_dialog.dart';
 import 'widgets/press.dart';
+
+/// This installation's change log, installed at launch; null only if
+/// capture failed to start (sync then says so).
+OpLog? opLog;
 
 /// Single owner of the platform GPS stream; every screen listens here.
 late final LocationHub locationHub;
@@ -55,7 +61,7 @@ Future<void> main() async {
   // sync needs the history to exist before anyone flips it on.
   try {
     final docs = await getApplicationDocumentsDirectory();
-    await OpLog.install(
+    opLog = await OpLog.install(
       db,
       identityFile: File(p.join(docs.path, 'device_id.txt')),
     );
@@ -83,6 +89,11 @@ Future<void> main() async {
   // Daily automatic backup + weekly verify, when due (spec §11.7–11.8).
   // Never gates startup.
   BackupService(db).maybeRunAutomatic(prefs).catchError((_) => null);
+  // D-028: the sync carrier, same posture — when due, never a prompt.
+  final log = opLog;
+  if (log != null) {
+    SyncService(db, prefs, log).maybeRunAutomatic().catchError((_) => null);
+  }
   // The skin is process-wide state read during build (D-023); it must be
   // decided before the first frame and only ever changed with the rebuild
   // below, never mid-frame.

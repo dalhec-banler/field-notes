@@ -447,3 +447,48 @@ the removal plan — the plate drawn with ONLY flagged records as numbered
 oxblood pins, then the numbered list with each record's photo, species,
 nativity, coordinates and notes, for a contractor's hand
 (`lib/export/removal_plan.dart`).
+
+### D-028 · Sync is on: the Drive app folder is the carrier
+
+2026-09-07. Austin: "the UX is fucked as it stands currently" — the desk
+could edit and could not send. D-026 had closed every correctness
+blocker and left three product choices. They are made:
+
+1. **Where the shared folder lives.** The hidden Drive app folder the
+   backup already writes (D-021). No new scope, no folder to pick, no
+   second place to explain. Each device writes only under
+   `sync/<device_id>/`; nobody writes a file anyone else writes.
+   (Sharing with other people — SYNC-DESIGN's `drive.file` folder — is
+   still ahead; this is one human's phone and desk.)
+2. **How the devices agree on a key.** The backup keyring. The desk
+   already holds the data key from the day it restored the phone's copy;
+   the phone caches it for the daily backup. Sync batches and media are
+   sealed with it and nothing else; a device without it is told to open
+   Sync and enter the passphrase once.
+3. **What the person sees.** One screen, *Sync with Drive*, on both
+   devices: account, last synced, what's waiting, SYNC NOW, and the
+   automatic switch. The desk's banner stops announcing "a newer copy in
+   Drive" once it has synced and instead says how many of its edits the
+   phone hasn't got. Automatic runs on open, on resume, and (desk) every
+   few minutes — at most once per fifteen — and never prompts.
+
+Two rules the carrier needed that the log did not have:
+
+- **A journal that arrived by restore belongs to its writer.** The desk
+  was born from the phone's database, sync tables included; pushing that
+  journal would re-author the phone's history as the desk's. A device
+  that has never pushed keeps only ops for rows it wrote (sync_versions
+  says who), and starts its cursor for the writer at what the copy
+  already holds. Keyed on "never pushed", so a desk adopted before this
+  rule heals itself on its next launch.
+- **A path is not a fact about the record.** `media.local_path`,
+  `thumb_path`, `remote_path` and `upload_state` are captured but never
+  applied. The receiving device fetches the blob from the same
+  `blobs/` the backup fills and files it under its own layout, quietly.
+
+Media travel by the backup's blob store, content-addressed and already
+deduplicated; photos wait for Wi-Fi unless cellular is allowed (D-016).
+`test/sync_service_test.dart` is the acceptance: a record and its photo
+cross as a row and a file, an edit comes back, a deletion travels, paths
+never cross, a 1,200-op history goes up in bounded batches, and an
+adopted desk pushes only its own work.
