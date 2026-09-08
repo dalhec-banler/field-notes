@@ -109,7 +109,13 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         TextEdit('notes', 'Notes', initial: b.notes, lines: 3),
       ],
       deleteTitle: 'DELETE THIS BATCH?',
-      deleteBody: 'Its event log goes with it. Nothing is erased from disk.',
+      // A batch listed under the place it was collected from or planted
+      // out to is the same batch: deleting it there empties the bench too
+      // (Austin, 2026-09-08). Say where it lives.
+      deleteBody:
+          'This is the batch on the bench at ${_lineage?.benchName ?? 'its bench'} — '
+          'it is the same batch wherever it is listed, and it leaves every '
+          'list. Its event log goes with it. Nothing is erased from disk.',
     );
     if (r == null) return;
     final now = nowUtcIso();
