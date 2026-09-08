@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../db/database.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/plant_checkin_dialog.dart';
+import '../../widgets/edit_sheet.dart';
+import '../../widgets/nativity_chip.dart';
 import '../../widgets/press.dart';
 
 /// One plant's whole story (Austin's dossier note, 2026-09-01): the tag is
@@ -188,6 +190,14 @@ class _PlantDossierScreenState extends State<PlantDossierScreen> {
                 ),
               ),
             ),
+          if (_taxon?.nativity != null)
+            Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: NativityChip(_taxon!.nativity),
+              ),
+            ),
           SizedBox(height: 14),
           Container(
             decoration: BoxDecoration(
@@ -323,6 +333,79 @@ class _PlantDossierScreenState extends State<PlantDossierScreen> {
     );
   }
 
+  static const _statuses = [
+    ('alive', 'Alive'),
+    ('dead', 'Dead'),
+    ('missing', 'Missing'),
+    ('dormant', 'Dormant'),
+    ('browsed', 'Browsed'),
+    ('declining', 'Declining'),
+    ('removed', 'Removed'),
+  ];
+  static const _vigor = [
+    ('excellent', 'Excellent'),
+    ('good', 'Good'),
+    ('fair', 'Fair'),
+    ('poor', 'Poor'),
+    ('dead', 'Dead'),
+  ];
+  static const _browse = [
+    ('none', 'None'),
+    ('light', 'Light'),
+    ('moderate', 'Moderate'),
+    ('severe', 'Severe'),
+  ];
+
+  Future<void> _editCheckin(PlantCheckin c) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit check-in',
+      fields: [
+        DateEdit('on', 'Checked on', initial: c.checkedAt),
+        ChoiceEdit('status', 'Status', options: _statuses, initial: c.status),
+        NumberEdit('height', 'Height (cm)', initial: c.heightCm, decimal: true),
+        ChoiceEdit(
+          'vigor',
+          'Vigor',
+          options: _vigor,
+          initial: c.vigor,
+          allowNone: true,
+        ),
+        ChoiceEdit(
+          'browse',
+          'Browse pressure',
+          options: _browse,
+          initial: c.browsePressure,
+          allowNone: true,
+        ),
+        TextEdit('notes', 'Notes', initial: c.notes, lines: 2),
+      ],
+      deleteTitle: 'DELETE THIS CHECK-IN?',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.plantCheckins)
+      ..where((x) => x.id.equals(c.id));
+    if (r.deleted) {
+      await q.write(
+        PlantCheckinsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+    } else {
+      await q.write(
+        PlantCheckinsCompanion(
+          checkedAt: Value(withDay(c.checkedAt, r.day('on') ?? c.checkedAt)),
+          status: Value(r.text('status') ?? c.status),
+          heightCm: Value(r.number('height')),
+          vigor: Value(r.text('vigor')),
+          browsePressure: Value(r.text('browse')),
+          notes: Value(r.text('notes')),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    _load();
+  }
+
   Widget _checkinTile(PlantCheckin c) {
     final bits = [
       if (c.heightCm != null) '${c.heightCm!.toStringAsFixed(0)} cm',
@@ -330,59 +413,62 @@ class _PlantDossierScreenState extends State<PlantDossierScreen> {
       if (c.browsePressure != null && c.browsePressure != 'none')
         'browse ${c.browsePressure}',
     ].join(' · ');
-    return Container(
-      margin: EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Press.paperRaised,
-        border: Border.all(color: Press.borderInk, width: 1.5),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Diamond(size: 13, color: plantStatusColor(c.status)),
-          SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    MonoLabel(
-                      c.checkedAt.substring(0, 10),
-                      size: 9.5,
-                      spacing: 1.2,
-                    ),
-                    Spacer(),
-                    MonoLabel(
-                      c.status.toUpperCase(),
-                      size: 9,
-                      spacing: 1.4,
-                      color: plantStatusColor(c.status),
-                    ),
-                  ],
-                ),
-                if (bits.isNotEmpty)
-                  Padding(
-                    padding: EdgeInsets.only(top: 3),
-                    child: MonoLabel(bits, size: 9, opacity: 0.7),
+    return InkWell(
+      onTap: () => _editCheckin(c),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Press.paperRaised,
+          border: Border.all(color: Press.borderInk, width: 1.5),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Diamond(size: 13, color: plantStatusColor(c.status)),
+            SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      MonoLabel(
+                        c.checkedAt.substring(0, 10),
+                        size: 9.5,
+                        spacing: 1.2,
+                      ),
+                      Spacer(),
+                      MonoLabel(
+                        c.status.toUpperCase(),
+                        size: 9,
+                        spacing: 1.4,
+                        color: plantStatusColor(c.status),
+                      ),
+                    ],
                   ),
-                if (c.notes != null && c.notes!.isNotEmpty)
-                  Padding(
-                    padding: EdgeInsets.only(top: 5),
-                    child: Text(
-                      c.notes!,
-                      style: TextStyle(
-                        fontFamily: Type.serif,
-                        fontSize: 14.5,
-                        height: 1.4,
+                  if (bits.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.only(top: 3),
+                      child: MonoLabel(bits, size: 9, opacity: 0.7),
+                    ),
+                  if (c.notes != null && c.notes!.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.only(top: 5),
+                      child: Text(
+                        c.notes!,
+                        style: TextStyle(
+                          fontFamily: Type.serif,
+                          fontSize: 14.5,
+                          height: 1.4,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

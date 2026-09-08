@@ -4,6 +4,8 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../widgets/nativity_chip.dart';
+import '../widgets/removal_chip.dart';
 import 'record_detail_screen.dart';
 
 /// Feed (spec §7.3): reverse-chronological records with zone and type filters.
@@ -193,13 +195,15 @@ class _ObservationTile extends StatelessWidget {
   final Observation obs;
   final VoidCallback onTap;
 
-  Future<(String?, String?)> _details() async {
+  Future<(String?, String?, String?)> _details() async {
     String? species;
+    String? nativity;
     if (obs.taxonId != null) {
       final t = await (db.select(
         db.taxa,
       )..where((x) => x.id.equals(obs.taxonId!))).getSingleOrNull();
       species = t?.commonName ?? t?.scientificName;
+      nativity = t?.nativity;
     }
     String? thumb;
     final link =
@@ -217,16 +221,16 @@ class _ObservationTile extends StatelessWidget {
       )..where((x) => x.id.equals(link.mediaId))).getSingleOrNull();
       thumb = m?.thumbPath;
     }
-    return (species, thumb);
+    return (species, thumb, nativity);
   }
 
   @override
   Widget build(BuildContext context) {
     final when = obs.observedAt.replaceFirst('T', ' ').substring(0, 16);
-    return FutureBuilder<(String?, String?)>(
+    return FutureBuilder<(String?, String?, String?)>(
       future: _details(),
       builder: (context, snapshot) {
-        final (species, thumb) = snapshot.data ?? (null, null);
+        final (species, thumb, nativity) = snapshot.data ?? (null, null, null);
         return ListTile(
           minTileHeight: 64,
           onTap: onTap,
@@ -241,7 +245,24 @@ class _ObservationTile extends StatelessWidget {
                   ),
                 )
               : CircleAvatar(child: Icon(_iconFor(obs.observationType))),
-          title: Text(species ?? obs.observationType),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  species ?? obs.observationType,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (nativity != null) ...[
+                const SizedBox(width: 8),
+                NativityChip(nativity),
+              ],
+              if (obs.removalStatus != null) ...[
+                const SizedBox(width: 8),
+                RemovalChip(obs.removalStatus, removedOn: obs.removedOn),
+              ],
+            ],
+          ),
           subtitle: Text(
             [when, if (obs.notes != null) obs.notes!].join(' · '),
             maxLines: 2,

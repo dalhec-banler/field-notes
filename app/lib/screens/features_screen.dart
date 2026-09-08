@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import '../db/database.dart';
 import '../main.dart' show locationHub;
 import '../widgets/confirm.dart';
+import '../widgets/edit_sheet.dart';
 
 /// Features & infrastructure (spec §7.9): map-worthy things with condition
 /// history — springs, guzzlers, headcuts, gates.
@@ -296,6 +297,79 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
   /// Material shades were this screen's private dialect.
   Color _conditionColor(String? c) => conditionColor(c);
 
+  Future<void> _editFeature(Feature f) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit feature',
+      fields: [
+        TextEdit('name', 'Name', initial: f.name),
+        DateEdit('installed', 'Installed on', initial: f.installedOn),
+        DateEdit('retired', 'Retired on', initial: f.retiredOn),
+        TextEdit('notes', 'Notes', initial: f.notes, lines: 3),
+      ],
+    );
+    if (r == null || r.deleted) return;
+    await (widget.db.update(
+      widget.db.features,
+    )..where((x) => x.id.equals(f.id))).write(
+      FeaturesCompanion(
+        name: Value(r.text('name')),
+        installedOn: Value(r.day('installed')),
+        retiredOn: Value(r.day('retired')),
+        notes: Value(r.text('notes')),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
+  }
+
+  Future<void> _editFeatureLog(Feature f, FeatureConditionLog l) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit condition',
+      fields: [
+        DateEdit('on', 'Observed on', initial: l.observedAt),
+        ChoiceEdit(
+          'condition',
+          'Condition',
+          options: const [
+            ('good', 'Good'),
+            ('fair', 'Fair'),
+            ('poor', 'Poor'),
+            ('critical', 'Critical'),
+            ('unknown', 'Unknown'),
+          ],
+          initial: l.condition,
+        ),
+        TextEdit('action', 'Action taken', initial: l.actionTaken),
+        TextEdit('notes', 'Notes', initial: l.notes, lines: 2),
+      ],
+      deleteTitle: 'DELETE THIS CONDITION ENTRY?',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.featureConditionLogs)
+      ..where((x) => x.id.equals(l.id));
+    if (r.deleted) {
+      await q.write(
+        FeatureConditionLogsCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+    } else {
+      await q.write(
+        FeatureConditionLogsCompanion(
+          observedAt: Value(withDay(l.observedAt, r.day('on') ?? l.observedAt)),
+          condition: Value(r.text('condition') ?? l.condition),
+          actionTaken: Value(r.text('action')),
+          notes: Value(r.text('notes')),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    _openFeature(f);
+  }
+
   Future<void> _openFeature(Feature f) async {
     final logs =
         await (widget.db.select(widget.db.featureConditionLogs)
@@ -329,6 +403,10 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _editFeatureLog(f, l);
+                  },
                   leading: Icon(
                     Icons.circle,
                     size: 12,
@@ -355,6 +433,17 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
                   _logCondition(f);
                 },
                 child: const Text('LOG CONDITION'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 48,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _editFeature(f);
+                },
+                child: const Text('EDIT FEATURE'),
               ),
             ),
             const SizedBox(height: 8),

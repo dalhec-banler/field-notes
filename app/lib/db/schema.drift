@@ -214,6 +214,11 @@ CREATE TABLE observations (
   accepted_by   TEXT,
   notes         TEXT,
   env_context_id TEXT REFERENCES env_contexts(id),
+  -- D-027: removal is management work, as first-class as planting. A
+  -- record flagged for removal stands out on every map and export until
+  -- it is marked removed (with the day it happened).
+  removal_status TEXT CHECK (removal_status IN ('flagged','removed')),
+  removed_on    TEXT,
   created_by TEXT NOT NULL, created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL, deleted_at TEXT
 );

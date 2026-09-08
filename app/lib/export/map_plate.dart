@@ -100,10 +100,24 @@ class PlateRecord {
     this.label,
     this.id,
     this.observedAt,
+    this.removal,
+    this.nativity,
+    this.notes,
+    this.photoPath,
   });
   final double lat, lng;
   final String type; // observation_type
   final String? label; // species, when identified
+
+  /// D-027: 'flagged' or 'removed', when this record is removal work.
+  final String? removal;
+
+  /// The species' nativity and the record's notes and first photo — what
+  /// a removal plan lists beside each numbered pin. The plate renderer
+  /// itself never reads them.
+  final String? nativity;
+  final String? notes;
+  final String? photoPath;
 
   /// Observation id and time — the desk map opens the record from its
   /// mark and lists sightings per species. The plate renderer itself
@@ -201,8 +215,13 @@ class PlateResult {
     required this.tilesMissing,
     required this.legend,
     required this.overlapGroups,
+    this.numbered = const [],
   });
   final Uint8List png;
+
+  /// Removal plan: the flagged records in the order their pins are
+  /// numbered — the list beside the map says the same numbers.
+  final List<PlateRecord> numbered;
   final int width, height, zoom;
   final LatLngBounds bounds;
 
@@ -288,6 +307,11 @@ class MapPlate {
     /// ink; the legend names them. Null (or empty) = every record in its
     /// type colour, as before.
     List<PlateSpecies>? species,
+
+    /// Removal plan (D-027): ONLY records flagged for removal draw, as
+    /// numbered oxblood pins, in species-then-date order. The returned
+    /// [PlateResult.numbered] is that order — the list beside the map.
+    bool removalPlan = false,
 
     /// Frame this many zoom levels past the source's cache: tiles are
     /// upscaled into their quadrants. A poster framed at the source cap
@@ -524,7 +548,42 @@ class MapPlate {
     // Records — coincident points collapse to one badge with a count, so a
     // printed plate never hides records under each other.
     var overlapGroups = 0;
-    if (layers.records && subject.records.isNotEmpty) {
+    final numbered = <PlateRecord>[];
+    if (removalPlan) {
+      // The contractor's map: what comes out, and nothing else.
+      numbered.addAll(
+        subject.records.where((r) => r.removal == 'flagged').toList()
+          ..sort((a, b) {
+            final bySpecies = (a.label ?? '~${a.type}').toLowerCase().compareTo(
+              (b.label ?? '~${b.type}').toLowerCase(),
+            );
+            return bySpecies != 0
+                ? bySpecies
+                : (a.observedAt ?? '').compareTo(b.observedAt ?? '');
+          }),
+      );
+      final index = {
+        for (var i = 0; i < numbered.length; i++) numbered[i]: i + 1,
+      };
+      for (final g in groupOverlapping(frame, numbered)) {
+        final (x, y) = g.$1;
+        final members = g.$2..sort((a, b) => index[a]!.compareTo(index[b]!));
+        final label = members.length == 1
+            ? '${index[members.first]}'
+            : '${index[members.first]}+${members.length - 1}';
+        if (members.length > 1) overlapGroups++;
+        _drawNumberBadge(canvas, x, y, label);
+      }
+      if (numbered.isNotEmpty) {
+        legend.add((
+          PlateInk.oxblood,
+          'Flagged for removal · ${numbered.length}',
+        ));
+      }
+      if (overlapGroups > 0) {
+        legend.add((PlateInk.oxblood, '+n: more flagged at the same spot'));
+      }
+    } else if (layers.records && subject.records.isNotEmpty) {
       final speciesInk = (species == null || species.isEmpty)
           ? null
           : {for (final s in species) s.key: s.ink};
@@ -538,6 +597,7 @@ class MapPlate {
             ];
       final groups = groupOverlapping(frame, source);
       final typesSeen = <String>{};
+      final removalSeen = <String>{};
       for (final g in groups) {
         final (x, y) = g.$1;
         final members = g.$2;
@@ -550,6 +610,10 @@ class MapPlate {
             r.type,
             colorOverride: speciesInk?[r.label ?? '__type:${r.type}'],
           );
+          if (r.removal != null) {
+            _drawRemovalRing(canvas, x, y, flagged: r.removal == 'flagged');
+            removalSeen.add(r.removal!);
+          }
           if (speciesInk == null) typesSeen.add(r.type);
         } else {
           overlapGroups++;
@@ -564,6 +628,12 @@ class MapPlate {
         for (final t in typesSeen) {
           legend.add((markFor(t).argb, '${_cap(t)} record'));
         }
+      }
+      if (removalSeen.contains('flagged')) {
+        legend.add((PlateInk.oxblood, 'Flagged for removal'));
+      }
+      if (removalSeen.contains('removed')) {
+        legend.add((PlateInk.ink, 'Removed'));
       }
       if (overlapGroups > 0) {
         legend.add((PlateInk.ink, 'Several records at one spot'));
@@ -606,6 +676,7 @@ class MapPlate {
       tilesMissing: missing,
       legend: legend,
       overlapGroups: overlapGroups,
+      numbered: numbered,
     );
   }
 
@@ -869,6 +940,75 @@ class MapPlate {
         );
         c.drawPath(tri, ui.Paint()..color = ui.Color(ink));
     }
+  }
+
+  /// D-027 over any mark: oxblood ring with a cut while it's flagged, an
+  /// ink ring with a tick once it's out. The mark beneath still shows.
+  static void _drawRemovalRing(
+    ui.Canvas c,
+    double x,
+    double y, {
+    required bool flagged,
+  }) {
+    final ink = ui.Color(flagged ? PlateInk.oxblood : PlateInk.ink);
+    c.drawCircle(
+      ui.Offset(x, y),
+      10,
+      ui.Paint()
+        ..color = const ui.Color(0xFFFFFFFF)
+        ..style = ui.PaintingStyle.stroke
+        ..strokeWidth = 3.5,
+    );
+    final stroke = ui.Paint()
+      ..color = ink
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = ui.StrokeCap.round;
+    c.drawCircle(ui.Offset(x, y), 10, stroke);
+    if (flagged) {
+      c.drawLine(ui.Offset(x - 7, y + 7), ui.Offset(x + 7, y - 7), stroke);
+    } else {
+      final tick = ui.Path()
+        ..moveTo(x - 4.5, y + 0.5)
+        ..lineTo(x - 1.5, y + 3.5)
+        ..lineTo(x + 5, y - 3.5);
+      c.drawPath(tick, stroke);
+    }
+  }
+
+  /// A numbered oxblood pin for the removal plan.
+  static void _drawNumberBadge(ui.Canvas c, double x, double y, String label) {
+    final r = label.length >= 4
+        ? 15.0
+        : label.length == 3
+        ? 13.0
+        : 11.0;
+    c.drawCircle(
+      ui.Offset(x, y),
+      r + 1.5,
+      ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+    );
+    c.drawCircle(
+      ui.Offset(x, y),
+      r,
+      ui.Paint()..color = ui.Color(PlateInk.oxblood),
+    );
+    final pb =
+        ui.ParagraphBuilder(
+            ui.ParagraphStyle(textAlign: ui.TextAlign.center, fontSize: 10),
+          )
+          ..pushStyle(
+            ui.TextStyle(
+              color: const ui.Color(0xFFF7F6F2),
+              fontSize: label.length >= 3 ? 8.5 : 10,
+              fontWeight: ui.FontWeight.w700,
+              fontFamily: 'JetBrainsMono',
+              fontFamilyFallback: const ['Roboto', 'sans-serif'],
+            ),
+          )
+          ..addText(label);
+    final p = pb.build()..layout(ui.ParagraphConstraints(width: r * 2));
+    c.drawParagraph(p, ui.Offset(x - r, y - p.height / 2));
   }
 
   static void _drawRecordDot(ui.Canvas c, double x, double y, int color) {

@@ -10,6 +10,8 @@ import '../services/record_filter.dart';
 import '../theme/tokens.dart';
 import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
+import '../widgets/nativity_chip.dart';
+import '../widgets/removal_chip.dart';
 
 /// Ledger (design README §3.2): the feed as a record of entries. Rows scale
 /// off one density root — 16 px glove, 13.5 px dense.
@@ -58,7 +60,8 @@ class _LedgerTabState extends State<LedgerTab> {
       _zoneFilter != null ||
       _typeFilter != null ||
       _speciesFilter != null ||
-      _dateFilter != null;
+      _dateFilter != null ||
+      recordFilter.flagged;
 
   double get _em => widget.prefs.density == 'dense' ? 13.5 : 16.0;
 
@@ -117,6 +120,9 @@ class _LedgerTabState extends State<LedgerTab> {
       ..where((o) => o.deletedAt.isNull())
       ..orderBy([(o) => OrderingTerm.desc(o.observedAt)]));
     if (_zoneFilter != null) query.where((o) => o.zoneId.equals(_zoneFilter!));
+    if (recordFilter.flagged) {
+      query.where((o) => o.removalStatus.equals('flagged'));
+    }
     if (_typeFilter != null) {
       query.where((o) => o.observationType.equals(_typeFilter!));
     }
@@ -197,6 +203,16 @@ class _LedgerTabState extends State<LedgerTab> {
                       active: _dateFilter != null,
                       onTap: _pickDates,
                     ),
+                    const SizedBox(width: 7),
+                    // The contractor's view (D-027): only what's flagged.
+                    _chip(
+                      'Removal',
+                      active: recordFilter.flagged,
+                      onTap: () => setState(
+                        () =>
+                            recordFilter.update((f) => f.flagged = !f.flagged),
+                      ),
+                    ),
                     if (_anyFilter) ...[
                       const SizedBox(width: 7),
                       _chip(
@@ -208,6 +224,7 @@ class _LedgerTabState extends State<LedgerTab> {
                           _speciesFilter = null;
                           _speciesLabel = null;
                           _dateFilter = null;
+                          recordFilter.update((f) => f.flagged = false);
                         }),
                       ),
                     ],
@@ -559,6 +576,24 @@ class _LedgerRow extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             fontSize: em * 1.1,
                             color: Press.ink,
+                          ),
+                        ),
+                      if (species?.nativity != null ||
+                          obs.removalStatus != null)
+                        Padding(
+                          padding: EdgeInsets.only(top: em * 0.3),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              if (species?.nativity != null)
+                                NativityChip(species!.nativity),
+                              if (obs.removalStatus != null)
+                                RemovalChip(
+                                  obs.removalStatus,
+                                  removedOn: obs.removedOn,
+                                ),
+                            ],
                           ),
                         ),
                       SizedBox(height: em * 0.2),

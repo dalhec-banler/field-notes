@@ -8,6 +8,8 @@ import '../../widgets/plant_checkin_dialog.dart';
 import 'plant_dossier_screen.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/press.dart';
+import '../../widgets/edit_sheet.dart';
+import '../../widgets/nativity_chip.dart';
 
 /// Cohort detail (spec §7.5): survival, tagged individuals, check-ins.
 class PlantingDetailScreen extends StatefulWidget {
@@ -185,6 +187,166 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
     _load();
   }
 
+  static const _stockSources = [
+    ('own_propagation', 'Own propagation'),
+    ('purchased_container', 'Purchased (container)'),
+    ('purchased_bareroot', 'Purchased (bare root)'),
+    ('direct_seed', 'Direct seed'),
+    ('volunteer', 'Volunteer'),
+    ('transplant_onsite', 'Transplant (on site)'),
+  ];
+  static const _protections = [
+    ('none', 'None'),
+    ('welded_wire_cage', 'Welded wire cage'),
+    ('tree_tube', 'Tree tube'),
+    ('fencing', 'Fencing'),
+    ('mulch_only', 'Mulch only'),
+    ('other', 'Other'),
+  ];
+  static const _plantStatuses = [
+    ('alive', 'Alive'),
+    ('dead', 'Dead'),
+    ('missing', 'Missing'),
+    ('dormant', 'Dormant'),
+    ('browsed', 'Browsed'),
+    ('declining', 'Declining'),
+    ('removed', 'Removed'),
+  ];
+
+  Future<void> _editPlanting() async {
+    final e = _event!;
+    final r = await showEditSheet(
+      context,
+      title: 'Edit planting',
+      db: widget.db,
+      fields: [
+        SpeciesEdit('taxon', 'Species', initial: _taxon),
+        DateEdit('on', 'Planted on', initial: e.plantedOn),
+        ChoiceEdit(
+          'stock',
+          'Stock source',
+          options: _stockSources,
+          initial: e.stockSource,
+        ),
+        NumberEdit('count', 'Count planted', initial: e.countPlanted),
+        ChoiceEdit(
+          'protection',
+          'Protection',
+          options: _protections,
+          initial: e.protection,
+          allowNone: true,
+        ),
+        TextEdit('notes', 'Notes', initial: e.plantingNotes, lines: 3),
+      ],
+      deleteTitle: 'DELETE THIS PLANTING?',
+      deleteBody:
+          'Its check-ins and tagged plants stay on disk; the cohort '
+          'leaves the list.',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.plantingEvents)
+      ..where((x) => x.id.equals(e.id));
+    if (r.deleted) {
+      await q.write(
+        PlantingEventsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    final count = r.integer('count');
+    await q.write(
+      PlantingEventsCompanion(
+        taxonId: Value(r.taxon('taxon')?.id),
+        plantedOn: Value(r.day('on') ?? e.plantedOn),
+        stockSource: Value(r.text('stock') ?? e.stockSource),
+        countPlanted: Value(
+          count == null || count <= 0 ? e.countPlanted : count,
+        ),
+        protection: Value(r.text('protection')),
+        plantingNotes: Value(r.text('notes')),
+        updatedAt: Value(now),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _editCohortCheckin(PlantCheckin c) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit cohort check-in',
+      fields: [
+        DateEdit('on', 'Checked on', initial: c.checkedAt),
+        NumberEdit('alive', 'Alive', initial: c.countAlive),
+        NumberEdit('dead', 'Dead', initial: c.countDead),
+        TextEdit('notes', 'Notes', initial: c.notes, lines: 2),
+      ],
+      deleteTitle: 'DELETE THIS CHECK-IN?',
+      deleteBody: 'Survival is recounted from what remains.',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.plantCheckins)
+      ..where((x) => x.id.equals(c.id));
+    if (r.deleted) {
+      await q.write(
+        PlantCheckinsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+    } else {
+      await q.write(
+        PlantCheckinsCompanion(
+          checkedAt: Value(withDay(c.checkedAt, r.day('on') ?? c.checkedAt)),
+          countAlive: Value(r.integer('alive')),
+          countDead: Value(r.integer('dead')),
+          notes: Value(r.text('notes')),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    _load();
+  }
+
+  Future<void> _editIndividual(Plant plant) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit tagged plant',
+      fields: [
+        TextEdit(
+          'tag',
+          'Tag code',
+          initial: plant.tagCode,
+          hint: 'Physical tag on the plant or cage',
+        ),
+        ChoiceEdit(
+          'status',
+          'Current status',
+          options: _plantStatuses,
+          initial: plant.currentStatus,
+        ),
+      ],
+      deleteTitle: 'DELETE THIS TAGGED PLANT?',
+      deleteBody: 'Its check-ins stay on disk; the tag leaves the cohort.',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.plants)
+      ..where((x) => x.id.equals(plant.id));
+    if (r.deleted) {
+      await q.write(
+        PlantsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+    } else {
+      await q.write(
+        PlantsCompanion(
+          tagCode: Value(r.text('tag')),
+          currentStatus: Value(r.text('status') ?? plant.currentStatus),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    _load();
+  }
+
   Future<void> _addIndividual() async {
     final event = _event!;
     final last = await lastTagCode(widget.db, event.propertyId);
@@ -316,6 +478,13 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
             fontSize: 20,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Edit planting',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: _editPlanting,
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(Metrics.gutter),
@@ -334,6 +503,11 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: TaxonName(species, size: 24)),
+                    if (_taxon?.nativity != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8, top: 4),
+                        child: NativityChip(_taxon!.nativity),
+                      ),
                     // Only the cohort figure is a survival percent; the
                     // tag-derived one is over tagged plants (audit M13).
                     if (survival != null && !survival.fromTags)
@@ -433,7 +607,8 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
                         );
                         _load();
                       },
-                      onLongPress: () => _checkinIndividual(_individuals[i]),
+                      // The check-in has its own button; hold to edit the tag.
+                      onLongPress: () => _editIndividual(_individuals[i]),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 11,
@@ -511,23 +686,26 @@ class _PlantingDetailScreenState extends State<PlantingDetailScreen> {
             MonoLabel('Check-in history', size: 9, spacing: 1.6),
             const SizedBox(height: 6),
             for (final c in _cohortCheckins.where((c) => c.countAlive != null))
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    MonoLabel(
-                      c.checkedAt.substring(0, 10),
-                      size: 9.5,
-                      color: Press.oxblood,
-                    ),
-                    const SizedBox(width: 10),
-                    MonoLabel(
-                      '${c.countAlive} alive'
-                      '${c.countDead != null ? ' · ${c.countDead} dead' : ''}',
-                      size: 9.5,
-                      opacity: 0.85,
-                    ),
-                  ],
+              InkWell(
+                onTap: () => _editCohortCheckin(c),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    children: [
+                      MonoLabel(
+                        c.checkedAt.substring(0, 10),
+                        size: 9.5,
+                        color: Press.oxblood,
+                      ),
+                      const SizedBox(width: 10),
+                      MonoLabel(
+                        '${c.countAlive} alive'
+                        '${c.countDead != null ? ' · ${c.countDead} dead' : ''}',
+                        size: 9.5,
+                        opacity: 0.85,
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],

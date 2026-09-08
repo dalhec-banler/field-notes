@@ -18,13 +18,21 @@ class RecordFilter extends ChangeNotifier {
   String? taxonLabel;
   DateTimeRange? dates;
 
+  /// Only records flagged for removal (D-027) — the contractor's view.
+  bool flagged = false;
+
   bool _jump = false;
 
   bool get active =>
-      zoneId != null || type != null || taxonId != null || dates != null;
+      zoneId != null ||
+      type != null ||
+      taxonId != null ||
+      dates != null ||
+      flagged;
 
   /// The banner's words: what the surfaces are narrowed to.
   String describe() => [
+    if (flagged) 'flagged for removal',
     if (taxonLabel != null) taxonLabel!,
     if (type != null) type!,
     if (zoneLabel != null) zoneLabel!,
@@ -47,6 +55,7 @@ class RecordFilter extends ChangeNotifier {
     taxonId = null;
     taxonLabel = null;
     dates = null;
+    flagged = false;
     notifyListeners();
   }
 

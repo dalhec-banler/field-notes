@@ -8400,6 +8400,28 @@ class Observations extends Table with TableInfo<Observations, Observation> {
     requiredDuringInsert: false,
     $customConstraints: 'REFERENCES env_contexts(id)',
   );
+  static const VerificationMeta _removalStatusMeta = const VerificationMeta(
+    'removalStatus',
+  );
+  late final GeneratedColumn<String> removalStatus = GeneratedColumn<String>(
+    'removal_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'CHECK (removal_status IN (\'flagged\', \'removed\'))',
+  );
+  static const VerificationMeta _removedOnMeta = const VerificationMeta(
+    'removedOn',
+  );
+  late final GeneratedColumn<String> removedOn = GeneratedColumn<String>(
+    'removed_on',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   static const VerificationMeta _createdByMeta = const VerificationMeta(
     'createdBy',
   );
@@ -8467,6 +8489,8 @@ class Observations extends Table with TableInfo<Observations, Observation> {
     acceptedBy,
     notes,
     envContextId,
+    removalStatus,
+    removedOn,
     createdBy,
     createdAt,
     updatedAt,
@@ -8637,6 +8661,21 @@ class Observations extends Table with TableInfo<Observations, Observation> {
         ),
       );
     }
+    if (data.containsKey('removal_status')) {
+      context.handle(
+        _removalStatusMeta,
+        removalStatus.isAcceptableOrUnknown(
+          data['removal_status']!,
+          _removalStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('removed_on')) {
+      context.handle(
+        _removedOnMeta,
+        removedOn.isAcceptableOrUnknown(data['removed_on']!, _removedOnMeta),
+      );
+    }
     if (data.containsKey('created_by')) {
       context.handle(
         _createdByMeta,
@@ -8760,6 +8799,14 @@ class Observations extends Table with TableInfo<Observations, Observation> {
         DriftSqlType.string,
         data['${effectivePrefix}env_context_id'],
       ),
+      removalStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}removal_status'],
+      ),
+      removedOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}removed_on'],
+      ),
       createdBy: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}created_by'],
@@ -8816,6 +8863,12 @@ class Observation extends DataClass implements Insertable<Observation> {
   final String? acceptedBy;
   final String? notes;
   final String? envContextId;
+
+  /// D-027: removal is management work, as first-class as planting. A
+  /// record flagged for removal stands out on every map and export until
+  /// it is marked removed (with the day it happened).
+  final String? removalStatus;
+  final String? removedOn;
   final String createdBy;
   final String createdAt;
   final String updatedAt;
@@ -8842,6 +8895,8 @@ class Observation extends DataClass implements Insertable<Observation> {
     this.acceptedBy,
     this.notes,
     this.envContextId,
+    this.removalStatus,
+    this.removedOn,
     required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -8896,6 +8951,12 @@ class Observation extends DataClass implements Insertable<Observation> {
     }
     if (!nullToAbsent || envContextId != null) {
       map['env_context_id'] = Variable<String>(envContextId);
+    }
+    if (!nullToAbsent || removalStatus != null) {
+      map['removal_status'] = Variable<String>(removalStatus);
+    }
+    if (!nullToAbsent || removedOn != null) {
+      map['removed_on'] = Variable<String>(removedOn);
     }
     map['created_by'] = Variable<String>(createdBy);
     map['created_at'] = Variable<String>(createdAt);
@@ -8955,6 +9016,12 @@ class Observation extends DataClass implements Insertable<Observation> {
       envContextId: envContextId == null && nullToAbsent
           ? const Value.absent()
           : Value(envContextId),
+      removalStatus: removalStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(removalStatus),
+      removedOn: removedOn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(removedOn),
       createdBy: Value(createdBy),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -8991,6 +9058,8 @@ class Observation extends DataClass implements Insertable<Observation> {
       acceptedBy: serializer.fromJson<String?>(json['accepted_by']),
       notes: serializer.fromJson<String?>(json['notes']),
       envContextId: serializer.fromJson<String?>(json['env_context_id']),
+      removalStatus: serializer.fromJson<String?>(json['removal_status']),
+      removedOn: serializer.fromJson<String?>(json['removed_on']),
       createdBy: serializer.fromJson<String>(json['created_by']),
       createdAt: serializer.fromJson<String>(json['created_at']),
       updatedAt: serializer.fromJson<String>(json['updated_at']),
@@ -9022,6 +9091,8 @@ class Observation extends DataClass implements Insertable<Observation> {
       'accepted_by': serializer.toJson<String?>(acceptedBy),
       'notes': serializer.toJson<String?>(notes),
       'env_context_id': serializer.toJson<String?>(envContextId),
+      'removal_status': serializer.toJson<String?>(removalStatus),
+      'removed_on': serializer.toJson<String?>(removedOn),
       'created_by': serializer.toJson<String>(createdBy),
       'created_at': serializer.toJson<String>(createdAt),
       'updated_at': serializer.toJson<String>(updatedAt),
@@ -9051,6 +9122,8 @@ class Observation extends DataClass implements Insertable<Observation> {
     Value<String?> acceptedBy = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     Value<String?> envContextId = const Value.absent(),
+    Value<String?> removalStatus = const Value.absent(),
+    Value<String?> removedOn = const Value.absent(),
     String? createdBy,
     String? createdAt,
     String? updatedAt,
@@ -9081,6 +9154,10 @@ class Observation extends DataClass implements Insertable<Observation> {
     acceptedBy: acceptedBy.present ? acceptedBy.value : this.acceptedBy,
     notes: notes.present ? notes.value : this.notes,
     envContextId: envContextId.present ? envContextId.value : this.envContextId,
+    removalStatus: removalStatus.present
+        ? removalStatus.value
+        : this.removalStatus,
+    removedOn: removedOn.present ? removedOn.value : this.removedOn,
     createdBy: createdBy ?? this.createdBy,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -9131,6 +9208,10 @@ class Observation extends DataClass implements Insertable<Observation> {
       envContextId: data.envContextId.present
           ? data.envContextId.value
           : this.envContextId,
+      removalStatus: data.removalStatus.present
+          ? data.removalStatus.value
+          : this.removalStatus,
+      removedOn: data.removedOn.present ? data.removedOn.value : this.removedOn,
       createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -9162,6 +9243,8 @@ class Observation extends DataClass implements Insertable<Observation> {
           ..write('acceptedBy: $acceptedBy, ')
           ..write('notes: $notes, ')
           ..write('envContextId: $envContextId, ')
+          ..write('removalStatus: $removalStatus, ')
+          ..write('removedOn: $removedOn, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -9193,6 +9276,8 @@ class Observation extends DataClass implements Insertable<Observation> {
     acceptedBy,
     notes,
     envContextId,
+    removalStatus,
+    removedOn,
     createdBy,
     createdAt,
     updatedAt,
@@ -9223,6 +9308,8 @@ class Observation extends DataClass implements Insertable<Observation> {
           other.acceptedBy == this.acceptedBy &&
           other.notes == this.notes &&
           other.envContextId == this.envContextId &&
+          other.removalStatus == this.removalStatus &&
+          other.removedOn == this.removedOn &&
           other.createdBy == this.createdBy &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -9251,6 +9338,8 @@ class ObservationsCompanion extends UpdateCompanion<Observation> {
   final Value<String?> acceptedBy;
   final Value<String?> notes;
   final Value<String?> envContextId;
+  final Value<String?> removalStatus;
+  final Value<String?> removedOn;
   final Value<String> createdBy;
   final Value<String> createdAt;
   final Value<String> updatedAt;
@@ -9278,6 +9367,8 @@ class ObservationsCompanion extends UpdateCompanion<Observation> {
     this.acceptedBy = const Value.absent(),
     this.notes = const Value.absent(),
     this.envContextId = const Value.absent(),
+    this.removalStatus = const Value.absent(),
+    this.removedOn = const Value.absent(),
     this.createdBy = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -9306,6 +9397,8 @@ class ObservationsCompanion extends UpdateCompanion<Observation> {
     this.acceptedBy = const Value.absent(),
     this.notes = const Value.absent(),
     this.envContextId = const Value.absent(),
+    this.removalStatus = const Value.absent(),
+    this.removedOn = const Value.absent(),
     required String createdBy,
     required String createdAt,
     required String updatedAt,
@@ -9342,6 +9435,8 @@ class ObservationsCompanion extends UpdateCompanion<Observation> {
     Expression<String>? acceptedBy,
     Expression<String>? notes,
     Expression<String>? envContextId,
+    Expression<String>? removalStatus,
+    Expression<String>? removedOn,
     Expression<String>? createdBy,
     Expression<String>? createdAt,
     Expression<String>? updatedAt,
@@ -9370,6 +9465,8 @@ class ObservationsCompanion extends UpdateCompanion<Observation> {
       if (acceptedBy != null) 'accepted_by': acceptedBy,
       if (notes != null) 'notes': notes,
       if (envContextId != null) 'env_context_id': envContextId,
+      if (removalStatus != null) 'removal_status': removalStatus,
+      if (removedOn != null) 'removed_on': removedOn,
       if (createdBy != null) 'created_by': createdBy,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -9400,6 +9497,8 @@ class ObservationsCompanion extends UpdateCompanion<Observation> {
     Value<String?>? acceptedBy,
     Value<String?>? notes,
     Value<String?>? envContextId,
+    Value<String?>? removalStatus,
+    Value<String?>? removedOn,
     Value<String>? createdBy,
     Value<String>? createdAt,
     Value<String>? updatedAt,
@@ -9428,6 +9527,8 @@ class ObservationsCompanion extends UpdateCompanion<Observation> {
       acceptedBy: acceptedBy ?? this.acceptedBy,
       notes: notes ?? this.notes,
       envContextId: envContextId ?? this.envContextId,
+      removalStatus: removalStatus ?? this.removalStatus,
+      removedOn: removedOn ?? this.removedOn,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -9502,6 +9603,12 @@ class ObservationsCompanion extends UpdateCompanion<Observation> {
     if (envContextId.present) {
       map['env_context_id'] = Variable<String>(envContextId.value);
     }
+    if (removalStatus.present) {
+      map['removal_status'] = Variable<String>(removalStatus.value);
+    }
+    if (removedOn.present) {
+      map['removed_on'] = Variable<String>(removedOn.value);
+    }
     if (createdBy.present) {
       map['created_by'] = Variable<String>(createdBy.value);
     }
@@ -9544,6 +9651,8 @@ class ObservationsCompanion extends UpdateCompanion<Observation> {
           ..write('acceptedBy: $acceptedBy, ')
           ..write('notes: $notes, ')
           ..write('envContextId: $envContextId, ')
+          ..write('removalStatus: $removalStatus, ')
+          ..write('removedOn: $removedOn, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -35981,6 +36090,8 @@ typedef $ObservationsCreateCompanionBuilder = ObservationsCompanion Function({
   Value<String?> acceptedBy,
   Value<String?> notes,
   Value<String?> envContextId,
+  Value<String?> removalStatus,
+  Value<String?> removedOn,
   required String createdBy,
   required String createdAt,
   required String updatedAt,
@@ -36009,6 +36120,8 @@ typedef $ObservationsUpdateCompanionBuilder = ObservationsCompanion Function({
   Value<String?> acceptedBy,
   Value<String?> notes,
   Value<String?> envContextId,
+  Value<String?> removalStatus,
+  Value<String?> removedOn,
   Value<String> createdBy,
   Value<String> createdAt,
   Value<String> updatedAt,
@@ -36236,6 +36349,16 @@ class $ObservationsFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get removalStatus => $composableBuilder(
+    column: $table.removalStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get removedOn => $composableBuilder(
+    column: $table.removedOn,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -36514,6 +36637,16 @@ class $ObservationsOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get removalStatus => $composableBuilder(
+    column: $table.removalStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get removedOn => $composableBuilder(
+    column: $table.removedOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get createdBy => $composableBuilder(
     column: $table.createdBy,
     builder: (column) => ColumnOrderings(column),
@@ -36724,6 +36857,14 @@ class $ObservationsAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get removalStatus => $composableBuilder(
+    column: $table.removalStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get removedOn =>
+      $composableBuilder(column: $table.removedOn, builder: (column) => column);
 
   GeneratedColumn<String> get createdBy =>
       $composableBuilder(column: $table.createdBy, builder: (column) => column);
@@ -36961,6 +37102,8 @@ class $ObservationsTableManager
                 Value<String?> acceptedBy = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> envContextId = const Value.absent(),
+                Value<String?> removalStatus = const Value.absent(),
+                Value<String?> removedOn = const Value.absent(),
                 Value<String> createdBy = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
                 Value<String> updatedAt = const Value.absent(),
@@ -36988,6 +37131,8 @@ class $ObservationsTableManager
                 acceptedBy: acceptedBy,
                 notes: notes,
                 envContextId: envContextId,
+                removalStatus: removalStatus,
+                removedOn: removedOn,
                 createdBy: createdBy,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -37017,6 +37162,8 @@ class $ObservationsTableManager
                 Value<String?> acceptedBy = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> envContextId = const Value.absent(),
+                Value<String?> removalStatus = const Value.absent(),
+                Value<String?> removedOn = const Value.absent(),
                 required String createdBy,
                 required String createdAt,
                 required String updatedAt,
@@ -37044,6 +37191,8 @@ class $ObservationsTableManager
                 acceptedBy: acceptedBy,
                 notes: notes,
                 envContextId: envContextId,
+                removalStatus: removalStatus,
+                removedOn: removedOn,
                 createdBy: createdBy,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

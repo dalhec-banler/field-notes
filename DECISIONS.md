@@ -423,3 +423,27 @@ reject a forged sender, and the clear requires saying so.
 Sync is still not wired to a carrier. What remains before activation is
 product work, not correctness: where the shared folder lives, how the
 two devices agree on a key, and what the user sees while it runs.
+
+### D-027 · Removal is management work, recorded on the record
+
+2026-09-07. Austin: "I want to be able to flag things for removal, as
+removal is just as an important part of restoration work as planting
+things" — ashe juniper, mesquite, chinaberry. Spec §4 gives an
+observation no management state. This adds two columns to
+`observations` (schema v7): `removal_status` ('flagged' | 'removed') and
+`removed_on`.
+
+A flag on the record, not a separate work-order table: the thing being
+removed IS the record — its photo, its species, its pin. One column, one
+read, and every surface says the same thing: the ledger row, the record
+screen, the desk queue, the phone map, the desk map and the printed
+plate all draw the same ring-and-cut over the same mark. Clearing the
+flag or marking it removed is one write on one row, and a removed record
+keeps its history — an ink ring with a tick, and the day it came out.
+
+Downstream: the ledger has a "Removal" chip that the map follows
+(D-024's one filter), and the desk's Export bench has a second document,
+the removal plan — the plate drawn with ONLY flagged records as numbered
+oxblood pins, then the numbered list with each record's photo, species,
+nativity, coordinates and notes, for a contractor's hand
+(`lib/export/removal_plan.dart`).

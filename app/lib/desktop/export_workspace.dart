@@ -15,6 +15,7 @@ import '../export/map_document.dart';
 import '../export/map_html.dart';
 import '../export/map_plate.dart';
 import '../export/map_report.dart';
+import '../export/removal_plan.dart';
 import '../export/plate_subject_loader.dart';
 import '../map/imagery_sources.dart';
 import '../map/record_ink.dart';
@@ -71,6 +72,12 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
   ];
 
   PlatePage _page = PlatePage.letter;
+
+  /// Which sheet this is: the map plate, or the removal plan (D-027) —
+  /// only flagged records, numbered, with the list beside them.
+  String _doc = 'map';
+  static const _docs = [('map', 'Map plate'), ('removal', 'Removal plan')];
+  bool get _removalPlan => _doc == 'removal';
 
   (String template, int maxZoom, String label) get _baseSource =>
       switch (_base) {
@@ -179,7 +186,8 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
       final r = await MapPlate(fetchTile: _fetch, maxZoom: baseMaxZoom).render(
         fresh,
         layers: _layers,
-        species: _speciesSelection,
+        species: _removalPlan ? null : _speciesSelection,
+        removalPlan: _removalPlan,
         overzoom: over,
         maxWidth: maxW,
         maxHeight: maxH,
@@ -262,7 +270,8 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
       subject: s,
       layers: _layers,
       page: _page,
-      species: _speciesSelection,
+      species: _removalPlan ? null : _speciesSelection,
+      removalPlan: _removalPlan,
       preparedFor: _preparedFor.text,
       notes: _notes.text,
     );
@@ -274,7 +283,8 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
         .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
         .replaceAll(RegExp(r'^-|-$'), '');
     final d = DateTime.now();
-    return '$t-map-${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+    final kind = _removalPlan ? 'removal-plan' : 'map';
+    return '$t-$kind-${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> _save(String ext, Future<Uint8List> Function() bytes) async {
@@ -316,7 +326,9 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
       case 'pdf':
         await _save('pdf', () async {
           final theme = await MapReport.loadTheme();
-          return MapReport.build(d, theme: theme);
+          return d.removalPlan
+              ? RemovalPlan.build(d, theme: theme)
+              : MapReport.build(d, theme: theme);
         });
       case 'png':
         await _save('png', _pagePng);
@@ -367,6 +379,20 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
                   ),
                 ),
                 SizedBox(height: 12),
+                MonoLabel('Document', size: 9, spacing: 1.8),
+                SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final (id, label) in _docs)
+                      _choiceChip(label, _doc == id, () {
+                        setState(() => _doc = id);
+                        _scheduleRender();
+                      }),
+                  ],
+                ),
+                SizedBox(height: 6),
                 MonoLabel('Base', size: 9, spacing: 1.8),
                 SizedBox(height: 6),
                 Wrap(
@@ -550,8 +576,12 @@ class _ExportWorkspaceState extends State<ExportWorkspace> {
                     for (final (ext, label) in [
                       ('pdf', 'PDF — the sheet as it prints'),
                       ('png', 'PNG — the page as an image'),
-                      ('docx', 'Word — editable, letter size'),
-                      ('html', 'HTML — interactive map'),
+                      // The plan is a printed hand-over; the editable and
+                      // interactive twins are the map plate's.
+                      if (!_removalPlan) ...[
+                        ('docx', 'Word — editable, letter size'),
+                        ('html', 'HTML — interactive map'),
+                      ],
                     ])
                       PopupMenuItem(
                         value: ext,
@@ -936,7 +966,34 @@ class _Page extends StatelessWidget {
               ]),
             SizedBox(height: 12),
           ],
-          if (d.recordRows.isNotEmpty) ...[
+          if (d.removalPlan) ...[
+            kicker('Flagged for removal · ${d.numbered.length}'),
+            SizedBox(height: 5),
+            if (d.numbered.isEmpty)
+              cell(
+                'Nothing is flagged for removal on this place.',
+                color: _soft,
+              ),
+            for (var i = 0; i < d.numbered.length; i++)
+              tableRow([
+                SizedBox(width: 26, child: cell('${i + 1}', color: _oxblood)),
+                Expanded(
+                  child: cell(
+                    d.numbered[i].label ??
+                        '${d.numbered[i].type[0].toUpperCase()}${d.numbered[i].type.substring(1)} record',
+                  ),
+                ),
+                SizedBox(
+                  width: 150,
+                  child: cell(
+                    '${d.numbered[i].lat.toStringAsFixed(5)}, ${d.numbered[i].lng.toStringAsFixed(5)}',
+                    right: true,
+                    color: _soft,
+                  ),
+                ),
+              ]),
+            SizedBox(height: 12),
+          ] else if (d.recordRows.isNotEmpty) ...[
             kicker('Field records on this map'),
             SizedBox(height: 5),
             for (final (label, count) in d.recordRows)

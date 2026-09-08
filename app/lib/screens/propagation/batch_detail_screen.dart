@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/edit_sheet.dart';
+import '../../widgets/nativity_chip.dart';
 import '../../widgets/press.dart';
 
 /// Batch detail (spec §7.6): event log, status, counts, and the lineage view
@@ -81,6 +83,215 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         _plantings = plantings;
       });
     }
+  }
+
+  static const _methods = [
+    ('water_rooting', 'Water rooting'),
+    ('perlite_coir', 'Perlite/coir'),
+    ('direct_stick', 'Direct stick'),
+    ('flood_tray', 'Flood tray'),
+    ('cold_moist_strat', 'Cold moist stratification'),
+    ('warm_strat', 'Warm stratification'),
+    ('scarification', 'Scarification'),
+    ('direct_sow', 'Direct sow'),
+    ('other', 'Other'),
+  ];
+  static const _eventTypes = [
+    ('check', 'Check'),
+    ('water', 'Water'),
+    ('fertilize', 'Fertilize'),
+    ('pot_up', 'Pot up'),
+    ('treat', 'Treat'),
+    ('mortality', 'Mortality'),
+    ('root_check', 'Root check'),
+    ('move', 'Move'),
+    ('harden_off', 'Harden off'),
+    ('note', 'Note'),
+  ];
+  static const _materials = [
+    ('hardwood_cutting', 'Hardwood cutting'),
+    ('softwood_cutting', 'Softwood cutting'),
+    ('semi_hardwood_cutting', 'Semi-hardwood cutting'),
+    ('seed', 'Seed'),
+    ('sucker', 'Sucker'),
+    ('division', 'Division'),
+    ('layer', 'Layer'),
+    ('transplant', 'Transplant'),
+    ('scion', 'Scion'),
+  ];
+
+  /// Everything the batch was started with, including the day — a batch
+  /// begun ten days ago and entered today must be able to say so
+  /// (Austin, 2026-09-07).
+  Future<void> _editBatch() async {
+    final b = _batch!;
+    final r = await showEditSheet(
+      context,
+      title: 'Edit batch',
+      db: widget.db,
+      fields: [
+        SpeciesEdit('taxon', 'Species', initial: _taxon),
+        TextEdit('code', 'Batch code', initial: b.batchCode),
+        DateEdit('started', 'Started on', initial: b.startedOn),
+        ChoiceEdit('method', 'Method', options: _methods, initial: b.method),
+        TextEdit('container', 'Container', initial: b.container),
+        TextEdit('medium', 'Medium', initial: b.medium),
+        TextEdit('location', 'Location', initial: b.location),
+        NumberEdit('started_n', 'Count started', initial: b.countStarted),
+        NumberEdit('current_n', 'Count now', initial: b.countCurrent),
+        TextEdit('notes', 'Notes', initial: b.notes, lines: 3),
+      ],
+      deleteTitle: 'DELETE THIS BATCH?',
+      deleteBody: 'Its event log goes with it. Nothing is erased from disk.',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.propagationBatches)
+      ..where((x) => x.id.equals(b.id));
+    if (r.deleted) {
+      await q.write(
+        PropagationBatchesCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    await q.write(
+      PropagationBatchesCompanion(
+        taxonId: Value(r.taxon('taxon')?.id),
+        batchCode: Value(r.text('code')),
+        startedOn: Value(r.day('started') ?? b.startedOn),
+        method: Value(r.text('method')),
+        container: Value(r.text('container')),
+        medium: Value(r.text('medium')),
+        location: Value(r.text('location')),
+        countStarted: Value(r.integer('started_n')),
+        countCurrent: Value(r.integer('current_n')),
+        notes: Value(r.text('notes')),
+        updatedAt: Value(now),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _editEvent(BatchEvent e) async {
+    final batch = _batch!;
+    final r = await showEditSheet(
+      context,
+      title: 'Edit event',
+      fields: [
+        DateEdit('on', 'Happened on', initial: e.occurredAt),
+        ChoiceEdit('type', 'Event', options: _eventTypes, initial: e.eventType),
+        NumberEdit(
+          'delta',
+          'Count change',
+          initial: e.countDelta,
+          signed: true,
+          hint: 'e.g. -3 for losses',
+        ),
+        TextEdit('notes', 'Notes', initial: e.notes, lines: 2),
+      ],
+      deleteTitle: 'DELETE THIS EVENT?',
+      deleteBody: 'The batch count is put back by what this event took.',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.batchEvents)
+      ..where((x) => x.id.equals(e.id));
+    final newDelta = r.deleted ? 0 : r.integer('delta');
+    // The batch's running count follows the event's count change.
+    final shift = (newDelta ?? 0) - (e.countDelta ?? 0);
+    if (r.deleted) {
+      await q.write(
+        BatchEventsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+    } else {
+      await q.write(
+        BatchEventsCompanion(
+          occurredAt: Value(withDay(e.occurredAt, r.day('on') ?? e.occurredAt)),
+          eventType: Value(r.text('type') ?? e.eventType),
+          countDelta: Value(newDelta),
+          notes: Value(r.text('notes')),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    if (shift != 0) {
+      final current = batch.countCurrent ?? batch.countStarted ?? 0;
+      await (widget.db.update(
+        widget.db.propagationBatches,
+      )..where((x) => x.id.equals(batch.id))).write(
+        PropagationBatchesCompanion(
+          countCurrent: Value((current + shift).clamp(0, 1 << 31)),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    _load();
+  }
+
+  Future<void> _editSourcePlant(SourcePlant s) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit mother plant',
+      fields: [
+        TextEdit('label', 'Label', initial: s.label, required: true),
+        ToggleEdit('on', 'On this property', initial: s.isOnProperty == 1),
+        TextEdit(
+          'origin',
+          'Origin notes',
+          initial: s.originNotes,
+          hint: 'Where it came from, if offsite',
+        ),
+      ],
+    );
+    if (r == null || r.deleted) return;
+    await (widget.db.update(
+      widget.db.sourcePlants,
+    )..where((x) => x.id.equals(s.id))).write(
+      SourcePlantsCompanion(
+        label: Value(r.text('label') ?? s.label),
+        isOnProperty: Value(r.flag('on') ? 1 : 0),
+        originNotes: Value(r.text('origin')),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _editCollection(CollectionEvent c) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit collection',
+      fields: [
+        DateEdit('on', 'Collected on', initial: c.collectedOn),
+        ChoiceEdit(
+          'material',
+          'Material',
+          options: _materials,
+          initial: c.materialType,
+        ),
+        NumberEdit('qty', 'Quantity', initial: c.quantity),
+        TextEdit('collector', 'Collector', initial: c.collector),
+        TextEdit('notes', 'Notes', initial: c.notes, lines: 2),
+      ],
+    );
+    if (r == null || r.deleted) return;
+    await (widget.db.update(
+      widget.db.collectionEvents,
+    )..where((x) => x.id.equals(c.id))).write(
+      CollectionEventsCompanion(
+        collectedOn: Value(r.day('on') ?? c.collectedOn),
+        materialType: Value(r.text('material') ?? c.materialType),
+        quantity: Value(r.integer('qty')),
+        collector: Value(r.text('collector')),
+        notes: Value(r.text('notes')),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
+    _load();
   }
 
   Future<void> _addEvent() async {
@@ -339,6 +550,11 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         title: Text(batch.batchCode ?? species),
         actions: [
           IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit batch',
+            onPressed: _editBatch,
+          ),
+          IconButton(
             icon: const Icon(Icons.flag_outlined),
             tooltip: 'Set status',
             onPressed: _setStatus,
@@ -362,6 +578,9 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                 _stageRow(
                   'source_plants',
                   _sourcePlant?.label ?? 'No mother plant recorded',
+                  onTap: _sourcePlant == null
+                      ? null
+                      : () => _editSourcePlant(_sourcePlant!),
                   _sourcePlant != null
                       ? (_sourcePlant!.isOnProperty == 1
                             ? 'on property'
@@ -372,6 +591,9 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                 ),
                 _stageRow(
                   'collection_events',
+                  onTap: _collection == null
+                      ? null
+                      : () => _editCollection(_collection!),
                   _collection != null
                       ? '${_collection!.materialType.replaceAll('_', ' ')} × ${_collection!.quantity ?? '?'}'
                       : 'No collection event',
@@ -414,6 +636,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                 'Status: ${batch.status ?? 'active'}'
                 '${batch.container != null ? ' · ${batch.container}' : ''}',
               ),
+              trailing: NativityChip(_taxon?.nativity),
             ),
           ),
           const SizedBox(height: 8),
@@ -449,6 +672,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
               ListTile(
                 minTileHeight: 48,
                 dense: true,
+                onTap: () => _editEvent(e),
                 leading: const Icon(Icons.history),
                 title: Text(
                   '${e.eventType.replaceAll('_', ' ')}'
@@ -474,9 +698,10 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     bool present, {
     bool first = false,
     bool last = false,
+    VoidCallback? onTap,
   }) {
     final color = present ? Press.sage : Press.inkSoft.withValues(alpha: 0.4);
-    return IntrinsicHeight(
+    final row = IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -521,5 +746,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
         ],
       ),
     );
+    return onTap == null ? row : InkWell(onTap: onTap, child: row);
   }
 }

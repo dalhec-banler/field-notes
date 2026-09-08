@@ -5,6 +5,7 @@ import '../../theme/tokens.dart';
 import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
+import '../../widgets/nativity_chip.dart';
 import '../../widgets/species_field.dart';
 import 'batch_detail_screen.dart';
 
@@ -278,27 +279,40 @@ class _BatchTile extends StatelessWidget {
   final FieldNotesDb db;
   final PropagationBatche batch;
 
-  Future<String> _species() async {
-    if (batch.taxonId == null) return 'Unknown species';
-    final t = await (db.select(
+  Future<TaxaData?> _taxon() async {
+    if (batch.taxonId == null) return null;
+    return (db.select(
       db.taxa,
     )..where((x) => x.id.equals(batch.taxonId!))).getSingleOrNull();
-    return t?.commonName ?? t?.scientificName ?? 'Unknown species';
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String>(
-      future: _species(),
+    return FutureBuilder<TaxaData?>(
+      future: _taxon(),
       builder: (context, snapshot) {
-        final species = snapshot.data ?? '…';
+        final t = snapshot.data;
+        final species = snapshot.connectionState != ConnectionState.done
+            ? '…'
+            : t?.commonName ?? t?.scientificName ?? 'Unknown species';
         return ListTile(
           minTileHeight: 64,
           leading: CircleAvatar(
             child: Text(batch.batchCode?.substring(0, 1) ?? 'B'),
           ),
-          title: Text(
-            '${batch.batchCode != null ? '${batch.batchCode} · ' : ''}$species',
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  '${batch.batchCode != null ? '${batch.batchCode} · ' : ''}$species',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (t?.nativity != null) ...[
+                const SizedBox(width: 8),
+                NativityChip(t!.nativity),
+              ],
+            ],
           ),
           subtitle: Text(
             '${batch.status ?? 'active'} · '

@@ -20,7 +20,7 @@ class FieldNotesDb extends _$FieldNotesDb {
   FieldNotesDb.fromFile(File file) : super(NativeDatabase(file));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -112,6 +112,22 @@ class FieldNotesDb extends _$FieldNotesDb {
             } catch (e) {
               // Only "already there" is survivable; anything else is a real
               // failure and must abort the migration (audit finding 1).
+              if (!'$e'.toLowerCase().contains('duplicate column')) rethrow;
+            }
+          }
+        }
+        // v7 (D-027): a record can be flagged for removal, and then marked
+        // removed on a day — "removal is just as important a part of
+        // restoration work as planting" (Austin, 2026-09-07). Plain
+        // columns on upgrade; the CHECK lives in schema.drift for fresh
+        // databases.
+        if (from < 7) {
+          for (final col in const ['removal_status TEXT', 'removed_on TEXT']) {
+            try {
+              await m.database.customStatement(
+                'ALTER TABLE observations ADD COLUMN $col',
+              );
+            } catch (e) {
               if (!'$e'.toLowerCase().contains('duplicate column')) rethrow;
             }
           }

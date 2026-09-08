@@ -12,6 +12,7 @@ import '../export/evidence_packet.dart';
 
 import '../db/database.dart';
 import '../services/desk.dart';
+import '../widgets/edit_sheet.dart';
 
 /// Cost-share program tracking (spec §4.14, §7.10): EQIP / TPWD PUB
 /// programs, their practices, and dated activities with costs.
@@ -488,6 +489,240 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
 
   Color _statusColor(String? s) => programStatusColor(s);
 
+  static const _practiceStatuses = [
+    ('planned', 'Planned'),
+    ('in_progress', 'In progress'),
+    ('complete', 'Complete'),
+    ('certified', 'Certified'),
+    ('cancelled', 'Cancelled'),
+  ];
+
+  Future<void> _editProgram() async {
+    final p = _program!;
+    final r = await showEditSheet(
+      context,
+      title: 'Edit program',
+      fields: [
+        TextEdit('name', 'Name', initial: p.name, required: true),
+        TextEdit('agency', 'Agency', initial: p.agency),
+        TextEdit('contract', 'Contract #', initial: p.contractRef),
+        TextEdit('contact', 'Contact name', initial: p.contactName),
+        TextEdit('email', 'Contact email', initial: p.contactEmail),
+        DateEdit('starts', 'Starts on', initial: p.startsOn),
+        DateEdit('ends', 'Ends on', initial: p.endsOn),
+        TextEdit('notes', 'Notes', initial: p.notes, lines: 3),
+      ],
+      deleteTitle: 'DELETE THIS PROGRAM?',
+      deleteBody:
+          'Its practices and activities stay on disk; the program '
+          'leaves the list.',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.programs)
+      ..where((x) => x.id.equals(p.id));
+    if (r.deleted) {
+      await q.write(
+        ProgramsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    await q.write(
+      ProgramsCompanion(
+        name: Value(r.text('name') ?? p.name),
+        agency: Value(r.text('agency')),
+        contractRef: Value(r.text('contract')),
+        contactName: Value(r.text('contact')),
+        contactEmail: Value(r.text('email')),
+        startsOn: Value(r.day('starts')),
+        endsOn: Value(r.day('ends')),
+        notes: Value(r.text('notes')),
+        updatedAt: Value(now),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _editPractice(Practice pr) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit practice',
+      fields: [
+        TextEdit('code', 'NRCS code', initial: pr.practiceCode),
+        TextEdit('name', 'Name', initial: pr.name, required: true),
+        NumberEdit(
+          'planned',
+          'Planned amount',
+          initial: pr.plannedAmount,
+          decimal: true,
+        ),
+        TextEdit('unit', 'Unit', initial: pr.unit),
+        DateEdit('start', 'Planned start', initial: pr.plannedStart),
+        DateEdit('due', 'Due on', initial: pr.dueOn),
+        ChoiceEdit(
+          'status',
+          'Status',
+          options: _practiceStatuses,
+          initial: pr.status,
+          allowNone: true,
+        ),
+        TextEdit('notes', 'Notes', initial: pr.notes, lines: 2),
+      ],
+      deleteTitle: 'DELETE THIS PRACTICE?',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.practices)
+      ..where((x) => x.id.equals(pr.id));
+    if (r.deleted) {
+      await q.write(
+        PracticesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+    } else {
+      await q.write(
+        PracticesCompanion(
+          practiceCode: Value(r.text('code')),
+          name: Value(r.text('name') ?? pr.name),
+          plannedAmount: Value(r.number('planned')),
+          unit: Value(r.text('unit')),
+          plannedStart: Value(r.day('start')),
+          dueOn: Value(r.day('due')),
+          status: Value(r.text('status')),
+          notes: Value(r.text('notes')),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    _load();
+  }
+
+  /// What was done under a practice, one row each — the sum the row
+  /// shows is made of these, and each is a thing that can be corrected.
+  Future<void> _activities(Practice pr) async {
+    final rows =
+        await (widget.db.select(widget.db.practiceActivities)
+              ..where((a) => a.practiceId.equals(pr.id))
+              ..where((a) => a.deletedAt.isNull())
+              ..orderBy([(a) => OrderingTerm.desc(a.occurredOn)]))
+            .get();
+    if (!mounted) return;
+    String amount(double? v) =>
+        v == null ? '—' : (v == v.roundToDouble() ? '${v.round()}' : '$v');
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: [
+            Text(pr.name, style: Theme.of(ctx).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              '${rows.length} activit${rows.length == 1 ? 'y' : 'ies'}'
+              '${pr.unit != null ? ' · ${pr.unit}' : ''}',
+            ),
+            const SizedBox(height: 12),
+            if (rows.isEmpty)
+              const Text('Nothing logged under this practice yet.')
+            else
+              for (final a in rows)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.history),
+                  title: Text(
+                    '${a.occurredOn} · ${a.activityType ?? 'activity'}',
+                  ),
+                  subtitle: Text(
+                    [
+                      '${amount(a.amount)} ${a.unit ?? ''}'.trim(),
+                      if (a.costUsd != null) '\$${amount(a.costUsd)}',
+                      if (a.contractor != null) a.contractor!,
+                    ].join(' · '),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _editActivity(pr, a);
+                  },
+                ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 52,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _logActivity(pr);
+                },
+                child: const Text('LOG ACTIVITY'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editActivity(Practice pr, PracticeActivity a) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit activity',
+      fields: [
+        DateEdit('on', 'Done on', initial: a.occurredOn),
+        TextEdit('type', 'What was done', initial: a.activityType),
+        NumberEdit(
+          'amount',
+          'Amount (${pr.unit ?? 'units'})',
+          initial: a.amount,
+          decimal: true,
+        ),
+        NumberEdit('cost', 'Cost (\$)', initial: a.costUsd, decimal: true),
+        TextEdit('contractor', 'Contractor', initial: a.contractor),
+        TextEdit('notes', 'Notes', initial: a.notes, lines: 2),
+      ],
+      deleteTitle: 'DELETE THIS ACTIVITY?',
+      deleteBody: 'The practice\'s completed amount is recounted without it.',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.practiceActivities)
+      ..where((x) => x.id.equals(a.id));
+    if (r.deleted) {
+      await q.write(
+        PracticeActivitiesCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+    } else {
+      await q.write(
+        PracticeActivitiesCompanion(
+          occurredOn: Value(r.day('on') ?? a.occurredOn),
+          activityType: Value(r.text('type')),
+          amount: Value(r.number('amount')),
+          costUsd: Value(r.number('cost')),
+          contractor: Value(r.text('contractor')),
+          notes: Value(r.text('notes')),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    // completed_amount is the sum of what's logged — recount, don't drift.
+    final live =
+        await (widget.db.select(widget.db.practiceActivities)
+              ..where((x) => x.practiceId.equals(pr.id))
+              ..where((x) => x.deletedAt.isNull()))
+            .get();
+    final total = live.fold<double>(0, (s, x) => s + (x.amount ?? 0));
+    await (widget.db.update(
+      widget.db.practices,
+    )..where((x) => x.id.equals(pr.id))).write(
+      PracticesCompanion(completedAmount: Value(total), updatedAt: Value(now)),
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final program = _program;
@@ -498,6 +733,11 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
       appBar: AppBar(
         title: Text(program.name),
         actions: [
+          IconButton(
+            tooltip: 'Edit program',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: _editProgram,
+          ),
           // The moneymaker (audit 2026-08-31): the program's field record,
           // formatted for the agency desk, out through the share sheet.
           IconButton(
@@ -543,8 +783,15 @@ class _ProgramDetailScreenState extends State<ProgramDetailScreen> {
                       if (pr.dueOn != null) 'due ${pr.dueOn}',
                     ].join(' · '),
                   ),
-                  trailing: const Icon(Icons.add_circle_outline),
-                  onTap: () => _logActivity(pr),
+                  // Row → its activities (each one editable); + → log one;
+                  // press and hold → edit the practice itself.
+                  trailing: IconButton(
+                    tooltip: 'Log activity',
+                    icon: const Icon(Icons.add_circle_outline),
+                    onPressed: () => _logActivity(pr),
+                  ),
+                  onTap: () => _activities(pr),
+                  onLongPress: () => _editPractice(pr),
                 );
               },
             ),

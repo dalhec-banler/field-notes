@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../db/database.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../widgets/edit_sheet.dart';
+import '../widgets/nativity_chip.dart';
 import 'record_detail_screen.dart';
 
 /// Species detail (spec §7.7: occurrence counts, first/last observed,
@@ -102,6 +104,78 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
     }
   }
 
+  static const _growthForms = [
+    ('tree', 'Tree'),
+    ('shrub', 'Shrub'),
+    ('forb', 'Forb'),
+    ('graminoid', 'Graminoid'),
+    ('vine', 'Vine'),
+    ('succulent', 'Succulent'),
+    ('fern', 'Fern'),
+    ('moss', 'Moss'),
+    ('other', 'Other'),
+  ];
+  static const _nativities = [
+    ('native', 'Native'),
+    ('introduced', 'Introduced'),
+    ('invasive', 'Invasive'),
+    ('cultivated', 'Cultivated'),
+    ('unknown', 'Unknown'),
+  ];
+
+  /// The library entry is the person's too — a wrong nativity colours
+  /// every map and chip, so it must be fixable right here.
+  Future<void> _editTaxon() async {
+    final t = _taxon;
+    final r = await showEditSheet(
+      context,
+      title: 'Edit species',
+      fields: [
+        TextEdit('common', 'Common name', initial: t.commonName),
+        TextEdit(
+          'scientific',
+          'Scientific name',
+          initial: t.scientificName,
+          required: true,
+        ),
+        TextEdit('family', 'Family', initial: t.family),
+        ChoiceEdit(
+          'growth',
+          'Growth form',
+          options: _growthForms,
+          initial: t.growthForm,
+          allowNone: true,
+        ),
+        ChoiceEdit(
+          'nativity',
+          'Nativity',
+          options: _nativities,
+          initial: t.nativity,
+          allowNone: true,
+        ),
+        TextEdit('notes', 'Notes', initial: t.notes, lines: 3),
+      ],
+    );
+    if (r == null || r.deleted) return;
+    await (widget.db.update(
+      widget.db.taxa,
+    )..where((x) => x.id.equals(t.id))).write(
+      TaxaCompanion(
+        commonName: Value(r.text('common')),
+        scientificName: Value(r.text('scientific') ?? t.scientificName),
+        family: Value(r.text('family')),
+        growthForm: Value(r.text('growth')),
+        nativity: Value(r.text('nativity')),
+        notes: Value(r.text('notes')),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
+    final fresh = await (widget.db.select(
+      widget.db.taxa,
+    )..where((x) => x.id.equals(t.id))).getSingleOrNull();
+    if (mounted && fresh != null) setState(() => _taxon = fresh);
+  }
+
   Future<void> _toggleStar() async {
     final next = _taxon.isFavorite == 1 ? 0 : 1;
     await (widget.db.update(
@@ -159,14 +233,22 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                       [
                         if (t.family != null) t.family!,
                         if (t.growthForm != null) t.growthForm!,
-                        if (t.nativity != null) t.nativity!,
                       ].join(' · '),
                       size: 9,
                       spacing: 1.4,
                       opacity: 0.75,
                     ),
+                    if (t.nativity != null) ...[
+                      SizedBox(height: 6),
+                      NativityChip(t.nativity),
+                    ],
                   ],
                 ),
+              ),
+              IconButton(
+                tooltip: 'Edit species',
+                icon: Icon(Icons.edit_outlined, color: Press.inkSoft),
+                onPressed: _editTaxon,
               ),
               IconButton(
                 iconSize: 30,

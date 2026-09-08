@@ -9,6 +9,7 @@ import 'package:field_notes/export/map_html.dart';
 import 'package:field_notes/export/map_plate.dart';
 import 'package:field_notes/export/map_report.dart';
 import 'package:field_notes/export/plate_subject_loader.dart';
+import 'package:field_notes/export/removal_plan.dart';
 import 'package:field_notes/export/web_mercator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -232,4 +233,99 @@ void main() {
     expect(acresOf(sq)!, closeTo(247.1, 2.5));
     expect(acresOf('{"type":"Point","coordinates":[0,0]}'), isNull);
   });
+
+  test(
+    'removal plan: only flagged records, numbered species-then-date',
+    () async {
+      final tile = await solidTile(0xFF6A7B5A);
+      final plate = MapPlate(fetchTile: (z, x, y) async => tile);
+      final flagged = PlateSubject(
+        propertyName: 'Test Place',
+        boundaryGeojson: subject.boundaryGeojson,
+        records: const [
+          // Mesquite seen later, juniper seen earlier: juniper numbers first
+          // (species order), then the two mesquites by date.
+          PlateRecord(
+            id: 'm2',
+            lat: 31.058,
+            lng: -98.052,
+            type: 'plant',
+            label: 'Mesquite',
+            observedAt: '2026-09-02T10:00:00Z',
+            removal: 'flagged',
+            nativity: 'native',
+          ),
+          PlateRecord(
+            id: 'j1',
+            lat: 31.066,
+            lng: -98.036,
+            type: 'plant',
+            label: 'Ashe juniper',
+            observedAt: '2026-09-05T10:00:00Z',
+            removal: 'flagged',
+          ),
+          PlateRecord(
+            id: 'm1',
+            lat: 31.058,
+            lng: -98.052,
+            type: 'plant',
+            label: 'Mesquite',
+            observedAt: '2026-09-01T10:00:00Z',
+            removal: 'flagged',
+          ),
+          PlateRecord(
+            id: 'keep',
+            lat: 31.060,
+            lng: -98.040,
+            type: 'plant',
+            label: 'Live oak',
+          ),
+          PlateRecord(
+            id: 'gone',
+            lat: 31.061,
+            lng: -98.041,
+            type: 'plant',
+            label: 'Chinaberry',
+            removal: 'removed',
+          ),
+        ],
+      );
+      final r = await plate.render(
+        flagged,
+        layers: const PlateLayers(records: true),
+        removalPlan: true,
+        maxWidth: 900,
+        maxHeight: 700,
+      );
+      expect(r.numbered.map((x) => x.id).toList(), ['j1', 'm1', 'm2']);
+      // The two mesquites share a spot: one pin, "2+1".
+      expect(r.overlapGroups, 1);
+      expect(r.legend.map((e) => e.$2), contains('Flagged for removal · 3'));
+      expect(r.legend.map((e) => e.$2), isNot(contains('Plant record')));
+
+      final doc = MapDocument(
+        title: 'Test Place',
+        plate: r,
+        subject: flagged,
+        layers: const PlateLayers(records: true),
+        removalPlan: true,
+      );
+      expect(doc.numbered.length, 3);
+      final pdf = await RemovalPlan.build(doc);
+      expect(pdf.length, greaterThan(1000));
+      expect(String.fromCharCodes(pdf.take(5)), '%PDF-');
+
+      // The ordinary plate keeps every record and marks the flag in the
+      // legend instead of hiding the rest.
+      final plain = await plate.render(
+        flagged,
+        layers: const PlateLayers(records: true),
+        maxWidth: 900,
+        maxHeight: 700,
+      );
+      expect(plain.numbered, isEmpty);
+      expect(plain.legend.map((e) => e.$2), contains('Flagged for removal'));
+      expect(plain.legend.map((e) => e.$2), contains('Removed'));
+    },
+  );
 }

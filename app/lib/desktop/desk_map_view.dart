@@ -1567,6 +1567,43 @@ class _DeskMapPainter extends CustomPainter {
           ..strokeWidth = 2.5,
       );
     }
+    if (r.removal != null) {
+      // D-027 over the mark: oxblood ring + cut while flagged, ink ring +
+      // tick once it's out — same glyph as the phone and the plate.
+      final flagged = r.removal == 'flagged';
+      final ringInk =
+          (flagged ? const ui.Color(0xFF8B2E22) : const ui.Color(0xFF1B1813))
+              .withValues(alpha: alpha);
+      canvas.drawCircle(
+        ui.Offset(x, y),
+        11.5,
+        ui.Paint()
+          ..color = const ui.Color(0xFFECE3CE).withValues(alpha: alpha)
+          ..style = ui.PaintingStyle.stroke
+          ..strokeWidth = 4,
+      );
+      final stroke = ui.Paint()
+        ..color = ringInk
+        ..style = ui.PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = ui.StrokeCap.round;
+      canvas.drawCircle(ui.Offset(x, y), 11.5, stroke);
+      if (flagged) {
+        canvas.drawLine(
+          ui.Offset(x - 8, y + 8),
+          ui.Offset(x + 8, y - 8),
+          stroke,
+        );
+      } else {
+        canvas.drawPath(
+          ui.Path()
+            ..moveTo(x - 5, y + 0.5)
+            ..lineTo(x - 1.5, y + 4)
+            ..lineTo(x + 5.5, y - 4),
+          stroke,
+        );
+      }
+    }
     switch (mark.shape) {
       case RecordShape.circle:
         canvas.drawCircle(ui.Offset(x, y), 7.5, paper);

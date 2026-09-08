@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../db/database.dart';
 import '../../main.dart' show locationHub;
 import 'ghost_capture_screen.dart';
+import 'photo_point_edit.dart';
 import 'photo_point_history_screen.dart';
 
 /// Photo points (spec §7.8): due list; capture with ghost overlay.
@@ -120,7 +121,9 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
                     ),
                   ),
                 ),
-                // Row → history (every frame, scrubbable); camera → capture.
+                // Row → history (every frame, scrubbable); camera → capture;
+                // press and hold → edit.
+                onLongPress: () => editPhotoPoint(context, db, p),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => PhotoPointHistoryScreen(db: db, point: p),

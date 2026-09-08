@@ -27,10 +27,7 @@ Future<PlateSubject> loadPlateSubject(
             ..where((f) => f.propertyId.equals(property.id))
             ..where((f) => f.deletedAt.isNull()))
           .get();
-  final taxa = {
-    for (final t in await db.select(db.taxa).get())
-      t.id: t.commonName ?? t.scientificName,
-  };
+  final taxa = {for (final t in await db.select(db.taxa).get()) t.id: t};
   final observations =
       await (db.select(db.observations)
             ..where((o) => o.propertyId.equals(property.id))
@@ -46,6 +43,40 @@ Future<PlateSubject> loadPlateSubject(
               (o) => o.gpsAccuracyM.equals(-1).not() | o.gpsAccuracyM.isNull(),
             ))
           .get();
+  // Each record's first photo (thumbnail when there is one) — the removal
+  // plan prints it beside the pin. Media stays on this machine; only the
+  // plan the person saves carries it.
+  final photoByObs = <String, String>{};
+  if (observations.isNotEmpty) {
+    final links =
+        await (db.select(db.mediaLinks)
+              ..where((l) => l.entityType.equals('observation'))
+              ..where((l) => l.deletedAt.isNull())
+              ..where(
+                (l) => l.entityId.isIn([for (final o in observations) o.id]),
+              ))
+            .get();
+    if (links.isNotEmpty) {
+      final media = {
+        for (final m
+            in await (db.select(db.media)
+                  ..where((m) => m.id.isIn([for (final l in links) l.mediaId]))
+                  ..where((m) => m.mediaType.equals('photo'))
+                  ..where((m) => m.deletedAt.isNull()))
+                .get())
+          m.id: m,
+      };
+      for (final l in links) {
+        final m = media[l.mediaId];
+        final path = m?.thumbPath ?? m?.localPath;
+        if (path == null) continue;
+        // Primary first; otherwise whichever link came first.
+        if (l.role == 'primary' || !photoByObs.containsKey(l.entityId)) {
+          photoByObs[l.entityId] = path;
+        }
+      }
+    }
+  }
   final tracks =
       await (db.select(db.tracks)
             ..where((t) => t.propertyId.equals(property.id))
@@ -81,8 +112,14 @@ Future<PlateSubject> loadPlateSubject(
           lat: o.lat,
           lng: o.lng,
           type: o.observationType,
-          label: o.taxonId == null ? null : taxa[o.taxonId],
+          label: o.taxonId == null
+              ? null
+              : taxa[o.taxonId]?.commonName ?? taxa[o.taxonId]?.scientificName,
           observedAt: o.observedAt,
+          removal: o.removalStatus,
+          nativity: o.taxonId == null ? null : taxa[o.taxonId]?.nativity,
+          notes: o.notes,
+          photoPath: photoByObs[o.id],
         ),
     ],
     tracks: [

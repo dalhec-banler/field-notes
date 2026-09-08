@@ -130,7 +130,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(MapScreen old) {
     super.didUpdateWidget(old);
-    if (old.visible != widget.visible) _syncPositionWatch();
+    if (old.visible != widget.visible) {
+      _syncPositionWatch();
+      // Back on the map after the ledger or a capture: whatever was
+      // saved meanwhile is drawn now, not on the next camera idle.
+      if (widget.visible) _refreshRecords();
+    }
   }
 
   /// Battery (spec §7): the live dot only costs GPS while the map is on
@@ -140,6 +145,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _inForeground = state == AppLifecycleState.resumed;
     _syncPositionWatch();
+    if (_inForeground) _refreshRecords();
   }
 
   void _syncPositionWatch() {
@@ -605,6 +611,12 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       return;
     }
     _painting = true;
+    // A platform call that never answers (the map covered by the camera,
+    // the app asleep in a pocket) would otherwise hold _painting forever,
+    // and every record saved after it would queue behind it until a
+    // restart (Austin, 2026-09-07: "they don't pop up until I re-open").
+    Future<T> bounded<T>(Future<T> call) =>
+        call.timeout(const Duration(seconds: 8));
     try {
       final zoom = controller.cameraPosition?.zoom ?? 15;
       // Clustering depends only on zoom and the feature list: a pan-only
@@ -623,8 +635,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         }
         final n = g.members.length;
         final icon = clusterIconKey(n);
-        if (_badgeImages.add(icon)) {
-          await controller.addImage(icon, await clusterBadge(n));
+        if (!_badgeImages.contains(icon)) {
+          await bounded(controller.addImage(icon, await clusterBadge(n)));
+          _badgeImages.add(icon);
         }
         final (lat, lng) = g.centre;
         // Content-derived id: stable across repaints while membership holds
@@ -640,14 +653,18 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           'properties': {'id': id, 'cluster': true, 'count': n, 'icon': icon},
         });
       }
-      await controller.setGeoJsonSource('observations', {
-        'type': 'FeatureCollection',
-        'features': singles,
-      });
-      await controller.setGeoJsonSource('obs-clusters', {
-        'type': 'FeatureCollection',
-        'features': out,
-      });
+      await bounded(
+        controller.setGeoJsonSource('observations', {
+          'type': 'FeatureCollection',
+          'features': singles,
+        }),
+      );
+      await bounded(
+        controller.setGeoJsonSource('obs-clusters', {
+          'type': 'FeatureCollection',
+          'features': out,
+        }),
+      );
       _clusterIndex
         ..clear()
         ..addAll(index);
@@ -723,7 +740,28 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final db = widget.db;
     final property = widget.property;
     if (controller == null || db == null || property == null) return;
+    // A style (re)load drops every source, layer and image; forget what
+    // was painted so the next paint pushes everything again.
+    _recordLayersReady = false;
+    _featureLayerReady = false;
+    _photoPointLayerReady = false;
+    _lastPainted = null;
+    _lastPaintZoom = null;
+    _badgeImages.clear();
+    try {
+      await _addPlaceOverlays(controller, db, property);
+    } catch (_) {
+      // Zones, boundary, photo points or features failing to draw must
+      // not cost the record pins — those are what the map is for.
+    }
+    await _addRecordLayers(controller);
+  }
 
+  Future<void> _addPlaceOverlays(
+    MapLibreMapController controller,
+    FieldNotesDb db,
+    Property property,
+  ) async {
     final zones =
         await (db.select(db.zones)
               ..where((z) => z.propertyId.equals(property.id))
@@ -915,10 +953,15 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         .customSelect('SELECT 1', readsFrom: {db.features})
         .watch()
         .listen((_) => _refreshFeatures());
+  }
 
-    // Record pins. The source is created empty and then kept in step with
-    // the database by [_watchRecords] — a record saved five minutes from now
-    // has to appear without restarting the app.
+  /// Record pins. The source is created empty and then kept in step with
+  /// the database by [_watchRecords] — a record saved five minutes from now
+  /// has to appear without restarting the app.
+  Future<void> _addRecordLayers(MapLibreMapController controller) async {
+    for (final s in const ['flagged', 'removed']) {
+      await controller.addImage('obs-removal-$s', await removalMarker(s));
+    }
     await controller.addGeoJsonSource('observations', _emptyCollection);
     await controller.addCircleLayer(
       'observations',
@@ -993,6 +1036,30 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           'literal',
           ['infrastructure', 'maintenance', 'problem'],
         ],
+      ],
+      enableInteraction: true,
+    );
+    // Removal (D-027) draws OVER the record's own mark: the ring and cut
+    // say "this comes out", the dot beneath still says what it is.
+    await controller.addSymbolLayer(
+      'observations',
+      'observations-removal',
+      const SymbolLayerProperties(
+        iconImage: [
+          'match',
+          ['get', 'removal'],
+          'flagged',
+          'obs-removal-flagged',
+          'obs-removal-removed',
+        ],
+        iconSize: 1 / 3,
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+      ),
+      filter: [
+        '!=',
+        ['get', 'removal'],
+        '',
       ],
       enableInteraction: true,
     );
@@ -1254,6 +1321,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             'o.observation_type AS type, o.gps_accuracy_m AS acc, '
             'o.taxon_id AS taxon, o.zone_id AS zone, '
             'o.observed_at AS at, '
+            'o.removal_status AS removal, '
             't.growth_form AS growth, '
             'COALESCE(t.common_name, t.scientific_name) AS species '
             'FROM observations o LEFT JOIN taxa t ON t.id = o.taxon_id '
@@ -1286,6 +1354,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         final type = r.data['type'] as String? ?? 'general';
         final species = r.data['species'] as String?;
         if (flt.type != null && type != flt.type) continue;
+        if (flt.flagged && r.data['removal'] != 'flagged') continue;
         if (flt.taxonId != null && r.data['taxon'] != flt.taxonId) continue;
         if (flt.zoneId != null && r.data['zone'] != flt.zoneId) continue;
         if (dFrom != null) {
@@ -1307,12 +1376,13 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             'growth': growth ?? '',
             'named': species != null,
             'species': species ?? '',
+            'removal': (r.data['removal'] as String?) ?? '',
           },
         });
       }
       _recordFeatures = features;
-      widget.onRecordCount?.call(features.length);
       await _paintRecords();
+      widget.onRecordCount?.call(features.length);
     } catch (_) {
       // A redraw failure must never take the map down.
     }

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../db/database.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/press.dart';
+import 'photo_point_edit.dart';
 import 'ghost_capture_screen.dart';
 
 /// Photo point history (spec §7.8 "time-series scrubber"): every visit's
@@ -101,7 +102,39 @@ class _PhotoPointHistoryScreenState extends State<PhotoPointHistoryScreen> {
     final anchor = _frames.isEmpty ? null : _frames.first;
     final current = _frames.isEmpty ? null : _frames[_index];
     return Scaffold(
-      appBar: AppBar(title: Text(p.name)),
+      appBar: AppBar(
+        title: Text(p.name),
+        actions: [
+          if (current != null)
+            IconButton(
+              icon: const Icon(Icons.edit_calendar_outlined),
+              tooltip: 'Edit this visit',
+              onPressed: () async {
+                final gone = await editPhotoPointVisit(
+                  context,
+                  widget.db,
+                  current.visit,
+                );
+                if (gone == null) return;
+                _index = 0;
+                _load();
+              },
+            ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit photo point',
+            onPressed: () async {
+              final gone = await editPhotoPoint(context, widget.db, p);
+              if (gone == true && context.mounted) {
+                Navigator.pop(context);
+              } else if (gone == false && context.mounted) {
+                // The list behind us streams; this screen holds a copy.
+                Navigator.pop(context);
+              }
+            },
+          ),
+        ],
+      ),
       body: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : ListView(

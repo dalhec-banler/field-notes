@@ -15,8 +15,14 @@ class MapDocument {
     this.species,
     this.preparedFor,
     this.notes,
+    this.removalPlan = false,
     DateTime? date,
   }) : _date = date;
+
+  /// D-027: the plate is the removal plan — numbered flagged pins, and
+  /// [numbered] is the list that goes beside it.
+  final bool removalPlan;
+  List<PlateRecord> get numbered => plate.numbered;
 
   final String title;
   final PlateResult plate;

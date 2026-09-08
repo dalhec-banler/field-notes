@@ -245,15 +245,21 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                 decoration: BoxDecoration(
                   border: Border.all(color: Press.borderInk, width: 1.5),
                 ),
-                child: Image.file(widget.photos.first, fit: BoxFit.cover),
+                child: Image.file(
+                  widget.photos[_picked.isEmpty ? 0 : _picked.first],
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             SizedBox(height: 12),
             if (_candidates.isEmpty && !_running) ...[
-              if (widget.photos.length > 5) ...[
+              if (widget.photos.length > 1) ...[
                 MonoLabel(
-                  'Pl@ntNet reads five images — pick which '
-                  '(${_picked.length} of 5 chosen)',
+                  widget.photos.length > 5
+                      ? 'Pl@ntNet reads five images — tap to choose which '
+                            '(${_picked.length} of 5 chosen)'
+                      : 'Tap to choose which photos go up '
+                            '(${_picked.length} of ${widget.photos.length})',
                   size: 9,
                   spacing: 1.6,
                 ),

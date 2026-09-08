@@ -12,6 +12,9 @@ import '../widgets/press.dart';
 import '../widgets/condition_log_dialog.dart';
 import '../widgets/confirm.dart';
 import '../widgets/edit_record_sheet.dart';
+import '../widgets/edit_sheet.dart';
+import '../widgets/nativity_chip.dart';
+import '../widgets/removal_chip.dart';
 
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
@@ -23,6 +26,7 @@ import '../services/observation_ops.dart' show eraseMedia;
 import '../services/review.dart';
 import 'identify_sheet.dart';
 import 'move_pin_screen.dart';
+import 'photo_points/photo_point_history_screen.dart';
 import 'species_detail_sheet.dart';
 
 /// Record detail (design README §3.3): photo header, title block, fact card
@@ -55,6 +59,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   EnvContext? _env;
   ReviewItem? _review;
   List<MediaData> _photos = [];
+
+  /// The station this record's photo anchors, if it became one.
+  PhotoPoint? _photoPoint;
   List<MediaData> _audio = [];
   List<(Observation, double)> _nearby = [];
   Property? _property;
@@ -160,6 +167,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
     final review = await ReviewService(widget.db)
         .forEntity('observation', widget.obsId);
+    final photoPoint = photos.isEmpty
+        ? null
+        : await (db.select(db.photoPoints)
+                ..where(
+                  (p) =>
+                      p.referenceMediaId.isIn([for (final m in photos) m.id]),
+                )
+                ..where((p) => p.deletedAt.isNull())
+                ..limit(1))
+              .getSingleOrNull();
     final zoneRows =
         await (db.select(db.zones)
               ..where((z) => z.propertyId.equals(obs.propertyId))
@@ -173,6 +190,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         _zone = zone;
         _env = env;
         _photos = photos;
+        _photoPoint = photoPoint;
         _audio = audio;
         _nearby = nearby.take(6).toList();
         _property = property;
@@ -422,6 +440,103 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   /// Edit what a field ID most often gets wrong (shared editor, see
   /// widgets/edit_record_sheet.dart). MOVE THE PIN comes back here because
   /// it needs the map.
+  static const _conditions = [
+    ('good', 'Good'),
+    ('fair', 'Fair'),
+    ('poor', 'Poor'),
+    ('critical', 'Critical'),
+    ('unknown', 'Unknown'),
+  ];
+
+  Future<void> _editConditionLog(ConditionLog l) async {
+    final r = await showEditSheet(
+      context,
+      title: 'Edit condition',
+      fields: [
+        DateEdit('on', 'Observed on', initial: l.observedAt),
+        ChoiceEdit(
+          'condition',
+          'Condition',
+          options: _conditions,
+          initial: l.condition,
+        ),
+        TextEdit('action', 'Action taken', initial: l.actionTaken),
+        TextEdit('notes', 'Notes', initial: l.notes, lines: 2),
+      ],
+      deleteTitle: 'DELETE THIS CONDITION ENTRY?',
+    );
+    if (r == null) return;
+    final now = nowUtcIso();
+    final q = widget.db.update(widget.db.conditionLogs)
+      ..where((x) => x.id.equals(l.id));
+    if (r.deleted) {
+      await q.write(
+        ConditionLogsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+      return;
+    }
+    await q.write(
+      ConditionLogsCompanion(
+        observedAt: Value(withDay(l.observedAt, r.day('on') ?? l.observedAt)),
+        condition: Value(r.text('condition') ?? l.condition),
+        actionTaken: Value(r.text('action')),
+        notes: Value(r.text('notes')),
+        updatedAt: Value(now),
+      ),
+    );
+  }
+
+  Future<void> _makePhotoPoint() async {
+    final obs = _obs!;
+    final now = nowUtcIso();
+    final name =
+        _taxon?.commonName ??
+        _taxon?.scientificName ??
+        'Photo point ${obs.observedAt.substring(0, 10)}';
+    final heading = obs.headingDeg;
+    await widget.db
+        .into(widget.db.photoPoints)
+        .insert(
+          PhotoPointsCompanion.insert(
+            id: newId(),
+            propertyId: obs.propertyId,
+            name: name,
+            lat: obs.lat,
+            lng: obs.lng,
+            bearingDeg: heading != null && heading >= 0 ? heading : 0,
+            subject: Value(_taxon?.commonName ?? _taxon?.scientificName),
+            cadenceDays: const Value(90),
+            focalLengthMm: const Value(26),
+            viewExtentM: const Value(60),
+            referenceMediaId: Value(_photos.first.id),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('PHOTO POINT · $name — find it under Photo points'),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _setRemoval(String? status) async {
+    final now = nowUtcIso();
+    await (widget.db.update(
+      widget.db.observations,
+    )..where((o) => o.id.equals(widget.obsId))).write(
+      ObservationsCompanion(
+        removalStatus: Value(status),
+        removedOn: Value(status == 'removed' ? now.substring(0, 10) : null),
+        updatedAt: Value(now),
+      ),
+    );
+    _load();
+  }
+
   Future<void> _editRecord() async {
     final obs = _obs;
     if (obs == null) return;
@@ -718,6 +833,17 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     ),
                   ],
                 ),
+                if (obs.removalStatus != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: RemovalChip(
+                        obs.removalStatus,
+                        removedOn: obs.removedOn,
+                      ),
+                    ),
+                  ),
                 SizedBox(height: 8),
                 if (_taxon != null) ...[
                   // Name → the species' whole history on this place.
@@ -737,7 +863,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     [
                       if (_taxon!.commonName != null) _taxon!.commonName!,
                       if (_taxon!.family != null) _taxon!.family!,
-                      if (_taxon!.nativity != null) _taxon!.nativity!,
                     ].join(' · ').toUpperCase(),
                     style: TextStyle(
                       fontFamily: Type.slab,
@@ -746,6 +871,14 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       color: Press.ink,
                     ),
                   ),
+                  if (_taxon!.nativity != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: NativityChip(_taxon!.nativity),
+                      ),
+                    ),
                 ] else
                   Text(
                     obs.observationType.toUpperCase(),
@@ -880,33 +1013,36 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     ),
                     SizedBox(height: 6),
                     for (final l in logs)
-                      Padding(
-                        padding: EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Diamond(
-                              size: 10,
-                              color: conditionColor(l.condition),
-                              filled: true,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                [
-                                  '${l.observedAt.substring(0, 10)} · '
-                                      '${l.condition}',
-                                  if (l.actionTaken != null) l.actionTaken!,
-                                  if (l.notes != null) l.notes!,
-                                ].join(' · '),
-                                style: TextStyle(
-                                  fontFamily: Type.serif,
-                                  fontSize: 14.5,
-                                  height: 1.4,
+                      InkWell(
+                        onTap: () => _editConditionLog(l),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Diamond(
+                                size: 10,
+                                color: conditionColor(l.condition),
+                                filled: true,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  [
+                                    '${l.observedAt.substring(0, 10)} · '
+                                        '${l.condition}',
+                                    if (l.actionTaken != null) l.actionTaken!,
+                                    if (l.notes != null) l.notes!,
+                                  ].join(' · '),
+                                  style: TextStyle(
+                                    fontFamily: Type.serif,
+                                    fontSize: 14.5,
+                                    height: 1.4,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     SizedBox(height: 4),
@@ -1087,6 +1223,105 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 onPressed: _addPhotos,
               ),
             ),
+          ),
+
+          // A species record can become a station (Austin, 2026-09-07:
+          // "each species record should also have a photo pts option"):
+          // same spot, same aim, the record's photo as the anchor frame.
+          if (_photos.isNotEmpty && obs.gpsAccuracyM != -1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Metrics.gutter,
+                0,
+                Metrics.gutter,
+                12,
+              ),
+              child: SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  icon: Icon(
+                    _photoPoint == null
+                        ? Icons.center_focus_weak
+                        : Icons.center_focus_strong,
+                  ),
+                  label: Text(
+                    _photoPoint == null
+                        ? 'MAKE A PHOTO POINT'
+                        : 'PHOTO POINT ✓ · OPEN',
+                  ),
+                  onPressed: _photoPoint == null
+                      ? _makePhotoPoint
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PhotoPointHistoryScreen(
+                              db: widget.db,
+                              point: _photoPoint!,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+
+          // Removal (D-027): flag it, then say when it came out. Pulling
+          // ashe juniper, mesquite and chinaberry is restoration work as
+          // much as planting is (Austin, 2026-09-07).
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Metrics.gutter,
+              0,
+              Metrics.gutter,
+              12,
+            ),
+            child: switch (obs.removalStatus) {
+              null => SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Press.oxblood,
+                    side: BorderSide(color: Press.oxblood, width: 1.5),
+                  ),
+                  icon: const Icon(Icons.content_cut),
+                  label: const Text('FLAG FOR REMOVAL'),
+                  onPressed: () => _setRemoval('flagged'),
+                ),
+              ),
+              'flagged' => Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 56,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Press.oxblood,
+                        ),
+                        icon: const Icon(Icons.check),
+                        label: const Text('MARK REMOVED'),
+                        onPressed: () => _setRemoval('removed'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 56,
+                    child: OutlinedButton(
+                      onPressed: () => _setRemoval(null),
+                      child: const Text('CLEAR FLAG'),
+                    ),
+                  ),
+                ],
+              ),
+              _ => SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.undo),
+                  label: Text(
+                    'REMOVED${obs.removedOn != null ? ' ${obs.removedOn}' : ''} · REOPEN',
+                  ),
+                  onPressed: () => _setRemoval('flagged'),
+                ),
+              ),
+            },
           ),
 
           // 6. Actions.

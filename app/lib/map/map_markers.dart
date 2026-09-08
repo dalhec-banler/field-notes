@@ -128,6 +128,55 @@ Future<Uint8List> recordShapeMarker(String kind, {double scale = 3}) async {
   return _png(rec, size, scale);
 }
 
+/// Removal (D-027): a record flagged for removal wears an oxblood ring
+/// with a cut across it, over whatever mark it has; once it's out, an ink
+/// ring with a tick. Neither hides the dot beneath — you still see what
+/// it was.
+Future<Uint8List> removalMarker(String status, {double scale = 3}) async {
+  const size = 64.0;
+  final rec = ui.PictureRecorder();
+  final c = ui.Canvas(rec)..scale(scale);
+  const centre = ui.Offset(size / 2, size / 2);
+  final flagged = status == 'flagged';
+  final ink = flagged ? const ui.Color(0xFF8B2E22) : const ui.Color(0xFF1B1813);
+  c.drawCircle(
+    centre,
+    24,
+    ui.Paint()
+      ..color = const ui.Color(0xFFECE3CE)
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = 8,
+  );
+  c.drawCircle(
+    centre,
+    24,
+    ui.Paint()
+      ..color = ink
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = 4,
+  );
+  final stroke = ui.Paint()
+    ..color = ink
+    ..style = ui.PaintingStyle.stroke
+    ..strokeWidth = 4
+    ..strokeCap = ui.StrokeCap.round;
+  if (flagged) {
+    // The cut: one diagonal across the ring.
+    c.drawLine(
+      ui.Offset(centre.dx - 17, centre.dy + 17),
+      ui.Offset(centre.dx + 17, centre.dy - 17),
+      stroke,
+    );
+  } else {
+    final tick = ui.Path()
+      ..moveTo(centre.dx - 11, centre.dy + 1)
+      ..lineTo(centre.dx - 3, centre.dy + 9)
+      ..lineTo(centre.dx + 12, centre.dy - 9);
+    c.drawPath(tick, stroke);
+  }
+  return _png(rec, size, scale);
+}
+
 /// A photo point: the station itself — an ochre camera bug on paper, so
 /// it never reads as a record or a feature (Austin, 2026-09-04). The
 /// wedge it looks through is drawn as geometry, not in this bitmap.

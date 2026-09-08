@@ -11,6 +11,8 @@ import '../db/database.dart';
 import '../services/app_prefs.dart';
 import '../services/press_unlock.dart';
 import '../services/review.dart';
+import '../widgets/nativity_chip.dart';
+import '../widgets/removal_chip.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 import '../backup/restore.dart';
@@ -523,6 +525,7 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
   bool _pendingOnly = false;
   Set<String> _pendingIds = const {};
   Map<String, String> _taxonNames = const {};
+  Map<String, String?> _taxonNativity = const {};
   late final _review = ReviewService(widget.db);
 
   StreamSubscription<void>? _pendingWatch;
@@ -601,6 +604,7 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
       _taxonNames = {
         for (final t in taxa) t.id: t.commonName ?? t.scientificName,
       };
+      _taxonNativity = {for (final t in taxa) t.id: t.nativity};
     });
   }
 
@@ -748,6 +752,26 @@ class _ReviewWorkspaceState extends State<_ReviewWorkspace> {
                                                 fontFamily: Type.serif,
                                                 fontSize: 14,
                                                 color: Press.ink,
+                                              ),
+                                            ),
+                                          if (_taxonNativity[o.taxonId] !=
+                                                  null ||
+                                              o.removalStatus != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 3,
+                                              ),
+                                              child: Wrap(
+                                                spacing: 6,
+                                                children: [
+                                                  NativityChip(
+                                                    _taxonNativity[o.taxonId],
+                                                  ),
+                                                  RemovalChip(
+                                                    o.removalStatus,
+                                                    removedOn: o.removedOn,
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           MonoLabel(

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import 'nativity_chip.dart';
 
 /// Species quick-pick: search common/scientific/family, favorites first.
 class SpeciesField extends StatefulWidget {
@@ -116,6 +117,7 @@ class _SpeciesFieldState extends State<SpeciesField> {
                 : const SizedBox(width: 18),
             title: Text(t.commonName ?? t.scientificName),
             subtitle: Text(t.scientificName),
+            trailing: NativityChip(t.nativity),
             onTap: () {
               _controller.text = t.commonName ?? t.scientificName;
               widget.onSelected(t);

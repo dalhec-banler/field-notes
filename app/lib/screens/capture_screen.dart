@@ -20,6 +20,7 @@ import '../services/voice_note.dart';
 import '../theme/tokens.dart';
 import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
+import '../widgets/nativity_chip.dart';
 import '../widgets/species_field.dart';
 import 'identify_sheet.dart';
 
@@ -224,6 +225,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
   /// record saves as always, and a photo point is anchored here facing
   /// the way the phone was pointed.
   bool _asPhotoPoint = false;
+
+  /// Flag the record for removal as it's made (D-027).
+  bool _flagRemoval = false;
 
   /// Mic button: tap to start, tap to stop. The transcript lands in the
   /// notes field as it's recognised; the audio is kept regardless.
@@ -498,6 +502,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       : _observationType,
                 ),
                 taxonId: Value(_taxon?.id),
+                removalStatus: Value(_flagRemoval ? 'flagged' : null),
                 taxonConfidence: Value(
                   _taxon == null
                       ? null
@@ -987,6 +992,24 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     SizedBox(
                       height: 48,
                       child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: _flagRemoval ? Press.oxblood : null,
+                          foregroundColor: _flagRemoval
+                              ? Press.paper
+                              : Press.oxblood,
+                          side: BorderSide(color: Press.oxblood, width: 1.5),
+                        ),
+                        icon: Icon(Icons.content_cut, size: 18),
+                        label: Text(
+                          _flagRemoval ? 'REMOVAL ✓' : 'FLAG FOR REMOVAL',
+                        ),
+                        onPressed: () =>
+                            setState(() => _flagRemoval = !_flagRemoval),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 48,
+                      child: OutlinedButton.icon(
                         icon: Icon(Icons.photo_camera_outlined, size: 18),
                         label: Text(
                           _shots.isEmpty ? 'TAKE A PHOTO' : 'ANOTHER PHOTO',
@@ -1013,13 +1036,71 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       ),
                   ],
                 ),
+                if (_shots.isNotEmpty) ...[
+                  SizedBox(height: 12),
+                  // The photos in hand (Austin, 2026-09-07: "you don't see
+                  // the image, much less the other 3-4 you took"). Every
+                  // one goes on the record; the identify sheet is where
+                  // you pick which go to Pl@ntNet.
+                  SizedBox(
+                    height: 84,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _shots.length,
+                      separatorBuilder: (_, _) => SizedBox(width: 8),
+                      itemBuilder: (context, i) => Stack(
+                        children: [
+                          Container(
+                            width: 84,
+                            height: 84,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Press.borderInk,
+                                width: 1.5,
+                              ),
+                              image: DecorationImage(
+                                image: FileImage(File(_shots[i].path)),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _shots.removeAt(i)),
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                color: Press.ink,
+                                child: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Press.paper,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 SizedBox(height: 14),
-                MonoLabel(
-                  _taxon == null
-                      ? 'What is it? · optional — favourites first'
-                      : 'What is it? · ${_taxon!.scientificName}',
-                  size: 9,
-                  spacing: 1.8,
+                Row(
+                  children: [
+                    Expanded(
+                      child: MonoLabel(
+                        _taxon == null
+                            ? 'What is it? · optional — favourites first'
+                            : 'What is it? · ${_taxon!.scientificName}',
+                        size: 9,
+                        spacing: 1.8,
+                      ),
+                    ),
+                    if (_taxon?.nativity != null)
+                      NativityChip(_taxon!.nativity),
+                  ],
                 ),
                 SizedBox(height: 8),
                 SpeciesField(

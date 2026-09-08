@@ -5,6 +5,7 @@ import '../db/database.dart';
 import '../theme/tokens.dart';
 import 'press.dart';
 import 'species_field.dart';
+import 'edit_sheet.dart';
 
 /// What the editor was asked to do when it closed.
 enum EditOutcome { saved, movePin }
@@ -29,9 +30,11 @@ const kConfidenceLabels = {
 };
 
 /// Edit what a field ID most often gets wrong: the species, the kind of
-/// record, how sure you were, and the notes. Location and time are the
-/// record's evidence and stay as captured — MOVE THE PIN is the one exception
-/// and is handed back to the caller (it needs a map), never done here.
+/// record, how sure you were, the day, and the notes. Location is the
+/// record's evidence and stays as captured — MOVE THE PIN is the one
+/// exception and is handed back to the caller (it needs a map), never done
+/// here. The day is editable (Austin, 2026-09-07: every entry, its date
+/// included); the time of day rides along unchanged.
 ///
 /// The same editor serves the phone (bottom sheet) and the desk (dialog,
 /// D-024): one set of rules for what an edit may touch.
@@ -47,6 +50,9 @@ Future<EditOutcome?> showEditRecordSheet(
   String? confidence = obs.taxonConfidence;
   if (confidence == 'unidentified') confidence = null;
   TaxaData? picked = taxon;
+  var day = obs.observedAt.length >= 10
+      ? obs.observedAt.substring(0, 10)
+      : obs.observedAt;
 
   Widget body(BuildContext ctx, StateSetter setSheet) => ListView(
     shrinkWrap: true,
@@ -107,6 +113,12 @@ Future<EditOutcome?> showEditRecordSheet(
           ),
         ),
       ],
+      SizedBox(height: 14),
+      DateRow(
+        label: 'Observed on',
+        day: day,
+        onPick: (d) => setSheet(() => day = d),
+      ),
       SizedBox(height: 14),
       MonoLabel('Notes', size: 9, spacing: 1.8),
       SizedBox(height: 6),
@@ -189,6 +201,7 @@ Future<EditOutcome?> showEditRecordSheet(
       taxonId: Value(picked?.id),
       taxonConfidence: Value(picked == null ? 'unidentified' : confidence),
       observationType: Value(type),
+      observedAt: Value(withDay(obs.observedAt, day)),
       notes: Value(text.isEmpty ? null : text),
       updatedAt: Value(nowUtcIso()),
     ),

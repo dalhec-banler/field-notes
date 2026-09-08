@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../db/database.dart';
+import '../../widgets/nativity_chip.dart';
 import '../../services/survival.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/press.dart';
@@ -256,23 +257,26 @@ class _PlantingTile extends StatelessWidget {
   final FieldNotesDb db;
   final PlantingEvent event;
 
-  Future<(String, SurvivalResult?)> _load() async {
+  Future<(String, String?, SurvivalResult?)> _load() async {
     var species = 'Unknown species';
+    String? nativity;
     if (event.taxonId != null) {
       final t = await (db.select(
         db.taxa,
       )..where((x) => x.id.equals(event.taxonId!))).getSingleOrNull();
       species = t?.scientificName ?? t?.commonName ?? species;
+      nativity = t?.nativity;
     }
-    return (species, await survivalFor(db, event));
+    return (species, nativity, await survivalFor(db, event));
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<(String, SurvivalResult?)>(
+    return FutureBuilder<(String, String?, SurvivalResult?)>(
       future: _load(),
       builder: (context, snapshot) {
-        final (species, survival) = snapshot.data ?? ('…', null);
+        final (species, nativity, survival) =
+            snapshot.data ?? ('…', null, null);
         final band = survival == null
             ? Press.inkSoft
             : survivalBandColor(survival.rate);
@@ -299,6 +303,10 @@ class _PlantingTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: TaxonName(species, size: 20, maxLines: 1)),
+                    if (nativity != null) ...[
+                      SizedBox(width: 8),
+                      NativityChip(nativity),
+                    ],
                     SizedBox(width: 10),
                     // Cohort rate gets the big percent; a tag-derived figure
                     // is over the tagged set only, so it is labelled as such
