@@ -9,6 +9,7 @@ import '../sync/sync_service.dart';
 import '../theme/tokens.dart';
 import '../widgets/passphrase_dialog.dart';
 import '../widgets/press.dart';
+import 'backup_screen.dart';
 import 'drive_backup_screen.dart';
 
 /// Sync with Drive (D-028): the phone and the desk exchange edits through
@@ -95,6 +96,11 @@ class _SyncScreenState extends State<SyncScreen> {
     });
     _load();
   }
+
+  /// The one reason a sync can fail that a button here can't fix: the
+  /// phone's Drive copy is plain (D-010), and sync is sealed-only (D-026).
+  bool get _needsPassphraseSetup =>
+      (_status ?? _lastNote ?? '').contains('to be encrypted');
 
   String _ago(String? iso) {
     if (iso == null) return 'never';
@@ -187,6 +193,39 @@ class _SyncScreenState extends State<SyncScreen> {
           if (_status != null) ...[
             const SizedBox(height: 10),
             MonoLabel(_status!, size: 10, spacing: 1.2),
+          ],
+          if (_needsPassphraseSetup) ...[
+            const SizedBox(height: 14),
+            RailNote(
+              color: Press.oxblood,
+              body: isDesk
+                  ? 'The phone\'s Drive backup is unencrypted (convenience '
+                        'mode), and sync never writes to Drive in the clear. '
+                        'On the phone: Settings → BACK UP NOW → switch on '
+                        '"Encrypt with a passphrase" → back up → BACK UP TO '
+                        'GOOGLE DRIVE. Then sync here with that passphrase.'
+                  : 'Your Drive backup is unencrypted (convenience mode), '
+                        'and sync never writes to Drive in the clear. Set a '
+                        'passphrase under Backup, back up to Drive once, and '
+                        'sync works on both devices.',
+            ),
+            if (!isDesk) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              BackupScreen(db: widget.db, prefs: widget.prefs),
+                        ),
+                      )
+                      .then((_) => _load()),
+                  child: const Text('SET A PASSPHRASE UNDER BACKUP'),
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: 14),
           SwitchListTile(
