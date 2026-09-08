@@ -128,46 +128,38 @@ Future<Uint8List> recordShapeMarker(String kind, {double scale = 3}) async {
   return _png(rec, size, scale);
 }
 
-/// Removal (D-027): a record flagged for removal wears an oxblood ring
-/// with a cut across it, over whatever mark it has; once it's out, an ink
-/// ring with a tick. Neither hides the dot beneath — you still see what
-/// it was.
+/// Removal (D-027): a record flagged for removal wears a red ring around
+/// its own dot — the dot still says what it is; once it's out, an ink
+/// ring with a tick.
 Future<Uint8List> removalMarker(String status, {double scale = 3}) async {
   const size = 64.0;
   final rec = ui.PictureRecorder();
   final c = ui.Canvas(rec)..scale(scale);
   const centre = ui.Offset(size / 2, size / 2);
   final flagged = status == 'flagged';
-  final ink = flagged ? const ui.Color(0xFF8B2E22) : const ui.Color(0xFF1B1813);
+  final ink = flagged ? ui.Color(removalRed) : const ui.Color(0xFF1B1813);
   c.drawCircle(
     centre,
-    24,
+    25,
     ui.Paint()
       ..color = const ui.Color(0xFFECE3CE)
       ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = 8,
+      ..strokeWidth = 9,
   );
   c.drawCircle(
     centre,
-    24,
+    25,
     ui.Paint()
       ..color = ink
       ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = 4,
+      ..strokeWidth = 5,
   );
   final stroke = ui.Paint()
     ..color = ink
     ..style = ui.PaintingStyle.stroke
     ..strokeWidth = 4
     ..strokeCap = ui.StrokeCap.round;
-  if (flagged) {
-    // The cut: one diagonal across the ring.
-    c.drawLine(
-      ui.Offset(centre.dx - 17, centre.dy + 17),
-      ui.Offset(centre.dx + 17, centre.dy - 17),
-      stroke,
-    );
-  } else {
+  if (!flagged) {
     final tick = ui.Path()
       ..moveTo(centre.dx - 11, centre.dy + 1)
       ..lineTo(centre.dx - 3, centre.dy + 9)

@@ -630,7 +630,7 @@ class MapPlate {
         }
       }
       if (removalSeen.contains('flagged')) {
-        legend.add((PlateInk.oxblood, 'Flagged for removal'));
+        legend.add((removalRed, 'Flagged for removal'));
       }
       if (removalSeen.contains('removed')) {
         legend.add((PlateInk.ink, 'Removed'));
@@ -942,15 +942,15 @@ class MapPlate {
     }
   }
 
-  /// D-027 over any mark: oxblood ring with a cut while it's flagged, an
-  /// ink ring with a tick once it's out. The mark beneath still shows.
+  /// D-027 around any mark: a red ring while it's flagged, an ink ring
+  /// with a tick once it's out. The mark inside still shows.
   static void _drawRemovalRing(
     ui.Canvas c,
     double x,
     double y, {
     required bool flagged,
   }) {
-    final ink = ui.Color(flagged ? PlateInk.oxblood : PlateInk.ink);
+    final ink = ui.Color(flagged ? removalRed : PlateInk.ink);
     c.drawCircle(
       ui.Offset(x, y),
       10,
@@ -965,9 +965,7 @@ class MapPlate {
       ..strokeWidth = 1.8
       ..strokeCap = ui.StrokeCap.round;
     c.drawCircle(ui.Offset(x, y), 10, stroke);
-    if (flagged) {
-      c.drawLine(ui.Offset(x - 7, y + 7), ui.Offset(x + 7, y - 7), stroke);
-    } else {
+    if (!flagged) {
       final tick = ui.Path()
         ..moveTo(x - 4.5, y + 0.5)
         ..lineTo(x - 1.5, y + 3.5)

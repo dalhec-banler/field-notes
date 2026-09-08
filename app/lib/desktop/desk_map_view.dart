@@ -1568,11 +1568,11 @@ class _DeskMapPainter extends CustomPainter {
       );
     }
     if (r.removal != null) {
-      // D-027 over the mark: oxblood ring + cut while flagged, ink ring +
-      // tick once it's out — same glyph as the phone and the plate.
+      // D-027 around the mark: a red ring while flagged, an ink ring with
+      // a tick once it's out — same glyph as the phone and the plate.
       final flagged = r.removal == 'flagged';
       final ringInk =
-          (flagged ? const ui.Color(0xFF8B2E22) : const ui.Color(0xFF1B1813))
+          (flagged ? ui.Color(removalRed) : const ui.Color(0xFF1B1813))
               .withValues(alpha: alpha);
       canvas.drawCircle(
         ui.Offset(x, y),
@@ -1588,13 +1588,7 @@ class _DeskMapPainter extends CustomPainter {
         ..strokeWidth = 2
         ..strokeCap = ui.StrokeCap.round;
       canvas.drawCircle(ui.Offset(x, y), 11.5, stroke);
-      if (flagged) {
-        canvas.drawLine(
-          ui.Offset(x - 8, y + 8),
-          ui.Offset(x + 8, y - 8),
-          stroke,
-        );
-      } else {
+      if (!flagged) {
         canvas.drawPath(
           ui.Path()
             ..moveTo(x - 5, y + 0.5)

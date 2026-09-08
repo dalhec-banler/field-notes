@@ -48,6 +48,12 @@ const growthFormInk = <String, int>{
   'moss': 0xFF6B8F71,
 };
 
+/// D-027: the ring around a record flagged for removal — a signal red, not
+/// the press's oxblood, so it reads on imagery at a glance (Austin,
+/// 2026-09-07: "a red ring around the green dot"). The dot inside keeps
+/// saying what the plant is.
+const removalRed = 0xFFE0261C;
+
 String cssHex(int argb) =>
     '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 
