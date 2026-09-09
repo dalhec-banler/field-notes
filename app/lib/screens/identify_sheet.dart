@@ -75,6 +75,10 @@ class _IdentifySheetState extends State<_IdentifySheet> {
   Map<String, String> _nativity = const {};
   String? _status;
   String? _error;
+
+  /// A layer that didn't run while the other answered — shown beside the
+  /// result, in ochre, never over it.
+  String? _warning;
   bool _running = false;
   bool _configured = false;
   bool _loaded = false;
@@ -116,6 +120,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
     setState(() {
       _running = true;
       _error = null;
+      _warning = null;
       _status = 'Looking…';
     });
     try {
@@ -150,6 +155,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
       setState(() {
         _nativity = nat;
         _candidates = results;
+        _warning = _service.lastWarning;
         _status = results.isEmpty ? 'No confident match.' : null;
       });
     } on PlantNetException catch (e) {
@@ -373,6 +379,31 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                   fontSize: 15,
                   color: Press.oxblood,
                 ),
+              ),
+            ],
+            if (_warning != null) ...[
+              SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Color(0xFFA8791F),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _warning!,
+                      style: TextStyle(
+                        fontFamily: Type.serif,
+                        fontSize: 13.5,
+                        height: 1.35,
+                        color: const Color(0xFFA8791F),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
             if (_candidates.isNotEmpty) ...[

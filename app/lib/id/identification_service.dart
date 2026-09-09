@@ -54,6 +54,7 @@ class IdentificationService {
     // cleared (hard rule 3) — never the original file.
     final runId = newId();
     lastRunId = runId;
+    lastWarning = null;
     final sendPhotos = await identificationSendCopies(photos);
     if (sendPhotos.isEmpty) {
       throw const PlantNetException(
@@ -62,8 +63,15 @@ class IdentificationService {
     }
     try {
       var priors = <IdCandidate>[];
+      final hasPlantNet = await _keys.hasPlantNet;
+      final hasLlm = await _keys.hasLlm;
 
-      if (await _keys.hasPlantNet) {
+      // Two layers, and one failing must not take the other's answer
+      // with it (Austin, 2026-09-09: an empty OpenAI account threw red
+      // text over a perfectly good Pl@ntNet result). A layer that fails
+      // while the other can still answer becomes a flag on the result;
+      // only when nothing can answer does the run fail.
+      if (hasPlantNet) {
         onStatus?.call('Asking Pl@ntNet…');
         try {
           priors = await _plantNet.identify(
@@ -72,27 +80,38 @@ class IdentificationService {
             project: plantNetProject,
             organ: organ,
           );
-        } on PlantNetException {
-          rethrow;
+        } on PlantNetException catch (e) {
+          if (!hasLlm) rethrow;
+          lastWarning = 'Pl@ntNet didn\'t run: ${e.message}';
         } catch (e) {
-          throw PlantNetException('Could not reach Pl@ntNet: $e');
+          if (!hasLlm) throw PlantNetException('Could not reach Pl@ntNet: $e');
+          lastWarning = 'Pl@ntNet didn\'t run: could not reach it';
         }
       }
 
       var candidates = priors;
-      if (await _keys.hasLlm) {
+      if (hasLlm) {
         onStatus?.call('Weighing it against this place…');
-        final context = await buildContext(observation, property);
-        final reranked = await _llm.rerank(
-          photo: sendPhotos.first,
-          context: context,
-          priors: priors,
-          provider: await _keys.llmProvider,
-          apiKey: (await _keys.llmKey)!,
-          model: await _keys.llmModel,
-          baseUrl: await _keys.llmBaseUrl,
-        );
-        if (reranked.isNotEmpty) candidates = reranked;
+        final provider = await _keys.llmProvider;
+        try {
+          final context = await buildContext(observation, property);
+          final reranked = await _llm.rerank(
+            photo: sendPhotos.first,
+            context: context,
+            priors: priors,
+            provider: provider,
+            apiKey: (await _keys.llmKey)!,
+            model: await _keys.llmModel,
+            baseUrl: await _keys.llmBaseUrl,
+          );
+          if (reranked.isNotEmpty) candidates = reranked;
+        } on LlmException catch (e) {
+          if (priors.isEmpty) rethrow;
+          lastWarning = '${provider.label} didn\'t run: ${e.message}';
+        } catch (e) {
+          if (priors.isEmpty) rethrow;
+          lastWarning = '${provider.label} didn\'t run: could not reach it';
+        }
       }
 
       candidates = await _matchToLibrary(candidates, property.id);
@@ -108,6 +127,11 @@ class IdentificationService {
   /// The run id of the most recent identify() on this service instance —
   /// what accept() scopes its flag to.
   String? lastRunId;
+
+  /// A layer that did not run this time while the other answered —
+  /// "OpenAI didn't run: out of credits on that account" — for the sheet
+  /// to show beside the result, not instead of it.
+  String? lastWarning;
 
   /// What this place is, for the re-ranker.
   Future<IdContext> buildContext(

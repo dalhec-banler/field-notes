@@ -251,16 +251,29 @@ class LlmClient {
   }
 
   String _errorFrom(String body, int status) {
+    String? message;
     try {
       final decoded = jsonDecode(body);
       if (decoded is Map) {
         final err = decoded['error'];
         if (err is Map && err['message'] is String) {
-          return err['message'] as String;
+          message = err['message'] as String;
         }
       }
     } catch (_) {}
-    return 'Identification service error $status';
+    // An empty account reads the same on every provider: OpenAI answers
+    // 429 insufficient_quota, Anthropic 400 "credit balance is too low",
+    // some 402. Say the one thing the person can act on.
+    final lower = (message ?? body).toLowerCase();
+    if (status == 402 ||
+        lower.contains('insufficient_quota') ||
+        lower.contains('credit balance') ||
+        lower.contains('out of credits') ||
+        lower.contains('billing')) {
+      return LlmException.outOfCredits;
+    }
+    if (status == 429) return 'Rate limited — try again in a minute.';
+    return message ?? 'Identification service error $status';
   }
 
   List<IdCandidate> _parse(String raw) {
@@ -309,6 +322,8 @@ class LlmClient {
 
 class LlmException implements Exception {
   const LlmException(this.message);
+
+  static const outOfCredits = 'out of credits on that account';
   final String message;
   @override
   String toString() => message;
