@@ -158,6 +158,20 @@ remains the default backup home.
   which is exactly what `drive.file` is for) → enters the passphrase →
   bootstrap pull.
 
+**PROBED 2026-09-08 (two real accounts, this OAuth client, `drive.file`):
+the owner's app can create the folder, share it to an email through the
+permissions API, and count seats — but the contributor's app CANNOT see
+it: `sharedWithMe` lists nothing, `files.get` on the folder id is 404,
+permissions 404. `drive.file` visibility is per user AND app: a file the
+app created on one account is not "created by the app" for another. A
+`files.create` with the invisible folder as parent returned 200 and
+landed in the contributor's own My Drive root, silently. So the join
+flow below cannot be "pick the folder" without the Google Picker (web
+component; would run in a WebView served from the loopback shelf server
+with an API key), and "open the shared link" is impossible under this
+scope. Decision pending (D-031): Picker in a WebView, or a relay of our
+own that holds only ciphertext and enforces seats server-side.**
+
 ### Roles are Drive ACLs — we do not build auth
 
 | Role | How it's granted | What enforces it |
