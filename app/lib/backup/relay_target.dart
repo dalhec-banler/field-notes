@@ -239,6 +239,7 @@ class RelayClient {
     required String code,
     required String displayName,
     required String deviceId,
+    String? email,
     String? deviceLabel,
   }) async {
     final res = await _client.post(
@@ -248,10 +249,25 @@ class RelayClient {
         'code': code,
         'display_name': displayName,
         'device_id': deviceId,
+        if (email != null) 'email': email,
         if (deviceLabel != null) 'device_label': deviceLabel,
       }),
     );
     return RelayMembership.fromJson(await _json(res));
+  }
+
+  /// Put an existing property under an organization's licence (owner).
+  Future<RelayPropertyInfo> attachOrganization({
+    required String propertyId,
+    required String token,
+    required String organizationKey,
+  }) async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/v1/properties/$propertyId/organization'),
+      headers: _headers(token),
+      body: jsonEncode({'org_key': organizationKey}),
+    );
+    return RelayPropertyInfo.fromJson(await _json(res));
   }
 
   Future<RelayPropertyInfo> property({

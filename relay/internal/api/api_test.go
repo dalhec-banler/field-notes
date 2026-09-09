@@ -109,31 +109,31 @@ func TestCreateInviteJoinAndTheLayoutRule(t *testing.T) {
 	}
 
 	// Owner writes under its own sync dir and the manifest; member reads.
-	if st, _, raw := r.do("PUT", "/v1/properties/p1/store/fieldnotes/sync/phone/000000000001-2.json.enc", owner, []byte("sealed")); st != 201 {
+	if st, _, raw := r.do("PUT", "/v1/properties/p1/store/sync/phone/000000000001-2.json.enc", owner, []byte("sealed")); st != 201 {
 		t.Fatalf("owner put %d %s", st, raw)
 	}
 	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/fieldnotes/manifest.json", owner, []byte("{}")); st != 201 {
 		t.Fatal("owner manifest", st)
 	}
-	if st, _, raw := r.do("GET", "/v1/properties/p1/store/fieldnotes/sync/phone/000000000001-2.json.enc", member, nil); st != 200 || string(raw) != "sealed" {
+	if st, _, raw := r.do("GET", "/v1/properties/p1/store/sync/phone/000000000001-2.json.enc", member, nil); st != 200 || string(raw) != "sealed" {
 		t.Fatalf("member get %d %q", st, raw)
 	}
-	if st, _, _ := r.do("HEAD", "/v1/properties/p1/store/fieldnotes/sync/phone/nope", member, nil); st != 404 {
+	if st, _, _ := r.do("HEAD", "/v1/properties/p1/store/sync/phone/nope", member, nil); st != 404 {
 		t.Fatal("head missing", st)
 	}
-	_, m, _ := r.do("GET", "/v1/properties/p1/store?prefix=fieldnotes/sync/", member, nil)
+	_, m, _ := r.do("GET", "/v1/properties/p1/store?prefix=sync/", member, nil)
 	if names := m["names"].([]any); len(names) != 1 {
 		t.Fatalf("list %v", names)
 	}
 
 	// The layout rule: not another device's dir, not the manifest; blobs yes.
-	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/fieldnotes/sync/phone/000000000009-9.json.enc", member, []byte("x")); st != 403 {
+	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/sync/phone/000000000009-9.json.enc", member, []byte("x")); st != 403 {
 		t.Fatal("member into owner's dir should be 403, got", st)
 	}
 	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/fieldnotes/manifest.json", member, []byte("x")); st != 403 {
 		t.Fatal("member manifest should be 403")
 	}
-	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/fieldnotes/sync/w-phone/000000000001-1.json.enc", member, []byte("y")); st != 201 {
+	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/sync/w-phone/000000000001-1.json.enc", member, []byte("y")); st != 201 {
 		t.Fatal("member own dir")
 	}
 	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/fieldnotes/blobs/ab/abcd.enc", member, []byte("z")); st != 201 {
@@ -218,11 +218,11 @@ func TestViewersRead(t *testing.T) {
 	owner := r.create("p1", "Shorts", "")
 	code, _, _ := r.invite("p1", owner, "viewer")
 	viewer, _, _ := r.join(code, "Reader", "", "r1")
-	r.do("PUT", "/v1/properties/p1/store/fieldnotes/sync/phone/000000000001-1.json.enc", owner, []byte("s"))
-	if st, _, _ := r.do("GET", "/v1/properties/p1/store/fieldnotes/sync/phone/000000000001-1.json.enc", viewer, nil); st != 200 {
+	r.do("PUT", "/v1/properties/p1/store/sync/phone/000000000001-1.json.enc", owner, []byte("s"))
+	if st, _, _ := r.do("GET", "/v1/properties/p1/store/sync/phone/000000000001-1.json.enc", viewer, nil); st != 200 {
 		t.Fatal("viewer reads")
 	}
-	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/fieldnotes/sync/r1/000000000001-1.json.enc", viewer, []byte("s")); st != 403 {
+	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/sync/r1/000000000001-1.json.enc", viewer, []byte("s")); st != 403 {
 		t.Fatal("viewer never writes")
 	}
 	if st, _, _ := r.do("PUT", "/v1/properties/p1/store/fieldnotes/blobs/aa/bb", viewer, []byte("s")); st != 403 {

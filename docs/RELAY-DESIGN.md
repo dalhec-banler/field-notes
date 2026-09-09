@@ -7,8 +7,9 @@ Status: DESIGN, 2026-09-08. Client target and multi-store sync first
 
 A small HTTP service in front of one S3 bucket. A **property** on the
 relay is a prefix in that bucket holding the same layout every carrier
-holds (`fieldnotes/manifest.json`, `blobs/`, `sync/<device>/…`), all
-ciphertext sealed with the property's keyring. The relay never sees a
+holds (`fieldnotes/manifest.json`, `fieldnotes/blobs/…`, and each
+device's batches under `sync/<device>/…` beside it), all ciphertext
+sealed with the property's keyring. The relay never sees a
 passphrase or a data key. What it keeps in the clear is the **control
 plane**: organizations, their licences, properties, members, devices, and
 join codes — because that is the part that has to be true for money to
@@ -71,7 +72,7 @@ DELETE /v1/properties/{p}/store/{path}     owner, or the writing device under it
 The store endpoints are a `BackupTarget`: `list`, `exists`, `read`,
 `write`, `delete`. The relay enforces the layout rule the design relies
 on — a device may write only under `sync/<its own device_id>/`, plus
-`blobs/` (content-addressed, idempotent) and, for the owner,
+`fieldnotes/blobs/` (content-addressed, idempotent) and, for the owner,
 `fieldnotes/manifest.json`. Viewers cannot write at all.
 
 ## Licences

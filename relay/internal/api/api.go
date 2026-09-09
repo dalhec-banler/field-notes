@@ -361,7 +361,13 @@ func (s *Server) registerDevice(w http.ResponseWriter, r *http.Request, m *contr
 
 // ── store ─────────────────────────────────────────────────────────
 
-const root = "fieldnotes/"
+// The layout every carrier holds (SYNC-DESIGN): the backup's tree under
+// fieldnotes/ — manifest (the keyring envelope) and content-addressed
+// blobs — and each device's batches under sync/<device_id>/ beside it.
+const (
+	root    = "fieldnotes/"
+	syncDir = "sync/"
+)
 
 func objectKey(p *control.Property, path string) string { return p.ID + "/" + path }
 
@@ -369,28 +375,31 @@ func objectKey(p *control.Property, path string) string { return p.ID + "/" + pa
 // only under its own sync dir; blobs are content-addressed and anyone's;
 // the manifest (the keyring envelope) is the owner's alone.
 func mayWrite(m *control.Member, path string) bool {
-	if m.Role == "viewer" || !strings.HasPrefix(path, root) {
+	if m.Role == "viewer" {
 		return false
 	}
-	rest := path[len(root):]
-	if strings.HasPrefix(rest, "blobs/") {
-		return true
-	}
-	if rest == "manifest.json" {
-		return m.Role == "owner"
-	}
-	if strings.HasPrefix(rest, "sync/") {
+	if strings.HasPrefix(path, syncDir) {
 		for _, d := range m.Devices {
-			if d != "" && strings.HasPrefix(rest, "sync/"+d+"/") {
+			if d != "" && strings.HasPrefix(path, syncDir+d+"/") {
 				return true
 			}
 		}
+		return false
+	}
+	if strings.HasPrefix(path, root+"blobs/") {
+		return true
+	}
+	if path == root+"manifest.json" {
+		return m.Role == "owner"
 	}
 	return false
 }
 
 func cleanPath(raw string) (string, bool) {
-	if raw == "" || strings.Contains(raw, "..") || strings.HasPrefix(raw, "/") || !strings.HasPrefix(raw, root) {
+	if raw == "" || strings.Contains(raw, "..") || strings.HasPrefix(raw, "/") {
+		return "", false
+	}
+	if !strings.HasPrefix(raw, root) && !strings.HasPrefix(raw, syncDir) {
 		return "", false
 	}
 	return raw, true
