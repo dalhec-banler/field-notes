@@ -11,11 +11,20 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// manifest envelope are unaffected; clearing the cache just means the next
 /// backup asks for the passphrase again.
 class BackupKeyCache {
-  BackupKeyCache({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+  BackupKeyCache({FlutterSecureStorage? storage, String? name})
+    : _storage = storage ?? const FlutterSecureStorage(),
+      _key = name == null ? _backupKey : 'shared_data_key_v1_$name';
+
+  /// A shared property's data key (D-031) is cached under its own name,
+  /// beside — never instead of — the backup's.
+  BackupKeyCache.forSharedProperty(
+    String propertyId, {
+    FlutterSecureStorage? storage,
+  }) : this(storage: storage, name: propertyId);
 
   final FlutterSecureStorage _storage;
-  static const _key = 'backup_data_key_v1';
+  final String _key;
+  static const _backupKey = 'backup_data_key_v1';
 
   Future<List<int>?> read() async {
     try {

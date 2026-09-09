@@ -9,6 +9,7 @@ import 'package:field_notes/db/database.dart';
 import 'package:field_notes/services/app_prefs.dart';
 import 'package:field_notes/services/media_store.dart';
 import 'package:field_notes/sync/oplog.dart';
+import 'package:field_notes/sync/shared_properties.dart';
 import 'package:field_notes/sync/sync_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
@@ -29,6 +30,7 @@ class _Docs extends PathProviderPlatform with MockPlatformInterfaceMixin {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  group('shared properties', sharedPropertyTests);
   late FieldNotesDb phone, desk;
   late OpLog logPhone, logDesk;
   late Directory work, phoneDocs, deskDocs;
@@ -345,5 +347,210 @@ void main() {
         .getSingle();
     expect(props.data['n'], 0, reason: 'only what the desk itself wrote');
     await copy.close();
+  });
+}
+
+/// D-031: a property shared through the relay travels in its own scope
+/// with its own key, beside the app folder — and a member sees only it.
+void sharedPropertyTests() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late FieldNotesDb owner, member;
+  late OpLog logOwner, logMember;
+  late Directory work;
+  late DirectoryTarget relay;
+  late PassphraseCipher key;
+
+  Future<String> place(FieldNotesDb db, String name) async {
+    final now = nowUtcIso();
+    final id = newId();
+    await db
+        .into(db.properties)
+        .insert(
+          PropertiesCompanion.insert(
+            id: id,
+            name: name,
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    return id;
+  }
+
+  Future<void> record(FieldNotesDb db, String propId, String notes) async {
+    final now = nowUtcIso();
+    await db
+        .into(db.observations)
+        .insert(
+          ObservationsCompanion.insert(
+            id: newId(),
+            propertyId: propId,
+            observedAt: now,
+            localTz: 'America/Chicago',
+            lat: 31.06,
+            lng: -98.05,
+            notes: Value(notes),
+            createdBy: 'local',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+  }
+
+  SyncService service(
+    FieldNotesDb db,
+    OpLog log,
+    AppPrefs prefs,
+    Directory docs,
+  ) {
+    PathProviderPlatform.instance = _Docs(docs);
+    return SyncService(
+      db,
+      prefs,
+      log,
+      openTarget: ({required bool interactive}) async => null,
+      openCipher: (_, _) async => null,
+      mediaAllowed: () async => true,
+      media: MediaStore(db),
+      openSharedTarget: (_) => relay,
+      openSharedCipher: (_, _, _, _) async => key,
+    );
+  }
+
+  setUp(() async {
+    work = Directory.systemTemp.createTempSync('shared');
+    relay = DirectoryTarget(Directory('${work.path}/relay')..createSync());
+    owner = FieldNotesDb.forTesting();
+    member = FieldNotesDb.forTesting();
+    logOwner = await OpLog.install(owner, deviceId: 'owner-phone');
+    logMember = await OpLog.install(member, deviceId: 'member-phone');
+    key = await PassphraseCipher.fromPassphrase(
+      'shared secret',
+      List<int>.filled(16, 3),
+      memoryKiB: 1024,
+      iterations: 1,
+    );
+  });
+
+  tearDown(() async {
+    await owner.close();
+    await member.close();
+    work.deleteSync(recursive: true);
+  });
+
+  test(
+    'the member receives the shared property and none of the rest',
+    () async {
+      final shorts = await place(owner, 'Shorts');
+      final home = await place(owner, 'Home');
+      await record(owner, shorts, 'cedar');
+      await record(owner, home, 'back yard');
+
+      SharedProperty share(String role) => SharedProperty(
+        propertyId: shorts,
+        name: 'Shorts',
+        relayUrl: 'https://relay.test',
+        memberToken: 't-$role',
+        role: role,
+      );
+      final ownerPrefs = AppPrefs.inMemory()..putSharedProperty(share('owner'));
+      final memberPrefs = AppPrefs.inMemory()
+        ..putSharedProperty(share('editor'));
+
+      // No Drive on either side: the relay leg runs on its own.
+      final r1 = await service(
+        owner,
+        logOwner,
+        ownerPrefs,
+        Directory('${work.path}/o')..createSync(),
+      ).sync(interactive: true);
+      expect(r1.failed, isFalse);
+      expect(r1.pushed, 2, reason: 'Shorts and its record; Home stays home');
+      expect(r1.problems, isEmpty);
+
+      final r2 = await service(
+        member,
+        logMember,
+        memberPrefs,
+        Directory('${work.path}/m')..createSync(),
+      ).sync(interactive: true);
+      expect(r2.applied, 2);
+      expect(
+        (await (member.select(member.properties)).get()).map((p) => p.name),
+        ['Shorts'],
+      );
+      expect(
+        (await (member.select(member.observations)).get()).single.notes,
+        'cedar',
+      );
+
+      // An edit from the member comes back to the owner.
+      await record(member, shorts, 'seen by the member');
+      await service(
+        member,
+        logMember,
+        memberPrefs,
+        Directory('${work.path}/m'),
+      ).sync(interactive: true);
+      final r3 = await service(
+        owner,
+        logOwner,
+        ownerPrefs,
+        Directory('${work.path}/o'),
+      ).sync(interactive: true);
+      expect(r3.applied, 1);
+      expect(await (owner.select(owner.observations)).get(), hasLength(3));
+      expect(
+        await logOwner.meta(SyncScope.property(shorts).metaKey('last_sync_at')),
+        isNotNull,
+      );
+    },
+  );
+
+  test('a viewer pulls and never pushes', () async {
+    final shorts = await place(owner, 'Shorts');
+    await record(owner, shorts, 'cedar');
+    final ownerPrefs = AppPrefs.inMemory()
+      ..putSharedProperty(
+        SharedProperty(
+          propertyId: shorts,
+          name: 'Shorts',
+          relayUrl: 'u',
+          memberToken: 'o',
+          role: 'owner',
+        ),
+      );
+    final viewerPrefs = AppPrefs.inMemory()
+      ..putSharedProperty(
+        SharedProperty(
+          propertyId: shorts,
+          name: 'Shorts',
+          relayUrl: 'u',
+          memberToken: 'v',
+          role: 'viewer',
+        ),
+      );
+    await service(
+      owner,
+      logOwner,
+      ownerPrefs,
+      Directory('${work.path}/o')..createSync(),
+    ).sync(interactive: true);
+    final r = await service(
+      member,
+      logMember,
+      viewerPrefs,
+      Directory('${work.path}/m')..createSync(),
+    ).sync(interactive: true);
+    expect(r.applied, 2);
+    await record(member, shorts, 'a viewer wrote this locally');
+    final r2 = await service(
+      member,
+      logMember,
+      viewerPrefs,
+      Directory('${work.path}/m'),
+    ).sync(interactive: true);
+    expect(r2.pushed, 0);
+    expect(await relay.list('fieldnotes/sync/member-phone'), isEmpty);
   });
 }
