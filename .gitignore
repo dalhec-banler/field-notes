@@ -10,3 +10,8 @@ android/key.properties
 
 # Xcode workspace SwiftPM state — regenerated on every build
 app/macos/**/xcshareddata/swiftpm/
+
+# Relay (Go)
+relay/relay
+relay/relay.sqlite*
+relay/relay-store/
