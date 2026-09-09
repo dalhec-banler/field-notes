@@ -1,4 +1,4 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../services/secret_store.dart';
 
 /// Which LLM the user has pointed the app at. Their key, their account,
 /// their choice of provider (spec §5: bring your own key).
@@ -27,16 +27,17 @@ extension LlmProviderLabel on LlmProvider {
   };
 }
 
-/// Identification credentials, in the platform keystore — never in the
-/// database, never in an export, never in a PLAIN backup. They do ride in
+/// Identification credentials, in the platform keystore (or, where the
+/// keystore refuses this build, the sandboxed secrets file — see
+/// [SecretStore]) — never in the database, never in an export, never in a
+/// PLAIN backup. They do ride in
 /// the sealed body of an encrypted backup (see [exportAll]), which is how a
 /// paired computer ends up with the same keys as the phone: only someone
 /// holding the passphrase or recovery phrase can get them out.
 class IdKeys {
-  IdKeys({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+  IdKeys({SecretStore? store}) : _storage = store ?? SecretStore();
 
-  final FlutterSecureStorage _storage;
+  final SecretStore _storage;
 
   static const _plantNet = 'plantnet_api_key';
   static const _llmKey = 'llm_api_key';
@@ -46,7 +47,7 @@ class IdKeys {
 
   Future<String?> _read(String k) async {
     try {
-      return await _storage.read(key: k);
+      return await _storage.read(k);
     } catch (_) {
       return null; // no keystore on this platform
     }
@@ -55,9 +56,9 @@ class IdKeys {
   Future<void> _write(String k, String? v) async {
     try {
       if (v == null || v.isEmpty) {
-        await _storage.delete(key: k);
+        await _storage.delete(k);
       } else {
-        await _storage.write(key: k, value: v);
+        await _storage.write(k, v);
       }
     } catch (_) {}
   }
