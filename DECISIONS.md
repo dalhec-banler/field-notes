@@ -582,3 +582,41 @@ Build order (M4b, in the order each piece can be tested here):
 scoped push/pull in the op log → the folder carrier and in-app invites →
 join and bootstrap → members registry and attribution → the licence and
 seat check → the badge → UNDO becomes a tombstone once pushed.
+
+### D-031 · Two carriers: Drive for the free seats, a relay of ours for the commercial ones
+
+2026-09-08. The probe (SYNC-DESIGN, "PROBED 2026-09-08") showed the
+restricted Drive scope cannot carry a shared folder between accounts
+without Google's Picker. Austin: "the version we release for free, 1-2
+seats, and it can be a little finicky, then we have a commercial version
+that we whitelabel for people and we can host it on a small AWS S3 bucket
+situation … If someone is trusting their data to someone like Plateau,
+they shouldn't be that concerned about it being on a 3rd party server in
+the first place. It should always be encrypted."
+
+So the "no server of ours, ever" line of SYNC-DESIGN is retired for the
+commercial tier, and kept for everyone else:
+
+1. **Free: Drive.** One person's devices through the app folder (D-028,
+   shipping). A second seat through a shared Drive folder joined with
+   the Google Picker — allowed to be finicky, never allowed to be
+   unsafe. Still no server of ours, still nothing readable off-device.
+2. **Commercial: the Field Notes relay.** A small service of ours in
+   front of an S3 bucket. Devices push and pull the same sealed batches
+   and blobs they exchange today; the relay stores ciphertext and the
+   passphrase never reaches it. What the relay does know — and is for —
+   is who is in a property: it issues join codes, counts seats, refuses
+   the seat past the licence, and answers "who wrote this" so
+   attribution is a name. Invoices follow from the same table.
+3. **The badge rides with the licence** (D-030 rule 6) and the licence
+   lives on the relay: an organization is a row there, its seat count
+   and badge come down to every member's device with the property.
+4. **Encryption is not optional on either carrier.** A property on the
+   relay is sealed with its own keyring exactly as on Drive; the owner
+   hands members the passphrase, and rotation is the owner's action.
+
+The op log does not care which carrier it writes to — `BackupTarget` was
+the right seam — so the work is: a relay target on the client, the sync
+service running one scope per shared property beside the app folder, the
+relay itself (Go, one binary, S3 behind it), and the share/join/members
+screens. Design: `docs/RELAY-DESIGN.md`.
