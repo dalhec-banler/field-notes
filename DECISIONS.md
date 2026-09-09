@@ -530,3 +530,55 @@ Schema v8 adds the two columns; sync carries them like any other.
 `test/lineage_test.dart` is the acceptance: a batch on one bench with
 material from a second place and a planting on a third appears in all
 three lists, and a planting from a batch takes its count off the bench.
+
+### D-030 · Sharing is the product: two seats free, more seats and a badge for pay
+
+2026-09-08. Austin, on how to pay for the app without ads or a steep
+store price: "charge organizations for the part you haven't built yet,
+which is sharing between people … 2 seats should be free of charge, but
+more than that + white labeling the app is where we can charge for it."
+The buyer is a land-management consultancy whose field staff log work on
+clients' land and whose office writes the plans and annual reports.
+
+The rules that already bind the app bind this too: no server of ours,
+no telemetry, coordinates never leave a device without an explicit act,
+the app works alone forever. So:
+
+1. **A shared property is a Drive folder** (SYNC-DESIGN, `drive.file`),
+   created by the owner's app, sealed with the property's keyring. Each
+   member's devices write only under their own `sync/<device>/`. Nothing
+   readable is in the folder; Google hosts ciphertext.
+2. **A seat is a Google account with access to the folder.** Members are
+   invited from inside the app by email (the folder's permissions), so the
+   app can count seats before it grants one and list or remove members
+   afterwards. A link anyone can open is never created: it makes seats
+   uncountable.
+3. **Two seats are free** — the owner and one other person, each on as
+   many devices as they like. A third seat needs an **organization key**.
+4. **An organization key is a signed, offline license.** A small token
+   the app verifies with a public key built into it: organization name,
+   seat count, expiry, and the badge (name and mark) the organization
+   may put on plates, reports and the desk title bar. No server checks
+   it; no call home; a key on a phone in a pasture works. Keys are issued
+   by hand at first (a tool signs them with a private key that never
+   enters the repo); a storefront can come later without changing the app.
+5. **Enforcement is at sync time, said plainly.** A device counts the
+   folder's seats; over the licence and unlicensed, it stops exchanging
+   with that folder and says why — "shared with 4 people; the free plan
+   syncs 2; ask the owner for an organization key or remove a member" —
+   while the local copy keeps working in full. A determined person can
+   defeat a client-side check; the buyer is an organization that wants an
+   invoice, not a lock.
+6. **White label is a badge, not a fork.** The licensed name and mark
+   appear where the organization's clients look: plate headers, the
+   removal plan and other PDFs, exports, and the desk title bar. The app
+   underneath, its store listing and its updates stay Field Notes.
+7. **A shared folder carries one property.** Ops are scoped: rows of that
+   property, plus the species library, nothing else — a consultancy's
+   folder for one client must not learn where the owner's other land is.
+   The device-pair app folder (D-028) still carries everything.
+
+Build order (M4b, in the order each piece can be tested here):
+scoped push/pull in the op log → the folder carrier and in-app invites →
+join and bootstrap → members registry and attribution → the licence and
+seat check → the badge → UNDO becomes a tombstone once pushed.

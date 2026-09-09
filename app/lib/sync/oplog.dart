@@ -41,6 +41,42 @@ import '../db/database.dart';
 /// and applies what it hasn't seen. Both are idempotent. Batches are
 /// SEALED when given a cipher; writing them in the clear takes an
 /// explicit acknowledgement, because they carry coordinates and notes.
+/// What a store carries (D-030). The device-pair app folder carries
+/// everything; a shared property folder carries one property — its rows,
+/// the species and feature-type library, and nothing that says where the
+/// owner's other land is. Cursors and the pushed mark are kept per store,
+/// so one device can exchange with several folders.
+class SyncScope {
+  const SyncScope.all() : propertyId = null;
+  const SyncScope.property(String this.propertyId);
+
+  final String? propertyId;
+
+  bool get isAll => propertyId == null;
+
+  /// Tables without a property of their own that every store may carry,
+  /// for rows whose `property_id` is NULL (the seeded library).
+  static const library = {'taxa', 'feature_types'};
+
+  /// The `sync_meta` key for [name] in this store. The app folder keeps
+  /// the unprefixed names D-028 wrote.
+  String metaKey(String name) =>
+      isAll ? name : 'store:property:$propertyId:$name';
+
+  /// Whether an op belongs in this store. A deletion recorded before the
+  /// trigger learned to note the property cannot be placed, and stays out
+  /// of a property store: a shared folder must never carry a row it
+  /// cannot vouch for, in either direction.
+  bool includes(String table, String rowId, Map<String, Object?>? payload) {
+    if (isAll) return true;
+    if (table == 'properties') return rowId == propertyId;
+    final owner = payload?['property_id'];
+    if (owner != null) return owner == propertyId;
+    if (library.contains(table) && payload != null) return true;
+    return false;
+  }
+}
+
 class OpLog {
   OpLog._(this.db, this.deviceId);
 
@@ -339,6 +375,12 @@ class OpLog {
             VALUES ('$name', NEW."id", $stamp, $who, 0);
           END''');
         }
+        // A deletion notes which property the row belonged to, so a
+        // property-scoped store (D-030) can carry it; nothing else of the
+        // row survives.
+        final delPayload = cols.contains('property_id')
+            ? "json_object('property_id', OLD.\"property_id\")"
+            : 'NULL';
         await db.customStatement('''
         CREATE TEMP TRIGGER IF NOT EXISTS _cap_${name}_delete
         AFTER DELETE ON "$name"
@@ -349,7 +391,7 @@ class OpLog {
                                 payload, version)
           VALUES ('$name', OLD."id", 'del',
                   strftime('%Y-%m-%dT%H:%M:%fZ','now'),
-                  strftime('%Y-%m-%dT%H:%M:%fZ','now'), NULL, $stamp);
+                  strftime('%Y-%m-%dT%H:%M:%fZ','now'), $delPayload, $stamp);
           INSERT OR REPLACE INTO sync_versions
             (table_name, row_id, version, device, deleted)
           VALUES ('$name', OLD."id", $stamp, $who, 1);
@@ -487,21 +529,38 @@ class OpLog {
     BackupCipher? cipher,
     bool allowPlaintext = false,
     int maxOps = 500,
+    SyncScope scope = const SyncScope.all(),
   }) async {
     _requireSealedOrAcknowledged(cipher, allowPlaintext);
     await _settle();
-    final last = int.tryParse(await _meta('pushed_seq') ?? '0') ?? 0;
-    final rows = await db
-        .customSelect(
-          'SELECT seq, table_name, row_id, op, row_ts, wall, payload, version '
-          'FROM sync_ops WHERE seq > ? ORDER BY seq LIMIT ?',
-          variables: [Variable.withInt(last), Variable.withInt(maxOps)],
-        )
-        .get();
-    if (rows.isEmpty) return 0;
-    final ops = [
-      for (final r in rows)
-        {
+    final mark = scope.metaKey('pushed_seq');
+    var last = int.tryParse(await _meta(mark) ?? '0') ?? 0;
+    // A property store skips the ops that are not its own; the mark moves
+    // past them so they are never scanned twice, and the scan keeps going
+    // until a batch is written or the log runs out.
+    while (true) {
+      final rows = await db
+          .customSelect(
+            'SELECT seq, table_name, row_id, op, row_ts, wall, payload, version '
+            'FROM sync_ops WHERE seq > ? ORDER BY seq LIMIT ?',
+            variables: [Variable.withInt(last), Variable.withInt(maxOps)],
+          )
+          .get();
+      if (rows.isEmpty) return 0;
+      final ops = <Map<String, Object?>>[];
+      for (final r in rows) {
+        final payload = r.data['payload'] == null
+            ? null
+            : (jsonDecode(r.data['payload'] as String) as Map)
+                  .cast<String, Object?>();
+        if (!scope.includes(
+          r.data['table_name'] as String,
+          r.data['row_id'] as String,
+          payload,
+        )) {
+          continue;
+        }
+        ops.add({
           'seq': r.data['seq'],
           'table': r.data['table_name'],
           'row_id': r.data['row_id'],
@@ -509,24 +568,28 @@ class OpLog {
           'version': r.data['version'],
           'row_ts': r.data['row_ts'],
           'wall': r.data['wall'],
-          'payload': r.data['payload'] == null
-              ? null
-              : jsonDecode(r.data['payload'] as String),
-        },
-    ];
-    final first = rows.first.data['seq'] as int;
-    final lastSeq = rows.last.data['seq'] as int;
-    final ext = cipher?.ext ?? '';
-    final name =
-        '$_root/$deviceId/${first.toString().padLeft(12, '0')}-$lastSeq.json$ext';
-    final body = Uint8List.fromList(
-      utf8.encode(
-        jsonEncode({'format': formatVersion, 'device': deviceId, 'ops': ops}),
-      ),
-    );
-    await target.write(name, await (cipher ?? PlainCipher()).seal(body));
-    await _setMeta('pushed_seq', '$lastSeq');
-    return rows.length;
+          'payload': payload,
+        });
+      }
+      final lastSeq = rows.last.data['seq'] as int;
+      if (ops.isEmpty) {
+        await _setMeta(mark, '$lastSeq');
+        last = lastSeq;
+        continue;
+      }
+      final first = ops.first['seq'] as int;
+      final ext = cipher?.ext ?? '';
+      final name =
+          '$_root/$deviceId/${first.toString().padLeft(12, '0')}-$lastSeq.json$ext';
+      final body = Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({'format': formatVersion, 'device': deviceId, 'ops': ops}),
+        ),
+      );
+      await target.write(name, await (cipher ?? PlainCipher()).seal(body));
+      await _setMeta(mark, '$lastSeq');
+      return ops.length;
+    }
   }
 
   /// Read every other device's batches in order and apply what's new.
@@ -536,6 +599,7 @@ class OpLog {
     BackupTarget target, {
     BackupCipher? cipher,
     bool allowPlaintext = false,
+    SyncScope scope = const SyncScope.all(),
   }) async {
     _requireSealedOrAcknowledged(cipher, allowPlaintext);
     await _settle();
@@ -560,7 +624,8 @@ class OpLog {
     final tables = {for (final t in db.allTables) t.actualTableName: t};
     for (final entry in byDevice.entries) {
       entry.value.sort();
-      var cursor = int.tryParse(await _meta('cursor_${entry.key}') ?? '0') ?? 0;
+      final cursorKey = scope.metaKey('cursor_${entry.key}');
+      var cursor = int.tryParse(await _meta(cursorKey) ?? '0') ?? 0;
       for (final file in entry.value) {
         // The name carries the batch's seq range: a fully-applied batch is
         // skipped without being downloaded.
@@ -605,6 +670,19 @@ class OpLog {
             for (final op in ops) {
               final seq = (op['seq'] as num).toInt();
               if (seq <= cursor) continue;
+              // A property store applies only what belongs to the
+              // property: a batch that carries anything else — another
+              // property's rows, a deletion it cannot place — is a peer
+              // that is confused or hostile, and those ops are skipped.
+              if (!scope.includes(
+                op['table'] as String,
+                op['row_id'] as String,
+                (op['payload'] as Map?)?.cast<String, Object?>(),
+              )) {
+                skipped++;
+                cursor = seq;
+                continue;
+              }
               final did = await _apply(op, entry.key, tables);
               did ? applied++ : skipped++;
               if (did) touched.add(op['table'] as String);
@@ -614,7 +692,7 @@ class OpLog {
             await db.customStatement('DELETE FROM _sync_guard');
           }
         });
-        await _setMeta('cursor_${entry.key}', '$cursor');
+        await _setMeta(cursorKey, '$cursor');
       }
     }
     if (touched.isNotEmpty) {

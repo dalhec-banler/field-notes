@@ -3,8 +3,13 @@
 Status: SHIPPING for one human's devices (D-028, 2026-09-07): phone and
 desk exchange sealed op batches and media through the Drive APP folder
 (`lib/sync/sync_service.dart`). The shared `drive.file` folder, join flow
-and members registry below are still ahead. Approved direction (Austin,
-2026-09-01: "option B, Drive is the way to go").
+and members registry below are IN PROGRESS under D-030 (2026-09-08),
+which adds the business layer: a seat is a Google account with access to
+the folder, two seats are free, more seats and a white-label badge need
+an offline-signed organization key, and a shared folder carries ONE
+property (`SyncScope` in `lib/sync/oplog.dart`: scoped push/pull, deletes
+note their property, foreign rows refused on the way in). Approved
+direction (Austin, 2026-09-01: "option B, Drive is the way to go").
 
 ## The promise this must not break
 
