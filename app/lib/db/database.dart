@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'seed_synonyms.dart';
+
 export 'ids.dart';
 
 part 'database.g.dart';
@@ -38,7 +40,7 @@ class FieldNotesDb extends _$FieldNotesDb {
   }
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -169,6 +171,21 @@ class FieldNotesDb extends _$FieldNotesDb {
               if (!'$e'.toLowerCase().contains('duplicate column')) rethrow;
             }
           }
+        }
+        // v9 (D-032): a species carries its other scientific names, so an
+        // identifier that answers with a current name finds the row the
+        // library filed under an older one — Sophora → Dermatophyllum made
+        // a duplicate (Austin, 2026-09-10). The seed list's synonyms are
+        // applied to rows already here, in both directions.
+        if (from < 9) {
+          try {
+            await m.database.customStatement(
+              'ALTER TABLE taxa ADD COLUMN synonyms TEXT',
+            );
+          } catch (e) {
+            if (!'$e'.toLowerCase().contains('duplicate column')) rethrow;
+          }
+          await applySeedSynonyms(this);
         }
         // v5 LAST (it inserts 'infrastructure'-typed rows, which need the
         // v4 CHECK already in place): features fold into records (Austin,

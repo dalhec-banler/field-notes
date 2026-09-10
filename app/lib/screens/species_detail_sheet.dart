@@ -139,6 +139,12 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
           required: true,
         ),
         TextEdit('family', 'Family', initial: t.family),
+        TextEdit(
+          'synonyms',
+          'Also known as',
+          initial: t.synonyms,
+          hint: 'Other scientific names, separated by ;',
+        ),
         ChoiceEdit(
           'growth',
           'Growth form',
@@ -163,6 +169,7 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
       TaxaCompanion(
         commonName: Value(r.text('common')),
         scientificName: Value(r.text('scientific') ?? t.scientificName),
+        synonyms: Value(r.text('synonyms')),
         family: Value(r.text('family')),
         growthForm: Value(r.text('growth')),
         nativity: Value(r.text('nativity')),
@@ -238,6 +245,16 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
                       spacing: 1.4,
                       opacity: 0.75,
                     ),
+                    if (t.synonyms != null &&
+                        t.synonyms!.trim().isNotEmpty) ...[
+                      SizedBox(height: 4),
+                      MonoLabel(
+                        'also ${t.synonyms!.trim()}',
+                        size: 9,
+                        spacing: 1.2,
+                        opacity: 0.6,
+                      ),
+                    ],
                     if (t.nativity != null) ...[
                       SizedBox(height: 6),
                       NativityChip(t.nativity),

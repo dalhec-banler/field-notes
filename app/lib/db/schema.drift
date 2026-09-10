@@ -151,6 +151,7 @@ CREATE TABLE taxa (
   usda_plants_symbol TEXT,
   itis_tsn      TEXT,
   notes         TEXT,
+  synonyms      TEXT,                          -- other scientific names, '; '-joined (D-032)
   is_favorite   INTEGER NOT NULL DEFAULT 0,   -- surfaces in quick-pick
   created_by TEXT, created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL, deleted_at TEXT

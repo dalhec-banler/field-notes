@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'database.dart';
+import 'seed_synonyms.dart';
 
 const _seedAsset = 'assets/seed/taxa_seed.csv';
 
@@ -107,6 +108,7 @@ Future<int> seedTaxaIfEmpty(FieldNotesDb db, {String? csvText}) async {
           usdaPlantsSymbol: Value(field(row, 'usda_plants_symbol')),
           isFavorite: Value(field(row, 'is_favorite') == '1' ? 1 : 0),
           notes: Value(field(row, 'notes')),
+          synonyms: Value(seedSynonymsFor(scientific)),
           createdAt: now,
           updatedAt: now,
         ),

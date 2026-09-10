@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 
 import '../db/database.dart';
+import '../db/seed_synonyms.dart';
 import 'id_keys.dart';
 import 'id_models.dart';
 import 'send_copy.dart';
@@ -114,7 +115,7 @@ class IdentificationService {
         }
       }
 
-      candidates = await _matchToLibrary(candidates, property.id);
+      candidates = await matchToLibrary(candidates, property.id);
       if (persist) {
         await _record(candidates, observation, plantNetProject, runId);
       }
@@ -200,24 +201,41 @@ class IdentificationService {
 
   /// Link candidates to taxa already in the library, so accepting one
   /// doesn't create a duplicate species.
-  Future<List<IdCandidate>> _matchToLibrary(
+  /// Link each candidate to the library row it names — by the accepted
+  /// name or any synonym (D-032), so an identifier answering with a
+  /// current name finds the plant filed under an older one, and a
+  /// species-level answer finds the local variety. This property's own
+  /// entries win over the shared seed when both match.
+  Future<List<IdCandidate>> matchToLibrary(
     List<IdCandidate> candidates,
     String propertyId,
   ) async {
-    final out = <IdCandidate>[];
-    for (final c in candidates) {
-      final match =
-          await (db.select(db.taxa)
-                ..where(
-                  (t) =>
-                      t.scientificName.lower().equals(c.name.toLowerCase()) &
-                      t.deletedAt.isNull(),
-                )
-                ..limit(1))
-              .getSingleOrNull();
-      out.add(match == null ? c : c.copyWith(taxonId: match.id));
+    if (candidates.isEmpty) return candidates;
+    final rows =
+        await (db.select(db.taxa)
+              ..where((t) => t.deletedAt.isNull())
+              ..where(
+                (t) => t.propertyId.isNull() | t.propertyId.equals(propertyId),
+              ))
+            .get();
+    TaxaData? find(String name) {
+      final want = name.trim().toLowerCase();
+      TaxaData? shared;
+      for (final t in rows) {
+        if (!namesOf(t.scientificName, t.synonyms).contains(want)) continue;
+        if (t.propertyId == propertyId) return t;
+        shared ??= t;
+      }
+      return shared;
     }
-    return out;
+
+    return [
+      for (final c in candidates)
+        () {
+          final match = find(c.name);
+          return match == null ? c : c.copyWith(taxonId: match.id);
+        }(),
+    ];
   }
 
   /// Persist suggestions for a record that now exists (capture-time IDs).

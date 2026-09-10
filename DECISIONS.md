@@ -620,3 +620,23 @@ the right seam — so the work is: a relay target on the client, the sync
 service running one scope per shared property beside the app folder, the
 relay itself (Go, one binary, S3 behind it), and the share/join/members
 screens. Design: `docs/RELAY-DESIGN.md`.
+
+### D-032 · A species answers to its other names
+
+2026-09-10. Austin found two Texas mountain laurels in the library, one
+native and one not: the seed had *Sophora secundiflora*, Pl@ntNet answered
+with the 2011 name *Dermatophyllum secundiflorum*, identification matched
+the library on the exact scientific name, and accepting the suggestion
+made a twin. The same happens for every renamed taxon and for every
+species-level answer against a variety-level seed row.
+
+`taxa.synonyms` (schema v9, an approved §4 deviation): other scientific
+names, '; '-joined, shown as "also …" on the species sheet and editable
+there. Identification links a candidate to the row whose accepted name
+OR synonym it names, this property's own entry before the shared seed.
+The seed list carries its synonyms (`lib/db/seed_synonyms.dart`,
+conservative: a name must mean this plant and no other here), and the
+upgrade serves them to existing libraries in both directions — a row
+filed under an old name learns the current one and the rest. The seed
+row for mountain laurel moves to its current name; Austin's library was
+merged by hand the same day.

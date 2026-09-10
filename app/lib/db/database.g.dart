@@ -5934,6 +5934,17 @@ class Taxa extends Table with TableInfo<Taxa, TaxaData> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _synonymsMeta = const VerificationMeta(
+    'synonyms',
+  );
+  late final GeneratedColumn<String> synonyms = GeneratedColumn<String>(
+    'synonyms',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
     'isFavorite',
   );
@@ -6005,6 +6016,7 @@ class Taxa extends Table with TableInfo<Taxa, TaxaData> {
     usdaPlantsSymbol,
     itisTsn,
     notes,
+    synonyms,
     isFavorite,
     createdBy,
     createdAt,
@@ -6111,6 +6123,12 @@ class Taxa extends Table with TableInfo<Taxa, TaxaData> {
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('synonyms')) {
+      context.handle(
+        _synonymsMeta,
+        synonyms.isAcceptableOrUnknown(data['synonyms']!, _synonymsMeta),
+      );
+    }
     if (data.containsKey('is_favorite')) {
       context.handle(
         _isFavoriteMeta,
@@ -6206,6 +6224,10 @@ class Taxa extends Table with TableInfo<Taxa, TaxaData> {
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      synonyms: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}synonyms'],
+      ),
       isFavorite: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}is_favorite'],
@@ -6254,6 +6276,9 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
   final String? usdaPlantsSymbol;
   final String? itisTsn;
   final String? notes;
+  final String? synonyms;
+
+  /// other scientific names, '; '-joined (D-032)
   final int isFavorite;
 
   /// surfaces in quick-pick
@@ -6275,6 +6300,7 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
     this.usdaPlantsSymbol,
     this.itisTsn,
     this.notes,
+    this.synonyms,
     required this.isFavorite,
     this.createdBy,
     required this.createdAt,
@@ -6318,6 +6344,9 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || synonyms != null) {
+      map['synonyms'] = Variable<String>(synonyms);
     }
     map['is_favorite'] = Variable<int>(isFavorite);
     if (!nullToAbsent || createdBy != null) {
@@ -6366,6 +6395,9 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      synonyms: synonyms == null && nullToAbsent
+          ? const Value.absent()
+          : Value(synonyms),
       isFavorite: Value(isFavorite),
       createdBy: createdBy == null && nullToAbsent
           ? const Value.absent()
@@ -6399,6 +6431,7 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
       ),
       itisTsn: serializer.fromJson<String?>(json['itis_tsn']),
       notes: serializer.fromJson<String?>(json['notes']),
+      synonyms: serializer.fromJson<String?>(json['synonyms']),
       isFavorite: serializer.fromJson<int>(json['is_favorite']),
       createdBy: serializer.fromJson<String?>(json['created_by']),
       createdAt: serializer.fromJson<String>(json['created_at']),
@@ -6423,6 +6456,7 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
       'usda_plants_symbol': serializer.toJson<String?>(usdaPlantsSymbol),
       'itis_tsn': serializer.toJson<String?>(itisTsn),
       'notes': serializer.toJson<String?>(notes),
+      'synonyms': serializer.toJson<String?>(synonyms),
       'is_favorite': serializer.toJson<int>(isFavorite),
       'created_by': serializer.toJson<String?>(createdBy),
       'created_at': serializer.toJson<String>(createdAt),
@@ -6445,6 +6479,7 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
     Value<String?> usdaPlantsSymbol = const Value.absent(),
     Value<String?> itisTsn = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    Value<String?> synonyms = const Value.absent(),
     int? isFavorite,
     Value<String?> createdBy = const Value.absent(),
     String? createdAt,
@@ -6466,6 +6501,7 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
         : this.usdaPlantsSymbol,
     itisTsn: itisTsn.present ? itisTsn.value : this.itisTsn,
     notes: notes.present ? notes.value : this.notes,
+    synonyms: synonyms.present ? synonyms.value : this.synonyms,
     isFavorite: isFavorite ?? this.isFavorite,
     createdBy: createdBy.present ? createdBy.value : this.createdBy,
     createdAt: createdAt ?? this.createdAt,
@@ -6499,6 +6535,7 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
           : this.usdaPlantsSymbol,
       itisTsn: data.itisTsn.present ? data.itisTsn.value : this.itisTsn,
       notes: data.notes.present ? data.notes.value : this.notes,
+      synonyms: data.synonyms.present ? data.synonyms.value : this.synonyms,
       isFavorite: data.isFavorite.present
           ? data.isFavorite.value
           : this.isFavorite,
@@ -6525,6 +6562,7 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
           ..write('usdaPlantsSymbol: $usdaPlantsSymbol, ')
           ..write('itisTsn: $itisTsn, ')
           ..write('notes: $notes, ')
+          ..write('synonyms: $synonyms, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
@@ -6549,6 +6587,7 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
     usdaPlantsSymbol,
     itisTsn,
     notes,
+    synonyms,
     isFavorite,
     createdBy,
     createdAt,
@@ -6572,6 +6611,7 @@ class TaxaData extends DataClass implements Insertable<TaxaData> {
           other.usdaPlantsSymbol == this.usdaPlantsSymbol &&
           other.itisTsn == this.itisTsn &&
           other.notes == this.notes &&
+          other.synonyms == this.synonyms &&
           other.isFavorite == this.isFavorite &&
           other.createdBy == this.createdBy &&
           other.createdAt == this.createdAt &&
@@ -6593,6 +6633,7 @@ class TaxaCompanion extends UpdateCompanion<TaxaData> {
   final Value<String?> usdaPlantsSymbol;
   final Value<String?> itisTsn;
   final Value<String?> notes;
+  final Value<String?> synonyms;
   final Value<int> isFavorite;
   final Value<String?> createdBy;
   final Value<String> createdAt;
@@ -6613,6 +6654,7 @@ class TaxaCompanion extends UpdateCompanion<TaxaData> {
     this.usdaPlantsSymbol = const Value.absent(),
     this.itisTsn = const Value.absent(),
     this.notes = const Value.absent(),
+    this.synonyms = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.createdBy = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -6634,6 +6676,7 @@ class TaxaCompanion extends UpdateCompanion<TaxaData> {
     this.usdaPlantsSymbol = const Value.absent(),
     this.itisTsn = const Value.absent(),
     this.notes = const Value.absent(),
+    this.synonyms = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.createdBy = const Value.absent(),
     required String createdAt,
@@ -6658,6 +6701,7 @@ class TaxaCompanion extends UpdateCompanion<TaxaData> {
     Expression<String>? usdaPlantsSymbol,
     Expression<String>? itisTsn,
     Expression<String>? notes,
+    Expression<String>? synonyms,
     Expression<int>? isFavorite,
     Expression<String>? createdBy,
     Expression<String>? createdAt,
@@ -6679,6 +6723,7 @@ class TaxaCompanion extends UpdateCompanion<TaxaData> {
       if (usdaPlantsSymbol != null) 'usda_plants_symbol': usdaPlantsSymbol,
       if (itisTsn != null) 'itis_tsn': itisTsn,
       if (notes != null) 'notes': notes,
+      if (synonyms != null) 'synonyms': synonyms,
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (createdBy != null) 'created_by': createdBy,
       if (createdAt != null) 'created_at': createdAt,
@@ -6702,6 +6747,7 @@ class TaxaCompanion extends UpdateCompanion<TaxaData> {
     Value<String?>? usdaPlantsSymbol,
     Value<String?>? itisTsn,
     Value<String?>? notes,
+    Value<String?>? synonyms,
     Value<int>? isFavorite,
     Value<String?>? createdBy,
     Value<String>? createdAt,
@@ -6723,6 +6769,7 @@ class TaxaCompanion extends UpdateCompanion<TaxaData> {
       usdaPlantsSymbol: usdaPlantsSymbol ?? this.usdaPlantsSymbol,
       itisTsn: itisTsn ?? this.itisTsn,
       notes: notes ?? this.notes,
+      synonyms: synonyms ?? this.synonyms,
       isFavorite: isFavorite ?? this.isFavorite,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
@@ -6774,6 +6821,9 @@ class TaxaCompanion extends UpdateCompanion<TaxaData> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (synonyms.present) {
+      map['synonyms'] = Variable<String>(synonyms.value);
+    }
     if (isFavorite.present) {
       map['is_favorite'] = Variable<int>(isFavorite.value);
     }
@@ -6811,6 +6861,7 @@ class TaxaCompanion extends UpdateCompanion<TaxaData> {
           ..write('usdaPlantsSymbol: $usdaPlantsSymbol, ')
           ..write('itisTsn: $itisTsn, ')
           ..write('notes: $notes, ')
+          ..write('synonyms: $synonyms, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
@@ -34207,6 +34258,7 @@ typedef $TaxaCreateCompanionBuilder = TaxaCompanion Function({
   Value<String?> usdaPlantsSymbol,
   Value<String?> itisTsn,
   Value<String?> notes,
+  Value<String?> synonyms,
   Value<int> isFavorite,
   Value<String?> createdBy,
   required String createdAt,
@@ -34228,6 +34280,7 @@ typedef $TaxaUpdateCompanionBuilder = TaxaCompanion Function({
   Value<String?> usdaPlantsSymbol,
   Value<String?> itisTsn,
   Value<String?> notes,
+  Value<String?> synonyms,
   Value<int> isFavorite,
   Value<String?> createdBy,
   Value<String> createdAt,
@@ -34433,6 +34486,11 @@ class $TaxaFilterComposer extends Composer<_$FieldNotesDb, Taxa> {
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get synonyms => $composableBuilder(
+    column: $table.synonyms,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -34685,6 +34743,11 @@ class $TaxaOrderingComposer extends Composer<_$FieldNotesDb, Taxa> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get synonyms => $composableBuilder(
+    column: $table.synonyms,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get isFavorite => $composableBuilder(
     column: $table.isFavorite,
     builder: (column) => ColumnOrderings(column),
@@ -34769,6 +34832,9 @@ class $TaxaAnnotationComposer extends Composer<_$FieldNotesDb, Taxa> {
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get synonyms =>
+      $composableBuilder(column: $table.synonyms, builder: (column) => column);
 
   GeneratedColumn<int> get isFavorite => $composableBuilder(
     column: $table.isFavorite,
@@ -34987,6 +35053,7 @@ class $TaxaTableManager
                 Value<String?> usdaPlantsSymbol = const Value.absent(),
                 Value<String?> itisTsn = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> synonyms = const Value.absent(),
                 Value<int> isFavorite = const Value.absent(),
                 Value<String?> createdBy = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
@@ -35007,6 +35074,7 @@ class $TaxaTableManager
                 usdaPlantsSymbol: usdaPlantsSymbol,
                 itisTsn: itisTsn,
                 notes: notes,
+                synonyms: synonyms,
                 isFavorite: isFavorite,
                 createdBy: createdBy,
                 createdAt: createdAt,
@@ -35029,6 +35097,7 @@ class $TaxaTableManager
                 Value<String?> usdaPlantsSymbol = const Value.absent(),
                 Value<String?> itisTsn = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> synonyms = const Value.absent(),
                 Value<int> isFavorite = const Value.absent(),
                 Value<String?> createdBy = const Value.absent(),
                 required String createdAt,
@@ -35049,6 +35118,7 @@ class $TaxaTableManager
                 usdaPlantsSymbol: usdaPlantsSymbol,
                 itisTsn: itisTsn,
                 notes: notes,
+                synonyms: synonyms,
                 isFavorite: isFavorite,
                 createdBy: createdBy,
                 createdAt: createdAt,
