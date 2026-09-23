@@ -762,12 +762,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     FieldNotesDb db,
     Property property,
   ) async {
-    final zones =
-        await (db.select(db.zones)
-              ..where((z) => z.propertyId.equals(property.id))
-              ..where((z) => z.deletedAt.isNull())
-              ..where((z) => z.hidden.equals(0)))
-            .get();
+    final zones = await db.zonesToDraw(property.id);
     if (zones.isNotEmpty) {
       await controller.addGeoJsonSource('zones', {
         'type': 'FeatureCollection',

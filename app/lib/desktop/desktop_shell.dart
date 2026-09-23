@@ -34,7 +34,7 @@ import 'settings_workspace.dart';
 /// nav, workspace, status bar, principle cells. The phone is the source of
 /// truth; data arrives here by restore-from-zip.
 class DesktopShell extends StatefulWidget {
-  DesktopShell({
+  const DesktopShell({
     super.key,
     required this.db,
     required this.property,
@@ -626,7 +626,7 @@ class _DesktopShellState extends State<DesktopShell>
 // ───────────────────────────── Review ─────────────────────────────
 
 class _ReviewWorkspace extends StatefulWidget {
-  _ReviewWorkspace({required this.db, required this.property});
+  const _ReviewWorkspace({required this.db, required this.property});
   final FieldNotesDb db;
   final Property property;
 
@@ -965,7 +965,7 @@ class _QueueToggle extends StatelessWidget {
 /// capabilities, minus the mobile affordances), with the steward's ruling
 /// strip above it — approve or remove a contributor's edit.
 class _Inspector extends StatefulWidget {
-  _Inspector({required this.db, required this.obsId});
+  const _Inspector({required this.db, required this.obsId});
   final FieldNotesDb db;
   final String obsId;
 

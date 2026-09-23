@@ -64,7 +64,7 @@ class DriveTarget implements BackupTarget {
         'spaces': _space,
         'fields': 'nextPageToken,files(id,name)',
         'pageSize': '1000',
-        if (pageToken != null) 'pageToken': pageToken,
+        'pageToken': ?pageToken,
       });
       final res = await _client
           .get(uri, headers: _auth)

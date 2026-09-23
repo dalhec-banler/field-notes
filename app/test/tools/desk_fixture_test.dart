@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:field_notes/db/database.dart';
-import 'package:field_notes/db/ids.dart';
 import 'package:field_notes/db/seed.dart';
 import 'package:field_notes/geo/zone_assignment.dart';
 import 'package:field_notes/import/kml_import.dart';

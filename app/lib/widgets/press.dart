@@ -6,7 +6,7 @@ import '../theme/tokens.dart';
 
 /// The system's mark: a 45°-rotated square. Never a circle, never an icon.
 class Diamond extends StatelessWidget {
-  Diamond({
+  const Diamond({
     super.key,
     required this.size,
     required this.color,
@@ -42,7 +42,7 @@ class Diamond extends StatelessWidget {
 }
 
 class _Blink extends StatefulWidget {
-  _Blink({required this.child});
+  const _Blink({required this.child});
   final Widget child;
 
   @override
@@ -73,7 +73,7 @@ class _BlinkState extends State<_Blink> with SingleTickerProviderStateMixin {
 
 /// Kicker: 14×2 px oxblood rule + Mono 9 uppercase label.
 class Kicker extends StatelessWidget {
-  Kicker(this.text, {super.key});
+  const Kicker(this.text, {super.key});
   final String text;
 
   @override
@@ -106,7 +106,7 @@ class Kicker extends StatelessWidget {
 /// Screen header: kicker + Zilla Slab 900 uppercase title (+ optional
 /// right-aligned annotation), over a 2 px structural rule.
 class ScreenHeader extends StatelessWidget {
-  ScreenHeader({
+  const ScreenHeader({
     super.key,
     required this.kicker,
     required this.title,
@@ -163,7 +163,7 @@ class ScreenHeader extends StatelessWidget {
 class InkCard extends StatelessWidget {
   // Colour defaults resolve in build — a default parameter must be
   // constant, and tokens no longer are (D-023).
-  InkCard({
+  const InkCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(12),
@@ -197,7 +197,7 @@ class InkCard extends StatelessWidget {
 
 /// Mono uppercase label — the instrumental voice.
 class MonoLabel extends StatelessWidget {
-  MonoLabel(
+  const MonoLabel(
     this.text, {
     super.key,
     this.size = 9.5,
@@ -235,7 +235,7 @@ class MonoLabel extends StatelessWidget {
 
 /// Scientific name — Newsreader italic, always.
 class TaxonName extends StatelessWidget {
-  TaxonName(this.name, {super.key, this.size = 19, this.maxLines});
+  const TaxonName(this.name, {super.key, this.size = 19, this.maxLines});
   final String name;
   final double size;
   final int? maxLines;
@@ -259,7 +259,7 @@ class TaxonName extends StatelessWidget {
 
 /// Big number — Zilla Slab 900 with an optional Mono unit.
 class BigNumber extends StatelessWidget {
-  BigNumber(this.value, {super.key, this.unit, this.size = 25, this.color});
+  const BigNumber(this.value, {super.key, this.unit, this.size = 25, this.color});
   final String value;
   final String? unit;
   final double size;

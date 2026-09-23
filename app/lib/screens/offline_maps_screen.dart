@@ -16,7 +16,7 @@ import '../widgets/press.dart';
 /// ways to get more — capture an area from the map, import a file, or
 /// download from a link.
 class OfflineMapsScreen extends StatefulWidget {
-  OfflineMapsScreen({super.key});
+  const OfflineMapsScreen({super.key});
 
   @override
   State<OfflineMapsScreen> createState() => _OfflineMapsScreenState();

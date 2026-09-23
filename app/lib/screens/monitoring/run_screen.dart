@@ -623,7 +623,7 @@ class _RunScreenState extends State<RunScreen> {
               rows.add({
                 'taxon_id': taxon.id,
                 'count': 1,
-                if (by != null) 'by': by,
+                'by': ?by,
               });
             }
             update();

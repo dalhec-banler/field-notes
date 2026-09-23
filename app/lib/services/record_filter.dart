@@ -33,9 +33,9 @@ class RecordFilter extends ChangeNotifier {
   /// The banner's words: what the surfaces are narrowed to.
   String describe() => [
     if (flagged) 'flagged for removal',
-    if (taxonLabel != null) taxonLabel!,
-    if (type != null) type!,
-    if (zoneLabel != null) zoneLabel!,
+    ?taxonLabel,
+    ?type,
+    ?zoneLabel,
     if (dates != null) '${_d(dates!.start)} – ${_d(dates!.end)}',
   ].join(' · ');
 

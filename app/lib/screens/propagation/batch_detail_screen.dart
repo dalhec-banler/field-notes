@@ -850,7 +850,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
               ),
             ),
           ),
-          if (trailing != null) trailing,
+          ?trailing,
         ],
       ),
     );

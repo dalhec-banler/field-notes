@@ -16,8 +16,8 @@ class MapDocument {
     this.preparedFor,
     this.notes,
     this.removalPlan = false,
-    DateTime? date,
-  }) : _date = date;
+    this._date,
+  });
 
   /// D-027: the plate is the removal plan — numbered flagged pins, and
   /// [numbered] is the list that goes beside it.

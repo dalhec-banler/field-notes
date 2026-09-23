@@ -38,7 +38,7 @@ import 'species_detail_sheet.dart';
 /// keyed by the actual schema field names — the app and the schema stay
 /// honest with each other.
 class RecordDetailScreen extends StatefulWidget {
-  RecordDetailScreen({
+  const RecordDetailScreen({
     super.key,
     required this.db,
     required this.obsId,
@@ -189,10 +189,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 ..limit(1))
               .getSingleOrNull();
     final zoneRows =
-        await (db.select(db.zones)
-              ..where((z) => z.propertyId.equals(obs.propertyId))
-              ..where((z) => z.deletedAt.isNull()))
-            .get();
+        await db.zonesOf(obs.propertyId);
     ProtocolRun? run;
     Protocol? runProtocol;
     ProtocolSite? runSite;

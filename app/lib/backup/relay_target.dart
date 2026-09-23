@@ -47,8 +47,9 @@ class RelayTarget implements BackupTarget {
   @override
   Future<Uint8List> read(String path) async {
     final res = await _client.get(_object(path), headers: _auth);
-    if (res.statusCode != 200)
+    if (res.statusCode != 200) {
       throw RelayException.of(res.statusCode, res.body);
+    }
     return res.bodyBytes;
   }
 
@@ -71,8 +72,9 @@ class RelayTarget implements BackupTarget {
           .replace(queryParameters: {'prefix': prefix}),
       headers: _auth,
     );
-    if (res.statusCode != 200)
+    if (res.statusCode != 200) {
       throw RelayException.of(res.statusCode, res.body);
+    }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     return (body['names'] as List).cast<String>();
   }
@@ -206,8 +208,8 @@ class RelayClient {
         'name': name,
         'display_name': displayName,
         'device_id': deviceId,
-        if (deviceLabel != null) 'device_label': deviceLabel,
-        if (organizationKey != null) 'org_key': organizationKey,
+        'device_label': ?deviceLabel,
+        'org_key': ?organizationKey,
       }),
     );
     return RelayMembership.fromJson(await _json(res));
@@ -227,7 +229,7 @@ class RelayClient {
       headers: _headers(token),
       body: jsonEncode({
         'role': role,
-        if (email != null) 'email': email,
+        'email': ?email,
         'ttl_seconds': ttl.inSeconds,
       }),
     );
@@ -249,8 +251,8 @@ class RelayClient {
         'code': code,
         'display_name': displayName,
         'device_id': deviceId,
-        if (email != null) 'email': email,
-        if (deviceLabel != null) 'device_label': deviceLabel,
+        'email': ?email,
+        'device_label': ?deviceLabel,
       }),
     );
     return RelayMembership.fromJson(await _json(res));
@@ -321,7 +323,7 @@ class RelayClient {
       headers: _headers(token),
       body: jsonEncode({
         'device_id': deviceId,
-        if (label != null) 'label': label,
+        'label': ?label,
       }),
     );
     await _json(res);

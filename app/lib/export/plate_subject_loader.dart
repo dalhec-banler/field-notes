@@ -15,13 +15,7 @@ Future<PlateSubject> loadPlateSubject(
 ) async {
   // Hidden zones don't paint — not on the desk map, not on a plate, not in
   // an export. They still exist and still own their records.
-  final zones =
-      await (db.select(db.zones)
-            ..where((z) => z.propertyId.equals(property.id))
-            ..where((z) => z.deletedAt.isNull())
-            ..where((z) => z.hidden.equals(0))
-            ..orderBy([(z) => OrderingTerm.asc(z.name)]))
-          .get();
+  final zones = await db.zonesToDraw(property.id);
   final types = {
     for (final t in await db.select(db.featureTypes).get()) t.id: t,
   };

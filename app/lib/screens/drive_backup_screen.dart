@@ -19,7 +19,7 @@ import '../widgets/press.dart';
 /// plug anything in is worth having; the cost is that a company knows a file
 /// arrived. It cannot know what is in it.
 class DriveBackupScreen extends StatefulWidget {
-  DriveBackupScreen({
+  const DriveBackupScreen({
     super.key,
     required this.db,
     required this.prefs,

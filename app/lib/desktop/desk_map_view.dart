@@ -36,7 +36,7 @@ import '../widgets/press.dart';
 /// everything else dims. Eradication sweeps and population reads at a
 /// glance.
 class DeskMapWorkspace extends StatefulWidget {
-  DeskMapWorkspace({super.key, required this.db, required this.property});
+  const DeskMapWorkspace({super.key, required this.db, required this.property});
 
   final FieldNotesDb db;
   final Property property;

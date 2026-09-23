@@ -12,7 +12,7 @@ import '../widgets/press.dart';
 /// screen's job is to say plainly what each one is, what it costs, what
 /// leaves the phone, and exactly how to get a key.
 class SpeciesIdSettingsScreen extends StatefulWidget {
-  SpeciesIdSettingsScreen({super.key});
+  const SpeciesIdSettingsScreen({super.key});
 
   @override
   State<SpeciesIdSettingsScreen> createState() =>

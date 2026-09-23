@@ -36,7 +36,7 @@ class StateResolver {
     if (existing != null && geojsonText == null) return existing;
     geojsonText ??= await rootBundle.loadString('assets/geo/us_states.geojson');
     final resolver = StateResolver.fromGeoJson(geojsonText);
-    if (_cached == null) _cached = resolver;
+    _cached ??= resolver;
     return resolver;
   }
 

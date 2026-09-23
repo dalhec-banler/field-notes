@@ -13,8 +13,9 @@ class NativityChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = nativity;
-    if (n == null || n.isEmpty || n == 'unknown')
+    if (n == null || n.isEmpty || n == 'unknown') {
       return const SizedBox.shrink();
+    }
     final color = nativityColor(n);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),

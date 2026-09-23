@@ -23,11 +23,8 @@ class LoadedZones {
   final Map<String, String?> _parents;
 
   static Future<LoadedZones> load(FieldNotesDb db, String propertyId) async {
-    final zones =
-        await (db.select(db.zones)
-              ..where((z) => z.propertyId.equals(propertyId))
-              ..where((z) => z.deletedAt.isNull()))
-            .get();
+    // Hidden zones still catch records — see FieldNotesDb.zonesOf.
+    final zones = await db.zonesOf(propertyId);
     final features = <String, turf.Feature>{};
     for (final zone in zones) {
       try {

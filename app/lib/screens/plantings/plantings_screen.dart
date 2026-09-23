@@ -12,7 +12,7 @@ import 'planting_detail_screen.dart';
 
 /// Plantings (spec §7.5): events with survival %, drill into cohorts.
 class PlantingsScreen extends StatelessWidget {
-  PlantingsScreen({
+  const PlantingsScreen({
     super.key,
     required this.db,
     required this.property,
@@ -315,7 +315,7 @@ class PlantingsScreen extends StatelessWidget {
 }
 
 class _PlantingTile extends StatelessWidget {
-  _PlantingTile({required this.db, required this.event});
+  const _PlantingTile({required this.db, required this.event});
 
   final FieldNotesDb db;
   final PlantingEvent event;

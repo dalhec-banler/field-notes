@@ -21,6 +21,29 @@ class FieldNotesDb extends _$FieldNotesDb {
   /// Opens an existing database file (restore/verification flows).
   FieldNotesDb.fromFile(File file) : super(NativeDatabase(file));
 
+  /// Every zone this place still has — hidden ones included.
+  ///
+  /// Use this for anything that reasons about where a point falls, or that
+  /// lists zones for a person to choose from. A hidden zone is still a zone:
+  /// it owns its records and still answers point-in-polygon. Only the map and
+  /// the things drawn from it should use [zonesToDraw] instead.
+  Future<List<Zone>> zonesOf(String propertyId, {bool byName = false}) {
+    final q = select(zones)
+      ..where((z) => z.propertyId.equals(propertyId))
+      ..where((z) => z.deletedAt.isNull());
+    if (byName) q.orderBy([(z) => OrderingTerm.asc(z.name)]);
+    return q.get();
+  }
+
+  /// The zones that paint: live, not hidden, in name order.
+  Future<List<Zone>> zonesToDraw(String propertyId) =>
+      (select(zones)
+            ..where((z) => z.propertyId.equals(propertyId))
+            ..where((z) => z.deletedAt.isNull())
+            ..where((z) => z.hidden.equals(0))
+            ..orderBy([(z) => OrderingTerm.asc(z.name)]))
+          .get();
+
   /// Fires once on listen, then again whenever any of [tables] changes.
   ///
   /// drift hands the same live stream to every watcher whose SQL text and

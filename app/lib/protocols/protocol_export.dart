@@ -135,9 +135,7 @@ class ProtocolExport {
         'observed_at_utc': run.startedAt,
         'observed_at_local': started?.toLocal().toIso8601String(),
         'local_tz': run.localTz,
-        'observed_date': started == null
-            ? null
-            : started.toLocal().toIso8601String().substring(0, 10),
+        'observed_date': started?.toLocal().toIso8601String().substring(0, 10),
         'actual_lat': precise && located ? obs.lat : null,
         'actual_lng': precise && located ? obs.lng : null,
         'gps_accuracy_m': obs?.gpsAccuracyM,

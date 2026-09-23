@@ -32,11 +32,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _loadZones() async {
     final zones =
-        await (widget.db.select(widget.db.zones)
-              ..where((z) => z.propertyId.equals(widget.property.id))
-              ..where((z) => z.deletedAt.isNull())
-              ..orderBy([(z) => OrderingTerm.asc(z.name)]))
-            .get();
+        await widget.db.zonesOf(widget.property.id, byName: true);
     if (mounted) setState(() => _zones = zones);
   }
 

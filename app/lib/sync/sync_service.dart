@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:drift/drift.dart';
@@ -88,29 +87,14 @@ class SyncService {
     this.prefs,
     this.log, {
     BackupService? backup,
-    Future<BackupTarget?> Function({required bool interactive})? openTarget,
-    Future<BackupCipher?> Function(
-      Future<String?> Function()? askPassphrase,
-      void Function(String)? onStatus,
-    )?
-    openCipher,
-    Future<bool> Function()? mediaAllowed,
+    this._openTarget,
+    this._openCipher,
+    this._mediaAllowed,
     MediaStore? media,
-    BackupTarget Function(SharedProperty)? openSharedTarget,
-    Future<BackupCipher?> Function(
-      SharedProperty,
-      BackupTarget,
-      Future<String?> Function()? askPassphrase,
-      void Function(String)? onStatus,
-    )?
-    openSharedCipher,
+    this._openSharedTarget,
+    this._openSharedCipher,
   }) : _backup = backup ?? BackupService(db),
-       _openTarget = openTarget,
-       _openCipher = openCipher,
-       _mediaAllowed = mediaAllowed,
-       _media = media ?? MediaStore(db),
-       _openSharedTarget = openSharedTarget,
-       _openSharedCipher = openSharedCipher;
+       _media = media ?? MediaStore(db);
 
   final FieldNotesDb db;
   final AppPrefs prefs;
@@ -336,8 +320,9 @@ class SyncService {
     final scope = SyncScope.property(s.propertyId);
     Future<SyncReport> finish(SyncReport r) async {
       await log.setMeta(scope.metaKey('last_sync_note'), r.summary);
-      if (!r.failed)
+      if (!r.failed) {
         await log.setMeta(scope.metaKey('last_sync_at'), nowUtcIso());
+      }
       return r;
     }
 

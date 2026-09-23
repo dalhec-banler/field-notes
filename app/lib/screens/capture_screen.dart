@@ -36,7 +36,7 @@ class CaptureResult {
 /// Camera-dark full-screen modal; save is never blocked on GPS, network, or
 /// identification; a record without a photograph is a legitimate record.
 class CaptureScreen extends StatefulWidget {
-  CaptureScreen({
+  const CaptureScreen({
     super.key,
     required this.db,
     required this.property,
@@ -315,10 +315,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
   Future<void> _countZones() async {
     final n =
-        await (widget.db.select(widget.db.zones)
-              ..where((z) => z.propertyId.equals(widget.property.id))
-              ..where((z) => z.deletedAt.isNull()))
-            .get();
+        await widget.db.zonesOf(widget.property.id);
     if (mounted) setState(() => _zoneCount = n.length);
   }
 

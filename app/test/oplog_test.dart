@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:field_notes/backup/target.dart';
 import 'package:field_notes/db/database.dart';
-import 'package:field_notes/db/ids.dart';
 import 'package:field_notes/sync/oplog.dart';
 import 'package:flutter_test/flutter_test.dart';
 

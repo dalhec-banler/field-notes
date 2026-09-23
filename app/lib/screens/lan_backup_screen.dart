@@ -16,7 +16,7 @@ import 'scan_pairing_screen.dart';
 /// account. The phone still encrypts first — the computer only ever holds
 /// opaque files.
 class LanBackupScreen extends StatefulWidget {
-  LanBackupScreen({super.key, required this.db, required this.prefs});
+  const LanBackupScreen({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
   final AppPrefs prefs;

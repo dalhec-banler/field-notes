@@ -29,7 +29,7 @@ Future<void> showSpeciesDetailSheet(
 }
 
 class _SpeciesDetail extends StatefulWidget {
-  _SpeciesDetail({
+  const _SpeciesDetail({
     required this.db,
     required this.property,
     required this.taxon,

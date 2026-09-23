@@ -21,10 +21,9 @@ class SharingService {
     this.db,
     this.prefs,
     this.log, {
-    http.Client? client,
+    this._client,
     BackupKeyCache Function(String propertyId)? keyCache,
-  }) : _client = client,
-       _keyCache = keyCache ?? BackupKeyCache.forSharedProperty;
+  }) : _keyCache = keyCache ?? BackupKeyCache.forSharedProperty;
 
   final FieldNotesDb db;
   final AppPrefs prefs;

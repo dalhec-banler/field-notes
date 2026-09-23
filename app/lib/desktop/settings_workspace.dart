@@ -24,7 +24,7 @@ import 'receive_backup_panel.dart';
 /// tab, laid out for a wide window, plus the four principles that used to
 /// sit under every workspace — they belong in About, not on every page.
 class SettingsWorkspace extends StatefulWidget {
-  SettingsWorkspace({
+  const SettingsWorkspace({
     super.key,
     required this.db,
     required this.property,

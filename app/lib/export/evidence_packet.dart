@@ -66,8 +66,9 @@ class EvidencePacket {
       ..where((o) => o.propertyId.equals(property.id))
       ..where((o) => o.deletedAt.isNull())
       ..orderBy([(o) => OrderingTerm.asc(o.observedAt)]);
-    if (from != null)
+    if (from != null) {
       obsQ = obsQ..where((o) => o.observedAt.isBiggerOrEqualValue(from));
+    }
     if (to != null) {
       obsQ = obsQ
         ..where((o) => o.observedAt.isSmallerOrEqualValue('${to}T23:59:59Z'));

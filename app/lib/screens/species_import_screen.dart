@@ -12,7 +12,7 @@ import '../widgets/press.dart';
 /// never need to upload a list). Pick a CSV, say which column is which,
 /// review, import as this place's own starred taxa.
 class SpeciesImportScreen extends StatefulWidget {
-  SpeciesImportScreen({super.key, required this.db, required this.property});
+  const SpeciesImportScreen({super.key, required this.db, required this.property});
 
   final FieldNotesDb db;
   final Property property;

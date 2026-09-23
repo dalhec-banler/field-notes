@@ -287,7 +287,7 @@ String _num(num v) => v == v.roundToDouble() ? '${v.toInt()}' : '$v';
 
 /// A day picker row, the shape every editor uses.
 class DateRow extends StatelessWidget {
-  const DateRow({required this.label, required this.day, required this.onPick});
+  const DateRow({super.key, required this.label, required this.day, required this.onPick});
   final String label;
   final String? day;
   final ValueChanged<String> onPick;

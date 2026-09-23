@@ -47,7 +47,7 @@ Future<bool> showIdentifySheet(
 }
 
 class _IdentifySheet extends StatefulWidget {
-  _IdentifySheet({
+  const _IdentifySheet({
     required this.db,
     required this.observation,
     required this.property,

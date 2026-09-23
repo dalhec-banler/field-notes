@@ -34,7 +34,7 @@ import '../widgets/press.dart';
 /// blind saves: every format renders the page you are looking at, and
 /// PNG saves the page, not a bare map.
 class ExportWorkspace extends StatefulWidget {
-  ExportWorkspace({super.key, required this.db, required this.property});
+  const ExportWorkspace({super.key, required this.db, required this.property});
   final FieldNotesDb db;
   final Property property;
 

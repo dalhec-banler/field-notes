@@ -19,7 +19,7 @@ class _Seen {
 /// Species library (design README §3.5): the property's taxa with search,
 /// nativity diamonds, and occurrence counts.
 class SpeciesTab extends StatefulWidget {
-  SpeciesTab({super.key, required this.db, required this.property});
+  const SpeciesTab({super.key, required this.db, required this.property});
 
   final FieldNotesDb db;
   final Property property;

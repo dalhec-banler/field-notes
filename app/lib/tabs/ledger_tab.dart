@@ -102,11 +102,7 @@ class _LedgerTabState extends State<LedgerTab> {
   Future<void> _loadZones() async {
     final propertyId = widget.property.id;
     final zones =
-        await (widget.db.select(widget.db.zones)
-              ..where((z) => z.propertyId.equals(propertyId))
-              ..where((z) => z.deletedAt.isNull())
-              ..orderBy([(z) => OrderingTerm.asc(z.name)]))
-            .get();
+        await widget.db.zonesOf(propertyId, byName: true);
     // A slower load for the previous place must not overwrite the new one.
     if (mounted && widget.property.id == propertyId) {
       setState(() => _zones = zones);

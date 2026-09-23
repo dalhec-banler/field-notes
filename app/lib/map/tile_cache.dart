@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -12,7 +11,7 @@ class TileCache {
   TileCache({this.capacity = 600});
 
   final int capacity;
-  final _lru = LinkedHashMap<String, Uint8List>();
+  final _lru = <String, Uint8List>{};
 
   /// Wrap [inner] so hits skip the network. Only successful fetches are
   /// cached; a miss (offline moment, missing tile) stays retryable.
@@ -63,7 +62,7 @@ class DecodedImageCache {
   DecodedImageCache({this.capacity = 320});
 
   final int capacity;
-  final _lru = LinkedHashMap<String, ui.Image>();
+  final _lru = <String, ui.Image>{};
   final _inflight = <String, Future<ui.Image?>>{};
   final _pinned = <String>{};
 

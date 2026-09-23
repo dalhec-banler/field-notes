@@ -106,7 +106,7 @@ Future<void> main() async {
 }
 
 class FieldNotesApp extends StatelessWidget {
-  FieldNotesApp({super.key, required this.db, required this.prefs});
+  const FieldNotesApp({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
   final AppPrefs prefs;
@@ -148,7 +148,7 @@ class FieldNotesApp extends StatelessWidget {
 /// Boots into the five-tab shell on the active property; falls back to
 /// first-run place creation when the database has no properties.
 class RootScreen extends StatefulWidget {
-  RootScreen({super.key, required this.db, required this.prefs});
+  const RootScreen({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
   final AppPrefs prefs;

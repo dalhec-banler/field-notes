@@ -43,11 +43,12 @@ class FakeRelay {
     if (segs.length == 2 && segs[1] == 'join' && req.method == 'POST') {
       final b = jsonDecode(req.body) as Map;
       final prop = codes[b['code']];
-      if (prop == null)
+      if (prop == null) {
         return http.Response(
           jsonEncode({'error': 'That code is not valid.'}),
           404,
         );
+      }
       if (members[prop]!.length >= seats) {
         return http.Response(
           jsonEncode({
@@ -74,8 +75,9 @@ class FakeRelay {
         200,
       );
     }
-    if (who == null)
+    if (who == null) {
       return http.Response(jsonEncode({'error': 'no token'}), 401);
+    }
     if (segs.length < 3 || segs[2] != who.prop) return http.Response('', 404);
     final prop = who.prop;
     if (segs.length == 4 && segs[3] == 'join-codes') {
@@ -118,11 +120,12 @@ class FakeRelay {
               ? http.Response('', 404)
               : http.Response.bytes(b, 200);
         case 'PUT':
-          if (who.role == 'viewer')
+          if (who.role == 'viewer') {
             return http.Response(
               jsonEncode({'error': 'viewers cannot write'}),
               403,
             );
+          }
           final ownDir = path.startsWith('sync/${who.device}/');
           final blob = path.startsWith('fieldnotes/blobs/');
           final manifest =

@@ -21,7 +21,7 @@ import 'relaunch.dart';
 /// record over — across the LAN, from Google Drive, or from a backup file —
 /// and then reopens on the copy.
 class DesktopIntakeScreen extends StatefulWidget {
-  DesktopIntakeScreen({super.key, required this.db, required this.prefs});
+  const DesktopIntakeScreen({super.key, required this.db, required this.prefs});
 
   final FieldNotesDb db;
   final AppPrefs prefs;

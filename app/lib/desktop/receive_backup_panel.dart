@@ -21,7 +21,7 @@ Future<Directory> receivedBackupsDir() async {
 /// The desk half of LAN backup: switch it on, read the address and code to
 /// the phone, watch files land. The computer never decrypts anything here.
 class ReceiveBackupPanel extends StatefulWidget {
-  ReceiveBackupPanel({super.key, this.onChanged, this.padding});
+  const ReceiveBackupPanel({super.key, this.onChanged, this.padding});
 
   /// Fires on every receiver state change (start, stop, each file landed).
   final ValueChanged<LanReceiver>? onChanged;

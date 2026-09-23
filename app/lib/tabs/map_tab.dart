@@ -22,7 +22,7 @@ import '../widgets/records_here_sheet.dart';
 /// Map home (design README §3.1): full-bleed map with card chrome — property
 /// card (tap = property switcher), track toggle, GPS badge.
 class MapTab extends StatefulWidget {
-  MapTab({
+  const MapTab({
     super.key,
     required this.db,
     required this.property,
@@ -145,11 +145,7 @@ class _MapTabState extends State<MapTab> {
   /// editor (D-024 batch 1). Every save re-derives zone assignment.
   Future<void> _editShapes() async {
     final zones =
-        await (widget.db.select(widget.db.zones)
-              ..where((z) => z.propertyId.equals(widget.property.id))
-              ..where((z) => z.deletedAt.isNull())
-              ..orderBy([(z) => OrderingTerm.asc(z.name)]))
-            .get();
+        await widget.db.zonesOf(widget.property.id, byName: true);
     if (!mounted) return;
     final choice = await showModalBottomSheet<Object>(
       context: context,
@@ -665,10 +661,7 @@ class _MapTabState extends State<MapTab> {
 
   Future<void> _loadCounts() async {
     final zones =
-        await (widget.db.select(widget.db.zones)
-              ..where((z) => z.propertyId.equals(widget.property.id))
-              ..where((z) => z.deletedAt.isNull()))
-            .get();
+        await widget.db.zonesOf(widget.property.id);
     if (mounted) setState(() => _zoneCount = zones.length);
   }
 
@@ -755,7 +748,7 @@ class _MapTabState extends State<MapTab> {
                   children: [
                     Flexible(
                       child: MonoLabel(
-                        'ONLY ' + recordFilter.describe(),
+                        'ONLY ${recordFilter.describe()}',
                         size: 9,
                         spacing: 1.2,
                         color: Press.paperRaised,

@@ -32,7 +32,7 @@ import '../widgets/press.dart';
 /// Settings & backup (design README §3.6). Order is the argument:
 /// verification first, storage second, then the grouped tables, then export.
 class SettingsTab extends StatefulWidget {
-  SettingsTab({
+  const SettingsTab({
     super.key,
     required this.db,
     required this.property,
