@@ -24,10 +24,11 @@ JPEG with EXIF GPS, m4a.
 ## The phone
 
 <p>
-<img src="docs/screens/map.jpg" width="24%" alt="Map with record marks">
-<img src="docs/screens/capture.png" width="24%" alt="Capture screen">
-<img src="docs/screens/record.png" width="24%" alt="A record">
-<img src="docs/screens/species.png" width="24%" alt="Species library">
+<img src="docs/screens/map.jpg" width="19%" alt="Map with record marks">
+<img src="docs/screens/capture.png" width="19%" alt="Capture screen">
+<img src="docs/screens/record.png" width="19%" alt="A record">
+<img src="docs/screens/species.png" width="19%" alt="Species library">
+<img src="docs/screens/ledger.png" width="19%" alt="The ledger">
 </p>
 
 Shape says what kind of thing a mark is, colour says the domain, size and halo
@@ -92,6 +93,8 @@ directory.
 Backups are encrypted with XChaCha20-Poly1305 under an Argon2id key and a BIP-39
 recovery phrase. Restore asks the question backups exist to answer, and VERIFY
 BACKUP answers it before you need it to.
+
+<img src="docs/screens/backup.png" width="32%" alt="Backup and recovery phrase">
 
 ## Layout
 
