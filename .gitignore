@@ -15,3 +15,6 @@ app/macos/**/xcshareddata/swiftpm/
 relay/relay
 relay/relay.sqlite*
 relay/relay-store/
+
+# local agent instructions, not part of the project
+CLAUDE.md
