@@ -98,7 +98,9 @@ void main() {
         );
     expect(await db.select(db.protocols).get(), isEmpty);
     expect(await db.select(db.protocolSites).get(), isEmpty);
+    // Track the schema version rather than a literal, so adding a migration
+    // doesn't fail this test for the wrong reason.
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data['user_version'], 10);
+    expect(version.data['user_version'], db.schemaVersion);
   });
 }

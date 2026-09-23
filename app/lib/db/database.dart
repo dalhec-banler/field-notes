@@ -40,7 +40,7 @@ class FieldNotesDb extends _$FieldNotesDb {
   }
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -262,6 +262,17 @@ class FieldNotesDb extends _$FieldNotesDb {
           await m.createTable(protocolRuns);
           await m.createIndex(idxPrunSiteTime);
           await m.createIndex(idxPrunObs);
+        }
+
+        // v11: imported maps become a thing you can take back out. Each zone
+        // remembers the import it arrived in; removing that import removes
+        // them together. Hand-drawn zones have a null import_id and are never
+        // touched by it.
+        if (from < 11) {
+          await m.database.customStatement(
+              'ALTER TABLE zones ADD COLUMN import_id TEXT');
+          await m.createTable(mapImports);
+          await m.createIndex(idxMapImportsProperty);
         }
         // v5 LAST (it inserts 'infrastructure'-typed rows, which need the
         // v4 CHECK already in place): features fold into records (Austin,

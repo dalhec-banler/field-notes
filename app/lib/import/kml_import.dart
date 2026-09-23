@@ -13,12 +13,18 @@ class KmlPlacemark {
     required this.geometryType, // 'Point' | 'LineString' | 'Polygon' | 'MultiPolygon'
     required this.geojson,
     this.folder,
+    this.colorHex,
   });
 
   final String name;
   final String? description;
   final String geometryType;
   final String geojson;
+
+  /// The colour the shape was drawn in, as '#rrggbb'. Google Earth writes
+  /// KML colours as aabbggrr and hangs them off a styleUrl, so the outline
+  /// you drew is recoverable — it just takes two hops to find.
+  final String? colorHex;
 
   /// Folder path in the KML document, e.g. 'Zones/Riparian' — a strong hint
   /// for the review step's zone-vs-feature suggestion.
@@ -38,6 +44,7 @@ List<KmlPlacemark> parseKmz(Uint8List bytes) {
 
 List<KmlPlacemark> parseKml(String xmlText) {
   final doc = XmlDocument.parse(xmlText);
+  final styles = _styleIndex(doc);
   final placemarks = <KmlPlacemark>[];
 
   for (final pm in doc.findAllElements('Placemark')) {
@@ -53,10 +60,71 @@ List<KmlPlacemark> parseKml(String xmlText) {
         geometryType: geometry.$1,
         geojson: geometry.$2,
         folder: folder,
+        colorHex: _styleColor(pm, styles),
       ),
     );
   }
   return placemarks;
+}
+
+/// id -> line colour, for every Style in the document. Google Earth nests
+/// its styles in gx:CascadingStyle and points at them through a StyleMap, so
+/// both indirections are followed here.
+Map<String, String> _styleIndex(XmlDocument doc) {
+  final out = <String, String>{};
+  for (final st in doc.findAllElements('Style')) {
+    final id =
+        st.getAttribute('id') ??
+        st.parentElement?.getAttribute('id') ??
+        st.parentElement?.getAttribute('kml:id');
+    if (id == null) continue;
+    String? argb;
+    for (final tag in ['LineStyle', 'PolyStyle']) {
+      final el = st.findElements(tag).firstOrNull;
+      final c = el == null ? null : _childText(el, 'color');
+      if (c != null) { argb = c; if (tag == 'LineStyle') break; }
+    }
+    final hex = _kmlColor(argb);
+    if (hex != null) out[id] = hex;
+  }
+  // StyleMap: take the 'normal' pair's target.
+  for (final sm in doc.findAllElements('StyleMap')) {
+    final id = sm.getAttribute('id');
+    if (id == null) continue;
+    for (final pair in sm.findElements('Pair')) {
+      if (_childText(pair, 'key') != 'normal') continue;
+      final target = _childText(pair, 'styleUrl')?.replaceFirst('#', '');
+      final c = target == null ? null : out[target];
+      if (c != null) out[id] = c;
+    }
+  }
+  return out;
+}
+
+String? _styleColor(XmlElement pm, Map<String, String> styles) {
+  final url = _childText(pm, 'styleUrl')?.replaceFirst('#', '');
+  if (url != null && styles[url] != null) return styles[url];
+  final inline = pm.findElements('Style').firstOrNull;
+  if (inline != null) {
+    for (final tag in ['LineStyle', 'PolyStyle']) {
+      final el = inline.findElements(tag).firstOrNull;
+      final hex = _kmlColor(el == null ? null : _childText(el, 'color'));
+      if (hex != null) return hex;
+    }
+  }
+  return null;
+}
+
+/// KML stores colour as aabbggrr; everything else here wants #rrggbb.
+/// A fully transparent colour is no colour at all.
+String? _kmlColor(String? aabbggrr) {
+  final v = aabbggrr?.trim();
+  if (v == null || v.length != 8) return null;
+  final a = int.tryParse(v.substring(0, 2), radix: 16);
+  if (a == null || a == 0) return null;
+  final bb = v.substring(2, 4), gg = v.substring(4, 6), rr = v.substring(6, 8);
+  final hex = '#$rr$gg$bb'.toLowerCase();
+  return RegExp(r'^#[0-9a-f]{6}$').hasMatch(hex) ? hex : null;
 }
 
 String? _childText(XmlElement parent, String tag) {

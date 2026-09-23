@@ -2802,6 +2802,17 @@ class Zones extends Table with TableInfo<Zones, Zone> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _importIdMeta = const VerificationMeta(
+    'importId',
+  );
+  late final GeneratedColumn<String> importId = GeneratedColumn<String>(
+    'import_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   static const VerificationMeta _createdByMeta = const VerificationMeta(
     'createdBy',
   );
@@ -2858,6 +2869,7 @@ class Zones extends Table with TableInfo<Zones, Zone> {
     areaAcres,
     colorHex,
     notes,
+    importId,
     createdBy,
     createdAt,
     updatedAt,
@@ -2943,6 +2955,12 @@ class Zones extends Table with TableInfo<Zones, Zone> {
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('import_id')) {
+      context.handle(
+        _importIdMeta,
+        importId.isAcceptableOrUnknown(data['import_id']!, _importIdMeta),
+      );
+    }
     if (data.containsKey('created_by')) {
       context.handle(
         _createdByMeta,
@@ -3022,6 +3040,10 @@ class Zones extends Table with TableInfo<Zones, Zone> {
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      importId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}import_id'],
+      ),
       createdBy: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}created_by'],
@@ -3065,6 +3087,10 @@ class Zone extends DataClass implements Insertable<Zone> {
   final double? areaAcres;
   final String? colorHex;
   final String? notes;
+
+  /// v11: where this zone came from, so a whole import can be taken back out
+  /// again. NULL means somebody drew it here by hand.
+  final String? importId;
   final String createdBy;
   final String createdAt;
   final String updatedAt;
@@ -3080,6 +3106,7 @@ class Zone extends DataClass implements Insertable<Zone> {
     this.areaAcres,
     this.colorHex,
     this.notes,
+    this.importId,
     required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -3109,6 +3136,9 @@ class Zone extends DataClass implements Insertable<Zone> {
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || importId != null) {
+      map['import_id'] = Variable<String>(importId);
     }
     map['created_by'] = Variable<String>(createdBy);
     map['created_at'] = Variable<String>(createdAt);
@@ -3141,6 +3171,9 @@ class Zone extends DataClass implements Insertable<Zone> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      importId: importId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(importId),
       createdBy: Value(createdBy),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -3166,6 +3199,7 @@ class Zone extends DataClass implements Insertable<Zone> {
       areaAcres: serializer.fromJson<double?>(json['area_acres']),
       colorHex: serializer.fromJson<String?>(json['color_hex']),
       notes: serializer.fromJson<String?>(json['notes']),
+      importId: serializer.fromJson<String?>(json['import_id']),
       createdBy: serializer.fromJson<String>(json['created_by']),
       createdAt: serializer.fromJson<String>(json['created_at']),
       updatedAt: serializer.fromJson<String>(json['updated_at']),
@@ -3186,6 +3220,7 @@ class Zone extends DataClass implements Insertable<Zone> {
       'area_acres': serializer.toJson<double?>(areaAcres),
       'color_hex': serializer.toJson<String?>(colorHex),
       'notes': serializer.toJson<String?>(notes),
+      'import_id': serializer.toJson<String?>(importId),
       'created_by': serializer.toJson<String>(createdBy),
       'created_at': serializer.toJson<String>(createdAt),
       'updated_at': serializer.toJson<String>(updatedAt),
@@ -3204,6 +3239,7 @@ class Zone extends DataClass implements Insertable<Zone> {
     Value<double?> areaAcres = const Value.absent(),
     Value<String?> colorHex = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    Value<String?> importId = const Value.absent(),
     String? createdBy,
     String? createdAt,
     String? updatedAt,
@@ -3219,6 +3255,7 @@ class Zone extends DataClass implements Insertable<Zone> {
     areaAcres: areaAcres.present ? areaAcres.value : this.areaAcres,
     colorHex: colorHex.present ? colorHex.value : this.colorHex,
     notes: notes.present ? notes.value : this.notes,
+    importId: importId.present ? importId.value : this.importId,
     createdBy: createdBy ?? this.createdBy,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -3240,6 +3277,7 @@ class Zone extends DataClass implements Insertable<Zone> {
       areaAcres: data.areaAcres.present ? data.areaAcres.value : this.areaAcres,
       colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
       notes: data.notes.present ? data.notes.value : this.notes,
+      importId: data.importId.present ? data.importId.value : this.importId,
       createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -3260,6 +3298,7 @@ class Zone extends DataClass implements Insertable<Zone> {
           ..write('areaAcres: $areaAcres, ')
           ..write('colorHex: $colorHex, ')
           ..write('notes: $notes, ')
+          ..write('importId: $importId, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -3280,6 +3319,7 @@ class Zone extends DataClass implements Insertable<Zone> {
     areaAcres,
     colorHex,
     notes,
+    importId,
     createdBy,
     createdAt,
     updatedAt,
@@ -3299,6 +3339,7 @@ class Zone extends DataClass implements Insertable<Zone> {
           other.areaAcres == this.areaAcres &&
           other.colorHex == this.colorHex &&
           other.notes == this.notes &&
+          other.importId == this.importId &&
           other.createdBy == this.createdBy &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -3316,6 +3357,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
   final Value<double?> areaAcres;
   final Value<String?> colorHex;
   final Value<String?> notes;
+  final Value<String?> importId;
   final Value<String> createdBy;
   final Value<String> createdAt;
   final Value<String> updatedAt;
@@ -3332,6 +3374,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     this.areaAcres = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.notes = const Value.absent(),
+    this.importId = const Value.absent(),
     this.createdBy = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -3349,6 +3392,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     this.areaAcres = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.notes = const Value.absent(),
+    this.importId = const Value.absent(),
     required String createdBy,
     required String createdAt,
     required String updatedAt,
@@ -3372,6 +3416,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     Expression<double>? areaAcres,
     Expression<String>? colorHex,
     Expression<String>? notes,
+    Expression<String>? importId,
     Expression<String>? createdBy,
     Expression<String>? createdAt,
     Expression<String>? updatedAt,
@@ -3389,6 +3434,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
       if (areaAcres != null) 'area_acres': areaAcres,
       if (colorHex != null) 'color_hex': colorHex,
       if (notes != null) 'notes': notes,
+      if (importId != null) 'import_id': importId,
       if (createdBy != null) 'created_by': createdBy,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -3408,6 +3454,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     Value<double?>? areaAcres,
     Value<String?>? colorHex,
     Value<String?>? notes,
+    Value<String?>? importId,
     Value<String>? createdBy,
     Value<String>? createdAt,
     Value<String>? updatedAt,
@@ -3425,6 +3472,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
       areaAcres: areaAcres ?? this.areaAcres,
       colorHex: colorHex ?? this.colorHex,
       notes: notes ?? this.notes,
+      importId: importId ?? this.importId,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -3466,6 +3514,9 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (importId.present) {
+      map['import_id'] = Variable<String>(importId.value);
+    }
     if (createdBy.present) {
       map['created_by'] = Variable<String>(createdBy.value);
     }
@@ -3497,6 +3548,677 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
           ..write('areaAcres: $areaAcres, ')
           ..write('colorHex: $colorHex, ')
           ..write('notes: $notes, ')
+          ..write('importId: $importId, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class MapImports extends Table with TableInfo<MapImports, MapImport> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  MapImports(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'PRIMARY KEY NOT NULL',
+  );
+  static const VerificationMeta _propertyIdMeta = const VerificationMeta(
+    'propertyId',
+  );
+  late final GeneratedColumn<String> propertyId = GeneratedColumn<String>(
+    'property_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES properties(id)',
+  );
+  static const VerificationMeta _sourceNameMeta = const VerificationMeta(
+    'sourceName',
+  );
+  late final GeneratedColumn<String> sourceName = GeneratedColumn<String>(
+    'source_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _sourceKindMeta = const VerificationMeta(
+    'sourceKind',
+  );
+  late final GeneratedColumn<String> sourceKind = GeneratedColumn<String>(
+    'source_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL CHECK (source_kind IN (\'file\', \'link\'))',
+  );
+  static const VerificationMeta _importedAtMeta = const VerificationMeta(
+    'importedAt',
+  );
+  late final GeneratedColumn<String> importedAt = GeneratedColumn<String>(
+    'imported_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _zoneCountMeta = const VerificationMeta(
+    'zoneCount',
+  );
+  late final GeneratedColumn<int> zoneCount = GeneratedColumn<int>(
+    'zone_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT 0',
+    defaultValue: const CustomExpression('0'),
+  );
+  static const VerificationMeta _featureCountMeta = const VerificationMeta(
+    'featureCount',
+  );
+  late final GeneratedColumn<int> featureCount = GeneratedColumn<int>(
+    'feature_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT 0',
+    defaultValue: const CustomExpression('0'),
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  late final GeneratedColumn<String> updatedAt = GeneratedColumn<String>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  late final GeneratedColumn<String> deletedAt = GeneratedColumn<String>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    propertyId,
+    sourceName,
+    sourceKind,
+    importedAt,
+    zoneCount,
+    featureCount,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'map_imports';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MapImport> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('property_id')) {
+      context.handle(
+        _propertyIdMeta,
+        propertyId.isAcceptableOrUnknown(data['property_id']!, _propertyIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_propertyIdMeta);
+    }
+    if (data.containsKey('source_name')) {
+      context.handle(
+        _sourceNameMeta,
+        sourceName.isAcceptableOrUnknown(data['source_name']!, _sourceNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceNameMeta);
+    }
+    if (data.containsKey('source_kind')) {
+      context.handle(
+        _sourceKindMeta,
+        sourceKind.isAcceptableOrUnknown(data['source_kind']!, _sourceKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceKindMeta);
+    }
+    if (data.containsKey('imported_at')) {
+      context.handle(
+        _importedAtMeta,
+        importedAt.isAcceptableOrUnknown(data['imported_at']!, _importedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_importedAtMeta);
+    }
+    if (data.containsKey('zone_count')) {
+      context.handle(
+        _zoneCountMeta,
+        zoneCount.isAcceptableOrUnknown(data['zone_count']!, _zoneCountMeta),
+      );
+    }
+    if (data.containsKey('feature_count')) {
+      context.handle(
+        _featureCountMeta,
+        featureCount.isAcceptableOrUnknown(
+          data['feature_count']!,
+          _featureCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdByMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MapImport map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MapImport(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      propertyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}property_id'],
+      )!,
+      sourceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_name'],
+      )!,
+      sourceKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_kind'],
+      )!,
+      importedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}imported_at'],
+      )!,
+      zoneCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}zone_count'],
+      )!,
+      featureCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}feature_count'],
+      )!,
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  MapImports createAlias(String alias) {
+    return MapImports(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class MapImport extends DataClass implements Insertable<MapImport> {
+  final String id;
+  final String propertyId;
+  final String sourceName;
+
+  /// the file name, or the link it came from
+  final String sourceKind;
+  final String importedAt;
+  final int zoneCount;
+  final int featureCount;
+  final String createdBy;
+  final String createdAt;
+  final String updatedAt;
+  final String? deletedAt;
+  const MapImport({
+    required this.id,
+    required this.propertyId,
+    required this.sourceName,
+    required this.sourceKind,
+    required this.importedAt,
+    required this.zoneCount,
+    required this.featureCount,
+    required this.createdBy,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['property_id'] = Variable<String>(propertyId);
+    map['source_name'] = Variable<String>(sourceName);
+    map['source_kind'] = Variable<String>(sourceKind);
+    map['imported_at'] = Variable<String>(importedAt);
+    map['zone_count'] = Variable<int>(zoneCount);
+    map['feature_count'] = Variable<int>(featureCount);
+    map['created_by'] = Variable<String>(createdBy);
+    map['created_at'] = Variable<String>(createdAt);
+    map['updated_at'] = Variable<String>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<String>(deletedAt);
+    }
+    return map;
+  }
+
+  MapImportsCompanion toCompanion(bool nullToAbsent) {
+    return MapImportsCompanion(
+      id: Value(id),
+      propertyId: Value(propertyId),
+      sourceName: Value(sourceName),
+      sourceKind: Value(sourceKind),
+      importedAt: Value(importedAt),
+      zoneCount: Value(zoneCount),
+      featureCount: Value(featureCount),
+      createdBy: Value(createdBy),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory MapImport.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MapImport(
+      id: serializer.fromJson<String>(json['id']),
+      propertyId: serializer.fromJson<String>(json['property_id']),
+      sourceName: serializer.fromJson<String>(json['source_name']),
+      sourceKind: serializer.fromJson<String>(json['source_kind']),
+      importedAt: serializer.fromJson<String>(json['imported_at']),
+      zoneCount: serializer.fromJson<int>(json['zone_count']),
+      featureCount: serializer.fromJson<int>(json['feature_count']),
+      createdBy: serializer.fromJson<String>(json['created_by']),
+      createdAt: serializer.fromJson<String>(json['created_at']),
+      updatedAt: serializer.fromJson<String>(json['updated_at']),
+      deletedAt: serializer.fromJson<String?>(json['deleted_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'property_id': serializer.toJson<String>(propertyId),
+      'source_name': serializer.toJson<String>(sourceName),
+      'source_kind': serializer.toJson<String>(sourceKind),
+      'imported_at': serializer.toJson<String>(importedAt),
+      'zone_count': serializer.toJson<int>(zoneCount),
+      'feature_count': serializer.toJson<int>(featureCount),
+      'created_by': serializer.toJson<String>(createdBy),
+      'created_at': serializer.toJson<String>(createdAt),
+      'updated_at': serializer.toJson<String>(updatedAt),
+      'deleted_at': serializer.toJson<String?>(deletedAt),
+    };
+  }
+
+  MapImport copyWith({
+    String? id,
+    String? propertyId,
+    String? sourceName,
+    String? sourceKind,
+    String? importedAt,
+    int? zoneCount,
+    int? featureCount,
+    String? createdBy,
+    String? createdAt,
+    String? updatedAt,
+    Value<String?> deletedAt = const Value.absent(),
+  }) => MapImport(
+    id: id ?? this.id,
+    propertyId: propertyId ?? this.propertyId,
+    sourceName: sourceName ?? this.sourceName,
+    sourceKind: sourceKind ?? this.sourceKind,
+    importedAt: importedAt ?? this.importedAt,
+    zoneCount: zoneCount ?? this.zoneCount,
+    featureCount: featureCount ?? this.featureCount,
+    createdBy: createdBy ?? this.createdBy,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  MapImport copyWithCompanion(MapImportsCompanion data) {
+    return MapImport(
+      id: data.id.present ? data.id.value : this.id,
+      propertyId: data.propertyId.present
+          ? data.propertyId.value
+          : this.propertyId,
+      sourceName: data.sourceName.present
+          ? data.sourceName.value
+          : this.sourceName,
+      sourceKind: data.sourceKind.present
+          ? data.sourceKind.value
+          : this.sourceKind,
+      importedAt: data.importedAt.present
+          ? data.importedAt.value
+          : this.importedAt,
+      zoneCount: data.zoneCount.present ? data.zoneCount.value : this.zoneCount,
+      featureCount: data.featureCount.present
+          ? data.featureCount.value
+          : this.featureCount,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MapImport(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('sourceName: $sourceName, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('importedAt: $importedAt, ')
+          ..write('zoneCount: $zoneCount, ')
+          ..write('featureCount: $featureCount, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    propertyId,
+    sourceName,
+    sourceKind,
+    importedAt,
+    zoneCount,
+    featureCount,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MapImport &&
+          other.id == this.id &&
+          other.propertyId == this.propertyId &&
+          other.sourceName == this.sourceName &&
+          other.sourceKind == this.sourceKind &&
+          other.importedAt == this.importedAt &&
+          other.zoneCount == this.zoneCount &&
+          other.featureCount == this.featureCount &&
+          other.createdBy == this.createdBy &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class MapImportsCompanion extends UpdateCompanion<MapImport> {
+  final Value<String> id;
+  final Value<String> propertyId;
+  final Value<String> sourceName;
+  final Value<String> sourceKind;
+  final Value<String> importedAt;
+  final Value<int> zoneCount;
+  final Value<int> featureCount;
+  final Value<String> createdBy;
+  final Value<String> createdAt;
+  final Value<String> updatedAt;
+  final Value<String?> deletedAt;
+  final Value<int> rowid;
+  const MapImportsCompanion({
+    this.id = const Value.absent(),
+    this.propertyId = const Value.absent(),
+    this.sourceName = const Value.absent(),
+    this.sourceKind = const Value.absent(),
+    this.importedAt = const Value.absent(),
+    this.zoneCount = const Value.absent(),
+    this.featureCount = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MapImportsCompanion.insert({
+    required String id,
+    required String propertyId,
+    required String sourceName,
+    required String sourceKind,
+    required String importedAt,
+    this.zoneCount = const Value.absent(),
+    this.featureCount = const Value.absent(),
+    required String createdBy,
+    required String createdAt,
+    required String updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       propertyId = Value(propertyId),
+       sourceName = Value(sourceName),
+       sourceKind = Value(sourceKind),
+       importedAt = Value(importedAt),
+       createdBy = Value(createdBy),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<MapImport> custom({
+    Expression<String>? id,
+    Expression<String>? propertyId,
+    Expression<String>? sourceName,
+    Expression<String>? sourceKind,
+    Expression<String>? importedAt,
+    Expression<int>? zoneCount,
+    Expression<int>? featureCount,
+    Expression<String>? createdBy,
+    Expression<String>? createdAt,
+    Expression<String>? updatedAt,
+    Expression<String>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (propertyId != null) 'property_id': propertyId,
+      if (sourceName != null) 'source_name': sourceName,
+      if (sourceKind != null) 'source_kind': sourceKind,
+      if (importedAt != null) 'imported_at': importedAt,
+      if (zoneCount != null) 'zone_count': zoneCount,
+      if (featureCount != null) 'feature_count': featureCount,
+      if (createdBy != null) 'created_by': createdBy,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MapImportsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? propertyId,
+    Value<String>? sourceName,
+    Value<String>? sourceKind,
+    Value<String>? importedAt,
+    Value<int>? zoneCount,
+    Value<int>? featureCount,
+    Value<String>? createdBy,
+    Value<String>? createdAt,
+    Value<String>? updatedAt,
+    Value<String?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return MapImportsCompanion(
+      id: id ?? this.id,
+      propertyId: propertyId ?? this.propertyId,
+      sourceName: sourceName ?? this.sourceName,
+      sourceKind: sourceKind ?? this.sourceKind,
+      importedAt: importedAt ?? this.importedAt,
+      zoneCount: zoneCount ?? this.zoneCount,
+      featureCount: featureCount ?? this.featureCount,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (propertyId.present) {
+      map['property_id'] = Variable<String>(propertyId.value);
+    }
+    if (sourceName.present) {
+      map['source_name'] = Variable<String>(sourceName.value);
+    }
+    if (sourceKind.present) {
+      map['source_kind'] = Variable<String>(sourceKind.value);
+    }
+    if (importedAt.present) {
+      map['imported_at'] = Variable<String>(importedAt.value);
+    }
+    if (zoneCount.present) {
+      map['zone_count'] = Variable<int>(zoneCount.value);
+    }
+    if (featureCount.present) {
+      map['feature_count'] = Variable<int>(featureCount.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<String>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<String>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MapImportsCompanion(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('sourceName: $sourceName, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('importedAt: $importedAt, ')
+          ..write('zoneCount: $zoneCount, ')
+          ..write('featureCount: $featureCount, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -32115,6 +32837,11 @@ abstract class _$FieldNotesDb extends GeneratedDatabase {
   late final Memberships memberships = Memberships(this);
   late final Invites invites = Invites(this);
   late final Zones zones = Zones(this);
+  late final MapImports mapImports = MapImports(this);
+  late final Index idxMapImportsProperty = Index(
+    'idx_map_imports_property',
+    'CREATE INDEX idx_map_imports_property ON map_imports (property_id)',
+  );
   late final FeatureTypes featureTypes = FeatureTypes(this);
   late final Features features = Features(this);
   late final FeatureConditionLogs featureConditionLogs = FeatureConditionLogs(
@@ -32215,6 +32942,8 @@ abstract class _$FieldNotesDb extends GeneratedDatabase {
     memberships,
     invites,
     zones,
+    mapImports,
+    idxMapImportsProperty,
     featureTypes,
     features,
     featureConditionLogs,
@@ -32672,6 +33401,25 @@ final class $PropertiesReferences
     );
   }
 
+  static MultiTypedResultKey<MapImports, List<MapImport>> _mapImportsRefsTable(
+    _$FieldNotesDb db,
+  ) => MultiTypedResultKey.fromTable(
+    db.mapImports,
+    aliasName: 'properties__id__map_imports__property_id',
+  );
+
+  $MapImportsProcessedTableManager get mapImportsRefs {
+    final manager = $MapImportsTableManager(
+      $_db,
+      $_db.mapImports,
+    ).filter((f) => f.propertyId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_mapImportsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<Features, List<Feature>> _featuresRefsTable(
     _$FieldNotesDb db,
   ) => MultiTypedResultKey.fromTable(
@@ -32924,6 +33672,31 @@ class $PropertiesFilterComposer extends Composer<_$FieldNotesDb, Properties> {
           }) => $ZonesFilterComposer(
             $db: $db,
             $table: $db.zones,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> mapImportsRefs(
+    Expression<bool> Function($MapImportsFilterComposer f) f,
+  ) {
+    final $MapImportsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.mapImports,
+      getReferencedColumn: (t) => t.propertyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $MapImportsFilterComposer(
+            $db: $db,
+            $table: $db.mapImports,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -33302,6 +34075,31 @@ class $PropertiesAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> mapImportsRefs<T extends Object>(
+    Expression<T> Function($MapImportsAnnotationComposer a) f,
+  ) {
+    final $MapImportsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.mapImports,
+      getReferencedColumn: (t) => t.propertyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $MapImportsAnnotationComposer(
+            $db: $db,
+            $table: $db.mapImports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> featuresRefs<T extends Object>(
     Expression<T> Function($FeaturesAnnotationComposer a) f,
   ) {
@@ -33445,6 +34243,7 @@ class $PropertiesTableManager
             bool membershipsRefs,
             bool invitesRefs,
             bool zonesRefs,
+            bool mapImportsRefs,
             bool featuresRefs,
             bool observationsRefs,
             bool protocolsRefs,
@@ -33554,6 +34353,7 @@ class $PropertiesTableManager
                 membershipsRefs = false,
                 invitesRefs = false,
                 zonesRefs = false,
+                mapImportsRefs = false,
                 featuresRefs = false,
                 observationsRefs = false,
                 protocolsRefs = false,
@@ -33566,6 +34366,7 @@ class $PropertiesTableManager
                     if (membershipsRefs) db.memberships,
                     if (invitesRefs) db.invites,
                     if (zonesRefs) db.zones,
+                    if (mapImportsRefs) db.mapImports,
                     if (featuresRefs) db.features,
                     if (observationsRefs) db.observations,
                     if (protocolsRefs) db.protocols,
@@ -33615,6 +34416,26 @@ class $PropertiesTableManager
                               ._zonesRefsTable(db),
                           managerFromTypedResult: (p0) =>
                               $PropertiesReferences(db, table, p0).zonesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.propertyId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (mapImportsRefs)
+                        await $_getPrefetchedData<
+                          Property,
+                          Properties,
+                          MapImport
+                        >(
+                          currentTable: table,
+                          referencedTable: $PropertiesReferences
+                              ._mapImportsRefsTable(db),
+                          managerFromTypedResult: (p0) => $PropertiesReferences(
+                            db,
+                            table,
+                            p0,
+                          ).mapImportsRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.propertyId == item.id,
@@ -33742,6 +34563,7 @@ typedef $PropertiesProcessedTableManager =
         bool membershipsRefs,
         bool invitesRefs,
         bool zonesRefs,
+        bool mapImportsRefs,
         bool featuresRefs,
         bool observationsRefs,
         bool protocolsRefs,
@@ -34674,6 +35496,7 @@ typedef $ZonesCreateCompanionBuilder = ZonesCompanion Function({
   Value<double?> areaAcres,
   Value<String?> colorHex,
   Value<String?> notes,
+  Value<String?> importId,
   required String createdBy,
   required String createdAt,
   required String updatedAt,
@@ -34691,6 +35514,7 @@ typedef $ZonesUpdateCompanionBuilder = ZonesCompanion Function({
   Value<double?> areaAcres,
   Value<String?> colorHex,
   Value<String?> notes,
+  Value<String?> importId,
   Value<String> createdBy,
   Value<String> createdAt,
   Value<String> updatedAt,
@@ -34928,6 +35752,11 @@ class $ZonesFilterComposer extends Composer<_$FieldNotesDb, Zones> {
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get importId => $composableBuilder(
+    column: $table.importId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -35246,6 +36075,11 @@ class $ZonesOrderingComposer extends Composer<_$FieldNotesDb, Zones> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get importId => $composableBuilder(
+    column: $table.importId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get createdBy => $composableBuilder(
     column: $table.createdBy,
     builder: (column) => ColumnOrderings(column),
@@ -35344,6 +36178,9 @@ class $ZonesAnnotationComposer extends Composer<_$FieldNotesDb, Zones> {
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get importId =>
+      $composableBuilder(column: $table.importId, builder: (column) => column);
 
   GeneratedColumn<String> get createdBy =>
       $composableBuilder(column: $table.createdBy, builder: (column) => column);
@@ -35653,6 +36490,7 @@ class $ZonesTableManager
                 Value<double?> areaAcres = const Value.absent(),
                 Value<String?> colorHex = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> importId = const Value.absent(),
                 Value<String> createdBy = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
                 Value<String> updatedAt = const Value.absent(),
@@ -35669,6 +36507,7 @@ class $ZonesTableManager
                 areaAcres: areaAcres,
                 colorHex: colorHex,
                 notes: notes,
+                importId: importId,
                 createdBy: createdBy,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -35687,6 +36526,7 @@ class $ZonesTableManager
                 Value<double?> areaAcres = const Value.absent(),
                 Value<String?> colorHex = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> importId = const Value.absent(),
                 required String createdBy,
                 required String createdAt,
                 required String updatedAt,
@@ -35703,6 +36543,7 @@ class $ZonesTableManager
                 areaAcres: areaAcres,
                 colorHex: colorHex,
                 notes: notes,
+                importId: importId,
                 createdBy: createdBy,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -35922,6 +36763,438 @@ typedef $ZonesProcessedTableManager =
         bool practicesRefs,
         bool protocolSitesRefs,
       })
+    >;
+typedef $MapImportsCreateCompanionBuilder = MapImportsCompanion Function({
+  required String id,
+  required String propertyId,
+  required String sourceName,
+  required String sourceKind,
+  required String importedAt,
+  Value<int> zoneCount,
+  Value<int> featureCount,
+  required String createdBy,
+  required String createdAt,
+  required String updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+typedef $MapImportsUpdateCompanionBuilder = MapImportsCompanion Function({
+  Value<String> id,
+  Value<String> propertyId,
+  Value<String> sourceName,
+  Value<String> sourceKind,
+  Value<String> importedAt,
+  Value<int> zoneCount,
+  Value<int> featureCount,
+  Value<String> createdBy,
+  Value<String> createdAt,
+  Value<String> updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+
+final class $MapImportsReferences
+    extends BaseReferences<_$FieldNotesDb, MapImports, MapImport> {
+  $MapImportsReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static Properties _propertyIdTable(_$FieldNotesDb db) =>
+      db.properties.createAlias('map_imports__property_id__properties__id');
+
+  $PropertiesProcessedTableManager get propertyId {
+    final $_column = $_itemColumn<String>('property_id')!;
+
+    final manager = $PropertiesTableManager(
+      $_db,
+      $_db.properties,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_propertyIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $MapImportsFilterComposer extends Composer<_$FieldNotesDb, MapImports> {
+  $MapImportsFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceName => $composableBuilder(
+    column: $table.sourceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get importedAt => $composableBuilder(
+    column: $table.importedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get zoneCount => $composableBuilder(
+    column: $table.zoneCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get featureCount => $composableBuilder(
+    column: $table.featureCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $PropertiesFilterComposer get propertyId {
+    final $PropertiesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesFilterComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $MapImportsOrderingComposer extends Composer<_$FieldNotesDb, MapImports> {
+  $MapImportsOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceName => $composableBuilder(
+    column: $table.sourceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get importedAt => $composableBuilder(
+    column: $table.importedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get zoneCount => $composableBuilder(
+    column: $table.zoneCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get featureCount => $composableBuilder(
+    column: $table.featureCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $PropertiesOrderingComposer get propertyId {
+    final $PropertiesOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesOrderingComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $MapImportsAnnotationComposer
+    extends Composer<_$FieldNotesDb, MapImports> {
+  $MapImportsAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceName => $composableBuilder(
+    column: $table.sourceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get importedAt => $composableBuilder(
+    column: $table.importedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get zoneCount =>
+      $composableBuilder(column: $table.zoneCount, builder: (column) => column);
+
+  GeneratedColumn<int> get featureCount => $composableBuilder(
+    column: $table.featureCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $PropertiesAnnotationComposer get propertyId {
+    final $PropertiesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesAnnotationComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $MapImportsTableManager
+    extends
+        RootTableManager<
+          _$FieldNotesDb,
+          MapImports,
+          MapImport,
+          $MapImportsFilterComposer,
+          $MapImportsOrderingComposer,
+          $MapImportsAnnotationComposer,
+          $MapImportsCreateCompanionBuilder,
+          $MapImportsUpdateCompanionBuilder,
+          (MapImport, $MapImportsReferences),
+          MapImport,
+          PrefetchHooks Function({bool propertyId})
+        > {
+  $MapImportsTableManager(_$FieldNotesDb db, MapImports table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $MapImportsFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $MapImportsOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $MapImportsAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> propertyId = const Value.absent(),
+                Value<String> sourceName = const Value.absent(),
+                Value<String> sourceKind = const Value.absent(),
+                Value<String> importedAt = const Value.absent(),
+                Value<int> zoneCount = const Value.absent(),
+                Value<int> featureCount = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<String> updatedAt = const Value.absent(),
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MapImportsCompanion(
+                id: id,
+                propertyId: propertyId,
+                sourceName: sourceName,
+                sourceKind: sourceKind,
+                importedAt: importedAt,
+                zoneCount: zoneCount,
+                featureCount: featureCount,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String propertyId,
+                required String sourceName,
+                required String sourceKind,
+                required String importedAt,
+                Value<int> zoneCount = const Value.absent(),
+                Value<int> featureCount = const Value.absent(),
+                required String createdBy,
+                required String createdAt,
+                required String updatedAt,
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MapImportsCompanion.insert(
+                id: id,
+                propertyId: propertyId,
+                sourceName: sourceName,
+                sourceKind: sourceKind,
+                importedAt: importedAt,
+                zoneCount: zoneCount,
+                featureCount: featureCount,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) =>
+                    (e.readTable(table), $MapImportsReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback: ({propertyId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (propertyId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.propertyId,
+                        referencedTable: $MapImportsReferences._propertyIdTable(
+                          db,
+                        ),
+                        referencedColumn: $MapImportsReferences
+                            ._propertyIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $MapImportsProcessedTableManager =
+    ProcessedTableManager<
+      _$FieldNotesDb,
+      MapImports,
+      MapImport,
+      $MapImportsFilterComposer,
+      $MapImportsOrderingComposer,
+      $MapImportsAnnotationComposer,
+      $MapImportsCreateCompanionBuilder,
+      $MapImportsUpdateCompanionBuilder,
+      (MapImport, $MapImportsReferences),
+      MapImport,
+      PrefetchHooks Function({bool propertyId})
     >;
 typedef $FeatureTypesCreateCompanionBuilder = FeatureTypesCompanion Function({
   required String id,
@@ -57498,6 +58771,8 @@ class $FieldNotesDbManager {
       $MembershipsTableManager(_db, _db.memberships);
   $InvitesTableManager get invites => $InvitesTableManager(_db, _db.invites);
   $ZonesTableManager get zones => $ZonesTableManager(_db, _db.zones);
+  $MapImportsTableManager get mapImports =>
+      $MapImportsTableManager(_db, _db.mapImports);
   $FeatureTypesTableManager get featureTypes =>
       $FeatureTypesTableManager(_db, _db.featureTypes);
   $FeaturesTableManager get features =>

@@ -80,11 +80,30 @@ CREATE TABLE zones (
   area_acres    REAL,
   color_hex     TEXT,
   notes         TEXT,
+  -- v11: where this zone came from, so a whole import can be taken back out
+  -- again. NULL means somebody drew it here by hand.
+  import_id     TEXT,
   created_by TEXT NOT NULL, created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL, deleted_at TEXT
 );
 
 -- User-extensible registry. Seed with defaults; users add their own.
+-- v11: one row per KML/GeoJSON/GPX import, so several source maps can be
+-- kept straight and any one of them removed whole.
+CREATE TABLE map_imports (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL REFERENCES properties(id),
+  source_name   TEXT NOT NULL,       -- the file name, or the link it came from
+  source_kind   TEXT NOT NULL
+                CHECK (source_kind IN ('file','link')),
+  imported_at   TEXT NOT NULL,
+  zone_count    INTEGER NOT NULL DEFAULT 0,
+  feature_count INTEGER NOT NULL DEFAULT 0,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE INDEX idx_map_imports_property ON map_imports(property_id);
+
 CREATE TABLE feature_types (
   id            TEXT PRIMARY KEY NOT NULL,
   property_id   TEXT,                -- NULL = global seed type

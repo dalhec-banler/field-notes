@@ -5,6 +5,7 @@ import '../db/database.dart';
 import '../main.dart' show exportAndShare;
 import '../screens/backup_screen.dart';
 import '../screens/kml_import_screen.dart';
+import '../screens/map_imports_screen.dart';
 import '../screens/photo_import_screen.dart';
 import '../screens/programs_screen.dart';
 import '../screens/restore_screen.dart';
@@ -103,6 +104,14 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
             '',
             () => _push(
               KmlImportScreen(db: widget.db, property: widget.property),
+            ),
+          ),
+          _row(
+            'Imported maps',
+            'Every KML or link brought into this place — and the way to take one back out.',
+            '',
+            () => _push(
+              MapImportsScreen(db: widget.db, property: widget.property),
             ),
           ),
           _row(
