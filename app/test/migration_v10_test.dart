@@ -65,7 +65,7 @@ void main() {
       "INSERT INTO observations (id, property_id, observed_at, local_tz, lat, lng, observation_type, notes, removal_status, created_by, created_at, updated_at) VALUES ('o1','p1','2026-01-02T00:00:00Z','CST',31.06,-98.05,'plant','an old record','flagged','local','2026-01-02T00:00:00Z','2026-01-02T00:00:00Z')",
     );
     raw.execute('PRAGMA user_version = 9');
-    raw.dispose();
+    raw.close();
 
     final db = FieldNotesDb.fromFile(file);
     addTearDown(() async {

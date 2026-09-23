@@ -128,7 +128,7 @@ class PlateRecord {
 
 /// One species chosen for a species-coloured plate (Austin, 2026-09-03:
 /// "a way for X amt of species to be depicted... different colors for
-/// each species"). key matches records' label (or '__type:<type>' for
+/// each species"). key matches records' label (or `__type:<type>` for
 /// unnamed records); ink is the colour it wears on this plate.
 class PlateSpecies {
   const PlateSpecies(this.key, this.label, this.ink);

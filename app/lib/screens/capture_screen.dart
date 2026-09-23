@@ -608,6 +608,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
             svc.close();
           }
         }
+        // Identification can run long; if the capture screen has already
+        // been left by then, there is nothing to pop.
+        if (!mounted) return;
         Navigator.of(context)
             .pop(CaptureResult(obsId, DateTime.now().difference(started)));
       }

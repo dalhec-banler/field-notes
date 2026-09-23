@@ -108,7 +108,7 @@ class Exporter {
       }
       copy.execute('VACUUM');
     } finally {
-      copy.dispose();
+      copy.close();
     }
   }
 

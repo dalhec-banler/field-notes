@@ -96,7 +96,7 @@ class BackupEngine {
         ));
       }
     } finally {
-      snapshot.dispose();
+      snapshot.close();
     }
     tmpDir.deleteSync(recursive: true);
 

@@ -265,6 +265,9 @@ class _DriveBackupScreenState extends State<DriveBackupScreen> {
         }
       } on StateError catch (e) {
         if (!e.toString().contains('encrypted')) rethrow;
+        // The download that raised this was awaited; don't prompt into a
+        // screen that has gone away.
+        if (!mounted) return;
         final secret = await _askPassphrase(context);
         if (secret == null || secret.isEmpty) {
           if (mounted) setState(() => _status = null);
