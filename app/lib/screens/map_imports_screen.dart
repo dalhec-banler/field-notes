@@ -21,6 +21,29 @@ class MapImportsScreen extends StatefulWidget {
 class _MapImportsScreenState extends State<MapImportsScreen> {
   late Future<List<MapImport>> _future = _load();
 
+  final _open = <String>{};
+
+  Future<List<Zone>> _zonesOf(String importId) =>
+      (widget.db.select(widget.db.zones)
+            ..where((z) => z.importId.equals(importId) & z.deletedAt.isNull())
+            ..orderBy([(z) => OrderingTerm.asc(z.name)]))
+          .get();
+
+  Future<void> _setHidden(Zone z, bool hidden) async {
+    await (widget.db.update(widget.db.zones)..where((t) => t.id.equals(z.id)))
+        .write(ZonesCompanion(
+            hidden: Value(hidden ? 1 : 0), updatedAt: Value(nowUtcIso())));
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _setAllHidden(String importId, bool hidden) async {
+    await (widget.db.update(widget.db.zones)
+          ..where((z) => z.importId.equals(importId) & z.deletedAt.isNull()))
+        .write(ZonesCompanion(
+            hidden: Value(hidden ? 1 : 0), updatedAt: Value(nowUtcIso())));
+    if (mounted) setState(() {});
+  }
+
   Future<List<MapImport>> _load() => (widget.db.select(widget.db.mapImports)
         ..where((t) =>
             t.propertyId.equals(widget.property.id) & t.deletedAt.isNull())
@@ -75,6 +98,12 @@ class _MapImportsScreenState extends State<MapImportsScreen> {
     ));
   }
 
+  Color _swatch(String hex) {
+    final v = hex.replaceFirst('#', '');
+    final n = int.tryParse(v, radix: 16);
+    return n == null ? Press.inkSoft : Color(0xFF000000 | n);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,16 +136,106 @@ class _MapImportsScreenState extends State<MapImportsScreen> {
                 if (r.featureCount > 0)
                   '${r.featureCount} feature${r.featureCount == 1 ? '' : 's'}',
               ].join(' · ');
-              return ListTile(
-                leading: Diamond(
-                    size: 9,
-                    color: r.sourceKind == 'link' ? Press.river : Press.sage),
-                title: Text(r.sourceName, maxLines: 2, overflow: TextOverflow.ellipsis),
-                subtitle: MonoLabel(
-                    '${r.sourceKind == 'link' ? 'LINK' : 'FILE'} · ${r.importedAt.substring(0, 10)}'
-                    '${counts.isEmpty ? '' : ' · $counts'}'),
-                trailing: TextButton(
-                    onPressed: () => _remove(r), child: const Text('REMOVE')),
+              final open = _open.contains(r.id);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: Diamond(
+                        size: 9,
+                        color: r.sourceKind == 'link' ? Press.river : Press.sage),
+                    title: Text(r.sourceName,
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                    subtitle: MonoLabel(
+                        '${r.sourceKind == 'link' ? 'LINK' : 'FILE'} · ${r.importedAt.substring(0, 10)}'
+                        '${counts.isEmpty ? '' : ' · $counts'}'),
+                    onTap: () => setState(
+                        () => open ? _open.remove(r.id) : _open.add(r.id)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                            onPressed: () => _remove(r),
+                            child: const Text('REMOVE')),
+                        Icon(open ? Icons.expand_less : Icons.expand_more),
+                      ],
+                    ),
+                  ),
+                  if (open)
+                    FutureBuilder<List<Zone>>(
+                      future: _zonesOf(r.id),
+                      builder: (context, zs) {
+                        if (!zs.hasData) return const SizedBox(height: 8);
+                        final zones = zs.data!;
+                        if (zones.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.fromLTRB(56, 0, 16, 12),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text('No zones left from this import.'),
+                            ),
+                          );
+                        }
+                        final anyShown = zones.any((z) => z.hidden == 0);
+                        return Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(56, 0, 12, 4),
+                              child: Row(
+                                children: [
+                                  MonoLabel('ON THE MAP'),
+                                  const Spacer(),
+                                  TextButton(
+                                    onPressed: () =>
+                                        _setAllHidden(r.id, anyShown),
+                                    child: Text(anyShown
+                                        ? 'HIDE ALL'
+                                        : 'SHOW ALL'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            for (final z in zones)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(56, 0, 12, 0),
+                                child: Row(
+                                  children: [
+                                    if (z.colorHex != null)
+                                      Container(
+                                        width: 12,
+                                        height: 12,
+                                        margin: const EdgeInsets.only(right: 10),
+                                        color: _swatch(z.colorHex!),
+                                      ),
+                                    Expanded(
+                                      child: Text(
+                                        z.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            color: z.hidden != 0
+                                                ? Press.inkSoft
+                                                    .withValues(alpha: 0.55)
+                                                : null),
+                                      ),
+                                    ),
+                                    if (z.areaAcres != null)
+                                      MonoLabel(
+                                          '${z.areaAcres!.toStringAsFixed(1)} AC'),
+                                    Switch(
+                                      value: z.hidden == 0,
+                                      onChanged: (v) => _setHidden(z, !v),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                          ],
+                        );
+                      },
+                    ),
+                ],
               );
             },
           );

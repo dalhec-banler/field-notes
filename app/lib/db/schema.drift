@@ -83,6 +83,9 @@ CREATE TABLE zones (
   -- v11: where this zone came from, so a whole import can be taken back out
   -- again. NULL means somebody drew it here by hand.
   import_id     TEXT,
+  -- v12: drawn on the map, or not. A hidden zone is still a zone — it keeps
+  -- its records and still answers point-in-polygon; it just doesn't paint.
+  hidden        INTEGER NOT NULL DEFAULT 0,
   created_by TEXT NOT NULL, created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL, deleted_at TEXT
 );

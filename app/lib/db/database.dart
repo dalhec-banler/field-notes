@@ -40,7 +40,7 @@ class FieldNotesDb extends _$FieldNotesDb {
   }
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -273,6 +273,12 @@ class FieldNotesDb extends _$FieldNotesDb {
               'ALTER TABLE zones ADD COLUMN import_id TEXT');
           await m.createTable(mapImports);
           await m.createIndex(idxMapImportsProperty);
+        }
+
+        // v12: a zone can be turned off on the map without being deleted.
+        if (from < 12) {
+          await m.database.customStatement(
+              'ALTER TABLE zones ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0');
         }
         // v5 LAST (it inserts 'infrastructure'-typed rows, which need the
         // v4 CHECK already in place): features fold into records (Austin,

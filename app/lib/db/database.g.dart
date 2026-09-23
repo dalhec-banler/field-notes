@@ -2813,6 +2813,16 @@ class Zones extends Table with TableInfo<Zones, Zone> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _hiddenMeta = const VerificationMeta('hidden');
+  late final GeneratedColumn<int> hidden = GeneratedColumn<int>(
+    'hidden',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT 0',
+    defaultValue: const CustomExpression('0'),
+  );
   static const VerificationMeta _createdByMeta = const VerificationMeta(
     'createdBy',
   );
@@ -2870,6 +2880,7 @@ class Zones extends Table with TableInfo<Zones, Zone> {
     colorHex,
     notes,
     importId,
+    hidden,
     createdBy,
     createdAt,
     updatedAt,
@@ -2961,6 +2972,12 @@ class Zones extends Table with TableInfo<Zones, Zone> {
         importId.isAcceptableOrUnknown(data['import_id']!, _importIdMeta),
       );
     }
+    if (data.containsKey('hidden')) {
+      context.handle(
+        _hiddenMeta,
+        hidden.isAcceptableOrUnknown(data['hidden']!, _hiddenMeta),
+      );
+    }
     if (data.containsKey('created_by')) {
       context.handle(
         _createdByMeta,
@@ -3044,6 +3061,10 @@ class Zones extends Table with TableInfo<Zones, Zone> {
         DriftSqlType.string,
         data['${effectivePrefix}import_id'],
       ),
+      hidden: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hidden'],
+      )!,
       createdBy: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}created_by'],
@@ -3091,6 +3112,10 @@ class Zone extends DataClass implements Insertable<Zone> {
   /// v11: where this zone came from, so a whole import can be taken back out
   /// again. NULL means somebody drew it here by hand.
   final String? importId;
+
+  /// v12: drawn on the map, or not. A hidden zone is still a zone — it keeps
+  /// its records and still answers point-in-polygon; it just doesn't paint.
+  final int hidden;
   final String createdBy;
   final String createdAt;
   final String updatedAt;
@@ -3107,6 +3132,7 @@ class Zone extends DataClass implements Insertable<Zone> {
     this.colorHex,
     this.notes,
     this.importId,
+    required this.hidden,
     required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -3140,6 +3166,7 @@ class Zone extends DataClass implements Insertable<Zone> {
     if (!nullToAbsent || importId != null) {
       map['import_id'] = Variable<String>(importId);
     }
+    map['hidden'] = Variable<int>(hidden);
     map['created_by'] = Variable<String>(createdBy);
     map['created_at'] = Variable<String>(createdAt);
     map['updated_at'] = Variable<String>(updatedAt);
@@ -3174,6 +3201,7 @@ class Zone extends DataClass implements Insertable<Zone> {
       importId: importId == null && nullToAbsent
           ? const Value.absent()
           : Value(importId),
+      hidden: Value(hidden),
       createdBy: Value(createdBy),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -3200,6 +3228,7 @@ class Zone extends DataClass implements Insertable<Zone> {
       colorHex: serializer.fromJson<String?>(json['color_hex']),
       notes: serializer.fromJson<String?>(json['notes']),
       importId: serializer.fromJson<String?>(json['import_id']),
+      hidden: serializer.fromJson<int>(json['hidden']),
       createdBy: serializer.fromJson<String>(json['created_by']),
       createdAt: serializer.fromJson<String>(json['created_at']),
       updatedAt: serializer.fromJson<String>(json['updated_at']),
@@ -3221,6 +3250,7 @@ class Zone extends DataClass implements Insertable<Zone> {
       'color_hex': serializer.toJson<String?>(colorHex),
       'notes': serializer.toJson<String?>(notes),
       'import_id': serializer.toJson<String?>(importId),
+      'hidden': serializer.toJson<int>(hidden),
       'created_by': serializer.toJson<String>(createdBy),
       'created_at': serializer.toJson<String>(createdAt),
       'updated_at': serializer.toJson<String>(updatedAt),
@@ -3240,6 +3270,7 @@ class Zone extends DataClass implements Insertable<Zone> {
     Value<String?> colorHex = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     Value<String?> importId = const Value.absent(),
+    int? hidden,
     String? createdBy,
     String? createdAt,
     String? updatedAt,
@@ -3256,6 +3287,7 @@ class Zone extends DataClass implements Insertable<Zone> {
     colorHex: colorHex.present ? colorHex.value : this.colorHex,
     notes: notes.present ? notes.value : this.notes,
     importId: importId.present ? importId.value : this.importId,
+    hidden: hidden ?? this.hidden,
     createdBy: createdBy ?? this.createdBy,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -3278,6 +3310,7 @@ class Zone extends DataClass implements Insertable<Zone> {
       colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
       notes: data.notes.present ? data.notes.value : this.notes,
       importId: data.importId.present ? data.importId.value : this.importId,
+      hidden: data.hidden.present ? data.hidden.value : this.hidden,
       createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -3299,6 +3332,7 @@ class Zone extends DataClass implements Insertable<Zone> {
           ..write('colorHex: $colorHex, ')
           ..write('notes: $notes, ')
           ..write('importId: $importId, ')
+          ..write('hidden: $hidden, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -3320,6 +3354,7 @@ class Zone extends DataClass implements Insertable<Zone> {
     colorHex,
     notes,
     importId,
+    hidden,
     createdBy,
     createdAt,
     updatedAt,
@@ -3340,6 +3375,7 @@ class Zone extends DataClass implements Insertable<Zone> {
           other.colorHex == this.colorHex &&
           other.notes == this.notes &&
           other.importId == this.importId &&
+          other.hidden == this.hidden &&
           other.createdBy == this.createdBy &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -3358,6 +3394,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
   final Value<String?> colorHex;
   final Value<String?> notes;
   final Value<String?> importId;
+  final Value<int> hidden;
   final Value<String> createdBy;
   final Value<String> createdAt;
   final Value<String> updatedAt;
@@ -3375,6 +3412,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     this.colorHex = const Value.absent(),
     this.notes = const Value.absent(),
     this.importId = const Value.absent(),
+    this.hidden = const Value.absent(),
     this.createdBy = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -3393,6 +3431,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     this.colorHex = const Value.absent(),
     this.notes = const Value.absent(),
     this.importId = const Value.absent(),
+    this.hidden = const Value.absent(),
     required String createdBy,
     required String createdAt,
     required String updatedAt,
@@ -3417,6 +3456,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     Expression<String>? colorHex,
     Expression<String>? notes,
     Expression<String>? importId,
+    Expression<int>? hidden,
     Expression<String>? createdBy,
     Expression<String>? createdAt,
     Expression<String>? updatedAt,
@@ -3435,6 +3475,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
       if (colorHex != null) 'color_hex': colorHex,
       if (notes != null) 'notes': notes,
       if (importId != null) 'import_id': importId,
+      if (hidden != null) 'hidden': hidden,
       if (createdBy != null) 'created_by': createdBy,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -3455,6 +3496,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     Value<String?>? colorHex,
     Value<String?>? notes,
     Value<String?>? importId,
+    Value<int>? hidden,
     Value<String>? createdBy,
     Value<String>? createdAt,
     Value<String>? updatedAt,
@@ -3473,6 +3515,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
       colorHex: colorHex ?? this.colorHex,
       notes: notes ?? this.notes,
       importId: importId ?? this.importId,
+      hidden: hidden ?? this.hidden,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -3517,6 +3560,9 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
     if (importId.present) {
       map['import_id'] = Variable<String>(importId.value);
     }
+    if (hidden.present) {
+      map['hidden'] = Variable<int>(hidden.value);
+    }
     if (createdBy.present) {
       map['created_by'] = Variable<String>(createdBy.value);
     }
@@ -3549,6 +3595,7 @@ class ZonesCompanion extends UpdateCompanion<Zone> {
           ..write('colorHex: $colorHex, ')
           ..write('notes: $notes, ')
           ..write('importId: $importId, ')
+          ..write('hidden: $hidden, ')
           ..write('createdBy: $createdBy, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -35497,6 +35544,7 @@ typedef $ZonesCreateCompanionBuilder = ZonesCompanion Function({
   Value<String?> colorHex,
   Value<String?> notes,
   Value<String?> importId,
+  Value<int> hidden,
   required String createdBy,
   required String createdAt,
   required String updatedAt,
@@ -35515,6 +35563,7 @@ typedef $ZonesUpdateCompanionBuilder = ZonesCompanion Function({
   Value<String?> colorHex,
   Value<String?> notes,
   Value<String?> importId,
+  Value<int> hidden,
   Value<String> createdBy,
   Value<String> createdAt,
   Value<String> updatedAt,
@@ -35757,6 +35806,11 @@ class $ZonesFilterComposer extends Composer<_$FieldNotesDb, Zones> {
 
   ColumnFilters<String> get importId => $composableBuilder(
     column: $table.importId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hidden => $composableBuilder(
+    column: $table.hidden,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -36080,6 +36134,11 @@ class $ZonesOrderingComposer extends Composer<_$FieldNotesDb, Zones> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get hidden => $composableBuilder(
+    column: $table.hidden,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get createdBy => $composableBuilder(
     column: $table.createdBy,
     builder: (column) => ColumnOrderings(column),
@@ -36181,6 +36240,9 @@ class $ZonesAnnotationComposer extends Composer<_$FieldNotesDb, Zones> {
 
   GeneratedColumn<String> get importId =>
       $composableBuilder(column: $table.importId, builder: (column) => column);
+
+  GeneratedColumn<int> get hidden =>
+      $composableBuilder(column: $table.hidden, builder: (column) => column);
 
   GeneratedColumn<String> get createdBy =>
       $composableBuilder(column: $table.createdBy, builder: (column) => column);
@@ -36491,6 +36553,7 @@ class $ZonesTableManager
                 Value<String?> colorHex = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> importId = const Value.absent(),
+                Value<int> hidden = const Value.absent(),
                 Value<String> createdBy = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
                 Value<String> updatedAt = const Value.absent(),
@@ -36508,6 +36571,7 @@ class $ZonesTableManager
                 colorHex: colorHex,
                 notes: notes,
                 importId: importId,
+                hidden: hidden,
                 createdBy: createdBy,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -36527,6 +36591,7 @@ class $ZonesTableManager
                 Value<String?> colorHex = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> importId = const Value.absent(),
+                Value<int> hidden = const Value.absent(),
                 required String createdBy,
                 required String createdAt,
                 required String updatedAt,
@@ -36544,6 +36609,7 @@ class $ZonesTableManager
                 colorHex: colorHex,
                 notes: notes,
                 importId: importId,
+                hidden: hidden,
                 createdBy: createdBy,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

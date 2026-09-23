@@ -765,7 +765,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final zones =
         await (db.select(db.zones)
               ..where((z) => z.propertyId.equals(property.id))
-              ..where((z) => z.deletedAt.isNull()))
+              ..where((z) => z.deletedAt.isNull())
+              ..where((z) => z.hidden.equals(0)))
             .get();
     if (zones.isNotEmpty) {
       await controller.addGeoJsonSource('zones', {
