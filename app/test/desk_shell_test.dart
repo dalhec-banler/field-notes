@@ -334,6 +334,29 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('a record opened from the Ledger can be left again', (
+    tester,
+  ) async {
+    // The Ledger pushes the record as its own route. On the desk there is no
+    // system back gesture, so without a control on the screen the record is a
+    // dead end — which is what happened when the back chip was lost from the
+    // photo header.
+    await boot(tester);
+    await tab(tester, 'Ledger');
+    // Rows lead with the common name, same as the map's species list.
+    await tester.tap(find.text('Bur Oak').first);
+    await settle(tester, 700);
+    expect(find.byType(RecordDetailScreen), findsOneWidget);
+
+    final back = find.byIcon(Icons.arrow_back);
+    expect(back, findsWidgets, reason: 'a pushed record needs a way back');
+
+    await tester.tap(back.first);
+    await settle(tester, 600);
+    expect(find.byType(RecordDetailScreen), findsNothing);
+    await unmount(tester);
+  });
+
   testWidgets('desk map species panel opens the record', (tester) async {
     await boot(tester);
     // Two Bur Oak records group into one species row.

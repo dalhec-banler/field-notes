@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../db/database.dart';
@@ -543,6 +544,60 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     if (!widget.embedded && nav.canPop()) nav.pop();
   }
 
+
+  /// A record opened as its own route needs a way back. Pushed from the
+  /// Ledger on the desk there is no system gesture to fall back on, and this
+  /// chip used to live inside the photo header — where a layout change lost
+  /// it. It floats over the whole view now, on paper so it reads against any
+  /// photograph, and Esc does the same thing for a keyboard.
+  Widget _withBack(Widget child) {
+    if (widget.embedded) return child;
+    void back() {
+      final nav = Navigator.of(context);
+      if (nav.canPop()) nav.pop();
+    }
+
+    return Shortcuts(
+      shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+      },
+      child: Actions(
+        actions: {
+          DismissIntent: CallbackAction<DismissIntent>(
+            onInvoke: (_) {
+              back();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Stack(
+            children: [
+              Positioned.fill(child: child),
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 8,
+                child: Material(
+                  color: Press.paper,
+                  shape: Border.all(color: Press.ink, width: 1.5),
+                  child: InkWell(
+                    onTap: back,
+                    child: const SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: Icon(Icons.arrow_back, size: 24),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final obs = _obs;
@@ -576,7 +631,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               '${parsed.minute.toString().padLeft(2, '0')}';
 
     return Scaffold(
-      body: ListView(
+      body: _withBack(
+        ListView(
         padding: EdgeInsets.zero,
         children: [
           // 1. Photographs. Sized to the picture's own shape inside the
@@ -1167,6 +1223,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
