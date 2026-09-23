@@ -23,7 +23,7 @@ class _MapImportsScreenState extends State<MapImportsScreen> {
 
   final _open = <String>{};
 
-  Future<List<Zone>> _zonesOf(String importId) =>
+  Future<List<Zone>> _zonesFromImport(String importId) =>
       (widget.db.select(widget.db.zones)
             ..where((z) => z.importId.equals(importId) & z.deletedAt.isNull())
             ..orderBy([(z) => OrderingTerm.asc(z.name)]))
@@ -163,7 +163,7 @@ class _MapImportsScreenState extends State<MapImportsScreen> {
                   ),
                   if (open)
                     FutureBuilder<List<Zone>>(
-                      future: _zonesOf(r.id),
+                      future: _zonesFromImport(r.id),
                       builder: (context, zs) {
                         if (!zs.hasData) return const SizedBox(height: 8);
                         final zones = zs.data!;

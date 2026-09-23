@@ -742,3 +742,48 @@ and 3DEP per-property downloads are the baseline the map already uses.
   naming only the quarter-quad and county. Texas first; other states'
   parcel sources (FL, OH, NC, MT verified free) join a registry as demand
   appears.
+
+### D-036 · An imported map is a thing you can take back out (v11)
+
+2026-09-22. Importing a KML used to be one-way: the placemarks became zones
+and nothing remembered where they came from. With two or three source maps in
+a place that becomes unmanageable, and a bad import has no undo.
+
+- `map_imports` registers every import — file name or link, when, and what it
+  produced. Zones carry `import_id`; a zone somebody drew by hand carries
+  null and is never touched by an import's removal.
+- Removing an import soft-deletes its zones and clears those records'
+  `zone_id`. The records stay exactly where they are; they just stop naming a
+  zone that no longer exists.
+- Zones match on **name** when re-importing, so redrawing the same map in
+  Google Earth updates the geometry in place and the zone keeps its code, its
+  type and its records. Import → look → redraw → import is the loop this is
+  for.
+- The importer commits per row rather than all-or-nothing. A file with two
+  stray points once took nine good polygons down with it; a bad row now
+  reports itself and the rest land.
+- It carries what it used to drop: the colour the outline was drawn in (KML
+  stores `aabbggrr`, resolved through `styleUrl` → `StyleMap` →
+  `gx:CascadingStyle`), acreage computed from the ring, and a guess at
+  `zone_type` from the name that only ever fills a blank.
+
+Link import is **My Maps only**. A Google Earth project lives in the owner's
+Drive and its share URL serves the Earth app, not KML — there is no
+unauthenticated endpoint, so Earth links are told to export the file instead.
+
+### D-037 · A zone can be turned off without being deleted (v12)
+
+2026-09-22. `zones.hidden`. Hidden is not deleted: the zone keeps its records,
+its code and its type, and **still answers point-in-polygon**, so a record
+captured inside it is still assigned to it. Only the surfaces that paint
+filter the flag — the phone map and the shared plate subject behind the desk
+map and every export.
+
+A visibility switch that quietly stopped zones catching records would be a bad
+thing to find out about weeks later, so the distinction is in the API rather
+than in whoever remembers the where-clause:
+
+    zonesOf(propertyId, {byName})  — every live zone, hidden included
+    zonesToDraw(propertyId)        — live, not hidden, in name order
+
+Consequence worth stating: a hidden zone stays off exported plates too.

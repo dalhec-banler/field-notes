@@ -780,6 +780,14 @@ Export: per-program PDF/CSV with practice completion, dated photo evidence, and 
 
 ---
 
+### 4.14b Imported maps and zone visibility (v11/v12, D-036/D-037)
+
+`map_imports` registers each KML/GeoJSON/GPX import; `zones.import_id` points
+back at it, so an import can be removed whole. `zones.hidden` takes a zone off
+the map without deleting it — it keeps its records and still answers
+point-in-polygon. Read zones through `FieldNotesDb.zonesOf` (everything live)
+or `zonesToDraw` (live and not hidden); the difference is load-bearing.
+
 ### 4.15 Monitoring protocols (v10, D-033)
 
 Three tables — `protocols`, `protocol_sites`, `protocol_runs` — and
