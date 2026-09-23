@@ -611,10 +611,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     SizedBox(width: 7),
                     MonoLabel(
                       '${obs.observationType}'
-                      '${_taxon != null && kConfidenceLabels.containsKey(obs.taxonConfidence) ? ' · ${kConfidenceLabels[obs.taxonConfidence]}' : ''}'
-                      // the zone used to ride on the photo overlay; it belongs
-                      // with the record's other facts, not on the picture
-                      '${_zone != null ? ' · ${_zone!.name}' : ''}',
+                      '${_taxon != null && kConfidenceLabels.containsKey(obs.taxonConfidence) ? ' · ${kConfidenceLabels[obs.taxonConfidence]}' : ''}',
                       size: 9,
                       spacing: 1.8,
                       color: typeColor,
