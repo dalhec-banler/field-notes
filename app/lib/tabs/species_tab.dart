@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../db/database.dart';
 import '../screens/species_detail_sheet.dart';
+import '../species/add_species_sheet.dart';
+import '../species/state_list_card.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 
@@ -186,15 +188,38 @@ class _SpeciesTabState extends State<SpeciesTab> {
               Metrics.gutter,
               8,
               Metrics.gutter,
-              8,
+              0,
             ),
-            child: MonoLabel(
-              '$_favoriteCount starred · '
-              '${_totalCount - _favoriteCount} more regional · '
-              'star = quick pick · tap a row for its history',
-              size: 9,
-              opacity: 0.7,
+            child: Row(
+              children: [
+                Expanded(
+                  child: MonoLabel(
+                    '$_favoriteCount starred · '
+                    '${_totalCount - _favoriteCount} more regional · '
+                    'star = quick pick · tap a row for its history',
+                    size: 9,
+                    opacity: 0.7,
+                  ),
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('ADD'),
+                  onPressed: () async {
+                    final added = await showAddSpeciesSheet(
+                      context,
+                      db: widget.db,
+                      property: widget.property,
+                    );
+                    if (added != null) _loadMeta();
+                  },
+                ),
+              ],
             ),
+          ),
+          StateListCard(
+            db: widget.db,
+            property: widget.property,
+            onChanged: _loadMeta,
           ),
           Expanded(
             child: StreamBuilder<Map<String, _Seen>>(

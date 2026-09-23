@@ -26,6 +26,10 @@ import '../services/observation_ops.dart' show eraseMedia;
 import '../services/review.dart';
 import 'identify_sheet.dart';
 import 'move_pin_screen.dart';
+import '../protocols/indicators.dart';
+import '../protocols/protocol_service.dart';
+import 'monitoring/run_summary_card.dart';
+import 'monitoring/site_detail_screen.dart';
 import 'photo_points/photo_point_history_screen.dart';
 import 'species_detail_sheet.dart';
 
@@ -62,6 +66,12 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   /// The station this record's photo anchors, if it became one.
   PhotoPoint? _photoPoint;
+
+  /// The monitoring run this record was made as (D-033), if it was one.
+  ProtocolRun? _run;
+  Protocol? _runProtocol;
+  ProtocolSite? _runSite;
+  List<Indicator> _runIndicators = const [];
   List<MediaData> _audio = [];
   List<(Observation, double)> _nearby = [];
   Property? _property;
@@ -182,8 +192,31 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               ..where((z) => z.propertyId.equals(obs.propertyId))
               ..where((z) => z.deletedAt.isNull()))
             .get();
+    ProtocolRun? run;
+    Protocol? runProtocol;
+    ProtocolSite? runSite;
+    var runIndicators = const <Indicator>[];
+    if (obs.observationType == 'survey') {
+      final svc = ProtocolService(db);
+      run = await svc.runForObservation(obs.id);
+      if (run != null) {
+        runProtocol = await (db.select(
+          db.protocols,
+        )..where((p) => p.id.equals(run!.protocolId))).getSingleOrNull();
+        runSite = await (db.select(
+          db.protocolSites,
+        )..where((s) => s.id.equals(run!.siteId))).getSingleOrNull();
+        if (runProtocol != null && runSite != null) {
+          runIndicators = await svc.indicatorsFor(runProtocol, runSite, run);
+        }
+      }
+    }
     if (mounted) {
       setState(() {
+        _run = run;
+        _runProtocol = runProtocol;
+        _runSite = runSite;
+        _runIndicators = runIndicators;
         _review = review;
         _obs = obs;
         _taxon = taxon;
@@ -1259,6 +1292,33 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                             ),
                           ),
                         ),
+                ),
+              ),
+            ),
+
+          // Monitoring (D-033): the run this record was made as — the
+          // method, the site, and what the answers add up to.
+          if (_run != null && _runProtocol != null && _runSite != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Metrics.gutter,
+                0,
+                Metrics.gutter,
+                12,
+              ),
+              child: RunSummaryCard(
+                protocol: _runProtocol!,
+                site: _runSite!,
+                run: _run!,
+                indicators: _runIndicators,
+                onOpenSite: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SiteDetailScreen(
+                      db: widget.db,
+                      protocol: _runProtocol!,
+                      site: _runSite!,
+                    ),
+                  ),
                 ),
               ),
             ),

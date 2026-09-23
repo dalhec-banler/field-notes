@@ -39,7 +39,7 @@ void main() {
     () async {
       final n = await seedTaxaIfEmpty(
         db,
-        csvText: File('assets/seed/taxa_seed.csv').readAsStringSync(),
+        csvText: File('assets/seed/states/TX.csv').readAsStringSync(),
       );
       expect(n, greaterThan(100));
       final laurel =

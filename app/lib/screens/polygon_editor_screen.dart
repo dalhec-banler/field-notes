@@ -8,6 +8,7 @@ import '../db/database.dart';
 import '../export/plate_subject_loader.dart' show acresOf, acresOfRing;
 import '../geo/zone_assignment.dart';
 import '../map/basemap_style.dart';
+import '../services/property_locator.dart';
 import '../theme/tokens.dart';
 import '../widgets/confirm.dart';
 import '../widgets/press.dart';
@@ -138,7 +139,16 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     if (_ring.isNotEmpty) {
       return CameraPosition(target: _ringCentre, zoom: 15.5);
     }
-    return const CameraPosition(target: LatLng(31.06, -98.05), zoom: 15);
+    // A place that has never been located: open on its centroid if it has
+    // one, else on the whole country and let the user find their ground.
+    final p = widget.property;
+    if (p.centroidLat != null && p.centroidLng != null) {
+      return CameraPosition(
+        target: LatLng(p.centroidLat!, p.centroidLng!),
+        zoom: 15,
+      );
+    }
+    return const CameraPosition(target: LatLng(39.5, -98.35), zoom: 3);
   }
 
   LatLng get _ringCentre {
@@ -390,6 +400,12 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
           acreage: Value(acres),
           updatedAt: Value(now),
         ),
+      );
+      await PropertyLocator(db).noteLocation(
+        widget.property.id,
+        centre.latitude,
+        centre.longitude,
+        setCentroid: false,
       );
     } else if (widget.zone != null) {
       await (db.update(

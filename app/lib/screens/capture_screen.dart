@@ -20,6 +20,7 @@ import '../services/voice_note.dart';
 import '../theme/tokens.dart';
 import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
+import '../services/property_locator.dart';
 import '../widgets/nativity_chip.dart';
 import '../widgets/species_field.dart';
 import 'identify_sheet.dart';
@@ -530,6 +531,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
             lat: lat,
             lng: lng,
           );
+          // The first located record on a placeless property tells the app
+          // where the place is and what state it sits in.
+          await PropertyLocator(db).noteLocation(widget.property.id, lat, lng);
         }
 
         for (var i = 0; i < savedMediaIds.length; i++) {

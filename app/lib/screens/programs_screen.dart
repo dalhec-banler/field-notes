@@ -44,7 +44,7 @@ class ProgramsScreen extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.all(32),
                 child: Text(
-                  'No programs yet.\n\nTrack EQIP, TPWD PUB, or any cost-share '
+                  'No programs yet.\n\nTrack EQIP, a state wildlife plan, or any cost-share '
                   'contract: practices, deadlines, and what you\'ve completed.',
                   textAlign: TextAlign.center,
                 ),

@@ -12,6 +12,7 @@ import 'db/database.dart';
 import 'desktop/desktop_intake_screen.dart';
 import 'desktop/desktop_shell.dart';
 import 'db/seed.dart';
+import 'species/region_library.dart';
 import 'export/exporter.dart';
 import 'services/app_prefs.dart';
 import 'services/desk.dart';
@@ -74,7 +75,7 @@ Future<void> main() async {
   }
   // First-run species library; never blocks the UI (spec: offline-first, no
   // startup gates).
-  seedTaxaIfEmpty(db);
+  RegionLibrary(db).seedForKnownStates();
   seedFeatureTypesIfEmpty(db);
   locationHub = LocationHub();
   trackRecorder = TrackRecorder(db, locationHub);

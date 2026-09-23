@@ -127,7 +127,7 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
           ),
           _row(
             'Programs',
-            'EQIP · TPWD · cost-share practices and deadlines.',
+            'EQIP · state wildlife plans · cost-share practices and deadlines.',
             '',
             () =>
                 _push(ProgramsScreen(db: widget.db, property: widget.property)),

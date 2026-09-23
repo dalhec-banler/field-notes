@@ -353,7 +353,7 @@ class _SettingsTabState extends State<SettingsTab> {
             ),
             (
               'Programs',
-              'EQIP · TPWD · cost-share practices and deadlines',
+              'EQIP · state wildlife plans · cost-share practices and deadlines',
               '',
               () => Navigator.of(context).push(
                 MaterialPageRoute(

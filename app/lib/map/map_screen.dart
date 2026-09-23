@@ -350,7 +350,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     // Nothing known yet — no fix, no boundary, no records. Sit at a wide
     // view and let the first fix bring us somewhere real.
     _openedOnFix = false;
-    return const CameraPosition(target: LatLng(31.0, -98.0), zoom: 5);
+    return const CameraPosition(target: LatLng(39.5, -98.35), zoom: 3);
   }
 
   /// The property's own centre, or — for a place that has never had a

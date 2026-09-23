@@ -640,3 +640,105 @@ upgrade serves them to existing libraries in both directions — a row
 filed under an old name learns the current one and the rest. The seed
 row for mountain laurel moves to its current name; Austin's library was
 merged by hand the same day.
+
+### D-033 · Monitoring is a saved spot and the same questions
+
+2026-09-15. Austin, after UT Austin's Field Sampling Methods course and
+the Hornsby Bend / USGS / TxGIO internship list: "make sure to get all
+the field sampling stuff done … I don't want the app to feel too overly
+academic for the lay person, but it should definitely be able to extend
+to academics if the user desires." COMPETITIVE-2026-08-31 §5 named the
+gap: photo points return you to a place, but nothing returns you to a
+place with a form. TPWD's own guidelines list "Vegetation Surveys" under
+Habitat Control and want census results "recorded on appropriate forms
+as evidence"; NRCS 528 and 314 want a monitoring record with named
+indicators, timing and frequency. The methods behind those asks are old
+and few: cover-class frames, stem counts in a fixed circle, a cover pole,
+a ten-minute bird count, line-point intercept, an erosion look, a
+spotlight route. Full design: docs/PROTOCOLS-DESIGN.md.
+
+Schema v10, an approved §4 addition: `protocols` (the questions in
+`fields_json`, a lay `name` and an academic `method_name` in fine print,
+`cadence_days`), `protocol_sites` (the fixed place — point, line with
+bearing and length, plot with radius, or a route — with `next_due_on`
+rolled forward like photo points), and `protocol_runs` (one visit,
+`values_json`). Every run is also an `observations` row
+(`observation_type` gains 'survey'), the record it was made as — the
+D-029 pattern — so the ledger, map, photos, review, export and sync carry
+it with no new plumbing. A site may make its stake a photo point. Percent
+cover, stems per acre, mean pole reading and richness are derived from
+the answers on read and at export, never stored, as survival is.
+
+Seven templates ship per property, copied in on first open so edits are
+the user's own. Four are starters — Cover check, Brush count, Cover pole,
+Ten-minute listen — and three sit behind "More methods…" — Pin walk, Soil
+surface look, Spotlight drive. The lay name leads on every surface; the
+academic name and class codes are fine print. Planting survival stays in
+Grow › Plantings (D-018); cameras and recorders stay in deployments.
+
+- Grow gets a fourth sub-tab, Monitoring: a due list, the sites, the
+  method cards. Sites are placed from where you stand or by moving the
+  pin on the imagery. Last time's answer sits in ghost text under each
+  question.
+- Required answers dim NEXT; they never block a save. A run cut short
+  saves as `partial`, stays due, and says so in a sentence.
+- Export gains `protocol_runs_long.csv` (one row per site × run × sample
+  × field, class and midpoint both, WGS84, ISO dates), a wide
+  `protocol_runs_wide.csv` of computed indicators, `protocol_sites.geojson`
+  and a `schema.ini`. Share-mode fuzzing applies to site coordinates.
+- Custom protocols reuse `fields_json` with the closed field-type list;
+  the service supports them, the builder UI is not built.
+- Not yet: site marks on the map, "walk me there" navigation, the
+  evidence-packet monitoring page, desk views.
+
+### D-034 · The library is for wherever the place is
+
+2026-09-15. Austin: "I have no idea what the new user flow looks like,
+and this certainly shouldn't be specific to just central Texas … anyone
+anywhere in the USA can download this and get as much pre-loading into
+it as possible that is relevant for their area." The fresh-install audit
+found the Texas seed landing at launch before the user said where they
+were, the map and boundary editor falling back to Lampasas, and
+`properties.state` never written. D-015 planned this; this builds it.
+
+The state is learned, never asked: Census state polygons are bundled
+(`assets/geo/us_states.geojson`, ~100 m precision, 235 KB) and the first
+coordinate a place gets — the phone's cached fix at ADD A PLACE, a
+boundary drawn or imported, or the first located record — resolves the
+state on the phone (`PropertyLocator`). A picker exists for a place you
+have not stood on. Species come from two sources, tagged by `created_by`
+so states sit side by side: a bundled per-state palette
+(`assets/seed/states/XX.csv`; Texas ships the Edwards Plateau list, the
+old single seed) that lands offline the moment the state is known, and
+the state's most-recorded plants from iNaturalist — about 300 native and
+60 introduced, with native/introduced flags, top forty natives starred —
+fetched only on the user's tap, with the state name as the only thing in
+the request. A species can also be added by hand (the library had no
+add button).
+
+- USDA PLANTS has no bulk per-state list and its nativity is by
+  jurisdiction (L48), not state; BONAP is copyrighted. iNaturalist's
+  terms for bundling checklist-derived lists in a paid app were not
+  verifiable, so nothing iNat-derived is bundled — it is fetched per user,
+  per state, on request. OPEN FOR AUSTIN: confirm iNat's commercial-use
+  terms before any per-state bundle is generated, or license a source.
+- Map fallback camera is the whole country; coordinate hints are a
+  format, not downtown Austin; TPWD copy reads "state wildlife plans."
+- The blind Texas seed at launch is gone; existing installs keep their
+  library (an untagged global library counts as Texas already loaded).
+
+### D-035 · Texas gets a data pack from TxGIO; nobody gets the Texas Imagery Service
+
+2026-09-15. Research in docs/GEODATA-2026-09-15.md. TxGIO's DataHub is
+CC0 with a no-login API and direct file URLs: quarter-quad NAIP and
+StratMap imagery, 50 cm lidar DEM and contours, county parcel zips,
+hydrography, Natural Regions. The Texas Imagery Service is licensed to
+governments only with no caching or redistribution: never. Esri, Mapbox
+and MapTiler tiles are never offline sources. Nationally, USGS NAIPPlus
+and 3DEP per-property downloads are the baseline the map already uses.
+
+- Plan (not built): one "Get the map pack for this place" action that
+  downloads the qquad imagery + DEM + contours and the county parcels,
+  naming only the quarter-quad and county. Texas first; other states'
+  parcel sources (FL, OH, NC, MT verified free) join a registry as demand
+  appears.

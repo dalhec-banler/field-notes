@@ -40,7 +40,7 @@ class FieldNotesDb extends _$FieldNotesDb {
   }
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -186,6 +186,82 @@ class FieldNotesDb extends _$FieldNotesDb {
             if (!'$e'.toLowerCase().contains('duplicate column')) rethrow;
           }
           await applySeedSynonyms(this);
+        }
+        if (from < 10) {
+          // v10 (D-033): monitoring protocols, and 'survey' joins the record
+          // types. SQLite can't loosen a CHECK, so observations is rebuilt
+          // the v4 way — FKs are off during migration — with every column
+          // it has grown since (removal_status, removed_on).
+          await m.database.customStatement("""
+          CREATE TABLE observations_v10 (
+            id            TEXT PRIMARY KEY NOT NULL,
+            property_id   TEXT NOT NULL REFERENCES properties(id),
+            zone_id       TEXT REFERENCES zones(id),
+            feature_id    TEXT REFERENCES features(id),
+            observed_at   TEXT NOT NULL,
+            local_tz      TEXT NOT NULL,
+            lat           REAL NOT NULL,
+            lng           REAL NOT NULL,
+            gps_accuracy_m REAL,
+            altitude_m    REAL,
+            heading_deg   REAL,
+            observation_type TEXT NOT NULL DEFAULT 'general' CHECK (observation_type IN
+                           ('general','plant','wildlife','problem','water','soil',
+                            'phenology','sign','weather','maintenance',
+                            'infrastructure','survey')),
+            taxon_id      TEXT REFERENCES taxa(id),
+            taxon_confidence TEXT CHECK (taxon_confidence IN
+                           ('certain','probable','uncertain','unidentified')),
+            count_estimate INTEGER,
+            phenology     TEXT CHECK (phenology IN
+                           ('vegetative','budding','flowering','fruiting','seeding',
+                            'senescent','dormant','dead')),
+            is_suggestion INTEGER NOT NULL DEFAULT 0,
+            accepted_at   TEXT,
+            accepted_by   TEXT,
+            notes         TEXT,
+            env_context_id TEXT REFERENCES env_contexts(id),
+            removal_status TEXT CHECK (removal_status IN ('flagged','removed')),
+            removed_on    TEXT,
+            created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL, deleted_at TEXT
+          )""");
+          await m.database.customStatement(
+            'INSERT INTO observations_v10 (id, property_id, zone_id, '
+            'feature_id, observed_at, local_tz, lat, lng, gps_accuracy_m, '
+            'altitude_m, heading_deg, observation_type, taxon_id, '
+            'taxon_confidence, count_estimate, phenology, is_suggestion, '
+            'accepted_at, accepted_by, notes, env_context_id, '
+            'removal_status, removed_on, created_by, created_at, '
+            'updated_at, deleted_at) '
+            'SELECT id, property_id, zone_id, feature_id, observed_at, '
+            'local_tz, lat, lng, gps_accuracy_m, altitude_m, heading_deg, '
+            'observation_type, taxon_id, taxon_confidence, count_estimate, '
+            'phenology, is_suggestion, accepted_at, accepted_by, notes, '
+            'env_context_id, removal_status, removed_on, created_by, '
+            'created_at, updated_at, deleted_at FROM observations',
+          );
+          await m.database.customStatement('DROP TABLE observations');
+          await m.database.customStatement(
+            'ALTER TABLE observations_v10 RENAME TO observations',
+          );
+          await m.database.customStatement(
+            'CREATE INDEX idx_obs_prop_time ON observations(property_id, observed_at DESC)',
+          );
+          await m.database.customStatement(
+            'CREATE INDEX idx_obs_bbox ON observations(property_id, lat, lng)',
+          );
+          await m.database.customStatement(
+            'CREATE INDEX idx_obs_taxon ON observations(taxon_id)',
+          );
+          await m.createTable(protocols);
+          await m.createIndex(idxProtocolsProp);
+          await m.createTable(protocolSites);
+          await m.createIndex(idxPsiteBbox);
+          await m.createIndex(idxPsiteDue);
+          await m.createTable(protocolRuns);
+          await m.createIndex(idxPrunSiteTime);
+          await m.createIndex(idxPrunObs);
         }
         // v5 LAST (it inserts 'infrastructure'-typed rows, which need the
         // v4 CHECK already in place): features fold into records (Austin,

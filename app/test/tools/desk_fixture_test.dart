@@ -33,7 +33,7 @@ void main() {
     final db = FieldNotesDb.fromFile(file);
     await seedTaxaIfEmpty(
       db,
-      csvText: File('assets/seed/taxa_seed.csv').readAsStringSync(),
+      csvText: File('assets/seed/states/TX.csv').readAsStringSync(),
     );
     await seedFeatureTypesIfEmpty(db);
     final now = nowUtcIso();

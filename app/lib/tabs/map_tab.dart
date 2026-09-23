@@ -359,7 +359,7 @@ class _MapTabState extends State<MapTab> {
             signed: true,
             decimal: true,
           ),
-          decoration: const InputDecoration(hintText: '30.2617, -97.7281'),
+          decoration: const InputDecoration(hintText: 'latitude, longitude'),
           onSubmitted: (v) => Navigator.pop(dctx, v),
         ),
         actions: [

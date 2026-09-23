@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 import '../db/database.dart';
+import '../protocols/protocol_export.dart';
 import 'survival_report.dart';
 
 /// "Take my data" export (spec §6): one folder, open formats, no vendor
@@ -149,6 +150,12 @@ class Exporter {
     );
     await table('detections');
     await table('practices');
+    // D-033: monitoring. The raw tables, then the tidy long form a grad
+    // student or an ArcGIS user actually wants (ProtocolExport).
+    await table('protocols');
+    await table('protocol_sites');
+    await table('protocol_runs');
+    await ProtocolExport(db).writeInto(propertyId, dataDir);
   }
 
   bool _hasDeletedAt(String tableName) => tableName != 'track_points';
@@ -176,6 +183,36 @@ class Exporter {
       File(p.join(geoDir.path, fileName))
           .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(fc));
     }
+
+    await collection(
+      'protocol_sites.geojson',
+      "SELECT s.*, p.name AS protocol_name, p.method_key, z.name AS zone_name "
+          "FROM protocol_sites s "
+          "JOIN protocols p ON p.id = s.protocol_id "
+          "LEFT JOIN zones z ON z.id = s.zone_id "
+          "WHERE s.property_id = '$propertyId' AND s.deleted_at IS NULL",
+      (row) => {
+        'type': 'Feature',
+        'geometry': row.data['geojson'] == null
+            ? {
+                'type': 'Point',
+                'coordinates': [row.data['lng'], row.data['lat']],
+              }
+            : jsonDecode(row.data['geojson'] as String),
+        'properties': {
+          'id': row.data['id'],
+          'name': row.data['name'],
+          'protocol': row.data['protocol_name'],
+          'method_key': row.data['method_key'],
+          'zone': row.data['zone_name'],
+          'bearing_deg': row.data['bearing_deg'],
+          'length_m': row.data['length_m'],
+          'radius_m': row.data['radius_m'],
+          'next_due_on': row.data['next_due_on'],
+          'retired_on': row.data['retired_on'],
+        },
+      },
+    );
 
     await collection(
       'observations.geojson',
@@ -397,8 +434,14 @@ Everything your field journal knows about this place, in open formats.
 
 - `database.sqlite` — the complete database. Open with any SQLite tool.
 - `data/*.csv` — per-table exports for spreadsheets.
-- `geo/*.geojson` — observations, zones, features, plantings, tracks.
-  Open in QGIS, or drag onto geojson.io.
+- `geo/*.geojson` — observations, zones, features, plantings, tracks,
+  monitoring sites. Open in QGIS, or drag onto geojson.io.
+- `data/protocol_runs_long.csv` — monitoring answers, one row per site ×
+  visit × sample × question (tidy: `filter`, `group_by`, `pivot_wider`).
+  Class answers carry both the class and its midpoint; coordinates are
+  WGS84 decimal degrees; dates are ISO 8601. `data/protocol_runs_wide.csv`
+  has one row per visit with the computed numbers (percent cover, stems
+  per acre…). `data/schema.ini` tells ArcGIS the column types.
 - `geo/property.kml` — opens in Google Earth.
 - `media/photos/YYYY/MM/` — original photos, GPS in EXIF.
 - `media/audio/YYYY/MM/` — voice notes (m4a); transcripts are in the notes.

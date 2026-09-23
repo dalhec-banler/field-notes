@@ -4,7 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'database.dart';
 import 'seed_synonyms.dart';
 
-const _seedAsset = 'assets/seed/taxa_seed.csv';
+const _seedAsset = 'assets/seed/states/TX.csv';
 
 /// Default feature-type registry (spec §4.3). (key, label, class, geometry,
 /// tracksCondition)
@@ -66,7 +66,9 @@ Future<int> seedFeatureTypesIfEmpty(FieldNotesDb db) async {
   return inserted;
 }
 
-/// Loads the bundled regional species library into `taxa` on first run.
+/// Loads the Texas palette into `taxa` — the pre-D-034 path, kept for the
+/// fixtures and tests that call it with their own CSV. Live installs seed
+/// per state through RegionLibrary once the place's state is known.
 /// Seed rows are global (property_id NULL, spec §4.4). No-op if any global
 /// taxa already exist, so user edits are never clobbered.
 Future<int> seedTaxaIfEmpty(FieldNotesDb db, {String? csvText}) async {
@@ -109,6 +111,7 @@ Future<int> seedTaxaIfEmpty(FieldNotesDb db, {String? csvText}) async {
           isFavorite: Value(field(row, 'is_favorite') == '1' ? 1 : 0),
           notes: Value(field(row, 'notes')),
           synonyms: Value(seedSynonymsFor(scientific)),
+          createdBy: const Value('seed:TX'),
           createdAt: now,
           updatedAt: now,
         ),

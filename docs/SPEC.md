@@ -780,6 +780,12 @@ Export: per-program PDF/CSV with practice completion, dated photo evidence, and 
 
 ---
 
+### 4.15 Monitoring protocols (v10, D-033)
+
+Three tables — `protocols`, `protocol_sites`, `protocol_runs` — and
+`observation_type` 'survey'. Every run is an observation. Definitions,
+field types, templates and export shape: `docs/PROTOCOLS-DESIGN.md`.
+
 ## 5. Species identification pipeline
 
 Three layers. Each is independently optional; the app is fully usable with all three off.

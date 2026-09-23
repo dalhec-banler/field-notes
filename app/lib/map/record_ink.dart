@@ -29,6 +29,7 @@ const recordMarks = <String, RecordMark>{
   'infrastructure': RecordMark(0xFF1B1813, RecordShape.square), // ink
   'maintenance': RecordMark(0xFFA8791F, RecordShape.square), // work: attention
   'problem': RecordMark(0xFF8B2E22, RecordShape.triangle), // oxblood
+  'survey': RecordMark(0xFF2F5D8A, RecordShape.square), // monitoring run (D-033)
   // Legacy rows only — 'weather' left kObservationTypes in v4.
   'weather': RecordMark(0xFF2F5D8A, RecordShape.circle),
 };

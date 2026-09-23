@@ -202,7 +202,7 @@ CREATE TABLE observations (
   observation_type TEXT NOT NULL DEFAULT 'general' CHECK (observation_type IN
                  ('general','plant','wildlife','problem','water','soil',
                   'phenology','sign','weather','maintenance',
-                  'infrastructure')),
+                  'infrastructure','survey')),
   taxon_id      TEXT REFERENCES taxa(id),
   taxon_confidence TEXT CHECK (taxon_confidence IN
                  ('certain','probable','uncertain','unidentified')),
@@ -627,3 +627,75 @@ CREATE TABLE condition_logs (
 );
 CREATE INDEX idx_condition_obs
   ON condition_logs(observation_id, observed_at DESC);
+
+-- v10 (D-033): monitoring protocols. A protocol is the questions, a site is
+-- the fixed place, a run is one visit — and every run is also an
+-- observation (observation_type 'survey'), the record it was made as, so it
+-- rides the ledger, map, export, review and sync with no new plumbing.
+-- Percent cover, stems per acre and the rest are derived from values_json
+-- on read, never stored (survival rule).
+
+CREATE TABLE protocols (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL REFERENCES properties(id),
+  method_key    TEXT NOT NULL,       -- 'cover_check','brush_count','cover_pole',
+                                     -- 'bird_listen','pin_walk','soil_surface',
+                                     -- 'spotlight_drive','custom'
+  name          TEXT NOT NULL,       -- lay name shown everywhere: 'Cover check'
+  method_name   TEXT,                -- the fine print: 'Daubenmire cover-class quadrats'
+  reference     TEXT,                -- citation / URL
+  site_kind     TEXT NOT NULL CHECK (site_kind IN ('point','line','plot','route')),
+  cadence_days  INTEGER,             -- default revisit; sites may override
+  season_hint   TEXT,                -- 'Feb–Mar, before green-up' — text, never enforced
+  fields_json   TEXT NOT NULL,       -- the questions (lib/protocols/field_defs.dart)
+  computes_json TEXT,                -- which derived indicators to show
+  is_template   INTEGER NOT NULL DEFAULT 0,  -- shipped by us
+  is_starter    INTEGER NOT NULL DEFAULT 0,  -- shown before "More methods"
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE INDEX idx_protocols_prop ON protocols(property_id, method_key);
+
+CREATE TABLE protocol_sites (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL REFERENCES properties(id),
+  protocol_id   TEXT NOT NULL REFERENCES protocols(id),
+  zone_id       TEXT REFERENCES zones(id),          -- auto point-in-polygon
+  photo_point_id TEXT REFERENCES photo_points(id),  -- the 0 m stake IS the photo point
+  name          TEXT NOT NULL,
+  lat REAL NOT NULL, lng REAL NOT NULL,             -- origin (line), centre (point/plot)
+  gps_accuracy_m REAL,
+  bearing_deg   REAL,                -- line heading from origin
+  length_m      REAL,                -- line
+  radius_m      REAL,                -- plot
+  geojson       TEXT,                -- Point | LineString | Polygon, derived on save
+  marker        TEXT CHECK (marker IN ('rebar','t_post','flag','cairn','none')),
+  cadence_days  INTEGER,             -- override protocol default
+  next_due_on   TEXT,                -- rolled forward on run save
+  retired_on    TEXT,                -- stop asking, keep history
+  notes         TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE INDEX idx_psite_bbox ON protocol_sites(property_id, lat, lng);
+CREATE INDEX idx_psite_due  ON protocol_sites(property_id, next_due_on);
+
+CREATE TABLE protocol_runs (
+  id            TEXT PRIMARY KEY NOT NULL,
+  property_id   TEXT NOT NULL REFERENCES properties(id),
+  protocol_id   TEXT NOT NULL REFERENCES protocols(id),
+  site_id       TEXT NOT NULL REFERENCES protocol_sites(id),
+  observation_id TEXT NOT NULL REFERENCES observations(id), -- the record this run was made as
+  started_at    TEXT NOT NULL,       -- ISO UTC; observed_at on the observation mirrors it
+  ended_at      TEXT,
+  local_tz      TEXT NOT NULL,
+  observer_name TEXT,                -- a named intern/guest; created_by is still the account
+  status        TEXT NOT NULL DEFAULT 'complete'
+                CHECK (status IN ('complete','partial')),
+  values_json   TEXT NOT NULL,       -- answers keyed by field key
+  track_id      TEXT REFERENCES tracks(id),         -- route protocols: the drive
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE INDEX idx_prun_site_time ON protocol_runs(site_id, started_at DESC);
+CREATE INDEX idx_prun_obs ON protocol_runs(observation_id);

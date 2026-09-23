@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../screens/monitoring/monitoring_screen.dart';
 import '../screens/photo_points/photo_points_screen.dart';
 import '../screens/plantings/plantings_screen.dart';
 import '../screens/propagation/propagation_screen.dart';
@@ -26,6 +27,7 @@ class _GrowTabState extends State<GrowTab> {
     ('The growing record', 'Plantings'),
     ('Bench to riverbank', 'Propagation'),
     ('Repeat photography', 'Photo pts'),
+    ('Same spot, same questions', 'Monitoring'),
   ];
 
   @override
@@ -38,6 +40,11 @@ class _GrowTabState extends State<GrowTab> {
         embedded: true,
       ),
       PhotoPointsScreen(
+        db: widget.db,
+        property: widget.property,
+        embedded: true,
+      ),
+      MonitoringScreen(
         db: widget.db,
         property: widget.property,
         embedded: true,

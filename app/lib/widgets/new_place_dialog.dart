@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../services/property_locator.dart';
 
 const kTenureLabels = {
   'owned': 'Owned',
@@ -82,5 +83,8 @@ Future<Property?> showNewPlaceDialog(
           updatedAt: now,
         ),
       );
+  // Standing on the place when you name it is the common case: take the
+  // phone's last cached fix if there is one. Never waits for GPS.
+  await PropertyLocator(db).noteLastKnownFix(id);
   return (db.select(db.properties)..where((p) => p.id.equals(id))).getSingle();
 }

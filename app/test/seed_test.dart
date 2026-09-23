@@ -9,7 +9,7 @@ void main() {
   late String csvText;
 
   setUpAll(() {
-    csvText = File('assets/seed/taxa_seed.csv').readAsStringSync();
+    csvText = File('assets/seed/states/TX.csv').readAsStringSync();
   });
 
   setUp(() => db = FieldNotesDb.forTesting());

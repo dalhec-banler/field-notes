@@ -8350,7 +8350,7 @@ class Observations extends Table with TableInfo<Observations, Observation> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    $customConstraints: 'NOT NULL DEFAULT \'general\' CHECK (observation_type IN (\'general\', \'plant\', \'wildlife\', \'problem\', \'water\', \'soil\', \'phenology\', \'sign\', \'weather\', \'maintenance\', \'infrastructure\'))',
+    $customConstraints: 'NOT NULL DEFAULT \'general\' CHECK (observation_type IN (\'general\', \'plant\', \'wildlife\', \'problem\', \'water\', \'soil\', \'phenology\', \'sign\', \'weather\', \'maintenance\', \'infrastructure\', \'survey\'))',
     defaultValue: const CustomExpression('\'general\''),
   );
   static const VerificationMeta _taxonIdMeta = const VerificationMeta(
@@ -28969,6 +28969,3144 @@ class ConditionLogsCompanion extends UpdateCompanion<ConditionLog> {
   }
 }
 
+class Protocols extends Table with TableInfo<Protocols, Protocol> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  Protocols(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'PRIMARY KEY NOT NULL',
+  );
+  static const VerificationMeta _propertyIdMeta = const VerificationMeta(
+    'propertyId',
+  );
+  late final GeneratedColumn<String> propertyId = GeneratedColumn<String>(
+    'property_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES properties(id)',
+  );
+  static const VerificationMeta _methodKeyMeta = const VerificationMeta(
+    'methodKey',
+  );
+  late final GeneratedColumn<String> methodKey = GeneratedColumn<String>(
+    'method_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _methodNameMeta = const VerificationMeta(
+    'methodName',
+  );
+  late final GeneratedColumn<String> methodName = GeneratedColumn<String>(
+    'method_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _referenceMeta = const VerificationMeta(
+    'reference',
+  );
+  late final GeneratedColumn<String> reference = GeneratedColumn<String>(
+    'reference',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _siteKindMeta = const VerificationMeta(
+    'siteKind',
+  );
+  late final GeneratedColumn<String> siteKind = GeneratedColumn<String>(
+    'site_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL CHECK (site_kind IN (\'point\', \'line\', \'plot\', \'route\'))',
+  );
+  static const VerificationMeta _cadenceDaysMeta = const VerificationMeta(
+    'cadenceDays',
+  );
+  late final GeneratedColumn<int> cadenceDays = GeneratedColumn<int>(
+    'cadence_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _seasonHintMeta = const VerificationMeta(
+    'seasonHint',
+  );
+  late final GeneratedColumn<String> seasonHint = GeneratedColumn<String>(
+    'season_hint',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _fieldsJsonMeta = const VerificationMeta(
+    'fieldsJson',
+  );
+  late final GeneratedColumn<String> fieldsJson = GeneratedColumn<String>(
+    'fields_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _computesJsonMeta = const VerificationMeta(
+    'computesJson',
+  );
+  late final GeneratedColumn<String> computesJson = GeneratedColumn<String>(
+    'computes_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _isTemplateMeta = const VerificationMeta(
+    'isTemplate',
+  );
+  late final GeneratedColumn<int> isTemplate = GeneratedColumn<int>(
+    'is_template',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT 0',
+    defaultValue: const CustomExpression('0'),
+  );
+  static const VerificationMeta _isStarterMeta = const VerificationMeta(
+    'isStarter',
+  );
+  late final GeneratedColumn<int> isStarter = GeneratedColumn<int>(
+    'is_starter',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT 0',
+    defaultValue: const CustomExpression('0'),
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  late final GeneratedColumn<String> updatedAt = GeneratedColumn<String>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  late final GeneratedColumn<String> deletedAt = GeneratedColumn<String>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    propertyId,
+    methodKey,
+    name,
+    methodName,
+    reference,
+    siteKind,
+    cadenceDays,
+    seasonHint,
+    fieldsJson,
+    computesJson,
+    isTemplate,
+    isStarter,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'protocols';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Protocol> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('property_id')) {
+      context.handle(
+        _propertyIdMeta,
+        propertyId.isAcceptableOrUnknown(data['property_id']!, _propertyIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_propertyIdMeta);
+    }
+    if (data.containsKey('method_key')) {
+      context.handle(
+        _methodKeyMeta,
+        methodKey.isAcceptableOrUnknown(data['method_key']!, _methodKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_methodKeyMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('method_name')) {
+      context.handle(
+        _methodNameMeta,
+        methodName.isAcceptableOrUnknown(data['method_name']!, _methodNameMeta),
+      );
+    }
+    if (data.containsKey('reference')) {
+      context.handle(
+        _referenceMeta,
+        reference.isAcceptableOrUnknown(data['reference']!, _referenceMeta),
+      );
+    }
+    if (data.containsKey('site_kind')) {
+      context.handle(
+        _siteKindMeta,
+        siteKind.isAcceptableOrUnknown(data['site_kind']!, _siteKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_siteKindMeta);
+    }
+    if (data.containsKey('cadence_days')) {
+      context.handle(
+        _cadenceDaysMeta,
+        cadenceDays.isAcceptableOrUnknown(
+          data['cadence_days']!,
+          _cadenceDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('season_hint')) {
+      context.handle(
+        _seasonHintMeta,
+        seasonHint.isAcceptableOrUnknown(data['season_hint']!, _seasonHintMeta),
+      );
+    }
+    if (data.containsKey('fields_json')) {
+      context.handle(
+        _fieldsJsonMeta,
+        fieldsJson.isAcceptableOrUnknown(data['fields_json']!, _fieldsJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldsJsonMeta);
+    }
+    if (data.containsKey('computes_json')) {
+      context.handle(
+        _computesJsonMeta,
+        computesJson.isAcceptableOrUnknown(
+          data['computes_json']!,
+          _computesJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_template')) {
+      context.handle(
+        _isTemplateMeta,
+        isTemplate.isAcceptableOrUnknown(data['is_template']!, _isTemplateMeta),
+      );
+    }
+    if (data.containsKey('is_starter')) {
+      context.handle(
+        _isStarterMeta,
+        isStarter.isAcceptableOrUnknown(data['is_starter']!, _isStarterMeta),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdByMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Protocol map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Protocol(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      propertyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}property_id'],
+      )!,
+      methodKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}method_key'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      methodName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}method_name'],
+      ),
+      reference: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reference'],
+      ),
+      siteKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}site_kind'],
+      )!,
+      cadenceDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cadence_days'],
+      ),
+      seasonHint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}season_hint'],
+      ),
+      fieldsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fields_json'],
+      )!,
+      computesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}computes_json'],
+      ),
+      isTemplate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}is_template'],
+      )!,
+      isStarter: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}is_starter'],
+      )!,
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  Protocols createAlias(String alias) {
+    return Protocols(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class Protocol extends DataClass implements Insertable<Protocol> {
+  final String id;
+  final String propertyId;
+  final String methodKey;
+
+  /// 'cover_check','brush_count','cover_pole',
+  /// 'bird_listen','pin_walk','soil_surface',
+  /// 'spotlight_drive','custom'
+  final String name;
+
+  /// lay name shown everywhere: 'Cover check'
+  final String? methodName;
+
+  /// the fine print: 'Daubenmire cover-class quadrats'
+  final String? reference;
+
+  /// citation / URL
+  final String siteKind;
+  final int? cadenceDays;
+
+  /// default revisit; sites may override
+  final String? seasonHint;
+
+  /// 'Feb–Mar, before green-up' — text, never enforced
+  final String fieldsJson;
+
+  /// the questions (lib/protocols/field_defs.dart)
+  final String? computesJson;
+
+  /// which derived indicators to show
+  final int isTemplate;
+
+  /// shipped by us
+  final int isStarter;
+
+  /// shown before "More methods"
+  final String createdBy;
+  final String createdAt;
+  final String updatedAt;
+  final String? deletedAt;
+  const Protocol({
+    required this.id,
+    required this.propertyId,
+    required this.methodKey,
+    required this.name,
+    this.methodName,
+    this.reference,
+    required this.siteKind,
+    this.cadenceDays,
+    this.seasonHint,
+    required this.fieldsJson,
+    this.computesJson,
+    required this.isTemplate,
+    required this.isStarter,
+    required this.createdBy,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['property_id'] = Variable<String>(propertyId);
+    map['method_key'] = Variable<String>(methodKey);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || methodName != null) {
+      map['method_name'] = Variable<String>(methodName);
+    }
+    if (!nullToAbsent || reference != null) {
+      map['reference'] = Variable<String>(reference);
+    }
+    map['site_kind'] = Variable<String>(siteKind);
+    if (!nullToAbsent || cadenceDays != null) {
+      map['cadence_days'] = Variable<int>(cadenceDays);
+    }
+    if (!nullToAbsent || seasonHint != null) {
+      map['season_hint'] = Variable<String>(seasonHint);
+    }
+    map['fields_json'] = Variable<String>(fieldsJson);
+    if (!nullToAbsent || computesJson != null) {
+      map['computes_json'] = Variable<String>(computesJson);
+    }
+    map['is_template'] = Variable<int>(isTemplate);
+    map['is_starter'] = Variable<int>(isStarter);
+    map['created_by'] = Variable<String>(createdBy);
+    map['created_at'] = Variable<String>(createdAt);
+    map['updated_at'] = Variable<String>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<String>(deletedAt);
+    }
+    return map;
+  }
+
+  ProtocolsCompanion toCompanion(bool nullToAbsent) {
+    return ProtocolsCompanion(
+      id: Value(id),
+      propertyId: Value(propertyId),
+      methodKey: Value(methodKey),
+      name: Value(name),
+      methodName: methodName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(methodName),
+      reference: reference == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reference),
+      siteKind: Value(siteKind),
+      cadenceDays: cadenceDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cadenceDays),
+      seasonHint: seasonHint == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seasonHint),
+      fieldsJson: Value(fieldsJson),
+      computesJson: computesJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(computesJson),
+      isTemplate: Value(isTemplate),
+      isStarter: Value(isStarter),
+      createdBy: Value(createdBy),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory Protocol.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Protocol(
+      id: serializer.fromJson<String>(json['id']),
+      propertyId: serializer.fromJson<String>(json['property_id']),
+      methodKey: serializer.fromJson<String>(json['method_key']),
+      name: serializer.fromJson<String>(json['name']),
+      methodName: serializer.fromJson<String?>(json['method_name']),
+      reference: serializer.fromJson<String?>(json['reference']),
+      siteKind: serializer.fromJson<String>(json['site_kind']),
+      cadenceDays: serializer.fromJson<int?>(json['cadence_days']),
+      seasonHint: serializer.fromJson<String?>(json['season_hint']),
+      fieldsJson: serializer.fromJson<String>(json['fields_json']),
+      computesJson: serializer.fromJson<String?>(json['computes_json']),
+      isTemplate: serializer.fromJson<int>(json['is_template']),
+      isStarter: serializer.fromJson<int>(json['is_starter']),
+      createdBy: serializer.fromJson<String>(json['created_by']),
+      createdAt: serializer.fromJson<String>(json['created_at']),
+      updatedAt: serializer.fromJson<String>(json['updated_at']),
+      deletedAt: serializer.fromJson<String?>(json['deleted_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'property_id': serializer.toJson<String>(propertyId),
+      'method_key': serializer.toJson<String>(methodKey),
+      'name': serializer.toJson<String>(name),
+      'method_name': serializer.toJson<String?>(methodName),
+      'reference': serializer.toJson<String?>(reference),
+      'site_kind': serializer.toJson<String>(siteKind),
+      'cadence_days': serializer.toJson<int?>(cadenceDays),
+      'season_hint': serializer.toJson<String?>(seasonHint),
+      'fields_json': serializer.toJson<String>(fieldsJson),
+      'computes_json': serializer.toJson<String?>(computesJson),
+      'is_template': serializer.toJson<int>(isTemplate),
+      'is_starter': serializer.toJson<int>(isStarter),
+      'created_by': serializer.toJson<String>(createdBy),
+      'created_at': serializer.toJson<String>(createdAt),
+      'updated_at': serializer.toJson<String>(updatedAt),
+      'deleted_at': serializer.toJson<String?>(deletedAt),
+    };
+  }
+
+  Protocol copyWith({
+    String? id,
+    String? propertyId,
+    String? methodKey,
+    String? name,
+    Value<String?> methodName = const Value.absent(),
+    Value<String?> reference = const Value.absent(),
+    String? siteKind,
+    Value<int?> cadenceDays = const Value.absent(),
+    Value<String?> seasonHint = const Value.absent(),
+    String? fieldsJson,
+    Value<String?> computesJson = const Value.absent(),
+    int? isTemplate,
+    int? isStarter,
+    String? createdBy,
+    String? createdAt,
+    String? updatedAt,
+    Value<String?> deletedAt = const Value.absent(),
+  }) => Protocol(
+    id: id ?? this.id,
+    propertyId: propertyId ?? this.propertyId,
+    methodKey: methodKey ?? this.methodKey,
+    name: name ?? this.name,
+    methodName: methodName.present ? methodName.value : this.methodName,
+    reference: reference.present ? reference.value : this.reference,
+    siteKind: siteKind ?? this.siteKind,
+    cadenceDays: cadenceDays.present ? cadenceDays.value : this.cadenceDays,
+    seasonHint: seasonHint.present ? seasonHint.value : this.seasonHint,
+    fieldsJson: fieldsJson ?? this.fieldsJson,
+    computesJson: computesJson.present ? computesJson.value : this.computesJson,
+    isTemplate: isTemplate ?? this.isTemplate,
+    isStarter: isStarter ?? this.isStarter,
+    createdBy: createdBy ?? this.createdBy,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  Protocol copyWithCompanion(ProtocolsCompanion data) {
+    return Protocol(
+      id: data.id.present ? data.id.value : this.id,
+      propertyId: data.propertyId.present
+          ? data.propertyId.value
+          : this.propertyId,
+      methodKey: data.methodKey.present ? data.methodKey.value : this.methodKey,
+      name: data.name.present ? data.name.value : this.name,
+      methodName: data.methodName.present
+          ? data.methodName.value
+          : this.methodName,
+      reference: data.reference.present ? data.reference.value : this.reference,
+      siteKind: data.siteKind.present ? data.siteKind.value : this.siteKind,
+      cadenceDays: data.cadenceDays.present
+          ? data.cadenceDays.value
+          : this.cadenceDays,
+      seasonHint: data.seasonHint.present
+          ? data.seasonHint.value
+          : this.seasonHint,
+      fieldsJson: data.fieldsJson.present
+          ? data.fieldsJson.value
+          : this.fieldsJson,
+      computesJson: data.computesJson.present
+          ? data.computesJson.value
+          : this.computesJson,
+      isTemplate: data.isTemplate.present
+          ? data.isTemplate.value
+          : this.isTemplate,
+      isStarter: data.isStarter.present ? data.isStarter.value : this.isStarter,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Protocol(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('methodKey: $methodKey, ')
+          ..write('name: $name, ')
+          ..write('methodName: $methodName, ')
+          ..write('reference: $reference, ')
+          ..write('siteKind: $siteKind, ')
+          ..write('cadenceDays: $cadenceDays, ')
+          ..write('seasonHint: $seasonHint, ')
+          ..write('fieldsJson: $fieldsJson, ')
+          ..write('computesJson: $computesJson, ')
+          ..write('isTemplate: $isTemplate, ')
+          ..write('isStarter: $isStarter, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    propertyId,
+    methodKey,
+    name,
+    methodName,
+    reference,
+    siteKind,
+    cadenceDays,
+    seasonHint,
+    fieldsJson,
+    computesJson,
+    isTemplate,
+    isStarter,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Protocol &&
+          other.id == this.id &&
+          other.propertyId == this.propertyId &&
+          other.methodKey == this.methodKey &&
+          other.name == this.name &&
+          other.methodName == this.methodName &&
+          other.reference == this.reference &&
+          other.siteKind == this.siteKind &&
+          other.cadenceDays == this.cadenceDays &&
+          other.seasonHint == this.seasonHint &&
+          other.fieldsJson == this.fieldsJson &&
+          other.computesJson == this.computesJson &&
+          other.isTemplate == this.isTemplate &&
+          other.isStarter == this.isStarter &&
+          other.createdBy == this.createdBy &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class ProtocolsCompanion extends UpdateCompanion<Protocol> {
+  final Value<String> id;
+  final Value<String> propertyId;
+  final Value<String> methodKey;
+  final Value<String> name;
+  final Value<String?> methodName;
+  final Value<String?> reference;
+  final Value<String> siteKind;
+  final Value<int?> cadenceDays;
+  final Value<String?> seasonHint;
+  final Value<String> fieldsJson;
+  final Value<String?> computesJson;
+  final Value<int> isTemplate;
+  final Value<int> isStarter;
+  final Value<String> createdBy;
+  final Value<String> createdAt;
+  final Value<String> updatedAt;
+  final Value<String?> deletedAt;
+  final Value<int> rowid;
+  const ProtocolsCompanion({
+    this.id = const Value.absent(),
+    this.propertyId = const Value.absent(),
+    this.methodKey = const Value.absent(),
+    this.name = const Value.absent(),
+    this.methodName = const Value.absent(),
+    this.reference = const Value.absent(),
+    this.siteKind = const Value.absent(),
+    this.cadenceDays = const Value.absent(),
+    this.seasonHint = const Value.absent(),
+    this.fieldsJson = const Value.absent(),
+    this.computesJson = const Value.absent(),
+    this.isTemplate = const Value.absent(),
+    this.isStarter = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProtocolsCompanion.insert({
+    required String id,
+    required String propertyId,
+    required String methodKey,
+    required String name,
+    this.methodName = const Value.absent(),
+    this.reference = const Value.absent(),
+    required String siteKind,
+    this.cadenceDays = const Value.absent(),
+    this.seasonHint = const Value.absent(),
+    required String fieldsJson,
+    this.computesJson = const Value.absent(),
+    this.isTemplate = const Value.absent(),
+    this.isStarter = const Value.absent(),
+    required String createdBy,
+    required String createdAt,
+    required String updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       propertyId = Value(propertyId),
+       methodKey = Value(methodKey),
+       name = Value(name),
+       siteKind = Value(siteKind),
+       fieldsJson = Value(fieldsJson),
+       createdBy = Value(createdBy),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<Protocol> custom({
+    Expression<String>? id,
+    Expression<String>? propertyId,
+    Expression<String>? methodKey,
+    Expression<String>? name,
+    Expression<String>? methodName,
+    Expression<String>? reference,
+    Expression<String>? siteKind,
+    Expression<int>? cadenceDays,
+    Expression<String>? seasonHint,
+    Expression<String>? fieldsJson,
+    Expression<String>? computesJson,
+    Expression<int>? isTemplate,
+    Expression<int>? isStarter,
+    Expression<String>? createdBy,
+    Expression<String>? createdAt,
+    Expression<String>? updatedAt,
+    Expression<String>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (propertyId != null) 'property_id': propertyId,
+      if (methodKey != null) 'method_key': methodKey,
+      if (name != null) 'name': name,
+      if (methodName != null) 'method_name': methodName,
+      if (reference != null) 'reference': reference,
+      if (siteKind != null) 'site_kind': siteKind,
+      if (cadenceDays != null) 'cadence_days': cadenceDays,
+      if (seasonHint != null) 'season_hint': seasonHint,
+      if (fieldsJson != null) 'fields_json': fieldsJson,
+      if (computesJson != null) 'computes_json': computesJson,
+      if (isTemplate != null) 'is_template': isTemplate,
+      if (isStarter != null) 'is_starter': isStarter,
+      if (createdBy != null) 'created_by': createdBy,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProtocolsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? propertyId,
+    Value<String>? methodKey,
+    Value<String>? name,
+    Value<String?>? methodName,
+    Value<String?>? reference,
+    Value<String>? siteKind,
+    Value<int?>? cadenceDays,
+    Value<String?>? seasonHint,
+    Value<String>? fieldsJson,
+    Value<String?>? computesJson,
+    Value<int>? isTemplate,
+    Value<int>? isStarter,
+    Value<String>? createdBy,
+    Value<String>? createdAt,
+    Value<String>? updatedAt,
+    Value<String?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return ProtocolsCompanion(
+      id: id ?? this.id,
+      propertyId: propertyId ?? this.propertyId,
+      methodKey: methodKey ?? this.methodKey,
+      name: name ?? this.name,
+      methodName: methodName ?? this.methodName,
+      reference: reference ?? this.reference,
+      siteKind: siteKind ?? this.siteKind,
+      cadenceDays: cadenceDays ?? this.cadenceDays,
+      seasonHint: seasonHint ?? this.seasonHint,
+      fieldsJson: fieldsJson ?? this.fieldsJson,
+      computesJson: computesJson ?? this.computesJson,
+      isTemplate: isTemplate ?? this.isTemplate,
+      isStarter: isStarter ?? this.isStarter,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (propertyId.present) {
+      map['property_id'] = Variable<String>(propertyId.value);
+    }
+    if (methodKey.present) {
+      map['method_key'] = Variable<String>(methodKey.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (methodName.present) {
+      map['method_name'] = Variable<String>(methodName.value);
+    }
+    if (reference.present) {
+      map['reference'] = Variable<String>(reference.value);
+    }
+    if (siteKind.present) {
+      map['site_kind'] = Variable<String>(siteKind.value);
+    }
+    if (cadenceDays.present) {
+      map['cadence_days'] = Variable<int>(cadenceDays.value);
+    }
+    if (seasonHint.present) {
+      map['season_hint'] = Variable<String>(seasonHint.value);
+    }
+    if (fieldsJson.present) {
+      map['fields_json'] = Variable<String>(fieldsJson.value);
+    }
+    if (computesJson.present) {
+      map['computes_json'] = Variable<String>(computesJson.value);
+    }
+    if (isTemplate.present) {
+      map['is_template'] = Variable<int>(isTemplate.value);
+    }
+    if (isStarter.present) {
+      map['is_starter'] = Variable<int>(isStarter.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<String>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<String>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProtocolsCompanion(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('methodKey: $methodKey, ')
+          ..write('name: $name, ')
+          ..write('methodName: $methodName, ')
+          ..write('reference: $reference, ')
+          ..write('siteKind: $siteKind, ')
+          ..write('cadenceDays: $cadenceDays, ')
+          ..write('seasonHint: $seasonHint, ')
+          ..write('fieldsJson: $fieldsJson, ')
+          ..write('computesJson: $computesJson, ')
+          ..write('isTemplate: $isTemplate, ')
+          ..write('isStarter: $isStarter, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class ProtocolSites extends Table with TableInfo<ProtocolSites, ProtocolSite> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  ProtocolSites(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'PRIMARY KEY NOT NULL',
+  );
+  static const VerificationMeta _propertyIdMeta = const VerificationMeta(
+    'propertyId',
+  );
+  late final GeneratedColumn<String> propertyId = GeneratedColumn<String>(
+    'property_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES properties(id)',
+  );
+  static const VerificationMeta _protocolIdMeta = const VerificationMeta(
+    'protocolId',
+  );
+  late final GeneratedColumn<String> protocolId = GeneratedColumn<String>(
+    'protocol_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES protocols(id)',
+  );
+  static const VerificationMeta _zoneIdMeta = const VerificationMeta('zoneId');
+  late final GeneratedColumn<String> zoneId = GeneratedColumn<String>(
+    'zone_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'REFERENCES zones(id)',
+  );
+  static const VerificationMeta _photoPointIdMeta = const VerificationMeta(
+    'photoPointId',
+  );
+  late final GeneratedColumn<String> photoPointId = GeneratedColumn<String>(
+    'photo_point_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'REFERENCES photo_points(id)',
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _latMeta = const VerificationMeta('lat');
+  late final GeneratedColumn<double> lat = GeneratedColumn<double>(
+    'lat',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _lngMeta = const VerificationMeta('lng');
+  late final GeneratedColumn<double> lng = GeneratedColumn<double>(
+    'lng',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _gpsAccuracyMMeta = const VerificationMeta(
+    'gpsAccuracyM',
+  );
+  late final GeneratedColumn<double> gpsAccuracyM = GeneratedColumn<double>(
+    'gps_accuracy_m',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _bearingDegMeta = const VerificationMeta(
+    'bearingDeg',
+  );
+  late final GeneratedColumn<double> bearingDeg = GeneratedColumn<double>(
+    'bearing_deg',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _lengthMMeta = const VerificationMeta(
+    'lengthM',
+  );
+  late final GeneratedColumn<double> lengthM = GeneratedColumn<double>(
+    'length_m',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _radiusMMeta = const VerificationMeta(
+    'radiusM',
+  );
+  late final GeneratedColumn<double> radiusM = GeneratedColumn<double>(
+    'radius_m',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _geojsonMeta = const VerificationMeta(
+    'geojson',
+  );
+  late final GeneratedColumn<String> geojson = GeneratedColumn<String>(
+    'geojson',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _markerMeta = const VerificationMeta('marker');
+  late final GeneratedColumn<String> marker = GeneratedColumn<String>(
+    'marker',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'CHECK (marker IN (\'rebar\', \'t_post\', \'flag\', \'cairn\', \'none\'))',
+  );
+  static const VerificationMeta _cadenceDaysMeta = const VerificationMeta(
+    'cadenceDays',
+  );
+  late final GeneratedColumn<int> cadenceDays = GeneratedColumn<int>(
+    'cadence_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _nextDueOnMeta = const VerificationMeta(
+    'nextDueOn',
+  );
+  late final GeneratedColumn<String> nextDueOn = GeneratedColumn<String>(
+    'next_due_on',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _retiredOnMeta = const VerificationMeta(
+    'retiredOn',
+  );
+  late final GeneratedColumn<String> retiredOn = GeneratedColumn<String>(
+    'retired_on',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  late final GeneratedColumn<String> updatedAt = GeneratedColumn<String>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  late final GeneratedColumn<String> deletedAt = GeneratedColumn<String>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    propertyId,
+    protocolId,
+    zoneId,
+    photoPointId,
+    name,
+    lat,
+    lng,
+    gpsAccuracyM,
+    bearingDeg,
+    lengthM,
+    radiusM,
+    geojson,
+    marker,
+    cadenceDays,
+    nextDueOn,
+    retiredOn,
+    notes,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'protocol_sites';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ProtocolSite> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('property_id')) {
+      context.handle(
+        _propertyIdMeta,
+        propertyId.isAcceptableOrUnknown(data['property_id']!, _propertyIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_propertyIdMeta);
+    }
+    if (data.containsKey('protocol_id')) {
+      context.handle(
+        _protocolIdMeta,
+        protocolId.isAcceptableOrUnknown(data['protocol_id']!, _protocolIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_protocolIdMeta);
+    }
+    if (data.containsKey('zone_id')) {
+      context.handle(
+        _zoneIdMeta,
+        zoneId.isAcceptableOrUnknown(data['zone_id']!, _zoneIdMeta),
+      );
+    }
+    if (data.containsKey('photo_point_id')) {
+      context.handle(
+        _photoPointIdMeta,
+        photoPointId.isAcceptableOrUnknown(
+          data['photo_point_id']!,
+          _photoPointIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('lat')) {
+      context.handle(
+        _latMeta,
+        lat.isAcceptableOrUnknown(data['lat']!, _latMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_latMeta);
+    }
+    if (data.containsKey('lng')) {
+      context.handle(
+        _lngMeta,
+        lng.isAcceptableOrUnknown(data['lng']!, _lngMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_lngMeta);
+    }
+    if (data.containsKey('gps_accuracy_m')) {
+      context.handle(
+        _gpsAccuracyMMeta,
+        gpsAccuracyM.isAcceptableOrUnknown(
+          data['gps_accuracy_m']!,
+          _gpsAccuracyMMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bearing_deg')) {
+      context.handle(
+        _bearingDegMeta,
+        bearingDeg.isAcceptableOrUnknown(data['bearing_deg']!, _bearingDegMeta),
+      );
+    }
+    if (data.containsKey('length_m')) {
+      context.handle(
+        _lengthMMeta,
+        lengthM.isAcceptableOrUnknown(data['length_m']!, _lengthMMeta),
+      );
+    }
+    if (data.containsKey('radius_m')) {
+      context.handle(
+        _radiusMMeta,
+        radiusM.isAcceptableOrUnknown(data['radius_m']!, _radiusMMeta),
+      );
+    }
+    if (data.containsKey('geojson')) {
+      context.handle(
+        _geojsonMeta,
+        geojson.isAcceptableOrUnknown(data['geojson']!, _geojsonMeta),
+      );
+    }
+    if (data.containsKey('marker')) {
+      context.handle(
+        _markerMeta,
+        marker.isAcceptableOrUnknown(data['marker']!, _markerMeta),
+      );
+    }
+    if (data.containsKey('cadence_days')) {
+      context.handle(
+        _cadenceDaysMeta,
+        cadenceDays.isAcceptableOrUnknown(
+          data['cadence_days']!,
+          _cadenceDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_due_on')) {
+      context.handle(
+        _nextDueOnMeta,
+        nextDueOn.isAcceptableOrUnknown(data['next_due_on']!, _nextDueOnMeta),
+      );
+    }
+    if (data.containsKey('retired_on')) {
+      context.handle(
+        _retiredOnMeta,
+        retiredOn.isAcceptableOrUnknown(data['retired_on']!, _retiredOnMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdByMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ProtocolSite map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ProtocolSite(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      propertyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}property_id'],
+      )!,
+      protocolId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}protocol_id'],
+      )!,
+      zoneId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}zone_id'],
+      ),
+      photoPointId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_point_id'],
+      ),
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      lat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lat'],
+      )!,
+      lng: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lng'],
+      )!,
+      gpsAccuracyM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}gps_accuracy_m'],
+      ),
+      bearingDeg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}bearing_deg'],
+      ),
+      lengthM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}length_m'],
+      ),
+      radiusM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}radius_m'],
+      ),
+      geojson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}geojson'],
+      ),
+      marker: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}marker'],
+      ),
+      cadenceDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cadence_days'],
+      ),
+      nextDueOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_due_on'],
+      ),
+      retiredOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}retired_on'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  ProtocolSites createAlias(String alias) {
+    return ProtocolSites(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class ProtocolSite extends DataClass implements Insertable<ProtocolSite> {
+  final String id;
+  final String propertyId;
+  final String protocolId;
+  final String? zoneId;
+
+  /// auto point-in-polygon
+  final String? photoPointId;
+
+  /// the 0 m stake IS the photo point
+  final String name;
+  final double lat;
+  final double lng;
+
+  /// origin (line), centre (point/plot)
+  final double? gpsAccuracyM;
+  final double? bearingDeg;
+
+  /// line heading from origin
+  final double? lengthM;
+
+  /// line
+  final double? radiusM;
+
+  /// plot
+  final String? geojson;
+
+  /// Point | LineString | Polygon, derived on save
+  final String? marker;
+  final int? cadenceDays;
+
+  /// override protocol default
+  final String? nextDueOn;
+
+  /// rolled forward on run save
+  final String? retiredOn;
+
+  /// stop asking, keep history
+  final String? notes;
+  final String createdBy;
+  final String createdAt;
+  final String updatedAt;
+  final String? deletedAt;
+  const ProtocolSite({
+    required this.id,
+    required this.propertyId,
+    required this.protocolId,
+    this.zoneId,
+    this.photoPointId,
+    required this.name,
+    required this.lat,
+    required this.lng,
+    this.gpsAccuracyM,
+    this.bearingDeg,
+    this.lengthM,
+    this.radiusM,
+    this.geojson,
+    this.marker,
+    this.cadenceDays,
+    this.nextDueOn,
+    this.retiredOn,
+    this.notes,
+    required this.createdBy,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['property_id'] = Variable<String>(propertyId);
+    map['protocol_id'] = Variable<String>(protocolId);
+    if (!nullToAbsent || zoneId != null) {
+      map['zone_id'] = Variable<String>(zoneId);
+    }
+    if (!nullToAbsent || photoPointId != null) {
+      map['photo_point_id'] = Variable<String>(photoPointId);
+    }
+    map['name'] = Variable<String>(name);
+    map['lat'] = Variable<double>(lat);
+    map['lng'] = Variable<double>(lng);
+    if (!nullToAbsent || gpsAccuracyM != null) {
+      map['gps_accuracy_m'] = Variable<double>(gpsAccuracyM);
+    }
+    if (!nullToAbsent || bearingDeg != null) {
+      map['bearing_deg'] = Variable<double>(bearingDeg);
+    }
+    if (!nullToAbsent || lengthM != null) {
+      map['length_m'] = Variable<double>(lengthM);
+    }
+    if (!nullToAbsent || radiusM != null) {
+      map['radius_m'] = Variable<double>(radiusM);
+    }
+    if (!nullToAbsent || geojson != null) {
+      map['geojson'] = Variable<String>(geojson);
+    }
+    if (!nullToAbsent || marker != null) {
+      map['marker'] = Variable<String>(marker);
+    }
+    if (!nullToAbsent || cadenceDays != null) {
+      map['cadence_days'] = Variable<int>(cadenceDays);
+    }
+    if (!nullToAbsent || nextDueOn != null) {
+      map['next_due_on'] = Variable<String>(nextDueOn);
+    }
+    if (!nullToAbsent || retiredOn != null) {
+      map['retired_on'] = Variable<String>(retiredOn);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_by'] = Variable<String>(createdBy);
+    map['created_at'] = Variable<String>(createdAt);
+    map['updated_at'] = Variable<String>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<String>(deletedAt);
+    }
+    return map;
+  }
+
+  ProtocolSitesCompanion toCompanion(bool nullToAbsent) {
+    return ProtocolSitesCompanion(
+      id: Value(id),
+      propertyId: Value(propertyId),
+      protocolId: Value(protocolId),
+      zoneId: zoneId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(zoneId),
+      photoPointId: photoPointId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoPointId),
+      name: Value(name),
+      lat: Value(lat),
+      lng: Value(lng),
+      gpsAccuracyM: gpsAccuracyM == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gpsAccuracyM),
+      bearingDeg: bearingDeg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bearingDeg),
+      lengthM: lengthM == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lengthM),
+      radiusM: radiusM == null && nullToAbsent
+          ? const Value.absent()
+          : Value(radiusM),
+      geojson: geojson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(geojson),
+      marker: marker == null && nullToAbsent
+          ? const Value.absent()
+          : Value(marker),
+      cadenceDays: cadenceDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cadenceDays),
+      nextDueOn: nextDueOn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextDueOn),
+      retiredOn: retiredOn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(retiredOn),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdBy: Value(createdBy),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory ProtocolSite.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ProtocolSite(
+      id: serializer.fromJson<String>(json['id']),
+      propertyId: serializer.fromJson<String>(json['property_id']),
+      protocolId: serializer.fromJson<String>(json['protocol_id']),
+      zoneId: serializer.fromJson<String?>(json['zone_id']),
+      photoPointId: serializer.fromJson<String?>(json['photo_point_id']),
+      name: serializer.fromJson<String>(json['name']),
+      lat: serializer.fromJson<double>(json['lat']),
+      lng: serializer.fromJson<double>(json['lng']),
+      gpsAccuracyM: serializer.fromJson<double?>(json['gps_accuracy_m']),
+      bearingDeg: serializer.fromJson<double?>(json['bearing_deg']),
+      lengthM: serializer.fromJson<double?>(json['length_m']),
+      radiusM: serializer.fromJson<double?>(json['radius_m']),
+      geojson: serializer.fromJson<String?>(json['geojson']),
+      marker: serializer.fromJson<String?>(json['marker']),
+      cadenceDays: serializer.fromJson<int?>(json['cadence_days']),
+      nextDueOn: serializer.fromJson<String?>(json['next_due_on']),
+      retiredOn: serializer.fromJson<String?>(json['retired_on']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdBy: serializer.fromJson<String>(json['created_by']),
+      createdAt: serializer.fromJson<String>(json['created_at']),
+      updatedAt: serializer.fromJson<String>(json['updated_at']),
+      deletedAt: serializer.fromJson<String?>(json['deleted_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'property_id': serializer.toJson<String>(propertyId),
+      'protocol_id': serializer.toJson<String>(protocolId),
+      'zone_id': serializer.toJson<String?>(zoneId),
+      'photo_point_id': serializer.toJson<String?>(photoPointId),
+      'name': serializer.toJson<String>(name),
+      'lat': serializer.toJson<double>(lat),
+      'lng': serializer.toJson<double>(lng),
+      'gps_accuracy_m': serializer.toJson<double?>(gpsAccuracyM),
+      'bearing_deg': serializer.toJson<double?>(bearingDeg),
+      'length_m': serializer.toJson<double?>(lengthM),
+      'radius_m': serializer.toJson<double?>(radiusM),
+      'geojson': serializer.toJson<String?>(geojson),
+      'marker': serializer.toJson<String?>(marker),
+      'cadence_days': serializer.toJson<int?>(cadenceDays),
+      'next_due_on': serializer.toJson<String?>(nextDueOn),
+      'retired_on': serializer.toJson<String?>(retiredOn),
+      'notes': serializer.toJson<String?>(notes),
+      'created_by': serializer.toJson<String>(createdBy),
+      'created_at': serializer.toJson<String>(createdAt),
+      'updated_at': serializer.toJson<String>(updatedAt),
+      'deleted_at': serializer.toJson<String?>(deletedAt),
+    };
+  }
+
+  ProtocolSite copyWith({
+    String? id,
+    String? propertyId,
+    String? protocolId,
+    Value<String?> zoneId = const Value.absent(),
+    Value<String?> photoPointId = const Value.absent(),
+    String? name,
+    double? lat,
+    double? lng,
+    Value<double?> gpsAccuracyM = const Value.absent(),
+    Value<double?> bearingDeg = const Value.absent(),
+    Value<double?> lengthM = const Value.absent(),
+    Value<double?> radiusM = const Value.absent(),
+    Value<String?> geojson = const Value.absent(),
+    Value<String?> marker = const Value.absent(),
+    Value<int?> cadenceDays = const Value.absent(),
+    Value<String?> nextDueOn = const Value.absent(),
+    Value<String?> retiredOn = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    String? createdBy,
+    String? createdAt,
+    String? updatedAt,
+    Value<String?> deletedAt = const Value.absent(),
+  }) => ProtocolSite(
+    id: id ?? this.id,
+    propertyId: propertyId ?? this.propertyId,
+    protocolId: protocolId ?? this.protocolId,
+    zoneId: zoneId.present ? zoneId.value : this.zoneId,
+    photoPointId: photoPointId.present ? photoPointId.value : this.photoPointId,
+    name: name ?? this.name,
+    lat: lat ?? this.lat,
+    lng: lng ?? this.lng,
+    gpsAccuracyM: gpsAccuracyM.present ? gpsAccuracyM.value : this.gpsAccuracyM,
+    bearingDeg: bearingDeg.present ? bearingDeg.value : this.bearingDeg,
+    lengthM: lengthM.present ? lengthM.value : this.lengthM,
+    radiusM: radiusM.present ? radiusM.value : this.radiusM,
+    geojson: geojson.present ? geojson.value : this.geojson,
+    marker: marker.present ? marker.value : this.marker,
+    cadenceDays: cadenceDays.present ? cadenceDays.value : this.cadenceDays,
+    nextDueOn: nextDueOn.present ? nextDueOn.value : this.nextDueOn,
+    retiredOn: retiredOn.present ? retiredOn.value : this.retiredOn,
+    notes: notes.present ? notes.value : this.notes,
+    createdBy: createdBy ?? this.createdBy,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  ProtocolSite copyWithCompanion(ProtocolSitesCompanion data) {
+    return ProtocolSite(
+      id: data.id.present ? data.id.value : this.id,
+      propertyId: data.propertyId.present
+          ? data.propertyId.value
+          : this.propertyId,
+      protocolId: data.protocolId.present
+          ? data.protocolId.value
+          : this.protocolId,
+      zoneId: data.zoneId.present ? data.zoneId.value : this.zoneId,
+      photoPointId: data.photoPointId.present
+          ? data.photoPointId.value
+          : this.photoPointId,
+      name: data.name.present ? data.name.value : this.name,
+      lat: data.lat.present ? data.lat.value : this.lat,
+      lng: data.lng.present ? data.lng.value : this.lng,
+      gpsAccuracyM: data.gpsAccuracyM.present
+          ? data.gpsAccuracyM.value
+          : this.gpsAccuracyM,
+      bearingDeg: data.bearingDeg.present
+          ? data.bearingDeg.value
+          : this.bearingDeg,
+      lengthM: data.lengthM.present ? data.lengthM.value : this.lengthM,
+      radiusM: data.radiusM.present ? data.radiusM.value : this.radiusM,
+      geojson: data.geojson.present ? data.geojson.value : this.geojson,
+      marker: data.marker.present ? data.marker.value : this.marker,
+      cadenceDays: data.cadenceDays.present
+          ? data.cadenceDays.value
+          : this.cadenceDays,
+      nextDueOn: data.nextDueOn.present ? data.nextDueOn.value : this.nextDueOn,
+      retiredOn: data.retiredOn.present ? data.retiredOn.value : this.retiredOn,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProtocolSite(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('protocolId: $protocolId, ')
+          ..write('zoneId: $zoneId, ')
+          ..write('photoPointId: $photoPointId, ')
+          ..write('name: $name, ')
+          ..write('lat: $lat, ')
+          ..write('lng: $lng, ')
+          ..write('gpsAccuracyM: $gpsAccuracyM, ')
+          ..write('bearingDeg: $bearingDeg, ')
+          ..write('lengthM: $lengthM, ')
+          ..write('radiusM: $radiusM, ')
+          ..write('geojson: $geojson, ')
+          ..write('marker: $marker, ')
+          ..write('cadenceDays: $cadenceDays, ')
+          ..write('nextDueOn: $nextDueOn, ')
+          ..write('retiredOn: $retiredOn, ')
+          ..write('notes: $notes, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    propertyId,
+    protocolId,
+    zoneId,
+    photoPointId,
+    name,
+    lat,
+    lng,
+    gpsAccuracyM,
+    bearingDeg,
+    lengthM,
+    radiusM,
+    geojson,
+    marker,
+    cadenceDays,
+    nextDueOn,
+    retiredOn,
+    notes,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ProtocolSite &&
+          other.id == this.id &&
+          other.propertyId == this.propertyId &&
+          other.protocolId == this.protocolId &&
+          other.zoneId == this.zoneId &&
+          other.photoPointId == this.photoPointId &&
+          other.name == this.name &&
+          other.lat == this.lat &&
+          other.lng == this.lng &&
+          other.gpsAccuracyM == this.gpsAccuracyM &&
+          other.bearingDeg == this.bearingDeg &&
+          other.lengthM == this.lengthM &&
+          other.radiusM == this.radiusM &&
+          other.geojson == this.geojson &&
+          other.marker == this.marker &&
+          other.cadenceDays == this.cadenceDays &&
+          other.nextDueOn == this.nextDueOn &&
+          other.retiredOn == this.retiredOn &&
+          other.notes == this.notes &&
+          other.createdBy == this.createdBy &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class ProtocolSitesCompanion extends UpdateCompanion<ProtocolSite> {
+  final Value<String> id;
+  final Value<String> propertyId;
+  final Value<String> protocolId;
+  final Value<String?> zoneId;
+  final Value<String?> photoPointId;
+  final Value<String> name;
+  final Value<double> lat;
+  final Value<double> lng;
+  final Value<double?> gpsAccuracyM;
+  final Value<double?> bearingDeg;
+  final Value<double?> lengthM;
+  final Value<double?> radiusM;
+  final Value<String?> geojson;
+  final Value<String?> marker;
+  final Value<int?> cadenceDays;
+  final Value<String?> nextDueOn;
+  final Value<String?> retiredOn;
+  final Value<String?> notes;
+  final Value<String> createdBy;
+  final Value<String> createdAt;
+  final Value<String> updatedAt;
+  final Value<String?> deletedAt;
+  final Value<int> rowid;
+  const ProtocolSitesCompanion({
+    this.id = const Value.absent(),
+    this.propertyId = const Value.absent(),
+    this.protocolId = const Value.absent(),
+    this.zoneId = const Value.absent(),
+    this.photoPointId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.lat = const Value.absent(),
+    this.lng = const Value.absent(),
+    this.gpsAccuracyM = const Value.absent(),
+    this.bearingDeg = const Value.absent(),
+    this.lengthM = const Value.absent(),
+    this.radiusM = const Value.absent(),
+    this.geojson = const Value.absent(),
+    this.marker = const Value.absent(),
+    this.cadenceDays = const Value.absent(),
+    this.nextDueOn = const Value.absent(),
+    this.retiredOn = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProtocolSitesCompanion.insert({
+    required String id,
+    required String propertyId,
+    required String protocolId,
+    this.zoneId = const Value.absent(),
+    this.photoPointId = const Value.absent(),
+    required String name,
+    required double lat,
+    required double lng,
+    this.gpsAccuracyM = const Value.absent(),
+    this.bearingDeg = const Value.absent(),
+    this.lengthM = const Value.absent(),
+    this.radiusM = const Value.absent(),
+    this.geojson = const Value.absent(),
+    this.marker = const Value.absent(),
+    this.cadenceDays = const Value.absent(),
+    this.nextDueOn = const Value.absent(),
+    this.retiredOn = const Value.absent(),
+    this.notes = const Value.absent(),
+    required String createdBy,
+    required String createdAt,
+    required String updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       propertyId = Value(propertyId),
+       protocolId = Value(protocolId),
+       name = Value(name),
+       lat = Value(lat),
+       lng = Value(lng),
+       createdBy = Value(createdBy),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<ProtocolSite> custom({
+    Expression<String>? id,
+    Expression<String>? propertyId,
+    Expression<String>? protocolId,
+    Expression<String>? zoneId,
+    Expression<String>? photoPointId,
+    Expression<String>? name,
+    Expression<double>? lat,
+    Expression<double>? lng,
+    Expression<double>? gpsAccuracyM,
+    Expression<double>? bearingDeg,
+    Expression<double>? lengthM,
+    Expression<double>? radiusM,
+    Expression<String>? geojson,
+    Expression<String>? marker,
+    Expression<int>? cadenceDays,
+    Expression<String>? nextDueOn,
+    Expression<String>? retiredOn,
+    Expression<String>? notes,
+    Expression<String>? createdBy,
+    Expression<String>? createdAt,
+    Expression<String>? updatedAt,
+    Expression<String>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (propertyId != null) 'property_id': propertyId,
+      if (protocolId != null) 'protocol_id': protocolId,
+      if (zoneId != null) 'zone_id': zoneId,
+      if (photoPointId != null) 'photo_point_id': photoPointId,
+      if (name != null) 'name': name,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (gpsAccuracyM != null) 'gps_accuracy_m': gpsAccuracyM,
+      if (bearingDeg != null) 'bearing_deg': bearingDeg,
+      if (lengthM != null) 'length_m': lengthM,
+      if (radiusM != null) 'radius_m': radiusM,
+      if (geojson != null) 'geojson': geojson,
+      if (marker != null) 'marker': marker,
+      if (cadenceDays != null) 'cadence_days': cadenceDays,
+      if (nextDueOn != null) 'next_due_on': nextDueOn,
+      if (retiredOn != null) 'retired_on': retiredOn,
+      if (notes != null) 'notes': notes,
+      if (createdBy != null) 'created_by': createdBy,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProtocolSitesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? propertyId,
+    Value<String>? protocolId,
+    Value<String?>? zoneId,
+    Value<String?>? photoPointId,
+    Value<String>? name,
+    Value<double>? lat,
+    Value<double>? lng,
+    Value<double?>? gpsAccuracyM,
+    Value<double?>? bearingDeg,
+    Value<double?>? lengthM,
+    Value<double?>? radiusM,
+    Value<String?>? geojson,
+    Value<String?>? marker,
+    Value<int?>? cadenceDays,
+    Value<String?>? nextDueOn,
+    Value<String?>? retiredOn,
+    Value<String?>? notes,
+    Value<String>? createdBy,
+    Value<String>? createdAt,
+    Value<String>? updatedAt,
+    Value<String?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return ProtocolSitesCompanion(
+      id: id ?? this.id,
+      propertyId: propertyId ?? this.propertyId,
+      protocolId: protocolId ?? this.protocolId,
+      zoneId: zoneId ?? this.zoneId,
+      photoPointId: photoPointId ?? this.photoPointId,
+      name: name ?? this.name,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      gpsAccuracyM: gpsAccuracyM ?? this.gpsAccuracyM,
+      bearingDeg: bearingDeg ?? this.bearingDeg,
+      lengthM: lengthM ?? this.lengthM,
+      radiusM: radiusM ?? this.radiusM,
+      geojson: geojson ?? this.geojson,
+      marker: marker ?? this.marker,
+      cadenceDays: cadenceDays ?? this.cadenceDays,
+      nextDueOn: nextDueOn ?? this.nextDueOn,
+      retiredOn: retiredOn ?? this.retiredOn,
+      notes: notes ?? this.notes,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (propertyId.present) {
+      map['property_id'] = Variable<String>(propertyId.value);
+    }
+    if (protocolId.present) {
+      map['protocol_id'] = Variable<String>(protocolId.value);
+    }
+    if (zoneId.present) {
+      map['zone_id'] = Variable<String>(zoneId.value);
+    }
+    if (photoPointId.present) {
+      map['photo_point_id'] = Variable<String>(photoPointId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (lat.present) {
+      map['lat'] = Variable<double>(lat.value);
+    }
+    if (lng.present) {
+      map['lng'] = Variable<double>(lng.value);
+    }
+    if (gpsAccuracyM.present) {
+      map['gps_accuracy_m'] = Variable<double>(gpsAccuracyM.value);
+    }
+    if (bearingDeg.present) {
+      map['bearing_deg'] = Variable<double>(bearingDeg.value);
+    }
+    if (lengthM.present) {
+      map['length_m'] = Variable<double>(lengthM.value);
+    }
+    if (radiusM.present) {
+      map['radius_m'] = Variable<double>(radiusM.value);
+    }
+    if (geojson.present) {
+      map['geojson'] = Variable<String>(geojson.value);
+    }
+    if (marker.present) {
+      map['marker'] = Variable<String>(marker.value);
+    }
+    if (cadenceDays.present) {
+      map['cadence_days'] = Variable<int>(cadenceDays.value);
+    }
+    if (nextDueOn.present) {
+      map['next_due_on'] = Variable<String>(nextDueOn.value);
+    }
+    if (retiredOn.present) {
+      map['retired_on'] = Variable<String>(retiredOn.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<String>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<String>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProtocolSitesCompanion(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('protocolId: $protocolId, ')
+          ..write('zoneId: $zoneId, ')
+          ..write('photoPointId: $photoPointId, ')
+          ..write('name: $name, ')
+          ..write('lat: $lat, ')
+          ..write('lng: $lng, ')
+          ..write('gpsAccuracyM: $gpsAccuracyM, ')
+          ..write('bearingDeg: $bearingDeg, ')
+          ..write('lengthM: $lengthM, ')
+          ..write('radiusM: $radiusM, ')
+          ..write('geojson: $geojson, ')
+          ..write('marker: $marker, ')
+          ..write('cadenceDays: $cadenceDays, ')
+          ..write('nextDueOn: $nextDueOn, ')
+          ..write('retiredOn: $retiredOn, ')
+          ..write('notes: $notes, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class ProtocolRuns extends Table with TableInfo<ProtocolRuns, ProtocolRun> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  ProtocolRuns(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'PRIMARY KEY NOT NULL',
+  );
+  static const VerificationMeta _propertyIdMeta = const VerificationMeta(
+    'propertyId',
+  );
+  late final GeneratedColumn<String> propertyId = GeneratedColumn<String>(
+    'property_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES properties(id)',
+  );
+  static const VerificationMeta _protocolIdMeta = const VerificationMeta(
+    'protocolId',
+  );
+  late final GeneratedColumn<String> protocolId = GeneratedColumn<String>(
+    'protocol_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES protocols(id)',
+  );
+  static const VerificationMeta _siteIdMeta = const VerificationMeta('siteId');
+  late final GeneratedColumn<String> siteId = GeneratedColumn<String>(
+    'site_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES protocol_sites(id)',
+  );
+  static const VerificationMeta _observationIdMeta = const VerificationMeta(
+    'observationId',
+  );
+  late final GeneratedColumn<String> observationId = GeneratedColumn<String>(
+    'observation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES observations(id)',
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  late final GeneratedColumn<String> startedAt = GeneratedColumn<String>(
+    'started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _endedAtMeta = const VerificationMeta(
+    'endedAt',
+  );
+  late final GeneratedColumn<String> endedAt = GeneratedColumn<String>(
+    'ended_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _localTzMeta = const VerificationMeta(
+    'localTz',
+  );
+  late final GeneratedColumn<String> localTz = GeneratedColumn<String>(
+    'local_tz',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _observerNameMeta = const VerificationMeta(
+    'observerName',
+  );
+  late final GeneratedColumn<String> observerName = GeneratedColumn<String>(
+    'observer_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT \'complete\' CHECK (status IN (\'complete\', \'partial\'))',
+    defaultValue: const CustomExpression('\'complete\''),
+  );
+  static const VerificationMeta _valuesJsonMeta = const VerificationMeta(
+    'valuesJson',
+  );
+  late final GeneratedColumn<String> valuesJson = GeneratedColumn<String>(
+    'values_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _trackIdMeta = const VerificationMeta(
+    'trackId',
+  );
+  late final GeneratedColumn<String> trackId = GeneratedColumn<String>(
+    'track_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'REFERENCES tracks(id)',
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  late final GeneratedColumn<String> updatedAt = GeneratedColumn<String>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  late final GeneratedColumn<String> deletedAt = GeneratedColumn<String>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    propertyId,
+    protocolId,
+    siteId,
+    observationId,
+    startedAt,
+    endedAt,
+    localTz,
+    observerName,
+    status,
+    valuesJson,
+    trackId,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'protocol_runs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ProtocolRun> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('property_id')) {
+      context.handle(
+        _propertyIdMeta,
+        propertyId.isAcceptableOrUnknown(data['property_id']!, _propertyIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_propertyIdMeta);
+    }
+    if (data.containsKey('protocol_id')) {
+      context.handle(
+        _protocolIdMeta,
+        protocolId.isAcceptableOrUnknown(data['protocol_id']!, _protocolIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_protocolIdMeta);
+    }
+    if (data.containsKey('site_id')) {
+      context.handle(
+        _siteIdMeta,
+        siteId.isAcceptableOrUnknown(data['site_id']!, _siteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_siteIdMeta);
+    }
+    if (data.containsKey('observation_id')) {
+      context.handle(
+        _observationIdMeta,
+        observationId.isAcceptableOrUnknown(
+          data['observation_id']!,
+          _observationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_observationIdMeta);
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtMeta);
+    }
+    if (data.containsKey('ended_at')) {
+      context.handle(
+        _endedAtMeta,
+        endedAt.isAcceptableOrUnknown(data['ended_at']!, _endedAtMeta),
+      );
+    }
+    if (data.containsKey('local_tz')) {
+      context.handle(
+        _localTzMeta,
+        localTz.isAcceptableOrUnknown(data['local_tz']!, _localTzMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_localTzMeta);
+    }
+    if (data.containsKey('observer_name')) {
+      context.handle(
+        _observerNameMeta,
+        observerName.isAcceptableOrUnknown(
+          data['observer_name']!,
+          _observerNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('values_json')) {
+      context.handle(
+        _valuesJsonMeta,
+        valuesJson.isAcceptableOrUnknown(data['values_json']!, _valuesJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valuesJsonMeta);
+    }
+    if (data.containsKey('track_id')) {
+      context.handle(
+        _trackIdMeta,
+        trackId.isAcceptableOrUnknown(data['track_id']!, _trackIdMeta),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdByMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ProtocolRun map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ProtocolRun(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      propertyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}property_id'],
+      )!,
+      protocolId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}protocol_id'],
+      )!,
+      siteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}site_id'],
+      )!,
+      observationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}observation_id'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}started_at'],
+      )!,
+      endedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ended_at'],
+      ),
+      localTz: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_tz'],
+      )!,
+      observerName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}observer_name'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      valuesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}values_json'],
+      )!,
+      trackId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}track_id'],
+      ),
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  ProtocolRuns createAlias(String alias) {
+    return ProtocolRuns(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class ProtocolRun extends DataClass implements Insertable<ProtocolRun> {
+  final String id;
+  final String propertyId;
+  final String protocolId;
+  final String siteId;
+  final String observationId;
+
+  /// the record this run was made as
+  final String startedAt;
+
+  /// ISO UTC; observed_at on the observation mirrors it
+  final String? endedAt;
+  final String localTz;
+  final String? observerName;
+
+  /// a named intern/guest; created_by is still the account
+  final String status;
+  final String valuesJson;
+
+  /// answers keyed by field key
+  final String? trackId;
+
+  /// route protocols: the drive
+  final String createdBy;
+  final String createdAt;
+  final String updatedAt;
+  final String? deletedAt;
+  const ProtocolRun({
+    required this.id,
+    required this.propertyId,
+    required this.protocolId,
+    required this.siteId,
+    required this.observationId,
+    required this.startedAt,
+    this.endedAt,
+    required this.localTz,
+    this.observerName,
+    required this.status,
+    required this.valuesJson,
+    this.trackId,
+    required this.createdBy,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['property_id'] = Variable<String>(propertyId);
+    map['protocol_id'] = Variable<String>(protocolId);
+    map['site_id'] = Variable<String>(siteId);
+    map['observation_id'] = Variable<String>(observationId);
+    map['started_at'] = Variable<String>(startedAt);
+    if (!nullToAbsent || endedAt != null) {
+      map['ended_at'] = Variable<String>(endedAt);
+    }
+    map['local_tz'] = Variable<String>(localTz);
+    if (!nullToAbsent || observerName != null) {
+      map['observer_name'] = Variable<String>(observerName);
+    }
+    map['status'] = Variable<String>(status);
+    map['values_json'] = Variable<String>(valuesJson);
+    if (!nullToAbsent || trackId != null) {
+      map['track_id'] = Variable<String>(trackId);
+    }
+    map['created_by'] = Variable<String>(createdBy);
+    map['created_at'] = Variable<String>(createdAt);
+    map['updated_at'] = Variable<String>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<String>(deletedAt);
+    }
+    return map;
+  }
+
+  ProtocolRunsCompanion toCompanion(bool nullToAbsent) {
+    return ProtocolRunsCompanion(
+      id: Value(id),
+      propertyId: Value(propertyId),
+      protocolId: Value(protocolId),
+      siteId: Value(siteId),
+      observationId: Value(observationId),
+      startedAt: Value(startedAt),
+      endedAt: endedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endedAt),
+      localTz: Value(localTz),
+      observerName: observerName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(observerName),
+      status: Value(status),
+      valuesJson: Value(valuesJson),
+      trackId: trackId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trackId),
+      createdBy: Value(createdBy),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory ProtocolRun.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ProtocolRun(
+      id: serializer.fromJson<String>(json['id']),
+      propertyId: serializer.fromJson<String>(json['property_id']),
+      protocolId: serializer.fromJson<String>(json['protocol_id']),
+      siteId: serializer.fromJson<String>(json['site_id']),
+      observationId: serializer.fromJson<String>(json['observation_id']),
+      startedAt: serializer.fromJson<String>(json['started_at']),
+      endedAt: serializer.fromJson<String?>(json['ended_at']),
+      localTz: serializer.fromJson<String>(json['local_tz']),
+      observerName: serializer.fromJson<String?>(json['observer_name']),
+      status: serializer.fromJson<String>(json['status']),
+      valuesJson: serializer.fromJson<String>(json['values_json']),
+      trackId: serializer.fromJson<String?>(json['track_id']),
+      createdBy: serializer.fromJson<String>(json['created_by']),
+      createdAt: serializer.fromJson<String>(json['created_at']),
+      updatedAt: serializer.fromJson<String>(json['updated_at']),
+      deletedAt: serializer.fromJson<String?>(json['deleted_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'property_id': serializer.toJson<String>(propertyId),
+      'protocol_id': serializer.toJson<String>(protocolId),
+      'site_id': serializer.toJson<String>(siteId),
+      'observation_id': serializer.toJson<String>(observationId),
+      'started_at': serializer.toJson<String>(startedAt),
+      'ended_at': serializer.toJson<String?>(endedAt),
+      'local_tz': serializer.toJson<String>(localTz),
+      'observer_name': serializer.toJson<String?>(observerName),
+      'status': serializer.toJson<String>(status),
+      'values_json': serializer.toJson<String>(valuesJson),
+      'track_id': serializer.toJson<String?>(trackId),
+      'created_by': serializer.toJson<String>(createdBy),
+      'created_at': serializer.toJson<String>(createdAt),
+      'updated_at': serializer.toJson<String>(updatedAt),
+      'deleted_at': serializer.toJson<String?>(deletedAt),
+    };
+  }
+
+  ProtocolRun copyWith({
+    String? id,
+    String? propertyId,
+    String? protocolId,
+    String? siteId,
+    String? observationId,
+    String? startedAt,
+    Value<String?> endedAt = const Value.absent(),
+    String? localTz,
+    Value<String?> observerName = const Value.absent(),
+    String? status,
+    String? valuesJson,
+    Value<String?> trackId = const Value.absent(),
+    String? createdBy,
+    String? createdAt,
+    String? updatedAt,
+    Value<String?> deletedAt = const Value.absent(),
+  }) => ProtocolRun(
+    id: id ?? this.id,
+    propertyId: propertyId ?? this.propertyId,
+    protocolId: protocolId ?? this.protocolId,
+    siteId: siteId ?? this.siteId,
+    observationId: observationId ?? this.observationId,
+    startedAt: startedAt ?? this.startedAt,
+    endedAt: endedAt.present ? endedAt.value : this.endedAt,
+    localTz: localTz ?? this.localTz,
+    observerName: observerName.present ? observerName.value : this.observerName,
+    status: status ?? this.status,
+    valuesJson: valuesJson ?? this.valuesJson,
+    trackId: trackId.present ? trackId.value : this.trackId,
+    createdBy: createdBy ?? this.createdBy,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  ProtocolRun copyWithCompanion(ProtocolRunsCompanion data) {
+    return ProtocolRun(
+      id: data.id.present ? data.id.value : this.id,
+      propertyId: data.propertyId.present
+          ? data.propertyId.value
+          : this.propertyId,
+      protocolId: data.protocolId.present
+          ? data.protocolId.value
+          : this.protocolId,
+      siteId: data.siteId.present ? data.siteId.value : this.siteId,
+      observationId: data.observationId.present
+          ? data.observationId.value
+          : this.observationId,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      endedAt: data.endedAt.present ? data.endedAt.value : this.endedAt,
+      localTz: data.localTz.present ? data.localTz.value : this.localTz,
+      observerName: data.observerName.present
+          ? data.observerName.value
+          : this.observerName,
+      status: data.status.present ? data.status.value : this.status,
+      valuesJson: data.valuesJson.present
+          ? data.valuesJson.value
+          : this.valuesJson,
+      trackId: data.trackId.present ? data.trackId.value : this.trackId,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProtocolRun(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('protocolId: $protocolId, ')
+          ..write('siteId: $siteId, ')
+          ..write('observationId: $observationId, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('endedAt: $endedAt, ')
+          ..write('localTz: $localTz, ')
+          ..write('observerName: $observerName, ')
+          ..write('status: $status, ')
+          ..write('valuesJson: $valuesJson, ')
+          ..write('trackId: $trackId, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    propertyId,
+    protocolId,
+    siteId,
+    observationId,
+    startedAt,
+    endedAt,
+    localTz,
+    observerName,
+    status,
+    valuesJson,
+    trackId,
+    createdBy,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ProtocolRun &&
+          other.id == this.id &&
+          other.propertyId == this.propertyId &&
+          other.protocolId == this.protocolId &&
+          other.siteId == this.siteId &&
+          other.observationId == this.observationId &&
+          other.startedAt == this.startedAt &&
+          other.endedAt == this.endedAt &&
+          other.localTz == this.localTz &&
+          other.observerName == this.observerName &&
+          other.status == this.status &&
+          other.valuesJson == this.valuesJson &&
+          other.trackId == this.trackId &&
+          other.createdBy == this.createdBy &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class ProtocolRunsCompanion extends UpdateCompanion<ProtocolRun> {
+  final Value<String> id;
+  final Value<String> propertyId;
+  final Value<String> protocolId;
+  final Value<String> siteId;
+  final Value<String> observationId;
+  final Value<String> startedAt;
+  final Value<String?> endedAt;
+  final Value<String> localTz;
+  final Value<String?> observerName;
+  final Value<String> status;
+  final Value<String> valuesJson;
+  final Value<String?> trackId;
+  final Value<String> createdBy;
+  final Value<String> createdAt;
+  final Value<String> updatedAt;
+  final Value<String?> deletedAt;
+  final Value<int> rowid;
+  const ProtocolRunsCompanion({
+    this.id = const Value.absent(),
+    this.propertyId = const Value.absent(),
+    this.protocolId = const Value.absent(),
+    this.siteId = const Value.absent(),
+    this.observationId = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.endedAt = const Value.absent(),
+    this.localTz = const Value.absent(),
+    this.observerName = const Value.absent(),
+    this.status = const Value.absent(),
+    this.valuesJson = const Value.absent(),
+    this.trackId = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProtocolRunsCompanion.insert({
+    required String id,
+    required String propertyId,
+    required String protocolId,
+    required String siteId,
+    required String observationId,
+    required String startedAt,
+    this.endedAt = const Value.absent(),
+    required String localTz,
+    this.observerName = const Value.absent(),
+    this.status = const Value.absent(),
+    required String valuesJson,
+    this.trackId = const Value.absent(),
+    required String createdBy,
+    required String createdAt,
+    required String updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       propertyId = Value(propertyId),
+       protocolId = Value(protocolId),
+       siteId = Value(siteId),
+       observationId = Value(observationId),
+       startedAt = Value(startedAt),
+       localTz = Value(localTz),
+       valuesJson = Value(valuesJson),
+       createdBy = Value(createdBy),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<ProtocolRun> custom({
+    Expression<String>? id,
+    Expression<String>? propertyId,
+    Expression<String>? protocolId,
+    Expression<String>? siteId,
+    Expression<String>? observationId,
+    Expression<String>? startedAt,
+    Expression<String>? endedAt,
+    Expression<String>? localTz,
+    Expression<String>? observerName,
+    Expression<String>? status,
+    Expression<String>? valuesJson,
+    Expression<String>? trackId,
+    Expression<String>? createdBy,
+    Expression<String>? createdAt,
+    Expression<String>? updatedAt,
+    Expression<String>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (propertyId != null) 'property_id': propertyId,
+      if (protocolId != null) 'protocol_id': protocolId,
+      if (siteId != null) 'site_id': siteId,
+      if (observationId != null) 'observation_id': observationId,
+      if (startedAt != null) 'started_at': startedAt,
+      if (endedAt != null) 'ended_at': endedAt,
+      if (localTz != null) 'local_tz': localTz,
+      if (observerName != null) 'observer_name': observerName,
+      if (status != null) 'status': status,
+      if (valuesJson != null) 'values_json': valuesJson,
+      if (trackId != null) 'track_id': trackId,
+      if (createdBy != null) 'created_by': createdBy,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProtocolRunsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? propertyId,
+    Value<String>? protocolId,
+    Value<String>? siteId,
+    Value<String>? observationId,
+    Value<String>? startedAt,
+    Value<String?>? endedAt,
+    Value<String>? localTz,
+    Value<String?>? observerName,
+    Value<String>? status,
+    Value<String>? valuesJson,
+    Value<String?>? trackId,
+    Value<String>? createdBy,
+    Value<String>? createdAt,
+    Value<String>? updatedAt,
+    Value<String?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return ProtocolRunsCompanion(
+      id: id ?? this.id,
+      propertyId: propertyId ?? this.propertyId,
+      protocolId: protocolId ?? this.protocolId,
+      siteId: siteId ?? this.siteId,
+      observationId: observationId ?? this.observationId,
+      startedAt: startedAt ?? this.startedAt,
+      endedAt: endedAt ?? this.endedAt,
+      localTz: localTz ?? this.localTz,
+      observerName: observerName ?? this.observerName,
+      status: status ?? this.status,
+      valuesJson: valuesJson ?? this.valuesJson,
+      trackId: trackId ?? this.trackId,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (propertyId.present) {
+      map['property_id'] = Variable<String>(propertyId.value);
+    }
+    if (protocolId.present) {
+      map['protocol_id'] = Variable<String>(protocolId.value);
+    }
+    if (siteId.present) {
+      map['site_id'] = Variable<String>(siteId.value);
+    }
+    if (observationId.present) {
+      map['observation_id'] = Variable<String>(observationId.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<String>(startedAt.value);
+    }
+    if (endedAt.present) {
+      map['ended_at'] = Variable<String>(endedAt.value);
+    }
+    if (localTz.present) {
+      map['local_tz'] = Variable<String>(localTz.value);
+    }
+    if (observerName.present) {
+      map['observer_name'] = Variable<String>(observerName.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (valuesJson.present) {
+      map['values_json'] = Variable<String>(valuesJson.value);
+    }
+    if (trackId.present) {
+      map['track_id'] = Variable<String>(trackId.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<String>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<String>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProtocolRunsCompanion(')
+          ..write('id: $id, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('protocolId: $protocolId, ')
+          ..write('siteId: $siteId, ')
+          ..write('observationId: $observationId, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('endedAt: $endedAt, ')
+          ..write('localTz: $localTz, ')
+          ..write('observerName: $observerName, ')
+          ..write('status: $status, ')
+          ..write('valuesJson: $valuesJson, ')
+          ..write('trackId: $trackId, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$FieldNotesDb extends GeneratedDatabase {
   _$FieldNotesDb(QueryExecutor e) : super(e);
   $FieldNotesDbManager get managers => $FieldNotesDbManager(this);
@@ -29044,6 +32182,29 @@ abstract class _$FieldNotesDb extends GeneratedDatabase {
     'idx_condition_obs',
     'CREATE INDEX idx_condition_obs ON condition_logs (observation_id, observed_at DESC)',
   );
+  late final Protocols protocols = Protocols(this);
+  late final Index idxProtocolsProp = Index(
+    'idx_protocols_prop',
+    'CREATE INDEX idx_protocols_prop ON protocols (property_id, method_key)',
+  );
+  late final ProtocolSites protocolSites = ProtocolSites(this);
+  late final Index idxPsiteBbox = Index(
+    'idx_psite_bbox',
+    'CREATE INDEX idx_psite_bbox ON protocol_sites (property_id, lat, lng)',
+  );
+  late final Index idxPsiteDue = Index(
+    'idx_psite_due',
+    'CREATE INDEX idx_psite_due ON protocol_sites (property_id, next_due_on)',
+  );
+  late final ProtocolRuns protocolRuns = ProtocolRuns(this);
+  late final Index idxPrunSiteTime = Index(
+    'idx_prun_site_time',
+    'CREATE INDEX idx_prun_site_time ON protocol_runs (site_id, started_at DESC)',
+  );
+  late final Index idxPrunObs = Index(
+    'idx_prun_obs',
+    'CREATE INDEX idx_prun_obs ON protocol_runs (observation_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -29091,6 +32252,14 @@ abstract class _$FieldNotesDb extends GeneratedDatabase {
     idxReviewPending,
     conditionLogs,
     idxConditionObs,
+    protocols,
+    idxProtocolsProp,
+    protocolSites,
+    idxPsiteBbox,
+    idxPsiteDue,
+    protocolRuns,
+    idxPrunSiteTime,
+    idxPrunObs,
   ];
 }
 
@@ -29539,6 +32708,61 @@ final class $PropertiesReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<Protocols, List<Protocol>> _protocolsRefsTable(
+    _$FieldNotesDb db,
+  ) => MultiTypedResultKey.fromTable(
+    db.protocols,
+    aliasName: 'properties__id__protocols__property_id',
+  );
+
+  $ProtocolsProcessedTableManager get protocolsRefs {
+    final manager = $ProtocolsTableManager(
+      $_db,
+      $_db.protocols,
+    ).filter((f) => f.propertyId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<ProtocolSites, List<ProtocolSite>>
+  _protocolSitesRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.protocolSites,
+    aliasName: 'properties__id__protocol_sites__property_id',
+  );
+
+  $ProtocolSitesProcessedTableManager get protocolSitesRefs {
+    final manager = $ProtocolSitesTableManager(
+      $_db,
+      $_db.protocolSites,
+    ).filter((f) => f.propertyId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolSitesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<ProtocolRuns, List<ProtocolRun>>
+  _protocolRunsRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.protocolRuns,
+    aliasName: 'properties__id__protocol_runs__property_id',
+  );
+
+  $ProtocolRunsProcessedTableManager get protocolRunsRefs {
+    final manager = $ProtocolRunsTableManager(
+      $_db,
+      $_db.protocolRuns,
+    ).filter((f) => f.propertyId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolRunsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $PropertiesFilterComposer extends Composer<_$FieldNotesDb, Properties> {
@@ -29750,6 +32974,81 @@ class $PropertiesFilterComposer extends Composer<_$FieldNotesDb, Properties> {
           }) => $ObservationsFilterComposer(
             $db: $db,
             $table: $db.observations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> protocolsRefs(
+    Expression<bool> Function($ProtocolsFilterComposer f) f,
+  ) {
+    final $ProtocolsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocols,
+      getReferencedColumn: (t) => t.propertyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolsFilterComposer(
+            $db: $db,
+            $table: $db.protocols,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> protocolSitesRefs(
+    Expression<bool> Function($ProtocolSitesFilterComposer f) f,
+  ) {
+    final $ProtocolSitesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.propertyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesFilterComposer(
+            $db: $db,
+            $table: $db.protocolSites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> protocolRunsRefs(
+    Expression<bool> Function($ProtocolRunsFilterComposer f) f,
+  ) {
+    final $ProtocolRunsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.propertyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsFilterComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -30052,6 +33351,81 @@ class $PropertiesAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> protocolsRefs<T extends Object>(
+    Expression<T> Function($ProtocolsAnnotationComposer a) f,
+  ) {
+    final $ProtocolsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocols,
+      getReferencedColumn: (t) => t.propertyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolsAnnotationComposer(
+            $db: $db,
+            $table: $db.protocols,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> protocolSitesRefs<T extends Object>(
+    Expression<T> Function($ProtocolSitesAnnotationComposer a) f,
+  ) {
+    final $ProtocolSitesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.propertyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolSites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> protocolRunsRefs<T extends Object>(
+    Expression<T> Function($ProtocolRunsAnnotationComposer a) f,
+  ) {
+    final $ProtocolRunsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.propertyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $PropertiesTableManager
@@ -30073,6 +33447,9 @@ class $PropertiesTableManager
             bool zonesRefs,
             bool featuresRefs,
             bool observationsRefs,
+            bool protocolsRefs,
+            bool protocolSitesRefs,
+            bool protocolRunsRefs,
           })
         > {
   $PropertiesTableManager(_$FieldNotesDb db, Properties table)
@@ -30179,6 +33556,9 @@ class $PropertiesTableManager
                 zonesRefs = false,
                 featuresRefs = false,
                 observationsRefs = false,
+                protocolsRefs = false,
+                protocolSitesRefs = false,
+                protocolRunsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -30188,6 +33568,9 @@ class $PropertiesTableManager
                     if (zonesRefs) db.zones,
                     if (featuresRefs) db.features,
                     if (observationsRefs) db.observations,
+                    if (protocolsRefs) db.protocols,
+                    if (protocolSitesRefs) db.protocolSites,
+                    if (protocolRunsRefs) db.protocolRuns,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -30275,6 +33658,66 @@ class $PropertiesTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (protocolsRefs)
+                        await $_getPrefetchedData<
+                          Property,
+                          Properties,
+                          Protocol
+                        >(
+                          currentTable: table,
+                          referencedTable: $PropertiesReferences
+                              ._protocolsRefsTable(db),
+                          managerFromTypedResult: (p0) => $PropertiesReferences(
+                            db,
+                            table,
+                            p0,
+                          ).protocolsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.propertyId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (protocolSitesRefs)
+                        await $_getPrefetchedData<
+                          Property,
+                          Properties,
+                          ProtocolSite
+                        >(
+                          currentTable: table,
+                          referencedTable: $PropertiesReferences
+                              ._protocolSitesRefsTable(db),
+                          managerFromTypedResult: (p0) => $PropertiesReferences(
+                            db,
+                            table,
+                            p0,
+                          ).protocolSitesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.propertyId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (protocolRunsRefs)
+                        await $_getPrefetchedData<
+                          Property,
+                          Properties,
+                          ProtocolRun
+                        >(
+                          currentTable: table,
+                          referencedTable: $PropertiesReferences
+                              ._protocolRunsRefsTable(db),
+                          managerFromTypedResult: (p0) => $PropertiesReferences(
+                            db,
+                            table,
+                            p0,
+                          ).protocolRunsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.propertyId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -30301,6 +33744,9 @@ typedef $PropertiesProcessedTableManager =
         bool zonesRefs,
         bool featuresRefs,
         bool observationsRefs,
+        bool protocolsRefs,
+        bool protocolSitesRefs,
+        bool protocolRunsRefs,
       })
     >;
 typedef $MembershipsCreateCompanionBuilder = MembershipsCompanion Function({
@@ -31417,6 +34863,24 @@ final class $ZonesReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<ProtocolSites, List<ProtocolSite>>
+  _protocolSitesRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.protocolSites,
+    aliasName: 'zones__id__protocol_sites__zone_id',
+  );
+
+  $ProtocolSitesProcessedTableManager get protocolSitesRefs {
+    final manager = $ProtocolSitesTableManager(
+      $_db,
+      $_db.protocolSites,
+    ).filter((f) => f.zoneId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolSitesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $ZonesFilterComposer extends Composer<_$FieldNotesDb, Zones> {
@@ -31699,6 +35163,31 @@ class $ZonesFilterComposer extends Composer<_$FieldNotesDb, Zones> {
           }) => $PracticesFilterComposer(
             $db: $db,
             $table: $db.practices,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> protocolSitesRefs(
+    Expression<bool> Function($ProtocolSitesFilterComposer f) f,
+  ) {
+    final $ProtocolSitesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.zoneId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesFilterComposer(
+            $db: $db,
+            $table: $db.protocolSites,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -32088,6 +35577,31 @@ class $ZonesAnnotationComposer extends Composer<_$FieldNotesDb, Zones> {
     );
     return f(composer);
   }
+
+  Expression<T> protocolSitesRefs<T extends Object>(
+    Expression<T> Function($ProtocolSitesAnnotationComposer a) f,
+  ) {
+    final $ProtocolSitesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.zoneId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolSites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $ZonesTableManager
@@ -32113,6 +35627,7 @@ class $ZonesTableManager
             bool photoPointsRefs,
             bool deploymentsRefs,
             bool practicesRefs,
+            bool protocolSitesRefs,
           })
         > {
   $ZonesTableManager(_$FieldNotesDb db, Zones table)
@@ -32208,6 +35723,7 @@ class $ZonesTableManager
                 photoPointsRefs = false,
                 deploymentsRefs = false,
                 practicesRefs = false,
+                protocolSitesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -32219,6 +35735,7 @@ class $ZonesTableManager
                     if (photoPointsRefs) db.photoPoints,
                     if (deploymentsRefs) db.deployments,
                     if (practicesRefs) db.practices,
+                    if (protocolSitesRefs) db.protocolSites,
                   ],
                   addJoins:
                       <
@@ -32360,6 +35877,19 @@ class $ZonesTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (protocolSitesRefs)
+                        await $_getPrefetchedData<Zone, Zones, ProtocolSite>(
+                          currentTable: table,
+                          referencedTable: $ZonesReferences
+                              ._protocolSitesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $ZonesReferences(db, table, p0).protocolSitesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.zoneId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -32390,6 +35920,7 @@ typedef $ZonesProcessedTableManager =
         bool photoPointsRefs,
         bool deploymentsRefs,
         bool practicesRefs,
+        bool protocolSitesRefs,
       })
     >;
 typedef $FeatureTypesCreateCompanionBuilder = FeatureTypesCompanion Function({
@@ -36463,6 +39994,24 @@ final class $ObservationsReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<ProtocolRuns, List<ProtocolRun>>
+  _protocolRunsRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.protocolRuns,
+    aliasName: 'observations__id__protocol_runs__observation_id',
+  );
+
+  $ProtocolRunsProcessedTableManager get protocolRunsRefs {
+    final manager = $ProtocolRunsTableManager(
+      $_db,
+      $_db.protocolRuns,
+    ).filter((f) => f.observationId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolRunsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $ObservationsFilterComposer
@@ -36765,6 +40314,31 @@ class $ObservationsFilterComposer
           }) => $ConditionLogsFilterComposer(
             $db: $db,
             $table: $db.conditionLogs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> protocolRunsRefs(
+    Expression<bool> Function($ProtocolRunsFilterComposer f) f,
+  ) {
+    final $ProtocolRunsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.observationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsFilterComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -37295,6 +40869,31 @@ class $ObservationsAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> protocolRunsRefs<T extends Object>(
+    Expression<T> Function($ProtocolRunsAnnotationComposer a) f,
+  ) {
+    final $ProtocolRunsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.observationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $ObservationsTableManager
@@ -37319,6 +40918,7 @@ class $ObservationsTableManager
             bool identificationSuggestionsRefs,
             bool sourcePlantsRefs,
             bool conditionLogsRefs,
+            bool protocolRunsRefs,
           })
         > {
   $ObservationsTableManager(_$FieldNotesDb db, Observations table)
@@ -37468,6 +41068,7 @@ class $ObservationsTableManager
                 identificationSuggestionsRefs = false,
                 sourcePlantsRefs = false,
                 conditionLogsRefs = false,
+                protocolRunsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -37476,6 +41077,7 @@ class $ObservationsTableManager
                       db.identificationSuggestions,
                     if (sourcePlantsRefs) db.sourcePlants,
                     if (conditionLogsRefs) db.conditionLogs,
+                    if (protocolRunsRefs) db.protocolRuns,
                   ],
                   addJoins:
                       <
@@ -37616,6 +41218,27 @@ class $ObservationsTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (protocolRunsRefs)
+                        await $_getPrefetchedData<
+                          Observation,
+                          Observations,
+                          ProtocolRun
+                        >(
+                          currentTable: table,
+                          referencedTable: $ObservationsReferences
+                              ._protocolRunsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $ObservationsReferences(
+                                db,
+                                table,
+                                p0,
+                              ).protocolRunsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.observationId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -37645,6 +41268,7 @@ typedef $ObservationsProcessedTableManager =
         bool identificationSuggestionsRefs,
         bool sourcePlantsRefs,
         bool conditionLogsRefs,
+        bool protocolRunsRefs,
       })
     >;
 typedef $IdentificationSuggestionsCreateCompanionBuilder =
@@ -43548,6 +47172,24 @@ final class $PhotoPointsReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<ProtocolSites, List<ProtocolSite>>
+  _protocolSitesRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.protocolSites,
+    aliasName: 'photo_points__id__protocol_sites__photo_point_id',
+  );
+
+  $ProtocolSitesProcessedTableManager get protocolSitesRefs {
+    final manager = $ProtocolSitesTableManager(
+      $_db,
+      $_db.protocolSites,
+    ).filter((f) => f.photoPointId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolSitesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $PhotoPointsFilterComposer extends Composer<_$FieldNotesDb, PhotoPoints> {
@@ -43682,6 +47324,31 @@ class $PhotoPointsFilterComposer extends Composer<_$FieldNotesDb, PhotoPoints> {
           }) => $PhotoPointVisitsFilterComposer(
             $db: $db,
             $table: $db.photoPointVisits,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> protocolSitesRefs(
+    Expression<bool> Function($ProtocolSitesFilterComposer f) f,
+  ) {
+    final $ProtocolSitesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.photoPointId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesFilterComposer(
+            $db: $db,
+            $table: $db.protocolSites,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -43931,6 +47598,31 @@ class $PhotoPointsAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> protocolSitesRefs<T extends Object>(
+    Expression<T> Function($ProtocolSitesAnnotationComposer a) f,
+  ) {
+    final $ProtocolSitesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.photoPointId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolSites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $PhotoPointsTableManager
@@ -43946,7 +47638,11 @@ class $PhotoPointsTableManager
           $PhotoPointsUpdateCompanionBuilder,
           (PhotoPoint, $PhotoPointsReferences),
           PhotoPoint,
-          PrefetchHooks Function({bool zoneId, bool photoPointVisitsRefs})
+          PrefetchHooks Function({
+            bool zoneId,
+            bool photoPointVisitsRefs,
+            bool protocolSitesRefs,
+          })
         > {
   $PhotoPointsTableManager(_$FieldNotesDb db, PhotoPoints table)
     : super(
@@ -44050,11 +47746,16 @@ class $PhotoPointsTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({zoneId = false, photoPointVisitsRefs = false}) {
+              ({
+                zoneId = false,
+                photoPointVisitsRefs = false,
+                protocolSitesRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (photoPointVisitsRefs) db.photoPointVisits,
+                    if (protocolSitesRefs) db.protocolSites,
                   ],
                   addJoins:
                       <
@@ -44109,6 +47810,27 @@ class $PhotoPointsTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (protocolSitesRefs)
+                        await $_getPrefetchedData<
+                          PhotoPoint,
+                          PhotoPoints,
+                          ProtocolSite
+                        >(
+                          currentTable: table,
+                          referencedTable: $PhotoPointsReferences
+                              ._protocolSitesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $PhotoPointsReferences(
+                                db,
+                                table,
+                                p0,
+                              ).protocolSitesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.photoPointId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -44129,7 +47851,11 @@ typedef $PhotoPointsProcessedTableManager =
       $PhotoPointsUpdateCompanionBuilder,
       (PhotoPoint, $PhotoPointsReferences),
       PhotoPoint,
-      PrefetchHooks Function({bool zoneId, bool photoPointVisitsRefs})
+      PrefetchHooks Function({
+        bool zoneId,
+        bool photoPointVisitsRefs,
+        bool protocolSitesRefs,
+      })
     >;
 typedef $PhotoPointVisitsCreateCompanionBuilder =
     PhotoPointVisitsCompanion Function({
@@ -47808,6 +51534,24 @@ final class $TracksReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<ProtocolRuns, List<ProtocolRun>>
+  _protocolRunsRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.protocolRuns,
+    aliasName: 'tracks__id__protocol_runs__track_id',
+  );
+
+  $ProtocolRunsProcessedTableManager get protocolRunsRefs {
+    final manager = $ProtocolRunsTableManager(
+      $_db,
+      $_db.protocolRuns,
+    ).filter((f) => f.trackId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolRunsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $TracksFilterComposer extends Composer<_$FieldNotesDb, Tracks> {
@@ -47889,6 +51633,31 @@ class $TracksFilterComposer extends Composer<_$FieldNotesDb, Tracks> {
           }) => $TrackPointsFilterComposer(
             $db: $db,
             $table: $db.trackPoints,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> protocolRunsRefs(
+    Expression<bool> Function($ProtocolRunsFilterComposer f) f,
+  ) {
+    final $ProtocolRunsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.trackId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsFilterComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -48030,6 +51799,31 @@ class $TracksAnnotationComposer extends Composer<_$FieldNotesDb, Tracks> {
     );
     return f(composer);
   }
+
+  Expression<T> protocolRunsRefs<T extends Object>(
+    Expression<T> Function($ProtocolRunsAnnotationComposer a) f,
+  ) {
+    final $ProtocolRunsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.trackId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $TracksTableManager
@@ -48045,7 +51839,7 @@ class $TracksTableManager
           $TracksUpdateCompanionBuilder,
           (Track, $TracksReferences),
           Track,
-          PrefetchHooks Function({bool trackPointsRefs})
+          PrefetchHooks Function({bool trackPointsRefs, bool protocolRunsRefs})
         > {
   $TracksTableManager(_$FieldNotesDb db, Tracks table)
     : super(
@@ -48117,29 +51911,47 @@ class $TracksTableManager
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), $TracksReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({trackPointsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (trackPointsRefs) db.trackPoints],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (trackPointsRefs)
-                    await $_getPrefetchedData<Track, Tracks, TrackPoint>(
-                      currentTable: table,
-                      referencedTable: $TracksReferences._trackPointsRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) =>
-                          $TracksReferences(db, table, p0).trackPointsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.trackId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({trackPointsRefs = false, protocolRunsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (trackPointsRefs) db.trackPoints,
+                    if (protocolRunsRefs) db.protocolRuns,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (trackPointsRefs)
+                        await $_getPrefetchedData<Track, Tracks, TrackPoint>(
+                          currentTable: table,
+                          referencedTable: $TracksReferences
+                              ._trackPointsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $TracksReferences(db, table, p0).trackPointsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.trackId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (protocolRunsRefs)
+                        await $_getPrefetchedData<Track, Tracks, ProtocolRun>(
+                          currentTable: table,
+                          referencedTable: $TracksReferences
+                              ._protocolRunsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $TracksReferences(db, table, p0).protocolRunsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.trackId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -48156,7 +51968,7 @@ typedef $TracksProcessedTableManager =
       $TracksUpdateCompanionBuilder,
       (Track, $TracksReferences),
       Track,
-      PrefetchHooks Function({bool trackPointsRefs})
+      PrefetchHooks Function({bool trackPointsRefs, bool protocolRunsRefs})
     >;
 typedef $TrackPointsCreateCompanionBuilder = TrackPointsCompanion Function({
   required String id,
@@ -51050,6 +54862,2630 @@ typedef $ConditionLogsProcessedTableManager =
       ConditionLog,
       PrefetchHooks Function({bool observationId})
     >;
+typedef $ProtocolsCreateCompanionBuilder = ProtocolsCompanion Function({
+  required String id,
+  required String propertyId,
+  required String methodKey,
+  required String name,
+  Value<String?> methodName,
+  Value<String?> reference,
+  required String siteKind,
+  Value<int?> cadenceDays,
+  Value<String?> seasonHint,
+  required String fieldsJson,
+  Value<String?> computesJson,
+  Value<int> isTemplate,
+  Value<int> isStarter,
+  required String createdBy,
+  required String createdAt,
+  required String updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+typedef $ProtocolsUpdateCompanionBuilder = ProtocolsCompanion Function({
+  Value<String> id,
+  Value<String> propertyId,
+  Value<String> methodKey,
+  Value<String> name,
+  Value<String?> methodName,
+  Value<String?> reference,
+  Value<String> siteKind,
+  Value<int?> cadenceDays,
+  Value<String?> seasonHint,
+  Value<String> fieldsJson,
+  Value<String?> computesJson,
+  Value<int> isTemplate,
+  Value<int> isStarter,
+  Value<String> createdBy,
+  Value<String> createdAt,
+  Value<String> updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+
+final class $ProtocolsReferences
+    extends BaseReferences<_$FieldNotesDb, Protocols, Protocol> {
+  $ProtocolsReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static Properties _propertyIdTable(_$FieldNotesDb db) =>
+      db.properties.createAlias('protocols__property_id__properties__id');
+
+  $PropertiesProcessedTableManager get propertyId {
+    final $_column = $_itemColumn<String>('property_id')!;
+
+    final manager = $PropertiesTableManager(
+      $_db,
+      $_db.properties,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_propertyIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<ProtocolSites, List<ProtocolSite>>
+  _protocolSitesRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.protocolSites,
+    aliasName: 'protocols__id__protocol_sites__protocol_id',
+  );
+
+  $ProtocolSitesProcessedTableManager get protocolSitesRefs {
+    final manager = $ProtocolSitesTableManager(
+      $_db,
+      $_db.protocolSites,
+    ).filter((f) => f.protocolId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolSitesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<ProtocolRuns, List<ProtocolRun>>
+  _protocolRunsRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.protocolRuns,
+    aliasName: 'protocols__id__protocol_runs__protocol_id',
+  );
+
+  $ProtocolRunsProcessedTableManager get protocolRunsRefs {
+    final manager = $ProtocolRunsTableManager(
+      $_db,
+      $_db.protocolRuns,
+    ).filter((f) => f.protocolId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolRunsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $ProtocolsFilterComposer extends Composer<_$FieldNotesDb, Protocols> {
+  $ProtocolsFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get methodKey => $composableBuilder(
+    column: $table.methodKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get methodName => $composableBuilder(
+    column: $table.methodName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reference => $composableBuilder(
+    column: $table.reference,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get siteKind => $composableBuilder(
+    column: $table.siteKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cadenceDays => $composableBuilder(
+    column: $table.cadenceDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seasonHint => $composableBuilder(
+    column: $table.seasonHint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldsJson => $composableBuilder(
+    column: $table.fieldsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get computesJson => $composableBuilder(
+    column: $table.computesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get isTemplate => $composableBuilder(
+    column: $table.isTemplate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get isStarter => $composableBuilder(
+    column: $table.isStarter,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $PropertiesFilterComposer get propertyId {
+    final $PropertiesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesFilterComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> protocolSitesRefs(
+    Expression<bool> Function($ProtocolSitesFilterComposer f) f,
+  ) {
+    final $ProtocolSitesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.protocolId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesFilterComposer(
+            $db: $db,
+            $table: $db.protocolSites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> protocolRunsRefs(
+    Expression<bool> Function($ProtocolRunsFilterComposer f) f,
+  ) {
+    final $ProtocolRunsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.protocolId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsFilterComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $ProtocolsOrderingComposer extends Composer<_$FieldNotesDb, Protocols> {
+  $ProtocolsOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get methodKey => $composableBuilder(
+    column: $table.methodKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get methodName => $composableBuilder(
+    column: $table.methodName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reference => $composableBuilder(
+    column: $table.reference,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get siteKind => $composableBuilder(
+    column: $table.siteKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cadenceDays => $composableBuilder(
+    column: $table.cadenceDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get seasonHint => $composableBuilder(
+    column: $table.seasonHint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldsJson => $composableBuilder(
+    column: $table.fieldsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get computesJson => $composableBuilder(
+    column: $table.computesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get isTemplate => $composableBuilder(
+    column: $table.isTemplate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get isStarter => $composableBuilder(
+    column: $table.isStarter,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $PropertiesOrderingComposer get propertyId {
+    final $PropertiesOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesOrderingComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $ProtocolsAnnotationComposer extends Composer<_$FieldNotesDb, Protocols> {
+  $ProtocolsAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get methodKey =>
+      $composableBuilder(column: $table.methodKey, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get methodName => $composableBuilder(
+    column: $table.methodName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reference =>
+      $composableBuilder(column: $table.reference, builder: (column) => column);
+
+  GeneratedColumn<String> get siteKind =>
+      $composableBuilder(column: $table.siteKind, builder: (column) => column);
+
+  GeneratedColumn<int> get cadenceDays => $composableBuilder(
+    column: $table.cadenceDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get seasonHint => $composableBuilder(
+    column: $table.seasonHint,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fieldsJson => $composableBuilder(
+    column: $table.fieldsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get computesJson => $composableBuilder(
+    column: $table.computesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get isTemplate => $composableBuilder(
+    column: $table.isTemplate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get isStarter =>
+      $composableBuilder(column: $table.isStarter, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $PropertiesAnnotationComposer get propertyId {
+    final $PropertiesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesAnnotationComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> protocolSitesRefs<T extends Object>(
+    Expression<T> Function($ProtocolSitesAnnotationComposer a) f,
+  ) {
+    final $ProtocolSitesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.protocolId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolSites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> protocolRunsRefs<T extends Object>(
+    Expression<T> Function($ProtocolRunsAnnotationComposer a) f,
+  ) {
+    final $ProtocolRunsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.protocolId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $ProtocolsTableManager
+    extends
+        RootTableManager<
+          _$FieldNotesDb,
+          Protocols,
+          Protocol,
+          $ProtocolsFilterComposer,
+          $ProtocolsOrderingComposer,
+          $ProtocolsAnnotationComposer,
+          $ProtocolsCreateCompanionBuilder,
+          $ProtocolsUpdateCompanionBuilder,
+          (Protocol, $ProtocolsReferences),
+          Protocol,
+          PrefetchHooks Function({
+            bool propertyId,
+            bool protocolSitesRefs,
+            bool protocolRunsRefs,
+          })
+        > {
+  $ProtocolsTableManager(_$FieldNotesDb db, Protocols table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $ProtocolsFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $ProtocolsOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $ProtocolsAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> propertyId = const Value.absent(),
+                Value<String> methodKey = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> methodName = const Value.absent(),
+                Value<String?> reference = const Value.absent(),
+                Value<String> siteKind = const Value.absent(),
+                Value<int?> cadenceDays = const Value.absent(),
+                Value<String?> seasonHint = const Value.absent(),
+                Value<String> fieldsJson = const Value.absent(),
+                Value<String?> computesJson = const Value.absent(),
+                Value<int> isTemplate = const Value.absent(),
+                Value<int> isStarter = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<String> updatedAt = const Value.absent(),
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProtocolsCompanion(
+                id: id,
+                propertyId: propertyId,
+                methodKey: methodKey,
+                name: name,
+                methodName: methodName,
+                reference: reference,
+                siteKind: siteKind,
+                cadenceDays: cadenceDays,
+                seasonHint: seasonHint,
+                fieldsJson: fieldsJson,
+                computesJson: computesJson,
+                isTemplate: isTemplate,
+                isStarter: isStarter,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String propertyId,
+                required String methodKey,
+                required String name,
+                Value<String?> methodName = const Value.absent(),
+                Value<String?> reference = const Value.absent(),
+                required String siteKind,
+                Value<int?> cadenceDays = const Value.absent(),
+                Value<String?> seasonHint = const Value.absent(),
+                required String fieldsJson,
+                Value<String?> computesJson = const Value.absent(),
+                Value<int> isTemplate = const Value.absent(),
+                Value<int> isStarter = const Value.absent(),
+                required String createdBy,
+                required String createdAt,
+                required String updatedAt,
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProtocolsCompanion.insert(
+                id: id,
+                propertyId: propertyId,
+                methodKey: methodKey,
+                name: name,
+                methodName: methodName,
+                reference: reference,
+                siteKind: siteKind,
+                cadenceDays: cadenceDays,
+                seasonHint: seasonHint,
+                fieldsJson: fieldsJson,
+                computesJson: computesJson,
+                isTemplate: isTemplate,
+                isStarter: isStarter,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (e.readTable(table), $ProtocolsReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                propertyId = false,
+                protocolSitesRefs = false,
+                protocolRunsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (protocolSitesRefs) db.protocolSites,
+                    if (protocolRunsRefs) db.protocolRuns,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (propertyId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.propertyId,
+                            referencedTable: $ProtocolsReferences
+                                ._propertyIdTable(db),
+                            referencedColumn: $ProtocolsReferences
+                                ._propertyIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (protocolSitesRefs)
+                        await $_getPrefetchedData<
+                          Protocol,
+                          Protocols,
+                          ProtocolSite
+                        >(
+                          currentTable: table,
+                          referencedTable: $ProtocolsReferences
+                              ._protocolSitesRefsTable(db),
+                          managerFromTypedResult: (p0) => $ProtocolsReferences(
+                            db,
+                            table,
+                            p0,
+                          ).protocolSitesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.protocolId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (protocolRunsRefs)
+                        await $_getPrefetchedData<
+                          Protocol,
+                          Protocols,
+                          ProtocolRun
+                        >(
+                          currentTable: table,
+                          referencedTable: $ProtocolsReferences
+                              ._protocolRunsRefsTable(db),
+                          managerFromTypedResult: (p0) => $ProtocolsReferences(
+                            db,
+                            table,
+                            p0,
+                          ).protocolRunsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.protocolId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $ProtocolsProcessedTableManager =
+    ProcessedTableManager<
+      _$FieldNotesDb,
+      Protocols,
+      Protocol,
+      $ProtocolsFilterComposer,
+      $ProtocolsOrderingComposer,
+      $ProtocolsAnnotationComposer,
+      $ProtocolsCreateCompanionBuilder,
+      $ProtocolsUpdateCompanionBuilder,
+      (Protocol, $ProtocolsReferences),
+      Protocol,
+      PrefetchHooks Function({
+        bool propertyId,
+        bool protocolSitesRefs,
+        bool protocolRunsRefs,
+      })
+    >;
+typedef $ProtocolSitesCreateCompanionBuilder = ProtocolSitesCompanion Function({
+  required String id,
+  required String propertyId,
+  required String protocolId,
+  Value<String?> zoneId,
+  Value<String?> photoPointId,
+  required String name,
+  required double lat,
+  required double lng,
+  Value<double?> gpsAccuracyM,
+  Value<double?> bearingDeg,
+  Value<double?> lengthM,
+  Value<double?> radiusM,
+  Value<String?> geojson,
+  Value<String?> marker,
+  Value<int?> cadenceDays,
+  Value<String?> nextDueOn,
+  Value<String?> retiredOn,
+  Value<String?> notes,
+  required String createdBy,
+  required String createdAt,
+  required String updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+typedef $ProtocolSitesUpdateCompanionBuilder = ProtocolSitesCompanion Function({
+  Value<String> id,
+  Value<String> propertyId,
+  Value<String> protocolId,
+  Value<String?> zoneId,
+  Value<String?> photoPointId,
+  Value<String> name,
+  Value<double> lat,
+  Value<double> lng,
+  Value<double?> gpsAccuracyM,
+  Value<double?> bearingDeg,
+  Value<double?> lengthM,
+  Value<double?> radiusM,
+  Value<String?> geojson,
+  Value<String?> marker,
+  Value<int?> cadenceDays,
+  Value<String?> nextDueOn,
+  Value<String?> retiredOn,
+  Value<String?> notes,
+  Value<String> createdBy,
+  Value<String> createdAt,
+  Value<String> updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+
+final class $ProtocolSitesReferences
+    extends BaseReferences<_$FieldNotesDb, ProtocolSites, ProtocolSite> {
+  $ProtocolSitesReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static Properties _propertyIdTable(_$FieldNotesDb db) =>
+      db.properties.createAlias('protocol_sites__property_id__properties__id');
+
+  $PropertiesProcessedTableManager get propertyId {
+    final $_column = $_itemColumn<String>('property_id')!;
+
+    final manager = $PropertiesTableManager(
+      $_db,
+      $_db.properties,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_propertyIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static Protocols _protocolIdTable(_$FieldNotesDb db) =>
+      db.protocols.createAlias('protocol_sites__protocol_id__protocols__id');
+
+  $ProtocolsProcessedTableManager get protocolId {
+    final $_column = $_itemColumn<String>('protocol_id')!;
+
+    final manager = $ProtocolsTableManager(
+      $_db,
+      $_db.protocols,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_protocolIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static Zones _zoneIdTable(_$FieldNotesDb db) =>
+      db.zones.createAlias('protocol_sites__zone_id__zones__id');
+
+  $ZonesProcessedTableManager? get zoneId {
+    final $_column = $_itemColumn<String>('zone_id');
+    if ($_column == null) return null;
+    final manager = $ZonesTableManager(
+      $_db,
+      $_db.zones,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_zoneIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static PhotoPoints _photoPointIdTable(_$FieldNotesDb db) => db.photoPoints
+      .createAlias('protocol_sites__photo_point_id__photo_points__id');
+
+  $PhotoPointsProcessedTableManager? get photoPointId {
+    final $_column = $_itemColumn<String>('photo_point_id');
+    if ($_column == null) return null;
+    final manager = $PhotoPointsTableManager(
+      $_db,
+      $_db.photoPoints,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_photoPointIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<ProtocolRuns, List<ProtocolRun>>
+  _protocolRunsRefsTable(_$FieldNotesDb db) => MultiTypedResultKey.fromTable(
+    db.protocolRuns,
+    aliasName: 'protocol_sites__id__protocol_runs__site_id',
+  );
+
+  $ProtocolRunsProcessedTableManager get protocolRunsRefs {
+    final manager = $ProtocolRunsTableManager(
+      $_db,
+      $_db.protocolRuns,
+    ).filter((f) => f.siteId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_protocolRunsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $ProtocolSitesFilterComposer
+    extends Composer<_$FieldNotesDb, ProtocolSites> {
+  $ProtocolSitesFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get lat => $composableBuilder(
+    column: $table.lat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get lng => $composableBuilder(
+    column: $table.lng,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get gpsAccuracyM => $composableBuilder(
+    column: $table.gpsAccuracyM,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get bearingDeg => $composableBuilder(
+    column: $table.bearingDeg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get lengthM => $composableBuilder(
+    column: $table.lengthM,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get radiusM => $composableBuilder(
+    column: $table.radiusM,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get geojson => $composableBuilder(
+    column: $table.geojson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get marker => $composableBuilder(
+    column: $table.marker,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cadenceDays => $composableBuilder(
+    column: $table.cadenceDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nextDueOn => $composableBuilder(
+    column: $table.nextDueOn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get retiredOn => $composableBuilder(
+    column: $table.retiredOn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $PropertiesFilterComposer get propertyId {
+    final $PropertiesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesFilterComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ProtocolsFilterComposer get protocolId {
+    final $ProtocolsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.protocolId,
+      referencedTable: $db.protocols,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolsFilterComposer(
+            $db: $db,
+            $table: $db.protocols,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ZonesFilterComposer get zoneId {
+    final $ZonesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.zoneId,
+      referencedTable: $db.zones,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ZonesFilterComposer(
+            $db: $db,
+            $table: $db.zones,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $PhotoPointsFilterComposer get photoPointId {
+    final $PhotoPointsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.photoPointId,
+      referencedTable: $db.photoPoints,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PhotoPointsFilterComposer(
+            $db: $db,
+            $table: $db.photoPoints,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> protocolRunsRefs(
+    Expression<bool> Function($ProtocolRunsFilterComposer f) f,
+  ) {
+    final $ProtocolRunsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.siteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsFilterComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $ProtocolSitesOrderingComposer
+    extends Composer<_$FieldNotesDb, ProtocolSites> {
+  $ProtocolSitesOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get lat => $composableBuilder(
+    column: $table.lat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get lng => $composableBuilder(
+    column: $table.lng,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get gpsAccuracyM => $composableBuilder(
+    column: $table.gpsAccuracyM,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get bearingDeg => $composableBuilder(
+    column: $table.bearingDeg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get lengthM => $composableBuilder(
+    column: $table.lengthM,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get radiusM => $composableBuilder(
+    column: $table.radiusM,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get geojson => $composableBuilder(
+    column: $table.geojson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get marker => $composableBuilder(
+    column: $table.marker,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cadenceDays => $composableBuilder(
+    column: $table.cadenceDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nextDueOn => $composableBuilder(
+    column: $table.nextDueOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get retiredOn => $composableBuilder(
+    column: $table.retiredOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $PropertiesOrderingComposer get propertyId {
+    final $PropertiesOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesOrderingComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ProtocolsOrderingComposer get protocolId {
+    final $ProtocolsOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.protocolId,
+      referencedTable: $db.protocols,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolsOrderingComposer(
+            $db: $db,
+            $table: $db.protocols,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ZonesOrderingComposer get zoneId {
+    final $ZonesOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.zoneId,
+      referencedTable: $db.zones,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ZonesOrderingComposer(
+            $db: $db,
+            $table: $db.zones,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $PhotoPointsOrderingComposer get photoPointId {
+    final $PhotoPointsOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.photoPointId,
+      referencedTable: $db.photoPoints,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PhotoPointsOrderingComposer(
+            $db: $db,
+            $table: $db.photoPoints,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $ProtocolSitesAnnotationComposer
+    extends Composer<_$FieldNotesDb, ProtocolSites> {
+  $ProtocolSitesAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<double> get lat =>
+      $composableBuilder(column: $table.lat, builder: (column) => column);
+
+  GeneratedColumn<double> get lng =>
+      $composableBuilder(column: $table.lng, builder: (column) => column);
+
+  GeneratedColumn<double> get gpsAccuracyM => $composableBuilder(
+    column: $table.gpsAccuracyM,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get bearingDeg => $composableBuilder(
+    column: $table.bearingDeg,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get lengthM =>
+      $composableBuilder(column: $table.lengthM, builder: (column) => column);
+
+  GeneratedColumn<double> get radiusM =>
+      $composableBuilder(column: $table.radiusM, builder: (column) => column);
+
+  GeneratedColumn<String> get geojson =>
+      $composableBuilder(column: $table.geojson, builder: (column) => column);
+
+  GeneratedColumn<String> get marker =>
+      $composableBuilder(column: $table.marker, builder: (column) => column);
+
+  GeneratedColumn<int> get cadenceDays => $composableBuilder(
+    column: $table.cadenceDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nextDueOn =>
+      $composableBuilder(column: $table.nextDueOn, builder: (column) => column);
+
+  GeneratedColumn<String> get retiredOn =>
+      $composableBuilder(column: $table.retiredOn, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $PropertiesAnnotationComposer get propertyId {
+    final $PropertiesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesAnnotationComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ProtocolsAnnotationComposer get protocolId {
+    final $ProtocolsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.protocolId,
+      referencedTable: $db.protocols,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolsAnnotationComposer(
+            $db: $db,
+            $table: $db.protocols,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ZonesAnnotationComposer get zoneId {
+    final $ZonesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.zoneId,
+      referencedTable: $db.zones,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ZonesAnnotationComposer(
+            $db: $db,
+            $table: $db.zones,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $PhotoPointsAnnotationComposer get photoPointId {
+    final $PhotoPointsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.photoPointId,
+      referencedTable: $db.photoPoints,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PhotoPointsAnnotationComposer(
+            $db: $db,
+            $table: $db.photoPoints,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> protocolRunsRefs<T extends Object>(
+    Expression<T> Function($ProtocolRunsAnnotationComposer a) f,
+  ) {
+    final $ProtocolRunsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.protocolRuns,
+      getReferencedColumn: (t) => t.siteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolRunsAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $ProtocolSitesTableManager
+    extends
+        RootTableManager<
+          _$FieldNotesDb,
+          ProtocolSites,
+          ProtocolSite,
+          $ProtocolSitesFilterComposer,
+          $ProtocolSitesOrderingComposer,
+          $ProtocolSitesAnnotationComposer,
+          $ProtocolSitesCreateCompanionBuilder,
+          $ProtocolSitesUpdateCompanionBuilder,
+          (ProtocolSite, $ProtocolSitesReferences),
+          ProtocolSite,
+          PrefetchHooks Function({
+            bool propertyId,
+            bool protocolId,
+            bool zoneId,
+            bool photoPointId,
+            bool protocolRunsRefs,
+          })
+        > {
+  $ProtocolSitesTableManager(_$FieldNotesDb db, ProtocolSites table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $ProtocolSitesFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $ProtocolSitesOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $ProtocolSitesAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> propertyId = const Value.absent(),
+                Value<String> protocolId = const Value.absent(),
+                Value<String?> zoneId = const Value.absent(),
+                Value<String?> photoPointId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<double> lat = const Value.absent(),
+                Value<double> lng = const Value.absent(),
+                Value<double?> gpsAccuracyM = const Value.absent(),
+                Value<double?> bearingDeg = const Value.absent(),
+                Value<double?> lengthM = const Value.absent(),
+                Value<double?> radiusM = const Value.absent(),
+                Value<String?> geojson = const Value.absent(),
+                Value<String?> marker = const Value.absent(),
+                Value<int?> cadenceDays = const Value.absent(),
+                Value<String?> nextDueOn = const Value.absent(),
+                Value<String?> retiredOn = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<String> updatedAt = const Value.absent(),
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProtocolSitesCompanion(
+                id: id,
+                propertyId: propertyId,
+                protocolId: protocolId,
+                zoneId: zoneId,
+                photoPointId: photoPointId,
+                name: name,
+                lat: lat,
+                lng: lng,
+                gpsAccuracyM: gpsAccuracyM,
+                bearingDeg: bearingDeg,
+                lengthM: lengthM,
+                radiusM: radiusM,
+                geojson: geojson,
+                marker: marker,
+                cadenceDays: cadenceDays,
+                nextDueOn: nextDueOn,
+                retiredOn: retiredOn,
+                notes: notes,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String propertyId,
+                required String protocolId,
+                Value<String?> zoneId = const Value.absent(),
+                Value<String?> photoPointId = const Value.absent(),
+                required String name,
+                required double lat,
+                required double lng,
+                Value<double?> gpsAccuracyM = const Value.absent(),
+                Value<double?> bearingDeg = const Value.absent(),
+                Value<double?> lengthM = const Value.absent(),
+                Value<double?> radiusM = const Value.absent(),
+                Value<String?> geojson = const Value.absent(),
+                Value<String?> marker = const Value.absent(),
+                Value<int?> cadenceDays = const Value.absent(),
+                Value<String?> nextDueOn = const Value.absent(),
+                Value<String?> retiredOn = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                required String createdBy,
+                required String createdAt,
+                required String updatedAt,
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProtocolSitesCompanion.insert(
+                id: id,
+                propertyId: propertyId,
+                protocolId: protocolId,
+                zoneId: zoneId,
+                photoPointId: photoPointId,
+                name: name,
+                lat: lat,
+                lng: lng,
+                gpsAccuracyM: gpsAccuracyM,
+                bearingDeg: bearingDeg,
+                lengthM: lengthM,
+                radiusM: radiusM,
+                geojson: geojson,
+                marker: marker,
+                cadenceDays: cadenceDays,
+                nextDueOn: nextDueOn,
+                retiredOn: retiredOn,
+                notes: notes,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $ProtocolSitesReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                propertyId = false,
+                protocolId = false,
+                zoneId = false,
+                photoPointId = false,
+                protocolRunsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (protocolRunsRefs) db.protocolRuns,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (propertyId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.propertyId,
+                            referencedTable: $ProtocolSitesReferences
+                                ._propertyIdTable(db),
+                            referencedColumn: $ProtocolSitesReferences
+                                ._propertyIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (protocolId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.protocolId,
+                            referencedTable: $ProtocolSitesReferences
+                                ._protocolIdTable(db),
+                            referencedColumn: $ProtocolSitesReferences
+                                ._protocolIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (zoneId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.zoneId,
+                            referencedTable: $ProtocolSitesReferences
+                                ._zoneIdTable(db),
+                            referencedColumn: $ProtocolSitesReferences
+                                ._zoneIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (photoPointId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.photoPointId,
+                            referencedTable: $ProtocolSitesReferences
+                                ._photoPointIdTable(db),
+                            referencedColumn: $ProtocolSitesReferences
+                                ._photoPointIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (protocolRunsRefs)
+                        await $_getPrefetchedData<
+                          ProtocolSite,
+                          ProtocolSites,
+                          ProtocolRun
+                        >(
+                          currentTable: table,
+                          referencedTable: $ProtocolSitesReferences
+                              ._protocolRunsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $ProtocolSitesReferences(
+                                db,
+                                table,
+                                p0,
+                              ).protocolRunsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.siteId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $ProtocolSitesProcessedTableManager =
+    ProcessedTableManager<
+      _$FieldNotesDb,
+      ProtocolSites,
+      ProtocolSite,
+      $ProtocolSitesFilterComposer,
+      $ProtocolSitesOrderingComposer,
+      $ProtocolSitesAnnotationComposer,
+      $ProtocolSitesCreateCompanionBuilder,
+      $ProtocolSitesUpdateCompanionBuilder,
+      (ProtocolSite, $ProtocolSitesReferences),
+      ProtocolSite,
+      PrefetchHooks Function({
+        bool propertyId,
+        bool protocolId,
+        bool zoneId,
+        bool photoPointId,
+        bool protocolRunsRefs,
+      })
+    >;
+typedef $ProtocolRunsCreateCompanionBuilder = ProtocolRunsCompanion Function({
+  required String id,
+  required String propertyId,
+  required String protocolId,
+  required String siteId,
+  required String observationId,
+  required String startedAt,
+  Value<String?> endedAt,
+  required String localTz,
+  Value<String?> observerName,
+  Value<String> status,
+  required String valuesJson,
+  Value<String?> trackId,
+  required String createdBy,
+  required String createdAt,
+  required String updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+typedef $ProtocolRunsUpdateCompanionBuilder = ProtocolRunsCompanion Function({
+  Value<String> id,
+  Value<String> propertyId,
+  Value<String> protocolId,
+  Value<String> siteId,
+  Value<String> observationId,
+  Value<String> startedAt,
+  Value<String?> endedAt,
+  Value<String> localTz,
+  Value<String?> observerName,
+  Value<String> status,
+  Value<String> valuesJson,
+  Value<String?> trackId,
+  Value<String> createdBy,
+  Value<String> createdAt,
+  Value<String> updatedAt,
+  Value<String?> deletedAt,
+  Value<int> rowid,
+});
+
+final class $ProtocolRunsReferences
+    extends BaseReferences<_$FieldNotesDb, ProtocolRuns, ProtocolRun> {
+  $ProtocolRunsReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static Properties _propertyIdTable(_$FieldNotesDb db) =>
+      db.properties.createAlias('protocol_runs__property_id__properties__id');
+
+  $PropertiesProcessedTableManager get propertyId {
+    final $_column = $_itemColumn<String>('property_id')!;
+
+    final manager = $PropertiesTableManager(
+      $_db,
+      $_db.properties,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_propertyIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static Protocols _protocolIdTable(_$FieldNotesDb db) =>
+      db.protocols.createAlias('protocol_runs__protocol_id__protocols__id');
+
+  $ProtocolsProcessedTableManager get protocolId {
+    final $_column = $_itemColumn<String>('protocol_id')!;
+
+    final manager = $ProtocolsTableManager(
+      $_db,
+      $_db.protocols,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_protocolIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static ProtocolSites _siteIdTable(_$FieldNotesDb db) => db.protocolSites
+      .createAlias('protocol_runs__site_id__protocol_sites__id');
+
+  $ProtocolSitesProcessedTableManager get siteId {
+    final $_column = $_itemColumn<String>('site_id')!;
+
+    final manager = $ProtocolSitesTableManager(
+      $_db,
+      $_db.protocolSites,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_siteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static Observations _observationIdTable(_$FieldNotesDb db) => db.observations
+      .createAlias('protocol_runs__observation_id__observations__id');
+
+  $ObservationsProcessedTableManager get observationId {
+    final $_column = $_itemColumn<String>('observation_id')!;
+
+    final manager = $ObservationsTableManager(
+      $_db,
+      $_db.observations,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_observationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static Tracks _trackIdTable(_$FieldNotesDb db) =>
+      db.tracks.createAlias('protocol_runs__track_id__tracks__id');
+
+  $TracksProcessedTableManager? get trackId {
+    final $_column = $_itemColumn<String>('track_id');
+    if ($_column == null) return null;
+    final manager = $TracksTableManager(
+      $_db,
+      $_db.tracks,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_trackIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $ProtocolRunsFilterComposer
+    extends Composer<_$FieldNotesDb, ProtocolRuns> {
+  $ProtocolRunsFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get endedAt => $composableBuilder(
+    column: $table.endedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localTz => $composableBuilder(
+    column: $table.localTz,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get observerName => $composableBuilder(
+    column: $table.observerName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get valuesJson => $composableBuilder(
+    column: $table.valuesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $PropertiesFilterComposer get propertyId {
+    final $PropertiesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesFilterComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ProtocolsFilterComposer get protocolId {
+    final $ProtocolsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.protocolId,
+      referencedTable: $db.protocols,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolsFilterComposer(
+            $db: $db,
+            $table: $db.protocols,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ProtocolSitesFilterComposer get siteId {
+    final $ProtocolSitesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.siteId,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesFilterComposer(
+            $db: $db,
+            $table: $db.protocolSites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ObservationsFilterComposer get observationId {
+    final $ObservationsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.observationId,
+      referencedTable: $db.observations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ObservationsFilterComposer(
+            $db: $db,
+            $table: $db.observations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $TracksFilterComposer get trackId {
+    final $TracksFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackId,
+      referencedTable: $db.tracks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $TracksFilterComposer(
+            $db: $db,
+            $table: $db.tracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $ProtocolRunsOrderingComposer
+    extends Composer<_$FieldNotesDb, ProtocolRuns> {
+  $ProtocolRunsOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get endedAt => $composableBuilder(
+    column: $table.endedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localTz => $composableBuilder(
+    column: $table.localTz,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get observerName => $composableBuilder(
+    column: $table.observerName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get valuesJson => $composableBuilder(
+    column: $table.valuesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $PropertiesOrderingComposer get propertyId {
+    final $PropertiesOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesOrderingComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ProtocolsOrderingComposer get protocolId {
+    final $ProtocolsOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.protocolId,
+      referencedTable: $db.protocols,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolsOrderingComposer(
+            $db: $db,
+            $table: $db.protocols,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ProtocolSitesOrderingComposer get siteId {
+    final $ProtocolSitesOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.siteId,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesOrderingComposer(
+            $db: $db,
+            $table: $db.protocolSites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ObservationsOrderingComposer get observationId {
+    final $ObservationsOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.observationId,
+      referencedTable: $db.observations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ObservationsOrderingComposer(
+            $db: $db,
+            $table: $db.observations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $TracksOrderingComposer get trackId {
+    final $TracksOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackId,
+      referencedTable: $db.tracks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $TracksOrderingComposer(
+            $db: $db,
+            $table: $db.tracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $ProtocolRunsAnnotationComposer
+    extends Composer<_$FieldNotesDb, ProtocolRuns> {
+  $ProtocolRunsAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get endedAt =>
+      $composableBuilder(column: $table.endedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get localTz =>
+      $composableBuilder(column: $table.localTz, builder: (column) => column);
+
+  GeneratedColumn<String> get observerName => $composableBuilder(
+    column: $table.observerName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get valuesJson => $composableBuilder(
+    column: $table.valuesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $PropertiesAnnotationComposer get propertyId {
+    final $PropertiesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.propertyId,
+      referencedTable: $db.properties,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $PropertiesAnnotationComposer(
+            $db: $db,
+            $table: $db.properties,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ProtocolsAnnotationComposer get protocolId {
+    final $ProtocolsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.protocolId,
+      referencedTable: $db.protocols,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolsAnnotationComposer(
+            $db: $db,
+            $table: $db.protocols,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ProtocolSitesAnnotationComposer get siteId {
+    final $ProtocolSitesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.siteId,
+      referencedTable: $db.protocolSites,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ProtocolSitesAnnotationComposer(
+            $db: $db,
+            $table: $db.protocolSites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $ObservationsAnnotationComposer get observationId {
+    final $ObservationsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.observationId,
+      referencedTable: $db.observations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $ObservationsAnnotationComposer(
+            $db: $db,
+            $table: $db.observations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $TracksAnnotationComposer get trackId {
+    final $TracksAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackId,
+      referencedTable: $db.tracks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $TracksAnnotationComposer(
+            $db: $db,
+            $table: $db.tracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $ProtocolRunsTableManager
+    extends
+        RootTableManager<
+          _$FieldNotesDb,
+          ProtocolRuns,
+          ProtocolRun,
+          $ProtocolRunsFilterComposer,
+          $ProtocolRunsOrderingComposer,
+          $ProtocolRunsAnnotationComposer,
+          $ProtocolRunsCreateCompanionBuilder,
+          $ProtocolRunsUpdateCompanionBuilder,
+          (ProtocolRun, $ProtocolRunsReferences),
+          ProtocolRun,
+          PrefetchHooks Function({
+            bool propertyId,
+            bool protocolId,
+            bool siteId,
+            bool observationId,
+            bool trackId,
+          })
+        > {
+  $ProtocolRunsTableManager(_$FieldNotesDb db, ProtocolRuns table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $ProtocolRunsFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $ProtocolRunsOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $ProtocolRunsAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> propertyId = const Value.absent(),
+                Value<String> protocolId = const Value.absent(),
+                Value<String> siteId = const Value.absent(),
+                Value<String> observationId = const Value.absent(),
+                Value<String> startedAt = const Value.absent(),
+                Value<String?> endedAt = const Value.absent(),
+                Value<String> localTz = const Value.absent(),
+                Value<String?> observerName = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> valuesJson = const Value.absent(),
+                Value<String?> trackId = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<String> updatedAt = const Value.absent(),
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProtocolRunsCompanion(
+                id: id,
+                propertyId: propertyId,
+                protocolId: protocolId,
+                siteId: siteId,
+                observationId: observationId,
+                startedAt: startedAt,
+                endedAt: endedAt,
+                localTz: localTz,
+                observerName: observerName,
+                status: status,
+                valuesJson: valuesJson,
+                trackId: trackId,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String propertyId,
+                required String protocolId,
+                required String siteId,
+                required String observationId,
+                required String startedAt,
+                Value<String?> endedAt = const Value.absent(),
+                required String localTz,
+                Value<String?> observerName = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                required String valuesJson,
+                Value<String?> trackId = const Value.absent(),
+                required String createdBy,
+                required String createdAt,
+                required String updatedAt,
+                Value<String?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProtocolRunsCompanion.insert(
+                id: id,
+                propertyId: propertyId,
+                protocolId: protocolId,
+                siteId: siteId,
+                observationId: observationId,
+                startedAt: startedAt,
+                endedAt: endedAt,
+                localTz: localTz,
+                observerName: observerName,
+                status: status,
+                valuesJson: valuesJson,
+                trackId: trackId,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) =>
+                    (e.readTable(table), $ProtocolRunsReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                propertyId = false,
+                protocolId = false,
+                siteId = false,
+                observationId = false,
+                trackId = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (propertyId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.propertyId,
+                            referencedTable: $ProtocolRunsReferences
+                                ._propertyIdTable(db),
+                            referencedColumn: $ProtocolRunsReferences
+                                ._propertyIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (protocolId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.protocolId,
+                            referencedTable: $ProtocolRunsReferences
+                                ._protocolIdTable(db),
+                            referencedColumn: $ProtocolRunsReferences
+                                ._protocolIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (siteId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.siteId,
+                            referencedTable: $ProtocolRunsReferences
+                                ._siteIdTable(db),
+                            referencedColumn: $ProtocolRunsReferences
+                                ._siteIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (observationId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.observationId,
+                            referencedTable: $ProtocolRunsReferences
+                                ._observationIdTable(db),
+                            referencedColumn: $ProtocolRunsReferences
+                                ._observationIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (trackId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.trackId,
+                            referencedTable: $ProtocolRunsReferences
+                                ._trackIdTable(db),
+                            referencedColumn: $ProtocolRunsReferences
+                                ._trackIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $ProtocolRunsProcessedTableManager =
+    ProcessedTableManager<
+      _$FieldNotesDb,
+      ProtocolRuns,
+      ProtocolRun,
+      $ProtocolRunsFilterComposer,
+      $ProtocolRunsOrderingComposer,
+      $ProtocolRunsAnnotationComposer,
+      $ProtocolRunsCreateCompanionBuilder,
+      $ProtocolRunsUpdateCompanionBuilder,
+      (ProtocolRun, $ProtocolRunsReferences),
+      ProtocolRun,
+      PrefetchHooks Function({
+        bool propertyId,
+        bool protocolId,
+        bool siteId,
+        bool observationId,
+        bool trackId,
+      })
+    >;
 
 class $FieldNotesDbManager {
   final _$FieldNotesDb _db;
@@ -51116,4 +57552,10 @@ class $FieldNotesDbManager {
       $ReviewItemsTableManager(_db, _db.reviewItems);
   $ConditionLogsTableManager get conditionLogs =>
       $ConditionLogsTableManager(_db, _db.conditionLogs);
+  $ProtocolsTableManager get protocols =>
+      $ProtocolsTableManager(_db, _db.protocols);
+  $ProtocolSitesTableManager get protocolSites =>
+      $ProtocolSitesTableManager(_db, _db.protocolSites);
+  $ProtocolRunsTableManager get protocolRuns =>
+      $ProtocolRunsTableManager(_db, _db.protocolRuns);
 }

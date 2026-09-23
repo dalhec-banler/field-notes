@@ -97,7 +97,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/seed/taxa_seed.csv
+    - assets/seed/states/
+    - assets/geo/us_states.geojson
 
   fonts:
     - family: ZillaSlab
