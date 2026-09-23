@@ -82,7 +82,7 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
   Future<void> _pickLink(String raw) async {
     final url = _kmlUrlFor(raw.trim());
     if (url == null) {
-      setState(() => _error = "That doesn't look like a Google Earth or My Maps link.");
+      setState(() => _error = _whyNotFetchable(raw.trim()));
       return;
     }
     setState(() { _error = null; _fetching = true; });
@@ -93,6 +93,17 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
       }
       final body = res.bodyBytes;
       final isZip = body.length > 1 && body[0] == 0x50 && body[1] == 0x4B; // 'PK'
+      if (!isZip) {
+        final head = utf8
+            .decode(body.take(400).toList(), allowMalformed: true)
+            .trimLeft()
+            .toLowerCase();
+        if (head.startsWith('<!doctype html') || head.startsWith('<html')) {
+          throw Exception(
+              'that link served a web page, not a map file — it probably needs '
+              'a sign-in, or the map is not shared by link');
+        }
+      }
       final placemarks = isZip ? parseKmz(body) : parseKml(utf8.decode(body));
       if (!mounted) return;
       if (placemarks.isEmpty) {
@@ -111,9 +122,11 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
     }
   }
 
-  /// My Maps links carry the map id as `mid`; Earth project links use the
-  /// same document service. Anything else we hand back untouched and let the
-  /// server decide.
+  /// My Maps hands out KML to anyone with the link — the map id rides in
+  /// `mid`. Earth web projects do not: they live in the owner's Drive and the
+  /// share link opens the Earth app, so there is nothing to fetch without
+  /// authenticating. Those get told to export the file instead of being
+  /// fetched and failing on a page of HTML.
   String? _kmlUrlFor(String link) {
     if (link.isEmpty) return null;
     final u = Uri.tryParse(link);
@@ -122,9 +135,26 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
     if (mid != null && mid.isNotEmpty) {
       return 'https://www.google.com/maps/d/kml?forcekml=1&mid=$mid';
     }
-    if (link.toLowerCase().contains('earth.google.com')) return link;
-    if (link.toLowerCase().endsWith('.kml') || link.toLowerCase().endsWith('.kmz')) return link;
+    final low = link.toLowerCase();
+    if (low.endsWith('.kml') || low.endsWith('.kmz')) return link;
     return null;
+  }
+
+  /// Why a link can't be fetched, said plainly.
+  String _whyNotFetchable(String link) {
+    final low = link.toLowerCase();
+    if (low.contains('earth.google.com')) {
+      return 'Google Earth projects can\'t be fetched by link — they live in '
+          'your Drive and the link just opens Earth. In Earth, open the '
+          'project menu and choose "Export as KML file", then use Choose file '
+          'above. A My Maps link works here, or any direct .kml/.kmz URL.';
+    }
+    if (low.contains('drive.google.com')) {
+      return 'A Drive link points at a viewer page, not the file itself. '
+          'Download the .kml or .kmz and use Choose file above.';
+    }
+    return 'That link doesn\'t point at a map file. Use a My Maps share link, '
+        'a direct .kml or .kmz URL, or Choose file above.';
   }
 
   _Destination _suggest(KmlPlacemark pm) {
@@ -406,7 +436,7 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
                             controller: _linkCtl,
                             enabled: !_fetching,
                             decoration: const InputDecoration(
-                              hintText: 'google.com/maps/d/… or an Earth project link',
+                              hintText: 'A My Maps share link, or a direct .kml / .kmz URL',
                               isDense: true,
                             ),
                             onSubmitted: _pickLink,
@@ -428,7 +458,7 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
                   const SizedBox(
                     width: 460,
                     child: Text(
-                      'The map has to be shared by link for this to reach it.',
+                      'My Maps links only. Earth projects have to be exported as KML and opened above.',
                       style: TextStyle(fontSize: 12.5),
                       textAlign: TextAlign.center,
                     ),
