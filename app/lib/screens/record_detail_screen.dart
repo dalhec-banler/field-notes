@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../db/database.dart';
 import '../geo/simplify.dart' show distanceM;
 import '../theme/tokens.dart';
+import '../widgets/photo_gallery.dart';
 import '../widgets/press.dart';
 import '../widgets/condition_log_dialog.dart';
 import '../widgets/confirm.dart';
@@ -371,104 +372,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     await _load();
   }
 
-  /// Carousel arrow for the desk plate; wraps at either end.
-  Widget _arrow(IconData icon, int step) => Material(
-    color: Press.paperRaised.withValues(alpha: 0.8),
-    shape: CircleBorder(side: BorderSide(color: Press.borderInk, width: 1)),
-    child: InkWell(
-      customBorder: CircleBorder(),
-      onTap: () =>
-          setState(() => _photoIndex = (_photoIndex + step) % _photos.length),
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: Icon(icon, size: 28, color: Press.ink),
-      ),
-    ),
-  );
-
-  /// The photo at full size, pinch/scroll to zoom, arrows to move on.
-  Future<void> _openFullSize() async {
-    var index = _photoIndex;
-    await showDialog<void>(
-      context: context,
-      barrierColor: Color(0xE61B1813),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialog) => Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => Navigator.of(ctx).pop(),
-                child: InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 6,
-                  child: Center(
-                    child: Image.file(
-                      File(_photos[index].localPath!),
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (_photos.length > 1) ...[
-              Positioned(
-                left: 16,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: IconButton(
-                    iconSize: 40,
-                    color: Press.paper,
-                    icon: Icon(Icons.chevron_left),
-                    onPressed: () =>
-                        setDialog(() => index = (index - 1) % _photos.length),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 16,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: IconButton(
-                    iconSize: 40,
-                    color: Press.paper,
-                    icon: Icon(Icons.chevron_right),
-                    onPressed: () =>
-                        setDialog(() => index = (index + 1) % _photos.length),
-                  ),
-                ),
-              ),
-            ],
-            Positioned(
-              top: 16,
-              left: 16,
-              child: IconButton(
-                tooltip: 'Remove this photo',
-                color: Press.paper,
-                icon: Icon(Icons.delete_outline),
-                onPressed: () async {
-                  Navigator.of(ctx).pop();
-                  await _deleteCurrentPhoto();
-                },
-              ),
-            ),
-            Positioned(
-              top: 16,
-              right: 16,
-              child: IconButton(
-                color: Press.paper,
-                icon: Icon(Icons.close),
-                onPressed: () => Navigator.of(ctx).pop(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (mounted) setState(() => _photoIndex = index);
-  }
 
   /// Edit what a field ID most often gets wrong (shared editor, see
   /// widgets/edit_record_sheet.dart). MOVE THE PIN comes back here because
@@ -679,174 +582,26 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // 1. Photo header — full plate with a photo, a slim bar without
-          // one (a voice note or a jotted line shouldn't cost a third of
-          // the screen in blank paper).
-          // On a wide pane the plate is tall and the photo is shown whole on
-          // paper, not cropped to a phone's strip; click it for full size.
-          SizedBox(
-            height:
-                (_photos.isEmpty
-                    ? 64
-                    : widget.embedded
-                    ? (MediaQuery.sizeOf(context).height * 0.6).clamp(
-                        320.0,
-                        760.0,
-                      )
-                    : 238) +
-                MediaQuery.of(context).padding.top,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _photos.isNotEmpty
-                    ? Container(
-                        color: widget.embedded ? Press.paperEdge : null,
-                        child: GestureDetector(
-                          // Tap to inspect, on phone and desk alike; the
-                          // full-size viewer carries the delete, visibly
-                          // (design audit P2 — a hidden long-press meant
-                          // "peek" sometimes offered REMOVE).
-                          onTap: _openFullSize,
-                          child: Image.file(
-                            File(_photos[_photoIndex].localPath!),
-                            fit: widget.embedded
-                                ? BoxFit.contain
-                                : BoxFit.cover,
-                          ),
-                        ),
-                      )
-                    : Container(color: Press.paper),
-                // Desk carousel: arrows either side, every thumbnail below.
-                if (widget.embedded && _photos.length > 1) ...[
-                  Positioned(
-                    left: 10,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(child: _arrow(Icons.chevron_left, -1)),
-                  ),
-                  Positioned(
-                    right: 10,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(child: _arrow(Icons.chevron_right, 1)),
-                  ),
-                ],
-                if (_photos.isNotEmpty)
-                  Positioned.fill(
-                    child: Padding(
-                      padding: EdgeInsets.all(8),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Color(0x66F4ECD8),
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (!widget.embedded)
-                  Positioned(
-                    top: MediaQuery.of(context).padding.top + 8,
-                    left: 8,
-                    child: GestureDetector(
-                      onTap: () {
-                        final nav = Navigator.of(context);
-                        if (nav.canPop()) nav.pop();
-                      },
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: _photos.isEmpty
-                              ? Press.paper
-                              : Color(0x991B1813),
-                          border: Border.all(
-                            color: _photos.isEmpty
-                                ? Press.ink
-                                : Press.paperRaised,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          '‹',
-                          style: TextStyle(
-                            fontFamily: Type.slab,
-                            fontSize: 26,
-                            height: 1,
-                            color: _photos.isEmpty
-                                ? Press.ink
-                                : Press.paperRaised,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                // Bottom-left ink plate — a caption for the frame.
-                if (_photos.isNotEmpty)
-                  Positioned(
-                    left: 8,
-                    bottom: 8,
-                    child: Container(
-                      color: Press.ink,
-                      padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                      child: MonoLabel(
-                        [
-                          if (_photos.length > 1)
-                            'Frame ${_photoIndex + 1} of ${_photos.length}',
-                          if (_zone != null) _zone!.name,
-                        ].join(' · '),
-                        size: 8.5,
-                        spacing: 1.4,
-                        color: Press.paperRaised,
-                      ),
-                    ),
-                  ),
-                // Bottom-right thumbnails.
-                if (_photos.length > 1)
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: Row(
-                      children: [
-                        for (
-                          var i = 0;
-                          i < _photos.length && (widget.embedded || i < 3);
-                          i++
-                        )
-                          GestureDetector(
-                            onTap: () => setState(() => _photoIndex = i),
-                            child: Container(
-                              width: widget.embedded ? 56 : 34,
-                              height: widget.embedded ? 56 : 34,
-                              margin: EdgeInsets.only(left: 5),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: i == _photoIndex
-                                      ? Press.oxblood
-                                      : Color(0xCCF4ECD8),
-                                  width: i == _photoIndex ? 2 : 1,
-                                ),
-                                image: DecorationImage(
-                                  image: FileImage(
-                                    File(
-                                      _photos[i].thumbPath ??
-                                          _photos[i].localPath!,
-                                    ),
-                                  ),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
+          // 1. Photographs. Sized to the picture's own shape inside the
+          // space available — never cropped, never enlarged past its pixels.
+          // A record with no photo gets a slim bar instead of a third of the
+          // screen in blank paper.
+          if (_photos.isEmpty)
+            SizedBox(height: 64 + MediaQuery.of(context).padding.top)
+          else
+            Padding(
+              padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+              child: PhotoPlate(
+                photos: [for (final m in _photos) m.localPath!],
+                index: _photoIndex.clamp(0, _photos.length - 1),
+                onIndex: (i) => setState(() => _photoIndex = i),
+                onDelete: (i) {
+                  setState(() => _photoIndex = i);
+                  _deleteCurrentPhoto();
+                },
+                maxHeight: widget.embedded ? 620 : 460,
+              ),
             ),
-          ),
-
           // 2. Title block.
           Padding(
             padding: EdgeInsets.fromLTRB(Metrics.gutter, 14, Metrics.gutter, 0),
@@ -859,7 +614,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     SizedBox(width: 7),
                     MonoLabel(
                       '${obs.observationType}'
-                      '${_taxon != null && kConfidenceLabels.containsKey(obs.taxonConfidence) ? ' · ${kConfidenceLabels[obs.taxonConfidence]}' : ''}',
+                      '${_taxon != null && kConfidenceLabels.containsKey(obs.taxonConfidence) ? ' · ${kConfidenceLabels[obs.taxonConfidence]}' : ''}'
+                      // the zone used to ride on the photo overlay; it belongs
+                      // with the record's other facts, not on the picture
+                      '${_zone != null ? ' · ${_zone!.name}' : ''}',
                       size: 9,
                       spacing: 1.8,
                       color: typeColor,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../db/database.dart';
 import '../theme/tokens.dart';
+import '../widgets/photo_gallery.dart';
 import '../widgets/press.dart';
 import '../widgets/edit_sheet.dart';
 import '../widgets/nativity_chip.dart';
@@ -43,9 +44,12 @@ class _SpeciesDetail extends StatefulWidget {
 }
 
 class _Sighting {
-  _Sighting(this.obs, this.thumb, this.zoneName);
+  _Sighting(this.obs, this.thumb, this.zoneName, {this.full});
   final Observation obs;
   final String? thumb;
+
+  /// The photograph itself — the grid shows [thumb], the lightbox wants this.
+  final String? full;
   final String? zoneName;
 }
 
@@ -78,6 +82,7 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
     final out = <_Sighting>[];
     for (final o in obs) {
       String? thumb;
+      String? full;
       final link =
           await (db.select(db.mediaLinks)
                 ..where(
@@ -92,9 +97,13 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
         final m = await (db.select(
           db.media,
         )..where((x) => x.id.equals(link.mediaId))).getSingleOrNull();
-        if (m?.mediaType == 'photo') thumb = m!.thumbPath ?? m.localPath;
+        if (m?.mediaType == 'photo') {
+          thumb = m!.thumbPath ?? m.localPath;
+          full = m.localPath ?? m.thumbPath;
+        }
       }
-      out.add(_Sighting(o, thumb, o.zoneId == null ? null : zones[o.zoneId]));
+      out.add(_Sighting(o, thumb, o.zoneId == null ? null : zones[o.zoneId],
+          full: full));
     }
     if (mounted) {
       setState(() {
@@ -313,7 +322,16 @@ class _SpeciesDetailState extends State<_SpeciesDetail> {
               children: [
                 for (final s in photos)
                   GestureDetector(
-                    onTap: () => _open(s),
+                    // A thumbnail under "Photos" shows the photograph. The
+                    // Sightings list below is the way to the record — before,
+                    // both did the same thing and the grid was decoration.
+                    onTap: () => showPhotoLightbox(
+                      context,
+                      photos: [
+                        for (final p in photos) p.full ?? p.thumb!,
+                      ],
+                      index: photos.indexOf(s),
+                    ),
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: Press.borderInk, width: 1),
