@@ -83,6 +83,15 @@ duplicates beside them, so draw → export → import → look → redraw is a l
 can actually run. Every import is registered, and removing one takes its zones
 with it while leaving anything hand-drawn alone.
 
+A zone can also just be switched off. Hidden is not deleted — it keeps its
+records and still answers point-in-polygon, so a record captured inside it is
+still assigned to it. It only stops painting, on the map and on anything drawn
+from the map.
+
+Link import is My Maps only. A Google Earth project lives in the owner's Drive
+and its share URL opens the Earth app rather than serving the file, so there is
+nothing to fetch; export the KML and open it instead.
+
 ## Sync and backups
 
 Two paths, by design. Google Drive carries the free seats — each person's own
@@ -110,7 +119,7 @@ Rules worth knowing before reading the code: UUIDv7 keys, ISO-8601 UTC plus a
 delete everywhere. `gps_accuracy_m = -1` means *not located* — the stored
 coordinate is a stand-in and every consumer has to treat it as absent rather
 than quietly drop a pin in the wrong place. Survival is always derived, never
-stored. Schema is at v11; migrations live in `app/lib/db/database.dart`.
+stored. Schema is at v12; migrations live in `app/lib/db/database.dart`.
 
 ## Build
 
