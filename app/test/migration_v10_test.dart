@@ -24,10 +24,20 @@ void main() {
         created_by TEXT NOT NULL, created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL, deleted_at TEXT)''');
     // Stubs for every table the FKs point at; enforcement is on at open.
+    // taxa is real rather than a stub: the v13 step reads and merges it.
+    raw.execute('''
+      CREATE TABLE taxa (
+        id TEXT PRIMARY KEY NOT NULL, property_id TEXT,
+        scientific_name TEXT NOT NULL, common_name TEXT, family TEXT,
+        rank TEXT DEFAULT 'species', growth_form TEXT, nativity TEXT,
+        gbif_key TEXT, inat_taxon_id TEXT, usda_plants_symbol TEXT,
+        itis_tsn TEXT, notes TEXT, synonyms TEXT,
+        is_favorite INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT, created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL, deleted_at TEXT)''');
     for (final t in [
       'zones',
       'features',
-      'taxa',
       'env_contexts',
       'photo_points',
       'tracks',

@@ -93,12 +93,19 @@ class RegionLibrary {
     }
 
     final existing = await _existingByScientificName();
+    final seen = <String>{};
     final now = nowUtcIso();
     var inserted = 0;
     await db.batch((batch) {
       for (final row in rows.skip(1)) {
         final scientific = field(row, 'scientific_name');
-        if (scientific == null || existing.containsKey(scientific)) continue;
+        // `existing` is a snapshot; without `seen`, a list naming the same
+        // plant twice inserts it twice.
+        if (scientific == null ||
+            existing.containsKey(_key(scientific)) ||
+            !seen.add(_key(scientific))) {
+          continue;
+        }
         batch.insert(
           db.taxa,
           TaxaCompanion.insert(
@@ -142,11 +149,29 @@ class RegionLibrary {
     return total;
   }
 
+  /// A name as it is matched: trimmed, case-folded, inner runs of space
+  /// collapsed. Two lists spelling the same plant differently should still
+  /// land on one row.
+  static String _key(String name) =>
+      name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+  /// Every name a library row answers to — its accepted name and each of its
+  /// synonyms (D-032). Matching on the accepted name alone is how the Texas
+  /// list came to file a second Agarita under Mahonia while the seed already
+  /// held it under Berberis.
   Future<Map<String, TaxaData>> _existingByScientificName() async {
     final rows = await (db.select(
       db.taxa,
     )..where((t) => t.deletedAt.isNull())).get();
-    return {for (final t in rows) t.scientificName: t};
+    final out = <String, TaxaData>{};
+    for (final t in rows) {
+      out[_key(t.scientificName)] = t;
+      for (final syn in (t.synonyms ?? '').split(';')) {
+        final k = _key(syn);
+        if (k.isNotEmpty) out.putIfAbsent(k, () => t);
+      }
+    }
+    return out;
   }
 
   // ---- iNaturalist: the state's most-recorded plants -----------------
@@ -229,13 +254,14 @@ class RegionLibrary {
   }) async {
     final code = usps.toUpperCase();
     final existing = await _existingByScientificName();
+    final seen = <String>{};
     final now = nowUtcIso();
     var inserted = 0;
     var rank = 0;
     await db.batch((batch) {
       for (final s in species) {
         rank++;
-        final have = existing[s.scientificName];
+        final have = existing[_key(s.scientificName)];
         if (have != null) {
           if (have.inatTaxonId == null || have.nativity == null) {
             batch.update(
@@ -254,6 +280,7 @@ class RegionLibrary {
           }
           continue;
         }
+        if (!seen.add(_key(s.scientificName))) continue;
         batch.insert(
           db.taxa,
           TaxaCompanion.insert(

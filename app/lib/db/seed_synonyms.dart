@@ -30,6 +30,12 @@ const seedSynonyms = <String, List<String>>{
   ],
   'Arbutus xalapensis': ['Arbutus texana'],
   'Mahonia trifoliolata': ['Berberis trifoliolata'],
+  // Two genera split off recently enough that both names are still in
+  // print, and the Texas list uses the newer one where the seed used the
+  // older. Without these the same plant lands in the library twice.
+  // (Lotebush is the same story; its entry is below.)
+  'Prosopis glandulosa': ['Neltuma glandulosa'],
+  'Cocculus carolinus': ['Nephroia carolina'],
   'Forestiera pubescens': ['Forestiera neomexicana'],
   'Rhus lanceolata': ['Rhus copallinum var. lanceolata'],
   'Platanus occidentalis var. glabrata': ['Platanus occidentalis'],
@@ -54,7 +60,10 @@ const seedSynonyms = <String, List<String>>{
     'Sophora secundiflora',
     'Calia secundiflora',
   ],
-  'Ziziphus obtusifolia': ['Condalia obtusifolia'],
+  'Ziziphus obtusifolia': [
+    'Condalia obtusifolia',
+    'Condaliopsis obtusifolia',
+  ],
   'Mimosa aculeaticarpa var. biuncifera': ['Mimosa biuncifera'],
   'Vachellia farnesiana': ['Acacia farnesiana', 'Acacia smallii'],
   'Aloysia gratissima': ['Lippia ligustrina'],

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'seed_synonyms.dart';
+import 'taxa_dedupe.dart';
 
 export 'ids.dart';
 
@@ -63,7 +64,7 @@ class FieldNotesDb extends _$FieldNotesDb {
   }
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -383,6 +384,16 @@ class FieldNotesDb extends _$FieldNotesDb {
             deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
           WHERE deleted_at IS NULL''');
+        }
+        if (from < 13) {
+          // v13: fold the duplicate library rows the old loaders left behind.
+          // Both of them matched on the accepted name only, and against a
+          // snapshot taken before the batch, so the state list could file a
+          // second Agarita under Mahonia beside the seed's Berberis, and a
+          // list naming a plant twice inserted it twice. The loader is fixed;
+          // this clears what it wrote. Records move to the surviving row
+          // first, so no observation is left pointing at a retired taxon.
+          await dedupeTaxa(m.database, now: nowUtcIso());
         }
       });
     },

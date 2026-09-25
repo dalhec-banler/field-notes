@@ -194,9 +194,12 @@ class _SpeciesTabState extends State<SpeciesTab> {
               children: [
                 Expanded(
                   child: MonoLabel(
+                    // The absence of a pill is itself information, which
+                    // isn't obvious until it's said (Austin, 2026-09-25).
                     '$_favoriteCount starred · '
                     '${_totalCount - _favoriteCount} more regional · '
-                    'star = quick pick · tap a row for its history',
+                    'star = quick pick · native unless tagged · '
+                    'tap a row for its history',
                     size: 9,
                     opacity: 0.7,
                   ),
