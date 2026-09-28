@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
@@ -35,23 +37,48 @@ class _StateListCardState extends State<StateListCard> {
   bool _hasList = true; // assume until checked, so the card never flashes
   UsState? _state;
 
+  StreamSubscription<Property?>? _sub;
+
   @override
   void initState() {
     super.initState();
-    _check();
+    _listen();
   }
 
   @override
   void didUpdateWidget(StateListCard old) {
     super.didUpdateWidget(old);
-    if (old.property.id != widget.property.id ||
-        old.property.state != widget.property.state) {
-      _check();
-    }
+    if (old.property.id != widget.property.id) _listen();
   }
 
-  Future<void> _check() async {
-    final usps = widget.property.state;
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  /// Follows the property row itself.
+  ///
+  /// [widget.property] is a snapshot the shell took at boot and never
+  /// refreshes, so reading the state off it meant the card answered with
+  /// whatever was true when the app started. Picking a state wrote the
+  /// choice and then the card reset itself to asking again, and the pick
+  /// only appeared after a relaunch — which is why it looked fine on the
+  /// desk, where the app gets restarted far more often (Austin, 2026-09-28).
+  ///
+  /// Watching the row also covers the other writer: the locator resolving
+  /// the state from the first GPS fix while this card is on screen.
+  void _listen() {
+    _sub?.cancel();
+    _sub =
+        (widget.db.select(
+          widget.db.properties,
+        )..where((p) => p.id.equals(widget.property.id)))
+            .watchSingleOrNull()
+            .listen((row) => _check(row?.state));
+  }
+
+  Future<void> _check(String? usps) async {
     final resolver = await StateResolver.load();
     final state = usps == null ? null : resolver.byUsps(usps);
     final has = usps == null
@@ -86,7 +113,6 @@ class _StateListCardState extends State<StateListCard> {
     await RegionLibrary(widget.db).seedBundledPalette(picked.usps);
     widget.onChanged();
     setState(() => _state = picked);
-    await _check();
   }
 
   Future<void> _fetch() async {
@@ -127,7 +153,6 @@ class _StateListCardState extends State<StateListCard> {
         SnackBar(content: Text('$n plants added for ${state.name}')),
       );
       widget.onChanged();
-      await _check();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)

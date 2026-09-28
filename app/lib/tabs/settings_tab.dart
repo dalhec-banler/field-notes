@@ -521,6 +521,22 @@ class _SettingsTabState extends State<SettingsTab> {
                 () => widget.prefs.envContext = !widget.prefs.envContext,
               ),
             ),
+            // Same rule as the line above: it is described by what leaves
+            // the phone. "Recorded nearby" is the honest phrase — iNaturalist
+            // holds what people photographed, so a low count on a grass says
+            // more about photographers than about the plant.
+            (
+              'Check candidates against records nearby',
+              widget.prefs.rangeCheck
+                  ? 'on · asks iNaturalist how often each suggestion has been '
+                        'recorded within 50 km, from a location rounded to '
+                        'about a kilometre'
+                  : 'off · identification asks iNaturalist nothing',
+              widget.prefs.rangeCheck ? 'On' : 'Off',
+              () => setState(
+                () => widget.prefs.rangeCheck = !widget.prefs.rangeCheck,
+              ),
+            ),
           ]),
           if (widget.prefs.pressUnlocked)
             _group('Appearance', [

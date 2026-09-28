@@ -99,6 +99,12 @@ class AppPrefs extends ChangeNotifier {
   /// a third party without the user asking for it in the moment, and the
   /// app's first rule is that coordinates of private land don't leave the
   /// device unprompted. On, the coordinate is rounded to ~1 km first.
+  /// Asks iNaturalist how often a candidate has been recorded near here.
+  /// Off by default like [envContext] and for the same reason: the lookup
+  /// sends a coordinate, rounded to ~1 km.
+  bool get rangeCheck => get<bool>('range_check') ?? false;
+  set rangeCheck(bool v) => set('range_check', v);
+
   bool get envContext => get<bool>('env_context') ?? false;
   set envContext(bool v) => set('env_context', v);
 

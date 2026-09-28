@@ -173,6 +173,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       observation: obs,
       property: widget.property,
       photos: photos,
+      rangeCheck: widget.prefs.rangeCheck,
     );
   }
 

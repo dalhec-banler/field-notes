@@ -10,6 +10,7 @@ import 'id_models.dart';
 import 'send_copy.dart';
 import 'llm_client.dart';
 import 'plantnet_client.dart';
+import 'range_check.dart';
 
 /// Runs the identification pipeline and records what it found.
 ///
@@ -23,14 +24,17 @@ class IdentificationService {
     IdKeys? keys,
     PlantNetClient? plantNet,
     LlmClient? llm,
+    RangeCheck? rangeCheck,
   }) : _keys = keys ?? IdKeys(),
        _plantNet = plantNet ?? PlantNetClient(),
-       _llm = llm ?? LlmClient();
+       _llm = llm ?? LlmClient(),
+       _range = rangeCheck ?? RangeCheck(db);
 
   final FieldNotesDb db;
   final IdKeys _keys;
   final PlantNetClient _plantNet;
   final LlmClient _llm;
+  final RangeCheck _range;
 
   Future<bool> get isConfigured async =>
       (await _keys.hasPlantNet) || (await _keys.hasLlm);
@@ -50,6 +54,9 @@ class IdentificationService {
     // False while the record isn't saved yet (capture time): the caller
     // persists the list itself once the row exists — rule 7 still holds.
     bool persist = true,
+    // Off unless the caller passes it, like the env-context backfill: a
+    // lookup sends a coordinate, so forgetting the flag must send nothing.
+    bool rangeCheck = false,
   }) async {
     // What leaves the device is a downsized copy with the EXIF block
     // cleared (hard rule 3) — never the original file.
@@ -116,6 +123,7 @@ class IdentificationService {
       }
 
       candidates = await matchToLibrary(candidates, property.id);
+      candidates = await _annotateRange(candidates, observation, rangeCheck);
       if (persist) {
         await _record(candidates, observation, plantNetProject, runId);
       }
@@ -123,6 +131,34 @@ class IdentificationService {
     } finally {
       cleanupSendCopies(sendPhotos);
     }
+  }
+
+  /// Hangs "recorded nearby" counts on the candidates.
+  ///
+  /// A third layer that adds evidence and never a name: it cannot introduce
+  /// a candidate, reorder them or reject one. An unlocated record is skipped
+  /// outright — `gps_accuracy_m == -1` means there is no point to ask about,
+  /// and the centroid standing in for it would answer about the wrong ground.
+  Future<List<IdCandidate>> _annotateRange(
+    List<IdCandidate> candidates,
+    Observation observation,
+    bool enabled,
+  ) async {
+    if (!enabled || candidates.isEmpty) return candidates;
+    if (observation.gpsAccuracyM == -1) return candidates;
+    final counts = await _range.countsNear(
+      scientificNames: [for (final c in candidates) c.name],
+      lat: observation.lat,
+      lng: observation.lng,
+      enabled: true,
+    );
+    if (counts.isEmpty) return candidates;
+    return [
+      for (final c in candidates)
+        counts.containsKey(c.name)
+            ? c.copyWith(nearbyRecords: counts[c.name])
+            : c,
+    ];
   }
 
   /// The run id of the most recent identify() on this service instance —

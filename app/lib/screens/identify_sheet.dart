@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../id/range_check.dart';
 import '../id/id_models.dart';
 import '../id/identification_service.dart';
 import '../id/llm_client.dart';
@@ -23,6 +24,8 @@ Future<bool> showIdentifySheet(
   required Property property,
   required List<File> photos,
   bool persist = true,
+  // Off unless a caller passes the user's setting through.
+  bool rangeCheck = false,
   Future<void> Function(IdCandidate)? onChoose,
   void Function(List<IdCandidate>)? onCandidates,
 }) async {
@@ -39,6 +42,7 @@ Future<bool> showIdentifySheet(
       property: property,
       photos: photos,
       persist: persist,
+      rangeCheck: rangeCheck,
       onChoose: onChoose,
       onCandidates: onCandidates,
     ),
@@ -53,6 +57,7 @@ class _IdentifySheet extends StatefulWidget {
     required this.property,
     required this.photos,
     this.persist = true,
+    this.rangeCheck = false,
     this.onChoose,
     this.onCandidates,
   });
@@ -62,6 +67,7 @@ class _IdentifySheet extends StatefulWidget {
   final Property property;
   final List<File> photos;
   final bool persist;
+  final bool rangeCheck;
   final Future<void> Function(IdCandidate)? onChoose;
   final void Function(List<IdCandidate>)? onCandidates;
 
@@ -130,6 +136,7 @@ class _IdentifySheetState extends State<_IdentifySheet> {
         property: widget.property,
         organ: _organ,
         persist: widget.persist,
+        rangeCheck: widget.rangeCheck,
         onStatus: (s) {
           if (mounted) setState(() => _status = s);
         },
@@ -495,6 +502,24 @@ class _IdentifySheetState extends State<_IdentifySheet> {
                     fontFamily: Type.serif,
                     fontSize: 14.5,
                     height: 1.4,
+                  ),
+                ),
+              ],
+              // Evidence sits apart from the reasoning above it: that is a
+              // model's argument, this is a count of what people have filed.
+              // A zero is drawn in the warning colour and still does not
+              // reject the candidate — it just asks you to look twice.
+              if (RangeCheck.note(c.nearbyRecords) != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  RangeCheck.note(c.nearbyRecords)!,
+                  style: TextStyle(
+                    fontFamily: Type.mono,
+                    fontSize: 11,
+                    height: 1.35,
+                    color: c.nearbyRecords == 0
+                        ? Press.oxblood
+                        : Press.ink.withValues(alpha: 0.75),
                   ),
                 ),
               ],

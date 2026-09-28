@@ -8,6 +8,7 @@ class IdCandidate {
     this.reasoning,
     this.taxonId,
     this.rank,
+    this.nearbyRecords,
   });
 
   /// Scientific name as the source returned it.
@@ -28,6 +29,12 @@ class IdCandidate {
 
   final int? rank;
 
+  /// Research-grade iNaturalist records of this plant within the range
+  /// check's radius, when that layer ran. Null means it did not run — which
+  /// is not the same as zero, and a zero is not the same as absent (see
+  /// [RangeCheck]). Evidence beside the opinion, never a vote.
+  final int? nearbyRecords;
+
   IdCandidate copyWith({
     String? source,
     double? score,
@@ -35,6 +42,7 @@ class IdCandidate {
     String? taxonId,
     int? rank,
     String? commonName,
+    int? nearbyRecords,
   }) => IdCandidate(
     name: name,
     commonName: commonName ?? this.commonName,
@@ -43,6 +51,7 @@ class IdCandidate {
     reasoning: reasoning ?? this.reasoning,
     taxonId: taxonId ?? this.taxonId,
     rank: rank ?? this.rank,
+    nearbyRecords: nearbyRecords ?? this.nearbyRecords,
   );
 
   String get displayName => commonName == null ? name : '$commonName ($name)';
