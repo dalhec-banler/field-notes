@@ -1,7 +1,7 @@
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../services/observation_ops.dart' show applyRecordEdit;
 import '../theme/tokens.dart';
 import 'press.dart';
 import 'species_field.dart';
@@ -196,15 +196,14 @@ Future<EditOutcome?> showEditRecordSheet(
   final text = notes.text.trim();
   notes.dispose();
   if (outcome != EditOutcome.saved) return outcome;
-  await (db.update(db.observations)..where((o) => o.id.equals(obs.id))).write(
-    ObservationsCompanion(
-      taxonId: Value(picked?.id),
-      taxonConfidence: Value(picked == null ? 'unidentified' : confidence),
-      observationType: Value(type),
-      observedAt: Value(withDay(obs.observedAt, day)),
-      notes: Value(text.isEmpty ? null : text),
-      updatedAt: Value(nowUtcIso()),
-    ),
+  await applyRecordEdit(
+    db,
+    obs.id,
+    taxonId: picked?.id,
+    taxonConfidence: picked == null ? 'unidentified' : confidence,
+    observationType: type,
+    observedAt: withDay(obs.observedAt, day),
+    notes: text,
   );
   return EditOutcome.saved;
 }
