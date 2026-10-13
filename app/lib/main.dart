@@ -16,6 +16,7 @@ import 'species/region_library.dart';
 import 'export/exporter.dart';
 import 'services/app_prefs.dart';
 import 'services/desk.dart';
+import 'services/diag.dart';
 import 'services/env_context.dart';
 import 'services/location_hub.dart';
 import 'services/track_recorder.dart';
@@ -43,6 +44,10 @@ late final TrackRecorder trackRecorder;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Uncaught errors are kept on the device (Settings → About → Diagnostics)
+  // behind whatever the framework already does with them; nothing is sent.
+  Diag.install();
+  Diag.log('launch', where: 'main');
   // Apply a staged restore before the database opens (spec §11.9).
   RestorePipeline? pendingRestore;
   try {
