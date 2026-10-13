@@ -24,6 +24,7 @@ import '../services/property_locator.dart';
 import '../widgets/nativity_chip.dart';
 import '../widgets/species_field.dart';
 import 'identify_sheet.dart';
+import '../services/diag.dart';
 
 /// Result handed back to the shell for the save toast.
 class CaptureResult {
@@ -165,7 +166,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
           });
         }
       });
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'CaptureScreen._initLocation');
       // GPS problems never block capture
     }
   }
@@ -202,7 +204,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
           _zoneResolved = true;
         });
       }
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'CaptureScreen._resolveZone');
       if (mounted) setState(() => _zoneResolved = true);
     }
   }
@@ -272,12 +275,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
       try {
         final f = File(path);
         if (f.existsSync()) f.deleteSync();
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'CaptureScreen._discardShotFile');
+      }
     }
     try {
       final f = File('');
       if (f.existsSync()) f.deleteSync();
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'CaptureScreen._discardShotFile');
+    }
   }
 
   bool _shooting = false;
@@ -293,7 +300,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
         // cache file is ours to clean up.
         try {
           File(shot.path).deleteSync();
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'CaptureScreen._takePhoto');
+        }
         return;
       }
       setState(() {
@@ -443,7 +452,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
         _voiceSaved = true;
         try {
           File(voicePath).deleteSync();
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'CaptureScreen._save');
+        }
       }
 
       // Placed on the map: the pressed point IS the location (accuracy
@@ -602,7 +613,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 runId: rid,
               );
             }
-          } catch (_) {
+          } catch (e, st) {
+            Diag.report(e, st, where: 'CaptureScreen._save');
             // The record is saved; a missing suggestion row is not worth a scare.
           } finally {
             svc.close();
@@ -620,12 +632,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
       for (final id in savedMediaIds) {
         try {
           await eraseMedia(db, id);
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'CaptureScreen._save');
+        }
       }
       if (savedVoiceId != null) {
         try {
           await eraseMedia(db, savedVoiceId);
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'CaptureScreen._save');
+        }
         _voiceSaved = false;
         _voicePath = null;
       }

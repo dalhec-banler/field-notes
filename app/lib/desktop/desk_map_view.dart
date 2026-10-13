@@ -18,6 +18,7 @@ import '../map/record_clusters.dart';
 import '../map/record_ink.dart';
 import '../map/tile_cache.dart';
 import '../screens/record_detail_screen.dart';
+import '../services/diag.dart';
 import '../services/map_jump.dart';
 import '../theme/tokens.dart';
 import '../widgets/confirm.dart';
@@ -394,7 +395,8 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
               return;
             }
             setState(() => _images[key] = img);
-          } catch (_) {
+          } catch (e, st) {
+            Diag.report(e, st, where: 'DeskMapWorkspace._ensureVisibleTiles');
             miss();
           }
         });
@@ -552,7 +554,9 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace> {
           bestRecord = null;
           bestCluster = null;
         }
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'DeskMapWorkspace._onTapUp');
+      }
     }
     if (bestCluster != null) {
       _expandCluster(bestCluster);
@@ -1399,7 +1403,8 @@ class _DeskMapPainter extends CustomPainter {
             return null;
         }
         return path;
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'DeskMapPainter.paint');
         return null;
       }
     }
@@ -1533,7 +1538,9 @@ class _DeskMapPainter extends CustomPainter {
               ui.Paint()..color = const ui.Color(0xFFFFFFFF),
             );
         }
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'DeskMapPainter.paint');
+      }
     }
 
     // Records — the shared shape language, paper stroke; a cell with more

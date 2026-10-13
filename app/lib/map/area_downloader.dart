@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../services/diag.dart';
 import 'imagery_capture.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
@@ -191,7 +192,8 @@ class AreaDownloader extends ChangeNotifier {
             },
             isCancelled: () => _cancelled,
           );
-        } catch (_) {
+        } catch (e, st) {
+          Diag.report(e, st, where: 'AreaDownloader.download');
           // Imagery is a bonus; the vector capture already landed.
         }
         status = imgWrote > 0
@@ -222,7 +224,9 @@ class AreaDownloader extends ChangeNotifier {
             if (f.existsSync()) f.deleteSync();
           }
         }
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'AreaDownloader.download');
+      }
     } finally {
       reader?.close();
       store?.close();

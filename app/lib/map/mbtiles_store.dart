@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:sqlite3/sqlite3.dart';
 
+import '../services/diag.dart';
+
 /// Local MBTiles store — the spec's own fallback format (§3.4). Tiles are
 /// stored TMS-flipped per the MBTiles spec; [getTile] takes XYZ and flips.
 ///
@@ -22,7 +24,8 @@ class MbTilesStore {
     db.execute('PRAGMA busy_timeout = 2000');
     try {
       db.execute('PRAGMA journal_mode = WAL');
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MbTilesStore.open');
       // Read-only media or an odd filesystem: rollback journal still works.
     }
     if (create) {

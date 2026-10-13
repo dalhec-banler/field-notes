@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../services/diag.dart';
 import '../services/secret_store.dart';
 
 /// Spec §11.4: the master/data key lives in platform secure storage
@@ -29,7 +30,8 @@ class BackupKeyCache {
       final b64 = await _storage.read(_key);
       if (b64 == null) return null;
       return base64Decode(b64);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'BackupKeyCache.read');
       return null; // no secure storage on this platform (host tests)
     }
   }
@@ -37,12 +39,16 @@ class BackupKeyCache {
   Future<void> write(List<int> dataKey) async {
     try {
       await _storage.write(_key, base64Encode(dataKey));
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'BackupKeyCache.write');
+    }
   }
 
   Future<void> clear() async {
     try {
       await _storage.delete(_key);
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'BackupKeyCache.clear');
+    }
   }
 }

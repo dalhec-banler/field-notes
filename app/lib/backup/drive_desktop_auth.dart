@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/diag.dart';
 import 'drive_target.dart';
 
 /// Where the desk keeps its Drive grant. The keychain in the app; memory
@@ -41,7 +42,8 @@ class SecureDriveTokenStore implements DriveTokenStore {
       return (jsonDecode(await f.readAsString()) as Map).map(
         (k, v) => MapEntry(k as String, v as String),
       );
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SecureDriveTokenStore._readFile');
       return {};
     }
   }
@@ -58,7 +60,8 @@ class SecureDriveTokenStore implements DriveTokenStore {
       try {
         final v = await _s.read(key: key);
         if (v != null) return v;
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'SecureDriveTokenStore.read');
         _keychainBroken = true;
       }
     }
@@ -71,7 +74,8 @@ class SecureDriveTokenStore implements DriveTokenStore {
       try {
         await _s.write(key: key, value: value);
         return;
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'SecureDriveTokenStore.write');
         _keychainBroken = true;
       }
     }
@@ -85,7 +89,8 @@ class SecureDriveTokenStore implements DriveTokenStore {
     if (!_keychainBroken) {
       try {
         await _s.delete(key: key);
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'SecureDriveTokenStore.delete');
         _keychainBroken = true;
       }
     }
@@ -185,7 +190,9 @@ class DriveDesktopAuth {
         await _client
             .post(Uri.parse(_revokeUrl), body: {'token': refresh})
             .timeout(const Duration(seconds: 15));
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'DriveDesktopAuth.disconnect');
+      }
     }
     await _store.delete(_kRefresh);
     await _store.delete(_kEmail);
@@ -306,7 +313,8 @@ class DriveDesktopAuth {
       payload += '=' * ((4 - payload.length % 4) % 4);
       final map = jsonDecode(utf8.decode(base64.decode(payload))) as Map;
       return map['email'] as String?;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'DriveDesktopAuth._emailFromIdToken');
       return null;
     }
   }

@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import 'diag.dart';
+
 /// Voice note (spec §3.5, §7.2): record audio AND transcribe at the same
 /// time. The audio file is the record; the transcript is a convenience that
 /// lands in the notes field. Offline on Android when the language pack is
@@ -81,7 +83,10 @@ class VoiceNoteRecorder extends ChangeNotifier {
     // Transcription is best-effort and must never block the recording.
     try {
       _speechReady = await _speech.initialize(
-        onError: (e) => debugPrint('[voice] speech error ${e.errorMsg}'),
+        onError: (e) {
+          Diag.report(e.errorMsg, null, where: 'VoiceNoteRecorder.speech');
+          debugPrint('[voice] speech error ${e.errorMsg}');
+        },
         onStatus: (s) {
           // A session ended on its own (pause/limit): keep its words and
           // start another while the recording is still going.
@@ -96,7 +101,8 @@ class VoiceNoteRecorder extends ChangeNotifier {
         },
       );
       if (_speechReady) await _listen();
-    } catch (e) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'VoiceNoteRecorder.start');
       debugPrint('[voice] speech unavailable: $e');
       _speechReady = false;
     }
@@ -123,7 +129,8 @@ class VoiceNoteRecorder extends ChangeNotifier {
           cancelOnError: false,
         ),
       );
-    } catch (e) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'VoiceNoteRecorder._listen');
       debugPrint('[voice] listen failed: $e');
     }
   }
@@ -136,7 +143,9 @@ class VoiceNoteRecorder extends ChangeNotifier {
     lastDuration = elapsed;
     try {
       if (_speech.isListening) await _speech.stop();
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'VoiceNoteRecorder.stop');
+    }
     if (_partial.isNotEmpty) {
       _segments.add(_partial);
       _partial = '';
@@ -164,7 +173,9 @@ class VoiceNoteRecorder extends ChangeNotifier {
     try {
       final f = File(path);
       if (f.existsSync()) f.deleteSync();
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'VoiceNoteRecorder.discard');
+    }
   }
 
   /// Orderly teardown: finish any in-flight stop before the recorder goes
@@ -181,10 +192,14 @@ class VoiceNoteRecorder extends ChangeNotifier {
     }
     try {
       await _speech.cancel();
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'VoiceNoteRecorder.shutdown');
+    }
     try {
       await _recorder.dispose();
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'VoiceNoteRecorder.shutdown');
+    }
   }
 
   bool _torndown = false;

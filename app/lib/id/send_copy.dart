@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import '../services/diag.dart';
+
 /// What actually leaves the device for an identification (hard rule 3,
 /// D-022): a downsized re-encode with the EXIF block cleared — no GPS, no
 /// serial numbers — orientation baked into the pixels first so nothing
@@ -34,7 +36,9 @@ void cleanupSendCopies(List<File> copies) {
   if (copies.isEmpty) return;
   try {
     copies.first.parent.deleteSync(recursive: true);
-  } catch (_) {}
+  } catch (e, st) {
+    Diag.report(e, st, where: 'send_copy.cleanupSendCopies');
+  }
 }
 
 Uint8List? _deriveSendCopy(Uint8List original) {
@@ -53,7 +57,8 @@ Uint8List? _deriveSendCopy(Uint8List original) {
     // The point of the exercise: a fresh, empty EXIF block.
     scaled.exif = img.ExifData();
     return img.encodeJpg(scaled, quality: 85);
-  } catch (_) {
+  } catch (e, st) {
+    Diag.report(e, st, where: 'send_copy._deriveSendCopy');
     return null;
   }
 }

@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 
 import '../db/database.dart';
 import '../geo/zone_assignment.dart';
+import '../services/diag.dart';
 import 'field_defs.dart';
 import 'indicators.dart';
 import 'templates.dart';
@@ -332,7 +333,8 @@ class ProtocolService {
   static Map<String, dynamic> valuesOf(ProtocolRun run) {
     try {
       return (jsonDecode(run.valuesJson) as Map).cast<String, dynamic>();
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'ProtocolService.valuesOf');
       return const {};
     }
   }

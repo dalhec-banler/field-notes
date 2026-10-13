@@ -27,6 +27,7 @@ import '../services/record_filter.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
 import 'tile_server.dart';
+import '../services/diag.dart';
 
 const _basemapFile = 'basemap.pmtiles';
 
@@ -227,7 +228,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             } finally {
               src.close();
             }
-          } catch (_) {}
+          } catch (e, st) {
+            Diag.report(e, st, where: 'MapScreen._start');
+          }
         }
         if (coverage == null) {
           final boundsStr = mbtiles.metadata['bounds'];
@@ -265,7 +268,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           } finally {
             src.close();
           }
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'MapScreen._start');
+        }
         if (!mounted) {
           await server.close();
           return;
@@ -304,7 +309,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       final last = locationHub.last;
       if (last != null) _onFix(last);
       _fixSub = locationHub.positions.listen(_onFix);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._watchPosition');
     } finally {
       _watching = false;
     }
@@ -391,12 +397,16 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         await controller.animateCamera(
           CameraUpdate.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 16),
         );
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'MapScreen._onFix');
+      }
     }
     if (!_positionLayerReady) return;
     try {
       await controller.setGeoJsonSource('me', _positionGeoJson(pos));
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._onFix');
+    }
   }
 
   Map<String, dynamic> _positionGeoJson(Position pos) {
@@ -546,7 +556,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         final fid = ((h as Map)['properties'] as Map?)?['fid'] as String?;
         if (fid != null) return fid;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._featureAt');
+    }
     return null;
   }
 
@@ -573,7 +585,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             .firstOrNull;
         if (f != null) return ClusterGroup([f]);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._hitAt');
+    }
     return null;
   }
 
@@ -670,7 +684,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         ..addAll(index);
       _lastPaintZoom = zoom;
       _lastPainted = _recordFeatures;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._paintRecords');
       // A repaint failure must never take the map down.
     } finally {
       _painting = false;
@@ -750,7 +765,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _badgeImages.clear();
     try {
       await _addPlaceOverlays(controller, db, property);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._addOverlays');
       // Zones, boundary, photo points or features failing to draw must
       // not cost the record pins — those are what the map is for.
     }
@@ -1139,7 +1155,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         'type': 'FeatureCollection',
         'features': out,
       });
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._refreshPhotoPoints');
+    }
   }
 
   Future<String?> _photoPointAt(Point<double> point) async {
@@ -1153,7 +1171,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         final id = ((h as Map)['properties'] as Map?)?['ppid'] as String?;
         if (id != null) return id;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._photoPointAt');
+    }
     return null;
   }
 
@@ -1182,7 +1202,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         try {
           geometry =
               jsonDecode(r.data['geojson'] as String) as Map<String, dynamic>;
-        } catch (_) {
+        } catch (e, st) {
+          Diag.report(e, st, where: 'MapScreen._refreshFeatures');
           continue;
         }
         out.add({
@@ -1205,7 +1226,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         'type': 'FeatureCollection',
         'features': out,
       });
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._refreshFeatures');
+    }
   }
 
   static const _emptyCollection = {
@@ -1254,7 +1277,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           bottom: 160,
         ),
       );
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._frameRecordsIfNeeded');
+    }
   }
 
   bool _framedRecords = false;
@@ -1296,7 +1321,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           _recordBounds = [minLng, minLat, maxLng, maxLat];
         }
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._loadRecordCentre');
+    }
   }
 
   Future<void> _refreshRecords() async {
@@ -1374,7 +1401,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       _recordFeatures = features;
       await _paintRecords();
       widget.onRecordCount?.call(features.length);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._refreshRecords');
       // A redraw failure must never take the map down.
     }
   }

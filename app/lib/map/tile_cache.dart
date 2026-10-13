@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import '../export/map_plate.dart' show TileFetcher;
+import '../services/diag.dart';
 
 /// Session-scoped imagery tile cache. The export workspace re-renders the
 /// plate on every layer toggle and the desk map repaints on every pan —
@@ -95,7 +96,8 @@ class DecodedImageCache {
       _pinned.add(key);
       _evict();
       return img;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'DecodedImageCache._decode');
       return null;
     } finally {
       _inflight.remove(key);

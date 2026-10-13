@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../services/diag.dart';
 import 'target.dart';
 
 /// Back up to the user's own Google Drive (D-020).
@@ -213,7 +214,9 @@ class DriveTarget implements BackupTarget {
     try {
       final m = jsonDecode(body) as Map<String, dynamic>;
       detail = ((m['error'] as Map?)?['message'] as String?) ?? '';
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'DriveTarget._explain');
+    }
     return 'Google Drive error $status${detail.isEmpty ? '' : ': $detail'}';
   }
 }

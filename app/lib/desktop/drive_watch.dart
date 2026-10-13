@@ -7,6 +7,7 @@ import '../backup/drive_auth.dart';
 import '../backup/drive_target.dart';
 import '../backup/restore.dart';
 import '../services/app_prefs.dart';
+import '../services/diag.dart';
 
 /// A newer copy from the phone, waiting in Drive.
 class DriveNews {
@@ -39,7 +40,8 @@ Future<DriveNews?> checkDriveForNewer(AppPrefs prefs) async {
     final have = (from?['generation'] as num?)?.toInt() ?? 0;
     if (generation <= have) return null;
     return DriveNews(generation: generation, createdAt: createdAt);
-  } catch (_) {
+  } catch (e, st) {
+    Diag.report(e, st, where: 'drive_watch.checkDriveForNewer');
     return null;
   } finally {
     target?.close();

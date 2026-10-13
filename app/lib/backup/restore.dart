@@ -10,6 +10,7 @@ import '../id/id_keys.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 import '../db/database.dart';
+import '../services/diag.dart';
 import 'backup_crypto.dart';
 import 'backup_engine.dart';
 import 'keyring.dart';
@@ -101,13 +102,15 @@ class RestorePipeline {
           envelope,
           secret,
         )).cipher;
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'RestorePipeline._stageFromTarget');
         try {
           cipher = (await BackupKeyring.unlockWithRecoveryPhrase(
             envelope,
             secret,
           )).cipher;
-        } catch (_) {
+        } catch (e, st) {
+          Diag.report(e, st, where: 'RestorePipeline._stageFromTarget');
           throw StateError('That passphrase or recovery phrase is wrong.');
         }
       }
@@ -161,7 +164,9 @@ class RestorePipeline {
           'staged_at': nowUtcIso(),
         }),
       );
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'RestorePipeline._stageFromTarget');
+    }
     return '$result. Restart the app to finish.';
   }
 
@@ -173,7 +178,8 @@ class RestorePipeline {
       if (!_restoredFrom.existsSync()) return null;
       return jsonDecode(_restoredFrom.readAsStringSync())
           as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'RestorePipeline.lastRestoredFrom');
       return null;
     }
   }
@@ -263,7 +269,8 @@ class RestorePipeline {
           ),
         );
         remapped++;
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'RestorePipeline.remapRestoredMedia');
         failed++;
       }
     }
@@ -276,7 +283,9 @@ class RestorePipeline {
     if (_staging.existsSync()) {
       try {
         _staging.deleteSync(recursive: true);
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'RestorePipeline._finishRemap');
+      }
     }
   }
 }

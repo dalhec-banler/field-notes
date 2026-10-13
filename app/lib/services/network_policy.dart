@@ -1,6 +1,7 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'app_prefs.dart';
+import 'diag.dart';
 
 /// D-016: users are often off-grid or on metered LTE. Bulk transfers
 /// (basemap capture, archive downloads, backup upload) run on Wi-Fi by
@@ -26,7 +27,8 @@ class NetworkPolicy {
       if (kinds.contains(ConnectivityResult.vpn)) return NetKind.cellular;
       if (kinds.contains(ConnectivityResult.other)) return NetKind.unmetered;
       return NetKind.none;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'NetworkPolicy.current');
       // Unknown platform: don't block the user on a guess.
       return NetKind.unmetered;
     }

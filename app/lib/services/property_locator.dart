@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import '../db/database.dart';
 import '../geo/state_resolver.dart';
 import '../species/region_library.dart';
+import 'diag.dart';
 
 /// Where a place is, learned rather than asked.
 ///
@@ -62,7 +63,9 @@ class PropertyLocator {
       // offline, from the app's own assets (D-034).
       try {
         await RegionLibrary(db).seedBundledPalette(state.usps);
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'PropertyLocator.noteLocation');
+      }
     }
     return known ?? state;
   }
@@ -93,7 +96,8 @@ class PropertyLocator {
       final last = await Geolocator.getLastKnownPosition();
       if (last == null) return null;
       return await noteLocation(propertyId, last.latitude, last.longitude);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'PropertyLocator.noteLastKnownFix');
       return null;
     }
   }

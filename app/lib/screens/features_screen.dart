@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../db/database.dart';
 import '../main.dart' show locationHub;
+import '../services/diag.dart';
 import '../widgets/confirm.dart';
 import '../widgets/edit_sheet.dart';
 
@@ -152,7 +153,9 @@ class _FeaturesScreenState extends State<FeaturesScreen> {
             lat = fix.latitude;
             lng = fix.longitude;
           }
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'FeaturesScreen._addFeature');
+        }
         if (lat == null) usedCentroid = true;
         lat ??= widget.property.centroidLat;
         lng ??= widget.property.centroidLng;

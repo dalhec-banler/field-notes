@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../db/database.dart';
 import '../../main.dart' show locationHub;
+import '../../services/diag.dart';
 import 'ghost_capture_screen.dart';
 import 'photo_point_edit.dart';
 import 'photo_point_history_screen.dart';
@@ -247,7 +248,9 @@ class _PhotoPointsScreenState extends State<PhotoPointsScreen> {
             lat = f.latitude;
             lng = f.longitude;
           }
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'PhotoPointsScreen._create');
+        }
       }
 
       final now = nowUtcIso();

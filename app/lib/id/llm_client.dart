@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../services/diag.dart';
 import 'id_keys.dart';
 import 'id_models.dart';
 
@@ -260,7 +261,9 @@ class LlmClient {
           message = err['message'] as String;
         }
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'LlmClient._errorFrom');
+    }
     // An empty account reads the same on every provider: OpenAI answers
     // 429 insufficient_quota, Anthropic 400 "credit balance is too low",
     // some 402. Say the one thing the person can act on.
@@ -281,7 +284,8 @@ class LlmClient {
     Map<String, dynamic>? decoded;
     try {
       decoded = jsonDecode(raw) as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'LlmClient._parse');
       // Some providers wrap JSON in prose despite the schema; salvage it.
       final start = raw.indexOf('{');
       final end = raw.lastIndexOf('}');
@@ -289,7 +293,9 @@ class LlmClient {
         try {
           decoded =
               jsonDecode(raw.substring(start, end + 1)) as Map<String, dynamic>;
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'LlmClient._parse');
+        }
       }
     }
     final list = (decoded?['candidates'] as List?) ?? const [];

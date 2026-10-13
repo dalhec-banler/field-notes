@@ -18,6 +18,7 @@ import '../screens/photo_points/photo_point_history_screen.dart';
 import '../screens/polygon_editor_screen.dart';
 import '../widgets/feature_sheet.dart';
 import '../widgets/records_here_sheet.dart';
+import '../services/diag.dart';
 
 /// Map home (design README §3.1): full-bleed map with card chrome — property
 /// card (tap = property switcher), track toggle, GPS badge.
@@ -250,7 +251,9 @@ class _MapTabState extends State<MapTab> {
     for (final id in ['zones-fill', 'zones-line']) {
       try {
         await c.setLayerVisibility(id, _showZones);
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'MapTab._applyLayers');
+      }
     }
     try {
       await c.setLayerVisibility('tracks-line', _showTracks);
@@ -260,10 +263,14 @@ class _MapTabState extends State<MapTab> {
       for (final id in ['pp-wedge', 'pp-axis', 'pp-pt']) {
         await c.setLayerVisibility(id, _showPhotoPoints);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapTab._applyLayers');
+    }
     try {
       await c.setLayerVisibility('satellite', _showSatellite);
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapTab._applyLayers');
+    }
   }
 
   Future<void> _showLayersSheet() async {
@@ -447,7 +454,9 @@ class _MapTabState extends State<MapTab> {
           CameraUpdate.newLatLngZoom(LatLng(centre[1], centre[0]), 14),
         );
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapTab._flyToProperty');
+    }
   }
 
   /// Locate-me: fly the camera to the current fix, close enough to see the
@@ -459,7 +468,9 @@ class _MapTabState extends State<MapTab> {
       await controller.animateCamera(
         CameraUpdate.newLatLngZoom(LatLng(fix.latitude, fix.longitude), 17.5),
       );
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapTab._flyTo');
+    }
     if (!_covered(fix) && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

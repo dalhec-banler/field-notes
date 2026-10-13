@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../services/diag.dart';
 import 'target.dart';
 
 /// The Field Notes relay (D-031, docs/RELAY-DESIGN.md): the commercial
@@ -348,7 +349,9 @@ class RelayException implements Exception {
     String? detail;
     try {
       detail = (jsonDecode(body) as Map)['error'] as String?;
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'RelayException.of');
+    }
     return RelayException(status, switch (status) {
       401 =>
         detail ??

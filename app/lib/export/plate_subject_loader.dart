@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:drift/drift.dart';
 
 import '../db/database.dart';
+import '../services/diag.dart';
 import 'map_plate.dart';
 
 /// Assemble the plate's subject from the property's live rows. Soft-deleted
@@ -150,7 +151,8 @@ double? acresOf(String geojson) {
     };
     if (m2.isNaN || m2 <= 0) return null;
     return m2 / 4046.8564224;
-  } catch (_) {
+  } catch (e, st) {
+    Diag.report(e, st, where: 'plate_subject_loader.acresOf');
     return null;
   }
 }

@@ -1,6 +1,7 @@
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../services/desk.dart';
+import '../services/diag.dart';
 import 'drive_desktop_auth.dart';
 import 'drive_target.dart';
 
@@ -48,7 +49,8 @@ class DriveAuth {
     try {
       await _init();
       return GoogleSignIn.instance.supportsAuthenticate();
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'DriveAuth.isSupported');
       return false;
     }
   }
@@ -128,7 +130,8 @@ class DriveAuth {
       await _init();
       await GoogleSignIn.instance.disconnect();
       _lastEmail = null;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'DriveAuth.disconnect');
       // Already gone, or offline — either way the local grant is dropped.
     }
   }

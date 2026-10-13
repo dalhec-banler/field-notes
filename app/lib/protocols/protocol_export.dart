@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
+import '../services/diag.dart';
 import 'field_defs.dart';
 import 'indicators.dart';
 
@@ -343,7 +344,8 @@ Col8=observed_date Date
   List<FieldDef> _safeFields(String json) {
     try {
       return parseFields(json);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'ProtocolExport._safeFields');
       return const [];
     }
   }
@@ -351,7 +353,8 @@ Col8=observed_date Date
   Map<String, dynamic> _safeValues(String json) {
     try {
       return (jsonDecode(json) as Map).cast<String, dynamic>();
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'ProtocolExport._safeValues');
       return const {};
     }
   }
