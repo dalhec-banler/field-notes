@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../db/database.dart';
 import '../geo/zone_assignment.dart';
+import 'diag.dart';
 import 'env_context.dart';
 import 'media_store.dart';
 import 'observation_ops.dart';
@@ -303,9 +303,13 @@ Future<CaptureWritten> writeCapture(
     for (final id in [...savedMediaIds, ?savedVoiceId]) {
       try {
         await eraseMedia(db, id);
-      } catch (cleanup) {
-        debugPrint('capture: save failed ($e) and media $id was left '
-            'behind: $cleanup');
+      } catch (cleanup, st) {
+        Diag.report(
+          cleanup,
+          st,
+          where: 'writeCapture.cleanup',
+          extra: {'save_error': '$e', 'media': id},
+        );
       }
     }
     rethrow;
@@ -317,9 +321,9 @@ Future<CaptureWritten> writeCapture(
     if (voiceFile != null && voiceFile.existsSync()) {
       try {
         voiceFile.deleteSync();
-      } catch (e) {
+      } catch (e, st) {
         // The record is whole; a stale temp file only costs disk.
-        debugPrint('capture: temp voice file not removed: $e');
+        Diag.report(e, st, where: 'writeCapture.voiceTemp');
       }
     }
   }
