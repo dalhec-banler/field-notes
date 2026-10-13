@@ -224,13 +224,24 @@ void buildV9Fixture(File file) {
     for (final t in [
       'zones',
       'features',
-      'taxa',
       'env_contexts',
       'photo_points',
       'tracks',
     ]) {
       raw.execute('CREATE TABLE $t (id TEXT PRIMARY KEY NOT NULL)');
     }
+    // taxa gets its real v9 shape: the v13 migration folds duplicate library
+    // rows and reads property_id/scientific_name/synonyms/is_favorite.
+    raw.execute('''
+      CREATE TABLE taxa (
+        id TEXT PRIMARY KEY NOT NULL, property_id TEXT,
+        scientific_name TEXT NOT NULL, common_name TEXT, family TEXT,
+        rank TEXT DEFAULT 'species', growth_form TEXT, nativity TEXT,
+        gbif_key TEXT, inat_taxon_id TEXT, usda_plants_symbol TEXT,
+        itis_tsn TEXT, notes TEXT, synonyms TEXT,
+        is_favorite INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT, created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL, deleted_at TEXT)''');
     raw.execute('''
       CREATE TABLE observations (
         id TEXT PRIMARY KEY NOT NULL,

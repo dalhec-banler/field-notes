@@ -58,7 +58,7 @@ void main() {
       expect(missing, isEmpty, reason: 'tables in baseline but gone from db');
       expect(mismatches, isEmpty, reason: 'row counts changed:\n${mismatches.join('\n')}');
     } finally {
-      db.dispose();
+      db.close();
     }
   }, skip: enabled ? false : 'set FN_LIVE_DB and FN_LIVE_COUNTS to run');
 }
