@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../services/app_prefs.dart';
+import '../services/diag.dart';
 
 /// A property this device exchanges through the relay (D-031). Lives in
 /// prefs beside the Drive grant: not synced, not backed up — a restored
@@ -80,7 +81,8 @@ extension SharedPropertiesPrefs on AppPrefs {
         for (final j in (jsonDecode(raw) as List).cast<Map<String, dynamic>>())
           SharedProperty.fromJson(j),
       ];
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SharedPropertiesPrefs.sharedProperties');
       return const [];
     }
   }

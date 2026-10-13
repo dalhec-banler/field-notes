@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
+import 'diag.dart';
 
 /// Photo storage per spec §4.10: keep the full-resolution original, write a
 /// 1600 px long-edge working copy and a 320 px thumbnail, record sha256 for
@@ -49,7 +50,8 @@ class MediaStore {
       final thumbPath = p.join(dir.path, '$id.thumb.jpg');
       File(thumbPath).writeAsBytesSync(derived.thumb);
       return (originalPath, thumbPath);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MediaStore.placeBytes');
       // Not an image we can decode: the original is still the record.
       return (originalPath, null);
     }

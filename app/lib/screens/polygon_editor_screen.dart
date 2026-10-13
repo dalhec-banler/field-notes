@@ -8,6 +8,7 @@ import '../db/database.dart';
 import '../export/plate_subject_loader.dart' show acresOf, acresOfRing;
 import '../geo/zone_assignment.dart';
 import '../map/basemap_style.dart';
+import '../services/diag.dart';
 import '../services/property_locator.dart';
 import '../theme/tokens.dart';
 import '../widgets/confirm.dart';
@@ -126,7 +127,9 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
             _ring.first.longitude == _ring.last.longitude) {
           _ring.removeLast();
         }
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'PolygonEditorScreen.initState');
+      }
     }
   }
 
@@ -233,7 +236,8 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
           _calibratedAtZoom = zoom;
         });
       }
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'PolygonEditorScreen._calibrate');
       // A failed calibration just means the handles wait a frame.
     }
   }
@@ -258,7 +262,9 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     try {
       await map.clearFills();
       await map.clearLines();
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'PolygonEditorScreen._redraw');
+    }
     _fill = null;
     _outline = null;
     final ringClosed = _ring.length >= 3
@@ -297,7 +303,8 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       if (_outline != null && _ring.length >= 2) {
         await map.updateLine(_outline!, LineOptions(geometry: ringClosed));
       }
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'PolygonEditorScreen._liveGeometry');
     } finally {
       _geomBusy = false;
     }

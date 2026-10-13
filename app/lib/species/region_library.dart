@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../db/database.dart';
 import '../db/seed.dart' show parseCsv;
 import '../db/seed_synonyms.dart';
+import '../services/diag.dart';
 import 'state_places.dart';
 
 /// The species library for wherever the place is (D-015, D-034).
@@ -41,7 +42,8 @@ class RegionLibrary {
     if (loadAsset != null) return loadAsset!(path);
     try {
       return await rootBundle.loadString(path);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'RegionLibrary._asset');
       return null;
     }
   }
@@ -142,7 +144,8 @@ class RegionLibrary {
     for (final usps in {for (final p in props) p.state!}) {
       try {
         total += await seedBundledPalette(usps);
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'RegionLibrary.seedForKnownStates');
         // A bad palette file never blocks launch.
       }
     }

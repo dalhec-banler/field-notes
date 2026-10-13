@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 
+import '../services/diag.dart';
 import 'mbtiles_store.dart';
 
 /// Offline hi-res imagery capture (Austin, 2026-09-04).
@@ -111,7 +112,8 @@ class ImageryCapture {
                 inBatch = 0;
               }
             }
-          } catch (_) {
+          } catch (e, st) {
+            Diag.report(e, st, where: 'ImageryCapture.capture');
             // One missed tile never fails a capture.
           }
         }

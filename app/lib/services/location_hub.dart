@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'diag.dart';
+
 /// Single owner of the platform position stream.
 ///
 /// `geolocator_android` caches ONE platform stream and the first subscriber's
@@ -114,25 +116,32 @@ class LocationHub extends ChangeNotifier {
     _retry = null;
     // A failed step must never poison the queue for the life of the process;
     // every later restart still runs.
-    return _queue = _queue.catchError((_) {}).then((_) async {
-      final old = _platformSub;
-      _platformSub = null;
-      try {
-        await old?.cancel();
-      } catch (_) {}
-      if (gen != _gen || !_wanted) return;
-      try {
-        _platformSub = Geolocator.getPositionStream(locationSettings: _settings)
-            .listen((pos) {
-              _last = pos;
-              lastError = null;
-              if (!_controller.isClosed) _controller.add(pos);
-              notifyListeners();
-            }, onError: _onPlatformError);
-      } catch (e) {
-        _onPlatformError(e);
-      }
-    });
+    return _queue = _queue
+        .catchError((Object e, StackTrace st) {
+          Diag.report(e, st, where: 'LocationHub._restart');
+        })
+        .then((_) async {
+          final old = _platformSub;
+          _platformSub = null;
+          try {
+            await old?.cancel();
+          } catch (e, st) {
+            Diag.report(e, st, where: 'LocationHub._restart');
+          }
+          if (gen != _gen || !_wanted) return;
+          try {
+            _platformSub =
+                Geolocator.getPositionStream(locationSettings: _settings)
+                    .listen((pos) {
+                      _last = pos;
+                      lastError = null;
+                      if (!_controller.isClosed) _controller.add(pos);
+                      notifyListeners();
+                    }, onError: _onPlatformError);
+          } catch (e) {
+            _onPlatformError(e);
+          }
+        });
   }
 
   /// GPS toggled off, service died, permission revoked: drop the dead

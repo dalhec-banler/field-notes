@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../id/id_keys.dart';
 import '../id/plantnet_client.dart' show PlantNetClient, HttpClientHolder;
+import '../services/diag.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
 
@@ -81,7 +82,8 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
         Uri.parse('https://my.plantnet.org/account/settings'),
         mode: LaunchMode.externalApplication,
       );
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SpeciesIdSettingsScreen._openPlantNet');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -114,7 +116,13 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
         SnackBar(content: Text('KEY PASTED FROM CLIPBOARD · CHECKING IT')),
       );
       await _savePlantNet(validateFirst: true);
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(
+        e,
+        st,
+        where: 'SpeciesIdSettingsScreen._catchKeyFromClipboard',
+      );
+    }
   }
 
   bool _watchingClipboard = false;
@@ -154,7 +162,8 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
     try {
       final res = await _probe(key);
       return res != 401 && res != 403;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SpeciesIdSettingsScreen._validate');
       // Offline: accept it rather than block on a network we don't have.
       return true;
     }

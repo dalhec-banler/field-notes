@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../db/database.dart';
 import '../geo/simplify.dart';
+import 'diag.dart';
 import 'location_hub.dart';
 
 /// Track logging (spec §4.13): 5 s / 10 m sampling behind an Android
@@ -62,7 +63,9 @@ class TrackRecorder extends ChangeNotifier {
       // only out-of-app way to notice the GPS is on. Ask; never block on it.
       try {
         await Permission.notification.request();
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'TrackRecorder.start');
+      }
       final now = nowUtcIso();
       final id = newId();
       await db

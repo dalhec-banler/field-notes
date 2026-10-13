@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../services/diag.dart';
 import 'map_document.dart';
 import 'map_plate.dart';
 
@@ -50,7 +51,9 @@ class RemovalPlan {
       try {
         final f = File(path);
         if (f.existsSync()) photos[i] = pw.MemoryImage(f.readAsBytesSync());
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'RemovalPlan.build');
+      }
     }
 
     // Count by species, most first.

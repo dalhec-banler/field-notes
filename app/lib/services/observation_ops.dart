@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
+import 'diag.dart';
 
 /// Erase an observation as if it were never written: the row, its
 /// identification suggestions, its media links, the media rows and their
@@ -190,7 +191,8 @@ void deleteFiles(Iterable<String> paths) {
     try {
       final f = File(path);
       if (f.existsSync()) f.deleteSync();
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'observation_ops.deleteFiles');
       // A leftover file is not worth failing over.
     }
   }

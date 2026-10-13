@@ -9,6 +9,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../db/database.dart';
 import '../id/id_keys.dart';
+import '../services/diag.dart';
 import 'backup_crypto.dart';
 import 'target.dart';
 
@@ -186,7 +187,8 @@ class BackupEngine {
     for (final gen in gens.take(gens.length > keep ? gens.length - keep : 0)) {
       try {
         await target.delete(byGen[gen]!);
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'BackupEngine._pruneGenerations');
         // A stubborn old dump costs disk, not safety.
       }
     }

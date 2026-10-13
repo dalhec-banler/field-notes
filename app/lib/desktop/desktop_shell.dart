@@ -29,6 +29,7 @@ import 'drive_watch.dart';
 import '../services/map_jump.dart';
 import 'export_workspace.dart';
 import 'settings_workspace.dart';
+import '../services/diag.dart';
 
 /// Desk companion (design README §4): a single window shell — title bar,
 /// nav, workspace, status bar, principle cells. The phone is the source of
@@ -148,11 +149,12 @@ class _DesktopShellState extends State<DesktopShell>
   Future<void> _autoSync() async {
     final log = opLog;
     if (log == null) return;
-    final r = await SyncService(
-      widget.db,
-      widget.prefs,
-      log,
-    ).maybeRunAutomatic().catchError((_) => null);
+    final r = await SyncService(widget.db, widget.prefs, log)
+        .maybeRunAutomatic()
+        .catchError((Object e, StackTrace st) {
+          Diag.report(e, st, where: 'DesktopShell._autoSync');
+          return null;
+        });
     if (r != null) _loadSyncStatus();
   }
 
@@ -574,7 +576,8 @@ class _DesktopShellState extends State<DesktopShell>
           .customSelect('SELECT COUNT(*) AS n FROM sync_ops')
           .getSingleOrNull();
       return (row?.data['n'] as int?) ?? 0;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'DesktopShell._pendingWrites');
       return 0;
     }
   }

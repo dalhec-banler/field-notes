@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/diag.dart';
 import '../theme/tokens.dart';
 import 'press.dart';
 
@@ -74,7 +75,8 @@ class _PhotoPlateState extends State<PhotoPlate> {
       );
       _sizes[path] = s;
       if (!completer.isCompleted) completer.complete(s);
-    }, onError: (_, _) {
+    }, onError: (e, st) {
+      Diag.report(e, st, where: 'PhotoPlate._sizeOf');
       stream.removeListener(listener);
       if (!completer.isCompleted) completer.complete(const Size(4, 3));
     });

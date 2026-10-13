@@ -1,3 +1,4 @@
+import '../services/diag.dart';
 import '../services/secret_store.dart';
 
 /// Which LLM the user has pointed the app at. Their key, their account,
@@ -48,7 +49,8 @@ class IdKeys {
   Future<String?> _read(String k) async {
     try {
       return await _storage.read(k);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'IdKeys._read');
       return null; // no keystore on this platform
     }
   }
@@ -60,7 +62,9 @@ class IdKeys {
       } else {
         await _storage.write(k, v);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'IdKeys._write');
+    }
   }
 
   Future<String?> get plantNetKey => _read(_plantNet);

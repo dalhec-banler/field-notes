@@ -21,6 +21,7 @@ import '../widgets/press.dart';
 import '../widgets/nativity_chip.dart';
 import '../widgets/species_field.dart';
 import 'identify_sheet.dart';
+import '../services/diag.dart';
 
 /// Result handed back to the shell for the save toast.
 class CaptureResult {
@@ -162,7 +163,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
           });
         }
       });
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'CaptureScreen._initLocation');
       // GPS problems never block capture
     }
   }
@@ -199,7 +201,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
           _zoneResolved = true;
         });
       }
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'CaptureScreen._resolveZone');
       if (mounted) setState(() => _zoneResolved = true);
     }
   }
@@ -269,12 +272,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
       try {
         final f = File(path);
         if (f.existsSync()) f.deleteSync();
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'CaptureScreen._discardShotFile');
+      }
     }
     try {
       final f = File('');
       if (f.existsSync()) f.deleteSync();
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'CaptureScreen._discardShotFile');
+    }
   }
 
   bool _shooting = false;
@@ -290,7 +297,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
         // cache file is ours to clean up.
         try {
           File(shot.path).deleteSync();
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'CaptureScreen._takePhoto');
+        }
         return;
       }
       setState(() {
@@ -311,8 +320,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   Future<void> _countZones() async {
-    final n =
-        await widget.db.zonesOf(widget.property.id);
+    final n = await widget.db.zonesOf(widget.property.id);
     if (mounted) setState(() => _zoneCount = n.length);
   }
 
@@ -462,7 +470,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 runId: rid,
               );
             }
-          } catch (_) {
+          } catch (e, st) {
+            Diag.report(e, st, where: 'CaptureScreen._save');
             // The record is saved; a missing suggestion row is not worth a scare.
           } finally {
             svc.close();

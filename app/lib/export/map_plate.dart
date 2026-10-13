@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
 
 import '../map/record_ink.dart';
+import '../services/diag.dart';
 import 'web_mercator.dart';
 
 /// A map plate (D-024): the property's geometry composited over public
@@ -57,7 +58,8 @@ TileFetcher httpTileFetcher({http.Client? client, String? template}) {
           .timeout(const Duration(seconds: 20));
       if (res.statusCode != 200 || res.bodyBytes.isEmpty) return null;
       return res.bodyBytes;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'map_plate.httpTileFetcher');
       return null;
     }
   };
@@ -813,7 +815,9 @@ class MapPlate {
             codec.dispose();
             return img;
           }
-        } catch (_) {}
+        } catch (e, st) {
+          Diag.report(e, st, where: 'MapPlate._fetchOverlayImage');
+        }
         await Future<void>.delayed(const Duration(seconds: 1));
       }
       return null;
@@ -867,7 +871,8 @@ class MapPlate {
                 ),
               );
             }
-          } catch (_) {
+          } catch (e, st) {
+            Diag.report(e, st, where: 'MapPlate._fetchAll');
             entry = null;
           }
         }
@@ -1218,7 +1223,9 @@ class MapPlate {
         }
         return v;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapPlate._decode');
+    }
     return null;
   }
 

@@ -8,6 +8,7 @@ import '../../main.dart' show locationHub;
 import '../../protocols/protocol_service.dart';
 import '../../protocols/templates.dart';
 import '../../services/compass.dart';
+import '../../services/diag.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/press.dart';
 import '../move_pin_screen.dart';
@@ -111,7 +112,9 @@ class _NewSiteSheetState extends State<_NewSiteSheet> {
               _accuracy = null;
             });
           })
-          .catchError((_) {});
+          .catchError((Object e, StackTrace st) {
+            Diag.report(e, st, where: 'NewSiteSheet._seedFromFix');
+          });
     }
   }
 

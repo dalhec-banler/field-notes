@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:turf/turf.dart' as turf;
 
+import '../services/diag.dart';
+
 /// Which US state a point is in, resolved on the phone.
 ///
 /// The property's centroid (or the first located record) tells the app what
@@ -68,7 +70,9 @@ class StateResolver {
     for (final (state, feature) in _states) {
       try {
         if (turf.booleanPointInPolygon(point, feature)) return state;
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'StateResolver.stateAt');
+      }
     }
     return null;
   }

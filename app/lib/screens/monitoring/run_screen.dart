@@ -7,6 +7,7 @@ import '../../db/database.dart';
 import '../../main.dart' show locationHub;
 import '../../protocols/field_defs.dart';
 import '../../protocols/protocol_service.dart';
+import '../../services/diag.dart';
 import '../../services/media_store.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/press.dart';
@@ -189,7 +190,8 @@ class _RunScreenState extends State<RunScreen> {
           role: _photos.first.$1 == key ? 'primary' : 'attachment',
         );
         _values[key] = media.id;
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'RunScreen._finish');
         // A photo that fails to save never loses the answers.
       }
     }

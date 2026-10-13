@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:turf/turf.dart' as turf;
 
 import '../db/database.dart';
+import '../services/diag.dart';
 
 /// Point-in-polygon zone auto-assignment (spec §4.5: observations get their
 /// zone from where they land, not from user input).
@@ -37,7 +38,8 @@ class LoadedZones {
         features[zone.id] = turf.Feature(
           geometry: geometry as turf.GeometryType,
         );
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'LoadedZones.load');
         // Malformed zone geometry never blocks a save.
       }
     }
@@ -53,7 +55,9 @@ class LoadedZones {
     for (final e in _features.entries) {
       try {
         if (turf.booleanPointInPolygon(point, e.value)) matches.add(e.key);
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'LoadedZones.zoneIdAt');
+      }
     }
     if (matches.isEmpty) return null;
     if (matches.length == 1) return matches.first;

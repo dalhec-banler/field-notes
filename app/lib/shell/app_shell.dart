@@ -13,6 +13,7 @@ import '../screens/capture_screen.dart';
 import '../screens/identify_sheet.dart';
 import '../screens/record_detail_screen.dart';
 import '../services/app_prefs.dart';
+import '../services/diag.dart';
 import '../services/observation_ops.dart';
 import '../services/record_filter.dart';
 import '../widgets/new_place_dialog.dart';
@@ -91,14 +92,20 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       BackupService(widget.db)
           .maybeRunAutomatic(widget.prefs)
-          .catchError((_) => null);
+          .catchError((Object e, StackTrace st) {
+            Diag.report(e, st, where: 'AppShell.didChangeAppLifecycleState');
+            return null;
+          });
       final log = opLog;
       if (log != null) {
         SyncService(
           widget.db,
           widget.prefs,
           log,
-        ).maybeRunAutomatic().catchError((_) => null);
+        ).maybeRunAutomatic().catchError((Object e, StackTrace st) {
+          Diag.report(e, st, where: 'AppShell.didChangeAppLifecycleState');
+          return null;
+        });
       }
     }
   }
@@ -152,8 +159,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       final keys = IdKeys();
       if (!(await keys.hasPlantNet) && !(await keys.hasLlm)) return const [];
       return await observationPhotoFiles(widget.db, observationId);
-    } catch (e) {
+    } catch (e, st) {
       // Best-effort gate: a failure only hides the button, but say so.
+      Diag.report(e, st, where: 'AppShell._identifyPhotosFor');
       debugPrint('save-toast identify gate failed: $e');
       return const [];
     }

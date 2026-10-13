@@ -10,6 +10,7 @@ import '../db/database.dart';
 import '../widgets/press.dart';
 import '../import/kml_import.dart';
 import '../services/property_locator.dart';
+import '../services/diag.dart';
 
 /// KML/KMZ import review step (spec §6): nothing commits until the user has
 /// assigned each placemark a destination.
@@ -359,7 +360,8 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
       );
       final a = turf.area(turf.Feature(geometry: g as turf.GeometryType));
       return a == null ? null : a / 4046.8564224;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'KmlImportScreen._acresOf');
       return null;
     }
   }
@@ -389,7 +391,8 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
       );
       final c = turf.centroid(turf.Feature(geometry: g as turf.GeometryType));
       return c.geometry?.coordinates;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'KmlImportScreen._centroidOf');
       return null;
     }
   }

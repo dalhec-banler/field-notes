@@ -16,6 +16,7 @@ import '../backup/target.dart';
 import '../db/database.dart';
 import '../services/app_prefs.dart';
 import '../services/desk.dart';
+import '../services/diag.dart';
 import '../services/media_store.dart';
 import '../services/network_policy.dart';
 import 'oplog.dart';
@@ -212,7 +213,8 @@ class SyncService {
       );
       await cache.write(await keyring.dataKeyBytes());
       return (keyring.cipher, null);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SyncService._cipher');
       return (null, 'Wrong passphrase.');
     }
   }
@@ -409,7 +411,8 @@ class SyncService {
       );
       await cache.write(await keyring.dataKeyBytes());
       return keyring.cipher;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SyncService._sharedCipher');
       throw StateError('wrong passphrase');
     }
   }
@@ -542,7 +545,8 @@ class SyncService {
       final Uint8List bytes;
       try {
         bytes = await cipher.open(await target.read(path));
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'SyncService._pullMedia');
         continue;
       }
       if (sha256.convert(bytes).toString() != m.sha256) continue;

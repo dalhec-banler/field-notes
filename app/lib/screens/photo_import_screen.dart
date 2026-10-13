@@ -8,6 +8,7 @@ import 'package:native_exif/native_exif.dart';
 import '../db/database.dart';
 import '../geo/zone_assignment.dart';
 import '../services/app_prefs.dart';
+import '../services/diag.dart';
 import '../services/env_context.dart';
 import '../services/media_store.dart';
 import '../services/observation_ops.dart';
@@ -79,7 +80,8 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
           } finally {
             await exif.close();
           }
-        } catch (_) {
+        } catch (e, st) {
+          Diag.report(e, st, where: 'PhotoImportScreen._pick');
           // No EXIF on this platform/file: still importable, unlocated.
         }
         taken ??= (await f.lastModified()).toUtc();
@@ -108,7 +110,8 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
         int.parse(s.substring(17, 19)),
       );
       return d.toUtc();
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'PhotoImportScreen._parseExifDate');
       return null;
     }
   }
@@ -191,13 +194,16 @@ class _PhotoImportScreenState extends State<PhotoImportScreen> {
           );
         });
         done++;
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'PhotoImportScreen._import');
         // The photo is already in the media store; take it back out so a
         // failed row leaves no orphan for the next backup to upload.
         if (savedMediaId != null) {
           try {
             await eraseMedia(db, savedMediaId);
-          } catch (_) {}
+          } catch (e, st) {
+            Diag.report(e, st, where: 'PhotoImportScreen._import');
+          }
         }
         failed++;
       }

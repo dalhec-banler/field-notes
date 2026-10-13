@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
 import '../services/app_prefs.dart';
+import '../services/diag.dart';
 import '../services/network_policy.dart';
 import 'backup_crypto.dart';
 import 'backup_engine.dart';
@@ -78,7 +79,8 @@ class BackupService {
     if (!f.existsSync()) return {};
     try {
       return jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'BackupService.loadConfigOrNull');
       return null;
     }
   }
@@ -113,7 +115,8 @@ class BackupService {
     if (!f.existsSync()) return null;
     try {
       return (jsonDecode(f.readAsStringSync()) as Map)['scheme'] as String?;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'BackupService.storeScheme');
       return null;
     }
   }
@@ -158,7 +161,8 @@ class BackupService {
       );
       await _keyCache.write(await keyring.dataKeyBytes());
       return BackupEngine(db, target, keyring.cipher, envelopeExtra: fields);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'BackupService.engineForTarget');
       onStatus?.call('Wrong passphrase.');
       return null;
     }
@@ -201,7 +205,8 @@ class BackupService {
         );
         await _keyCache.write(await keyring.dataKeyBytes());
         return BackupEngine(db, target, keyring.cipher, envelopeExtra: fields);
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'BackupService.engine');
         onStatus?.call('Wrong passphrase.');
         return null;
       }
@@ -344,7 +349,9 @@ class BackupService {
   Future<String> _note(String text) async {
     try {
       await saveConfig({'last_auto_note': text, 'last_auto_at': nowUtcIso()});
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'BackupService._note');
+    }
     return text;
   }
 }

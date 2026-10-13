@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import '../services/diag.dart';
 import 'field_defs.dart';
 
 /// What a run's answers add up to — derived on read, never stored.
@@ -69,7 +70,8 @@ List<Indicator> computeIndicators({
   final Map<String, dynamic> v;
   try {
     v = (jsonDecode(valuesJson) as Map).cast<String, dynamic>();
-  } catch (_) {
+  } catch (e, st) {
+    Diag.report(e, st, where: 'indicators.computeIndicators');
     return const [];
   }
   String name(String id) => nameOf?.call(id) ?? id;

@@ -16,6 +16,7 @@ import 'species/region_library.dart';
 import 'export/exporter.dart';
 import 'services/app_prefs.dart';
 import 'services/desk.dart';
+import 'services/diag.dart';
 import 'services/env_context.dart';
 import 'services/location_hub.dart';
 import 'services/track_recorder.dart';
@@ -43,6 +44,10 @@ late final TrackRecorder trackRecorder;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Uncaught errors are kept on the device (Settings → About → Diagnostics)
+  // behind whatever the framework already does with them; nothing is sent.
+  Diag.install();
+  Diag.log('launch', where: 'main');
   // Apply a staged restore before the database opens (spec §11.9).
   RestorePipeline? pendingRestore;
   try {
@@ -54,7 +59,8 @@ Future<void> main() async {
     // The DB swap consumes READY; APPLIED stays until every blob is placed,
     // so an interrupted remap resumes here without touching the DB again.
     if (pipeline.hasPendingMediaRemap) pendingRestore = pipeline;
-  } catch (_) {
+  } catch (e, st) {
+    Diag.report(e, st, where: 'main.stagedRestore');
     // A failed restore attempt must never brick startup.
   }
   final db = FieldNotesDb();
@@ -66,12 +72,16 @@ Future<void> main() async {
       db,
       identityFile: File(p.join(docs.path, 'device_id.txt')),
     );
-  } catch (_) {
+  } catch (e, st) {
+    Diag.report(e, st, where: 'main.opLogInstall');
     // Capture must never block startup; sync just starts later.
   }
   if (pendingRestore != null) {
     // Media repoints in the background; the DB is already live.
-    pendingRestore.remapRestoredMedia(db).catchError((_) => 0);
+    pendingRestore.remapRestoredMedia(db).catchError((Object e, StackTrace st) {
+      Diag.report(e, st, where: 'main.remapRestoredMedia');
+      return 0;
+    });
   }
   // First-run species library; never blocks the UI (spec: offline-first, no
   // startup gates).
@@ -81,7 +91,10 @@ Future<void> main() async {
   trackRecorder = TrackRecorder(db, locationHub);
   // A track left open by a killed process is closed out from its raw points.
   // Startup never fails over it.
-  trackRecorder.recoverOpenTracks().catchError((_) => 0);
+  trackRecorder.recoverOpenTracks().catchError((Object e, StackTrace st) {
+    Diag.report(e, st, where: 'main.recoverOpenTracks');
+    return 0;
+  });
   final prefs = await AppPrefs.load();
   // Retry pass for env contexts created offline (spec §4.11). Moved below
   // AppPrefs.load() deliberately: it must not run before we know whether the
@@ -89,11 +102,22 @@ Future<void> main() async {
   EnvContextService(db).backfillStale(enabled: prefs.envContext);
   // Daily automatic backup + weekly verify, when due (spec §11.7–11.8).
   // Never gates startup.
-  BackupService(db).maybeRunAutomatic(prefs).catchError((_) => null);
+  BackupService(db)
+      .maybeRunAutomatic(prefs)
+      .catchError((Object e, StackTrace st) {
+        Diag.report(e, st, where: 'main.maybeRunAutomaticBackup');
+        return null;
+      });
   // D-028: the sync carrier, same posture — when due, never a prompt.
   final log = opLog;
   if (log != null) {
-    SyncService(db, prefs, log).maybeRunAutomatic().catchError((_) => null);
+    SyncService(db, prefs, log).maybeRunAutomatic().catchError((
+      Object e,
+      StackTrace st,
+    ) {
+      Diag.report(e, st, where: 'main.maybeRunAutomaticSync');
+      return null;
+    });
   }
   // The skin is process-wide state read during build (D-023); it must be
   // decided before the first frame and only ever changed with the rebuild

@@ -18,3 +18,6 @@ relay/relay-store/
 
 # local agent instructions, not part of the project
 CLAUDE.md
+
+# agent worktrees
+.claude/worktrees/

@@ -14,6 +14,7 @@ import '../../db/database.dart';
 import '../../geo/simplify.dart' show distanceM;
 import '../../main.dart' show locationHub;
 import '../../services/compass.dart';
+import '../../services/diag.dart';
 import '../../services/media_store.dart';
 
 /// Ghost-overlay capture (spec §4.9, required): reference frame at ~35%
@@ -180,7 +181,9 @@ class _GhostCaptureScreenState extends State<GhostCaptureScreen> {
     final bytes = await shot.readAsBytes();
     try {
       File(shot.path).deleteSync();
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'GhostCaptureScreen._captureInner');
+    }
     final media = await MediaStore(db).savePhoto(
       bytes,
       propertyId: point.propertyId,

@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:http/http.dart' as http;
 
 import '../db/database.dart';
+import 'diag.dart';
 
 /// Environmental context enrichment (spec §4.11).
 ///
@@ -122,7 +123,8 @@ class EnvContextService {
         );
         done++;
         await Future<void>.delayed(courtesyDelay);
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'EnvContextService.backfillStale');
         // Leave stale; a later pass retries. Offline must never error loudly.
       }
     }

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'diag.dart';
+
 /// Tiny JSON prefs (design README §6: layout, density, basemap, active
 /// property are persisted user preferences).
 class AppPrefs extends ChangeNotifier {
@@ -32,7 +34,9 @@ class AppPrefs extends ChangeNotifier {
     if (file.existsSync()) {
       try {
         data = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'AppPrefs.load');
+      }
     }
     return AppPrefs._(file, data);
   }

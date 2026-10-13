@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../services/diag.dart';
 import 'target.dart';
 
 /// Back up to a computer on your own network (spec §11.5, "local folder"
@@ -43,7 +44,8 @@ class LanTarget implements BackupTarget {
       final code = uri.queryParameters['code'];
       if (host == null || port == null || code == null) return null;
       return (host: host, port: port, token: code);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'LanTarget.decodePairing');
       return null;
     }
   }
@@ -62,7 +64,8 @@ class LanTarget implements BackupTarget {
           .get(Uri.http('$host:$port', '/hello'), headers: _headers)
           .timeout(const Duration(seconds: 5));
       return res.statusCode == 200;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'LanTarget.ping');
       return false;
     }
   }
@@ -74,7 +77,8 @@ class LanTarget implements BackupTarget {
           .head(_uri(path), headers: _headers)
           .timeout(const Duration(seconds: 15));
       return res.statusCode == 200;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'LanTarget.exists');
       return false;
     }
   }
@@ -126,7 +130,8 @@ class LanTarget implements BackupTarget {
       await _client
           .delete(_uri(path), headers: _headers)
           .timeout(const Duration(seconds: 30));
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'LanTarget.delete');
       // An old generation left behind costs disk, not safety.
     }
   }

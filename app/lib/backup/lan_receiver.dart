@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 
+import '../services/diag.dart';
 import 'lan_target.dart';
 
 /// The desktop half of LAN backup: a small server that accepts an encrypted
@@ -88,7 +89,9 @@ class LanReceiver extends ChangeNotifier {
           if (!a.isLoopback) return a.address;
         }
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Diag.report(e, st, where: 'LanReceiver._lanAddress');
+    }
     return null;
   }
 

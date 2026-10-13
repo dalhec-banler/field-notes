@@ -9,6 +9,7 @@ import '../backup/keyring.dart';
 import '../backup/relay_target.dart';
 import '../db/database.dart';
 import '../services/app_prefs.dart';
+import '../services/diag.dart';
 import 'oplog.dart';
 import 'shared_properties.dart';
 
@@ -141,7 +142,8 @@ class SharingService {
       );
       await _keyCache(s.propertyId).write(await keyring.dataKeyBytes());
       unlocked = true;
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SharingService.join');
       // Wrong passphrase, or the owner has not written the envelope yet.
     }
     return (shared: s, unlocked: unlocked);

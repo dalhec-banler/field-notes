@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:turf/turf.dart' as turf;
 
 import '../db/database.dart';
+import '../services/diag.dart';
 import 'simplify.dart' show distanceM;
 
 /// Are you standing on the place you're looking at?
@@ -97,7 +98,8 @@ List<double>? propertyBounds(Property property) {
       maxLat = math.max(maxLat, c[1]);
     }
     return [minLon, minLat, maxLon, maxLat];
-  } catch (_) {
+  } catch (e, st) {
+    Diag.report(e, st, where: 'site_presence.propertyBounds');
     return null;
   }
 }
@@ -127,7 +129,8 @@ SitePresence presenceFor(Property property, double? lat, double? lng) {
         distanceM: distance,
         hasBoundary: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'site_presence.presenceFor');
       // Unparseable boundary: fall through to the radius test.
     }
   }

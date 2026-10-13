@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'diag.dart';
+
 /// Where secrets live: the platform keystore, and when the keystore
 /// refuses this build, a file inside the app's own sandbox.
 ///
@@ -38,7 +40,8 @@ class SecretStore {
       return (jsonDecode(await f.readAsString()) as Map).map(
         (k, v) => MapEntry(k as String, v as String),
       );
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SecretStore._readFile');
       return {};
     }
   }
@@ -48,7 +51,8 @@ class SecretStore {
       final f = await _file();
       await f.parent.create(recursive: true);
       await f.writeAsString(jsonEncode(m), flush: true);
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SecretStore._writeFile');
       // No writable support directory either (host tests): nothing kept.
     }
   }
@@ -58,7 +62,8 @@ class SecretStore {
       try {
         final v = await _keystore.read(key: key);
         if (v != null) return v;
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'SecretStore.read');
         _keystoreBroken = true;
       }
     }
@@ -70,7 +75,8 @@ class SecretStore {
       try {
         await _keystore.write(key: key, value: value);
         return;
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'SecretStore.write');
         _keystoreBroken = true;
       }
     }
@@ -83,7 +89,8 @@ class SecretStore {
     if (!_keystoreBroken) {
       try {
         await _keystore.delete(key: key);
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'SecretStore.delete');
         _keystoreBroken = true;
       }
     }

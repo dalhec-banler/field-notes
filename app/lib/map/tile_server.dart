@@ -5,6 +5,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_static/shelf_static.dart';
 
+import '../services/diag.dart';
 import 'imagery_sources.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
@@ -59,7 +60,8 @@ class TileServer {
     if (pmtilesFallback != null && pmtilesFallback.existsSync()) {
       try {
         fallback = await PmTilesReader.open(FileRangeSource(pmtilesFallback));
-      } catch (_) {
+      } catch (e, st) {
+        Diag.report(e, st, where: 'TileServer.start');
         fallback = null; // a bad archive just means no fallback
       }
     }
@@ -90,7 +92,8 @@ class TileServer {
               headers: {'Content-Type': 'image/jpeg'},
             );
           }
-        } catch (_) {
+        } catch (e, st) {
+          Diag.report(e, st, where: 'TileServer.start');
           // Offline: fall through — no tile beats a broken one.
         }
         return Response.notFound('no imagery');
@@ -108,7 +111,8 @@ class TileServer {
         if (data == null && fallback != null) {
           try {
             data = await fallback.getTile(z, x, y);
-          } catch (_) {
+          } catch (e, st) {
+            Diag.report(e, st, where: 'TileServer.start');
             data = null;
           }
         }

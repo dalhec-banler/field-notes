@@ -8,6 +8,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../db/database.dart';
 import '../protocols/protocol_export.dart';
+import '../services/diag.dart';
 import 'survival_report.dart';
 
 /// "Take my data" export (spec §6): one folder, open formats, no vendor
@@ -47,7 +48,8 @@ class Exporter {
       final reports = Directory(p.join(dir.path, 'reports'))..createSync();
       File(p.join(reports.path, 'survival-summary.pdf'))
           .writeAsBytesSync(await SurvivalReport(db).build(property));
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'Exporter.exportProperty');
       // The PDF is a convenience; the CSVs carry the same data.
     }
     _writeReadme(property, File(p.join(dir.path, 'README.md')));
@@ -420,7 +422,8 @@ $placemark
       } finally {
         await exif.close();
       }
-    } catch (_) {
+    } catch (e, st) {
+      Diag.report(e, st, where: 'Exporter._writeExifGps');
       // No native EXIF on this platform (or a non-JPEG): the CSV/GeoJSON
       // still carry the coordinates.
     }
