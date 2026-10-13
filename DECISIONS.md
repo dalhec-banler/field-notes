@@ -787,3 +787,44 @@ than in whoever remembers the where-clause:
     zonesToDraw(propertyId)        — live, not hidden, in name order
 
 Consequence worth stating: a hidden zone stays off exported plates too.
+
+### D-038 · Hardening before breadth, and no more CHECK enums
+
+2026-10-13. After a retrospective, Austin chose to stop adding features and
+spend a pass making the app harder to lose data in. Twelve items, all on the
+existing code, no rewrite, no schema bump:
+
+1. an on-device smoke suite (`integration_test/`) that exercises the real
+   write paths against an isolated store: photo, voice, no-GPS, edit, delete,
+   backup→restore, migration;
+2. CI on every push (analyze, test, release APK as an artifact);
+3. a diagnostics sink (`Diag.report`) behind every catch that used to swallow,
+   with a Diagnostics screen in Settings on phone and desk;
+4. one outbound HTTP client with a host allowlist and a purpose log;
+5. a repository layer so screens stop importing drift;
+6. the module-level globals folded into one injectable scope;
+7. the six files over a thousand lines split along their seams;
+8. widget tests for capture, record detail, ledger filters, backup;
+9. the tables nothing uses (memberships, invites, devices, deployments,
+   detections) taken out of the UI, the exporter and the oplog triggers, but
+   **not dropped** — a drop is a migration, and they can go with the next one;
+10. the rule below;
+11. one layer model (`MapDocument`) that both the phone map and the desk
+    renderer consume, so a layer is defined once;
+12. sync made legible: status with last success and failure, pending counts on
+    both devices, UNDO becoming a tombstone once an op has been pushed, and a
+    conflict log.
+
+Guardrails, in place before the first commit: a `.backup` copy of the desk
+database and a per-table row-count baseline under `~/FieldNotes-backups/`;
+`test/live_db_guard_test.dart`, which opens that copy read-only and fails if
+any count moves; a fresh encrypted phone backup, verified, and a Drive
+generation; and the standing rule that the package id and the signing key
+never change, since that is the only way an upgrade can lose the store.
+
+**The rule.** No new `CHECK (col IN (...))` constraints. Thirty-nine of them
+exist, and twice now (v4, v10) adding one value to a list meant rebuilding the
+observations table in a migration, because SQLite cannot loosen a CHECK. From
+here a new set of kinds is either a small lookup table or a text column
+validated in Dart. The existing constraints stay until a table is rebuilt for
+some other reason; then they come off.
