@@ -26,7 +26,9 @@ when()  { date -r "$1" '+%Y-%m-%d %H:%M:%S %Z' 2>/dev/null || date -d "@$1" '+%Y
 
 # --- which phone ---------------------------------------------------------
 if [ -z "$SERIAL" ]; then
-  mapfile -t devices < <(adb devices | awk 'NR > 1 && $2 == "device" { print $1 }')
+  devices=()
+  while IFS= read -r d; do devices+=("$d"); done \
+    < <(adb devices | awk 'NR > 1 && $2 == "device" { print $1 }')
   case ${#devices[@]} in
     0) die "no device attached (adb devices shows none ready)" ;;
     1) SERIAL=${devices[0]} ;;
