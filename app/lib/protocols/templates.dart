@@ -4,8 +4,9 @@ import 'field_defs.dart';
 ///
 /// Four are starters — the ones a landowner opens to. Three sit behind
 /// "More methods". Planting survival stays in Grow › Plantings (D-018);
-/// cameras and recorders stay in deployments (§4.12); photo points stay
-/// where they are and any site here can make its stake one.
+/// cameras and recorders are not a protocol either — the §4.12 tables they
+/// were to use are retired, unbuilt (docs/SCHEMA-RESERVED.md); photo points
+/// stay where they are and any site here can make its stake one.
 class ProtocolTemplate {
   const ProtocolTemplate({
     required this.methodKey,

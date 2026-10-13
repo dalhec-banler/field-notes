@@ -22,13 +22,14 @@ import 'seed_synonyms.dart';
 
 /// Every table that points at a taxon, and the column it points with. Missing
 /// one here would orphan records against a row that is about to be retired.
+/// (`detections.taxon_id` is not listed: the table is retired, nothing writes
+/// it, and it goes with the next migration — docs/SCHEMA-RESERVED.md.)
 const _taxonRefs = <String, String>{
   'observations': 'taxon_id',
   'identification_suggestions': 'suggested_taxon_id',
   'source_plants': 'taxon_id',
   'propagation_batches': 'taxon_id',
   'planting_events': 'taxon_id',
-  'detections': 'taxon_id',
 };
 
 /// The subset of [_taxonRefs] this database actually has. A migration runs

@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 import '../db/database.dart';
+import '../db/retired_tables.dart';
 import '../protocols/protocol_export.dart';
 import '../services/diag.dart';
 import 'survival_report.dart';
@@ -18,6 +19,31 @@ class Exporter {
   Exporter(this.db);
 
   final FieldNotesDb db;
+
+  /// The tables written as `data/<name>.csv`, in order. The SQLite copy
+  /// carries everything (see [keepsInDatabase]); the CSVs are the tables a
+  /// spreadsheet reader asks for first.
+  static const csvTables = [
+    'observations',
+    'plants',
+    'plant_checkins',
+    'planting_events',
+    'propagation_batches',
+    'features',
+    'zones',
+    'taxa',
+    'practices',
+    'protocols',
+    'protocol_sites',
+    'protocol_runs',
+  ];
+
+  /// Whether `database.sqlite` keeps [table]'s rows. Sync bookkeeping is
+  /// this device's own business, never a recipient's; a retired table
+  /// (D-038 item 9, docs/SCHEMA-RESERVED.md) holds no user data and is
+  /// handed over empty. Everything else is user data and stays.
+  static bool keepsInDatabase(String table) =>
+      !table.startsWith('sync_') && !kRetiredTables.contains(table);
 
   /// Exports [property] into [destRoot]; returns the export directory.
   Future<Directory> exportProperty(
@@ -79,9 +105,7 @@ class Exporter {
           r['name'] as String,
       ];
       for (final name in tables) {
-        // Sync bookkeeping is this device's own business, never a
-        // recipient's.
-        if (name.startsWith('sync_')) {
+        if (!keepsInDatabase(name)) {
           copy.execute('DELETE FROM "$name"');
           continue;
         }
@@ -139,24 +163,17 @@ class Exporter {
       file.writeAsStringSync(buf.toString());
     }
 
-    await table('observations');
-    await table('plants');
-    await table('plant_checkins');
-    await table('planting_events');
-    await table('propagation_batches');
-    await table('features');
-    await table('zones');
-    await table(
-      'taxa',
-      where: "(property_id = '$propertyId' OR property_id IS NULL)",
-    );
-    await table('detections');
-    await table('practices');
-    // D-033: monitoring. The raw tables, then the tidy long form a grad
-    // student or an ArcGIS user actually wants (ProtocolExport).
-    await table('protocols');
-    await table('protocol_sites');
-    await table('protocol_runs');
+    for (final name in csvTables) {
+      await table(
+        name,
+        // The shared library (property_id NULL) travels with every place.
+        where: name == 'taxa'
+            ? "(property_id = '$propertyId' OR property_id IS NULL)"
+            : null,
+      );
+    }
+    // D-033: monitoring. The raw tables above, then the tidy long form a
+    // grad student or an ArcGIS user actually wants (ProtocolExport).
     await ProtocolExport(db).writeInto(propertyId, dataDir);
   }
 

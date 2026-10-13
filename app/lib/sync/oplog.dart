@@ -6,11 +6,13 @@ import 'package:drift/drift.dart';
 import '../backup/backup_crypto.dart';
 import '../backup/target.dart';
 import '../db/database.dart';
+import '../db/retired_tables.dart';
 
 /// M4a (docs/SYNC-DESIGN.md): the serverless oplog.
 ///
-/// Capture: TEMP triggers on every domain table write a full-row snapshot
-/// into `sync_ops` on insert/update, and a tombstone on delete. Triggers
+/// Capture: TEMP triggers on every domain table ([syncedTables]) write a
+/// full-row snapshot into `sync_ops` on insert/update, and a tombstone on
+/// delete. Triggers
 /// mean every write path is covered — screens, imports, restores, code
 /// that hasn't been written yet — without touching a single call site.
 ///
@@ -93,6 +95,19 @@ class OpLog {
     'sync_meta',
     'sync_versions',
     'sync_clock',
+  };
+
+  /// The tables the oplog captures and applies: every table drift knows
+  /// that rides on a TEXT `id` primary key (§4), less the sync bookkeeping
+  /// and the retired tables nothing writes (D-038 item 9). One place decides
+  /// this for both the triggers and the pull, so a table cannot be captured
+  /// on one device and refused on another.
+  static Map<String, TableInfo> syncedTables(GeneratedDatabase db) => {
+    for (final t in db.allTables)
+      if (!_never.contains(t.actualTableName) &&
+          !kRetiredTables.contains(t.actualTableName) &&
+          t.columnsByName.containsKey('id'))
+        t.actualTableName: t,
   };
 
   /// Columns that describe THIS device's disk, not the record: a photo's
@@ -342,11 +357,9 @@ class OpLog {
     // ~3 triggers × ~30 tables: one transaction, not ~100 autocommits on
     // the startup path.
     await db.transaction(() async {
-      for (final table in db.allTables) {
+      for (final table in syncedTables(db).values) {
         final name = table.actualTableName;
-        if (_never.contains(name)) continue;
         final cols = table.columnsByName.keys.toSet();
-        if (!cols.contains('id')) continue; // sync rides on TEXT id PKs (§4)
         final jsonPairs = cols.map((c) => "'$c', NEW.\"$c\"").join(', ');
         final guard = '(SELECT COUNT(*) FROM temp._sync_guard) = 0';
         // The version is stamped WHEN THE WRITE HAPPENS, not when it is
@@ -626,8 +639,10 @@ class OpLog {
       if (device == deviceId) continue;
       (byDevice[device] ??= []).add(f);
     }
-    // Every synced table, resolved once — not a linear scan per op.
-    final tables = {for (final t in db.allTables) t.actualTableName: t};
+    // Every synced table, resolved once — not a linear scan per op. An op
+    // naming anything else (a retired table from an older peer, a table
+    // this build has never heard of) finds no entry and is skipped.
+    final tables = syncedTables(db);
     for (final entry in byDevice.entries) {
       entry.value.sort();
       final cursorKey = scope.metaKey('cursor_${entry.key}');
@@ -724,7 +739,9 @@ class OpLog {
     await _observe(incoming);
 
     final info = tables[table];
-    if (info == null) return false; // schema drift: refuse quietly for now
+    // Not a table this build syncs — retired (D-038 item 9), unknown, or
+    // bookkeeping. Refused, counted as skipped, cursor still advances.
+    if (info == null) return false;
     final cols = info.columnsByName.keys.toSet();
 
     var local = await _versionOf(table, rowId);
