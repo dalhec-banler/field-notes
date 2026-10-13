@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../db/database.dart';
 import '../main.dart' show exportAndShare;
 import '../screens/backup_screen.dart';
+import '../screens/diagnostics_screen.dart';
 import '../screens/kml_import_screen.dart';
 import '../screens/map_imports_screen.dart';
 import '../screens/photo_import_screen.dart';
@@ -219,6 +220,13 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
           ]),
         _group('About', [
           _row('Version', 'Field Notes', _version, _versionTapped),
+          _row(
+            'Diagnostics',
+            'What went wrong and was kept to itself. Stays on this computer '
+                'unless you save it.',
+            '',
+            () => _push(DiagnosticsScreen()),
+          ),
         ]),
         _heading('How this desk works'),
         _principleGrid(const [

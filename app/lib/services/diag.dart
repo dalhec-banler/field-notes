@@ -150,6 +150,19 @@ abstract final class Diag {
   /// Resolves when every write queued so far has landed (or failed).
   static Future<void> flush() => _tail;
 
+  /// The log files that exist right now, live file first — for handing the
+  /// whole history over, beyond what the ring still holds.
+  static Future<List<File>> logFiles() async {
+    try {
+      await flush();
+      final f = await _file();
+      if (f == null) return const [];
+      return [f, File('${f.path}.1')].where((x) => x.existsSync()).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Drops cached state so tests start clean. Does not touch files.
   @visibleForTesting
   static void resetForTesting() {

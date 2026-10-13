@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../db/database.dart';
 import '../screens/backup_screen.dart';
+import '../screens/diagnostics_screen.dart';
 import '../screens/kml_import_screen.dart';
 import '../screens/drive_backup_screen.dart';
 import '../screens/review_feed_screen.dart';
@@ -28,6 +29,7 @@ import '../services/press_unlock.dart';
 import '../theme/tokens.dart';
 import '../main.dart' show exportAndShare, opLog;
 import '../widgets/press.dart';
+import '../services/diag.dart';
 
 /// Settings & backup (design README §3.6). Order is the argument:
 /// verification first, storage second, then the grouped tables, then export.
@@ -74,7 +76,9 @@ class _SettingsTabState extends State<SettingsTab> {
             jsonDecode(config.readAsStringSync()) as Map<String, dynamic>;
         lastBackup = data['last_backup'] as String?;
         lastVerify = data['last_verify'] as String?;
-      } catch (_) {}
+      } catch (e, st) {
+        Diag.report(e, st, where: 'SettingsTab._load');
+      }
     }
     final basemap = File(p.join(docs.path, 'basemap', 'basemap.pmtiles'));
     // "Current" means nothing has changed since — not merely "recent".
@@ -539,6 +543,13 @@ class _SettingsTabState extends State<SettingsTab> {
             ]),
           _group('About', [
             ('Version', 'Field Notes', _appVersion, _versionTapped),
+            (
+              'Diagnostics',
+              'what went wrong and was kept to itself · stays on this phone',
+              '',
+              () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => DiagnosticsScreen())),
+            ),
           ]),
           _group('Privacy', [
             ('Account', 'none — everything stays on this phone', 'None', null),
