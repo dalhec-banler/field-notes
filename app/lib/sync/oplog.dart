@@ -328,6 +328,13 @@ class OpLog {
     if (candidates.isEmpty) {
       return "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
     }
+    // SQLite's COALESCE wants two arguments or more. A table with a single
+    // timestamp column (feature_types has only created_at) got
+    // `COALESCE(NEW."created_at")`, and every INSERT into it failed with
+    // "wrong number of arguments" the moment the triggers were in place —
+    // which on a fresh install is before the feature types are seeded
+    // (smoke suite, 2026-10-13).
+    if (candidates.length == 1) return candidates.single;
     return 'COALESCE(${candidates.join(', ')})';
   }
 

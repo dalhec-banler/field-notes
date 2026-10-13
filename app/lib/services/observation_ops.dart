@@ -83,6 +83,44 @@ Future<void> eraseObservation(FieldNotesDb db, String observationId) async {
   deleteFiles(files);
 }
 
+/// Soft delete (spec §4.1): the record leaves the ledger, its photos stay
+/// on disk, and sync engines get the tombstone they need. The one write the
+/// record screen's DELETE makes.
+Future<void> softDeleteObservation(FieldNotesDb db, String observationId) {
+  final now = nowUtcIso();
+  return (db.update(
+    db.observations,
+  )..where((o) => o.id.equals(observationId))).write(
+    ObservationsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+  );
+}
+
+/// The edit sheet's write: name, confidence, type, day and notes land
+/// together, and nothing else on the row moves.
+Future<void> applyRecordEdit(
+  FieldNotesDb db,
+  String observationId, {
+  required String? taxonId,
+  required String? taxonConfidence,
+  required String observationType,
+  required String observedAt,
+  required String? notes,
+}) {
+  final text = notes?.trim();
+  return (db.update(
+    db.observations,
+  )..where((o) => o.id.equals(observationId))).write(
+    ObservationsCompanion(
+      taxonId: Value(taxonId),
+      taxonConfidence: Value(taxonConfidence),
+      observationType: Value(observationType),
+      observedAt: Value(observedAt),
+      notes: Value(text == null || text.isEmpty ? null : text),
+      updatedAt: Value(nowUtcIso()),
+    ),
+  );
+}
+
 /// The photos linked to an observation, in link order (`sort_order`, the
 /// order capture wrote them), restricted to rows whose file is on disk.
 /// This is the one place that decides what "the record's photos" means —

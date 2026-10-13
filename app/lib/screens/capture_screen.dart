@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,14 +12,12 @@ import '../id/id_models.dart';
 import '../id/identification_service.dart';
 import '../geo/zone_assignment.dart';
 import '../main.dart' show locationHub;
+import '../services/capture_writer.dart';
 import '../services/env_context.dart';
-import '../services/media_store.dart';
-import '../services/observation_ops.dart';
 import '../services/voice_note.dart';
 import '../theme/tokens.dart';
 import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
-import '../services/property_locator.dart';
 import '../widgets/nativity_chip.dart';
 import '../widgets/species_field.dart';
 import 'identify_sheet.dart';
@@ -397,191 +394,54 @@ class _CaptureScreenState extends State<CaptureScreen> {
     setState(() => _saving = true);
     final started = DateTime.now();
     final db = widget.db;
-    final now = nowUtcIso();
     final fix = _fix;
     final obsId = _obsId;
 
-    final savedMediaIds = <String>[];
-    String? savedVoiceId;
+    final voicePath = _voicePath;
+    final envService = EnvContextService(db);
     try {
-      // Photo first: if the image can't be written we'd rather have no
-      // record than a record that claims a photograph it doesn't have.
-      for (final shot in _shots) {
-        if (shot.path.isEmpty) continue;
-        // Placed records: the photo's own GPS is the placed point too, so
-        // an exported JPEG never leaks where the phone actually was.
-        final media = await MediaStore(db).savePhoto(
-          await shot.readAsBytes(),
-          propertyId: widget.property.id,
-          createdBy: 'local',
-          lat: widget.isPlaced ? widget.placedLat : fix?.latitude,
-          lng: widget.isPlaced ? widget.placedLng : fix?.longitude,
-          headingDeg: widget.isPlaced ? null : fix?.heading,
-          capturedAt: now,
-        );
-        savedMediaIds.add(media.id);
-      }
-
-      // Voice note: audio kept as media (spec §3.5 — never discard the
-      // audio); the transcript is already in the notes text.
-      MediaData? voice;
-      final voicePath = _voicePath;
-      if (voicePath != null && File(voicePath).existsSync()) {
-        voice = await MediaStore(db).saveAudio(
-          File(voicePath),
-          propertyId: widget.property.id,
-          createdBy: 'local',
-          lat: widget.isPlaced ? widget.placedLat : fix?.latitude,
-          lng: widget.isPlaced ? widget.placedLng : fix?.longitude,
-          capturedAt: now,
-          durationMs: _voiceMs,
-          transcript: _voice.transcript.trim().isEmpty
+      // The write itself lives in one place (services/capture_writer.dart)
+      // so the smoke suite saves records the way this screen does. Photo
+      // first, then one transaction; a failure leaves nothing behind.
+      final written = await writeCapture(
+        db,
+        CaptureDraft(
+          observationId: obsId,
+          property: widget.property,
+          photos: [
+            for (final shot in _shots)
+              if (shot.path.isNotEmpty) File(shot.path),
+          ],
+          voice: voicePath == null ? null : File(voicePath),
+          voiceDurationMs: _voiceMs,
+          voiceTranscript: _voice.transcript,
+          placedLat: widget.placedLat,
+          placedLng: widget.placedLng,
+          fix: fix == null
               ? null
-              : _voice.transcript.trim(),
-        );
-        savedVoiceId = voice.id;
+              : CaptureFix(
+                  lat: fix.latitude,
+                  lng: fix.longitude,
+                  accuracyM: fix.accuracy,
+                  altitudeM: fix.altitude,
+                  headingDeg: fix.heading,
+                ),
+          fixIsLive: _fixIsLive,
+          observationType: _observationType,
+          taxonId: _taxon?.id,
+          taxonChosenFromSuggestion: _chosenCandidate != null,
+          flagRemoval: _flagRemoval,
+          notes: _notesController.text,
+          asPhotoPoint: _asPhotoPoint,
+          photoPointSubject: _taxon?.commonName ?? _taxon?.scientificName,
+        ),
+        envService: envService,
+      );
+      if (written.voiceMediaId != null) {
+        // The recording is in the media store; nothing left to discard.
         _voiceSaved = true;
-        try {
-          File(voicePath).deleteSync();
-        } catch (_) {}
+        _voicePath = null;
       }
-
-      // Placed on the map: the pressed point IS the location (accuracy
-      // unknown → null). Otherwise, no LIVE fix → the property centroid (or
-      // the last-known hint) stands in so the record still lands on the
-      // map, but gps_accuracy_m = -1 flags it. Never a silent fake.
-      final placed = widget.isPlaced;
-      final located = placed || (fix != null && _fixIsLive);
-      final lat = placed
-          ? widget.placedLat
-          : fix?.latitude ?? widget.property.centroidLat;
-      final lng = placed
-          ? widget.placedLng
-          : fix?.longitude ?? widget.property.centroidLng;
-      final envService = EnvContextService(db);
-
-      await db.transaction(() async {
-        // Environmental context: created stale now, backfilled when online
-        // (spec §4.11). Centroid weather is still the property's weather.
-        String? envContextId;
-        if (lat != null && lng != null) {
-          envContextId = await envService.createStale(
-            propertyId: widget.property.id,
-            lat: lat,
-            lng: lng,
-            resolvedFor: now.substring(0, 10),
-          );
-        }
-
-        await db
-            .into(db.observations)
-            .insert(
-              ObservationsCompanion.insert(
-                id: obsId,
-                propertyId: widget.property.id,
-                observedAt: now,
-                localTz: localTzName(),
-                lat: lat ?? 0,
-                lng: lng ?? 0,
-                // Placed: accuracy unknown (null). Live fix: the GPS figure.
-                // Otherwise -1 = "not located", never a fake.
-                gpsAccuracyM: Value(
-                  placed
-                      ? null
-                      : located
-                      ? fix!.accuracy
-                      : -1,
-                ),
-                altitudeM: Value(fix?.altitude),
-                headingDeg: Value(fix?.heading),
-                observationType: Value(
-                  _taxon != null && _observationType == 'general'
-                      ? 'plant'
-                      : _observationType,
-                ),
-                taxonId: Value(_taxon?.id),
-                removalStatus: Value(_flagRemoval ? 'flagged' : null),
-                taxonConfidence: Value(
-                  _taxon == null
-                      ? null
-                      : _chosenCandidate != null
-                      ? 'probable'
-                      : 'certain',
-                ),
-                notes: Value(
-                  _notesController.text.trim().isEmpty
-                      ? null
-                      : _notesController.text.trim(),
-                ),
-                envContextId: Value(envContextId),
-                createdBy: 'local',
-                createdAt: now,
-                updatedAt: now,
-              ),
-            );
-
-        if (located && lat != null && lng != null) {
-          await assignZone(
-            db,
-            observationId: obsId,
-            propertyId: widget.property.id,
-            lat: lat,
-            lng: lng,
-          );
-          // The first located record on a placeless property tells the app
-          // where the place is and what state it sits in.
-          await PropertyLocator(db).noteLocation(widget.property.id, lat, lng);
-        }
-
-        for (var i = 0; i < savedMediaIds.length; i++) {
-          await MediaStore(db).linkTo(
-            savedMediaIds[i],
-            propertyId: widget.property.id,
-            entityType: 'observation',
-            entityId: obsId,
-            role: i == 0 ? 'primary' : 'attachment',
-          );
-        }
-
-        // A station, pinned from the field: same spot, same aim, every
-        // visit from here on. The first ghost capture refines the bearing.
-        if (_asPhotoPoint && lat != null && lng != null) {
-          final heading = fix?.heading;
-          await db
-              .into(db.photoPoints)
-              .insert(
-                PhotoPointsCompanion.insert(
-                  id: newId(),
-                  propertyId: widget.property.id,
-                  name: _notesController.text.trim().isNotEmpty
-                      ? _notesController.text.trim().split('\n').first
-                      : 'Photo point ${now.substring(0, 10)}',
-                  lat: lat,
-                  lng: lng,
-                  bearingDeg: heading != null && heading >= 0 ? heading : 0,
-                  subject: Value(_taxon?.commonName ?? _taxon?.scientificName),
-                  cadenceDays: const Value(90),
-                  focalLengthMm: const Value(26),
-                  viewExtentM: const Value(60),
-                  referenceMediaId: Value(
-                    savedMediaIds.isEmpty ? null : savedMediaIds.first,
-                  ),
-                  createdBy: 'local',
-                  createdAt: now,
-                  updatedAt: now,
-                ),
-              );
-        }
-        if (voice != null) {
-          await MediaStore(db).linkTo(
-            voice.id,
-            propertyId: widget.property.id,
-            entityType: 'observation',
-            entityId: obsId,
-            role: 'attachment', // schema CHECK; media_type = 'audio' marks it
-          );
-        }
-      });
       unawaited(envService.backfillStale());
 
       if (mounted) {
@@ -615,20 +475,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
             .pop(CaptureResult(obsId, DateTime.now().difference(started)));
       }
     } catch (e) {
-      // The photo may already be in the media store with no record to own
-      // it; take it back out so backups and exports don't carry an orphan.
-      for (final id in savedMediaIds) {
-        try {
-          await eraseMedia(db, id);
-        } catch (_) {}
-      }
-      if (savedVoiceId != null) {
-        try {
-          await eraseMedia(db, savedVoiceId);
-        } catch (_) {}
-        _voiceSaved = false;
-        _voicePath = null;
-      }
+      // writeCapture has already taken back any media it wrote, and the
+      // voice note's temp file is still where it was, so SAVE can be tried
+      // again with everything still in hand.
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(

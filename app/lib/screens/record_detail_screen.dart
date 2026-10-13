@@ -24,7 +24,8 @@ import '../geo/zone_assignment.dart';
 import '../services/desk.dart';
 import '../services/record_filter.dart';
 import '../services/media_store.dart';
-import '../services/observation_ops.dart' show eraseMedia;
+import '../services/observation_ops.dart'
+    show eraseMedia, softDeleteObservation;
 import '../services/review.dart';
 import 'identify_sheet.dart';
 import 'move_pin_screen.dart';
@@ -531,14 +532,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     );
     if (!confirmed) return;
     // Soft delete (spec §4.1) — sync engines need tombstones.
-    await (widget.db.update(
-      widget.db.observations,
-    )..where((o) => o.id.equals(widget.obsId))).write(
-      ObservationsCompanion(
-        deletedAt: Value(nowUtcIso()),
-        updatedAt: Value(nowUtcIso()),
-      ),
-    );
+    await softDeleteObservation(widget.db, widget.obsId);
     if (!mounted) return;
     final nav = Navigator.of(context);
     if (!widget.embedded && nav.canPop()) nav.pop();

@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-and-build:
+    name: analyze · test · release apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Gradle 9 / AGP 9 want a modern JDK; the app itself targets 17
+      # bytecode (see android/app/build.gradle.kts).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Same Flutter the phone builds use. Bump this with `flutter upgrade`
+      # locally, in one commit, so the APK CI produces matches the one that
+      # gets installed.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.0'
+          cache: true
+          cache-key: flutter-:os:-:channel:-:version:-:arch:
+          pub-cache-key: pub-:os:-${{ hashFiles('app/pubspec.lock') }}
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('app/android/**/*.gradle*', 'app/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - run: flutter --version
+
+      - run: flutter pub get
+
+      - run: flutter analyze
+
+      - run: flutter test
+
+      # No signing secrets in CI: android/key.properties is gitignored and
+      # build.gradle.kts falls back to the debug keystore when it is
+      # absent, so this is a release build that installs on a test device
+      # but will not install OVER the Play/keystore-signed app. Signed
+      # builds come from tool/build_phone.sh on a machine with the keys.
+      - name: Build release APK (debug-signed)
+        run: |
+          test ! -f android/key.properties || { echo "key.properties must not exist on CI"; exit 1; }
+          flutter build apk --release
+
+      - name: Short SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: field-notes-${{ steps.sha.outputs.short }}-debug-signed.apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
