@@ -286,7 +286,7 @@ class MapPlate {
           }
 
         case PhotoPointStations():
-        case ProtocolSites():
+        case ProtocolSiteMarks():
           // Stations and monitoring sites are not printed on a plate.
           break;
 

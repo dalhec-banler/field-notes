@@ -10,10 +10,11 @@ import 'package:drift/drift.dart' hide Column;
 
 import '../db/database.dart';
 import '../export/map_plate.dart';
-import '../export/plate_subject_loader.dart';
 import '../export/web_mercator.dart' as merc;
 import '../map/cluster_badge.dart';
 import '../map/imagery_sources.dart';
+import '../map/layers/layer_loader.dart';
+import '../map/layers/map_layers.dart';
 import '../map/record_clusters.dart';
 import '../map/record_ink.dart';
 import '../map/tile_cache.dart';
@@ -35,7 +36,9 @@ part 'desk_map_view/painter.dart';
 /// maplibre_gl has no desktop platform, so this is our own slippy map on
 /// the machinery the plate already proved: web-mercator math, XYZ imagery
 /// tiles, and the shared record mark language. Drag to pan, scroll or
-/// double-click to zoom, click a mark to open the record.
+/// double-click to zoom, click a mark to open the record. What it draws
+/// is the one [MapLayerSet] (D-038 item 11); this file owns only how a
+/// layer paints on a Canvas.
 ///
 /// Beside it, the species panel (Austin's design, same day): every species
 /// on this map listed on the right; click one and its card opens in place
@@ -59,7 +62,7 @@ class _SpeciesGroup {
   final String key;
   final String label;
   final String type;
-  final List<PlateRecord> records;
+  final List<MapRecord> records;
 
   RecordRealm get realm =>
       records.first.label != null ? RecordRealm.species : realmOfType(type);
@@ -85,18 +88,10 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
     mapJump.addListener(_onMapJump);
     // The watch emits once on listen, so it is also the first load — and
     // that load frames, since nothing has moved the camera yet. The
-    // feature panel's tables are here too: a fresh subject is what
-    // re-reads an open panel.
+    // feature panel's condition log is here too: a fresh layer set is
+    // what re-reads an open panel.
     _watch = widget.db
-        .changes({
-          widget.db.observations,
-          widget.db.zones,
-          widget.db.features,
-          widget.db.featureConditionLogs,
-          widget.db.featureTypes,
-          widget.db.tracks,
-          widget.db.properties,
-        })
+        .changes({..._loader.tables, widget.db.featureConditionLogs})
         .listen((_) => _load());
   }
 
@@ -111,9 +106,9 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
   }
 
   Future<void> _load() async {
-    final s = await loadPlateSubject(widget.db, widget.property);
+    final s = await _loader.load(widget.property);
     if (!mounted) return;
-    setState(() => _subject = s);
+    setState(() => _layers = s);
     if (_lat == null) _frameSubject(s, _lastLayoutSize);
     _onMapJump();
   }
@@ -123,7 +118,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
   void _onMapJump() {
     final j = mapJump.value;
     if (j == null || j.propertyId != widget.property.id) return;
-    if (_subject == null) return; // the load that follows takes it
+    if (_layers == null) return; // the load that follows takes it
     mapJump.value = null;
     setState(() => _selectedId = j.recordId);
     _flyTo(j.lat, j.lng, zoom: activeImagery.maxZoom - 0.5);
@@ -131,11 +126,11 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
 
   /// The camera's opening question is "where are my marks?" — records
   /// first, then whatever geometry the place has.
-  void _frameSubject(PlateSubject s, Size size) {
+  void _frameSubject(MapLayerSet s, Size size) {
     var b = merc.LatLngBounds.ofPoints([
       for (final r in s.records) (r.lat, r.lng),
     ]);
-    b ??= MapPlate.frameBounds(s, const PlateLayers());
+    b ??= MapPlate.frameBounds(PlateSubject.of(s), const PlateLayers());
     final bb = b.pad(0.25);
     setState(() {
       _lat = (bb.north + bb.south) / 2;
@@ -149,7 +144,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
   @override
   Widget build(BuildContext context) {
     _dprBoost = MediaQuery.of(context).devicePixelRatio >= 1.5 ? 1 : 0;
-    final s = _subject;
+    final s = _layers;
     if (s == null || _lat == null) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -174,7 +169,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
     );
   }
 
-  Widget _map(PlateSubject s) {
+  Widget _map(MapLayerSet s) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
@@ -183,8 +178,8 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
         if (!_sizedFrame) {
           _sizedFrame = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _subject != null && !_userMoved) {
-              _frameSubject(_subject!, size);
+            if (mounted && _layers != null && !_userMoved) {
+              _frameSubject(_layers!, size);
             }
           });
         }
@@ -226,7 +221,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
                 children: [
                   CustomPaint(
                     painter: _DeskMapPainter(
-                      subject: s,
+                      layers: s,
                       lit: lit,
                       dimmed: dimmed,
                       images: _images,
@@ -298,7 +293,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
                     child: InkWell(
                       onTap: () {
                         _userMoved = false;
-                        final s2 = _subject;
+                        final s2 = _layers;
                         if (s2 != null) {
                           _frameSubject(s2, _lastLayoutSize);
                         }

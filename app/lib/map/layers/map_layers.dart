@@ -276,8 +276,8 @@ class ProtocolSiteMark {
   final String? retiredOn;
 }
 
-class ProtocolSites extends MapLayer {
-  const ProtocolSites(this.sites);
+class ProtocolSiteMarks extends MapLayer {
+  const ProtocolSiteMarks(this.sites);
   final List<ProtocolSiteMark> sites;
 
   @override
@@ -556,7 +556,7 @@ class MapLayerSet {
       TrackLines(tracks),
       FeatureMarks(features),
       PhotoPointStations(stations),
-      ProtocolSites(sites),
+      ProtocolSiteMarks(sites),
       RecordMarks(records),
     ],
   );
@@ -580,7 +580,8 @@ class MapLayerSet {
       layer<FeatureMarks>()?.features ?? const [];
   List<PhotoStation> get stations =>
       layer<PhotoPointStations>()?.stations ?? const [];
-  List<ProtocolSiteMark> get sites => layer<ProtocolSites>()?.sites ?? const [];
+  List<ProtocolSiteMark> get sites =>
+      layer<ProtocolSiteMarks>()?.sites ?? const [];
   List<MapRecord> get records => layer<RecordMarks>()?.records ?? const [];
   PositionMark? get position => layer<PositionMark>();
 

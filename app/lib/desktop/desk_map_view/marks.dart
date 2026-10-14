@@ -1,25 +1,23 @@
 part of '../desk_map_view.dart';
 
-(double, double) _coordsOf(PlateRecord r) => (r.lat, r.lng);
-
 String _cap(String s) =>
     s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
 /// The marks: clustering, species groups, flying to things, and what a
 /// click lands on.
 mixin _DeskMapMarks on _DeskMapTiles {
-  bool _isLit(PlateRecord r) =>
+  bool _isLit(MapRecord r) =>
       _highlightKey == null || (r.label ?? '__type:${r.type}') == _highlightKey;
 
-  (List<List<PlateRecord>> lit, List<List<PlateRecord>> dimmed) _clustersFor(
-    PlateSubject s,
+  (List<List<MapRecord>> lit, List<List<MapRecord>> dimmed) _clustersFor(
+    MapLayerSet s,
   ) {
     final key = (_zoom, s, _highlightKey, _selectedId);
     if (_clusterKey == key) return _clusters;
     _clusterKey = key;
-    final lit = <PlateRecord>[];
-    final dimmed = <PlateRecord>[];
-    PlateRecord? selected;
+    final lit = <MapRecord>[];
+    final dimmed = <MapRecord>[];
+    MapRecord? selected;
     for (final r in s.records) {
       if (r.id != null && r.id == _selectedId) {
         selected = r;
@@ -27,8 +25,8 @@ mixin _DeskMapMarks on _DeskMapTiles {
       }
       (_isLit(r) ? lit : dimmed).add(r);
     }
-    final litCells = clusterBy(lit, _coordsOf, _zoom);
-    final dimCells = clusterBy(dimmed, _coordsOf, _zoom);
+    final litCells = clusterBy(lit, recordCoords, _zoom);
+    final dimCells = clusterBy(dimmed, recordCoords, _zoom);
     if (selected != null) {
       (_isLit(selected) ? litCells : dimCells).add([selected]);
     }
@@ -38,14 +36,14 @@ mixin _DeskMapMarks on _DeskMapTiles {
   /// The phone's Zillow move: click a badge, land where it splits. A
   /// cell that never splits — repeat visits to one marked tree, or points
   /// closer than this imagery can separate — lists what's here instead.
-  void _expandCluster(List<PlateRecord> cell) {
+  void _expandCluster(List<MapRecord> cell) {
     final maxZ = activeImagery.maxZoom.toDouble();
-    final z = expansionZoomBy(cell, _coordsOf, _zoom, maxZoom: maxZ);
+    final z = expansionZoomBy(cell, recordCoords, _zoom, maxZoom: maxZ);
     if (z == null) {
       _recordsHere(cell);
       return;
     }
-    final (lat, lng) = centreOf(cell, _coordsOf);
+    final (lat, lng) = centreOf(cell, recordCoords);
     _userMoved = true;
     setState(() {
       _lat = lat;
@@ -56,7 +54,7 @@ mixin _DeskMapMarks on _DeskMapTiles {
 
   /// The phone's "what's here" sheet, as a dialog: every record in the
   /// cell, pick one to open it.
-  Future<void> _recordsHere(List<PlateRecord> cell) async {
+  Future<void> _recordsHere(List<MapRecord> cell) async {
     final id = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
@@ -101,7 +99,7 @@ mixin _DeskMapMarks on _DeskMapTiles {
   // ── species groups ───────────────────────────────────────────────
 
   List<_SpeciesGroup> get _groups {
-    final s = _subject;
+    final s = _layers;
     if (s == null) return const [];
     final byKey = <String, _SpeciesGroup>{};
     for (final r in s.records) {
@@ -135,7 +133,7 @@ mixin _DeskMapMarks on _DeskMapTiles {
   }
 
   /// Frame every mark of one species — the per-row LOCATE.
-  void _fitGroup(List<PlateRecord> rs) {
+  void _fitGroup(List<MapRecord> rs) {
     if (rs.isEmpty) return;
     final b = merc.LatLngBounds.ofPoints([for (final r in rs) (r.lat, r.lng)]);
     if (b == null) return;
@@ -200,17 +198,17 @@ mixin _DeskMapMarks on _DeskMapTiles {
   // ── hit test ─────────────────────────────────────────────────────
 
   void _onTapUp(TapUpDetails d, Size size) {
-    final s = _subject;
+    final s = _layers;
     if (s == null) return;
     String? bestRecord;
     String? bestFeature;
-    List<PlateRecord>? bestCluster;
+    List<MapRecord>? bestCluster;
     var bestD = 16.0; // px
     final (lit, dimmed) = _clustersFor(s);
     for (final cell in lit.followedBy(dimmed)) {
       final double x, y;
       if (cell.length > 1) {
-        final (lat, lng) = centreOf(cell, _coordsOf);
+        final (lat, lng) = centreOf(cell, recordCoords);
         (x, y) = _screenOf(lat, lng, size);
       } else {
         final r = cell.single;

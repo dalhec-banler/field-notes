@@ -89,9 +89,13 @@ class _TriPainter extends CustomPainter {
   bool shouldRepaint(covariant _TriPainter old) => old.color != color;
 }
 
+/// Paints the layer set to the desk's canvas: imagery tiles, then each
+/// layer in the set's draw order. The clustering is done by the state
+/// (it depends on zoom, highlight and selection), so the records layer
+/// arrives here already cut into [lit] and [dimmed] cells.
 class _DeskMapPainter extends CustomPainter {
   _DeskMapPainter({
-    required this.subject,
+    required this.layers,
     required this.lit,
     required this.dimmed,
     required this.images,
@@ -103,12 +107,12 @@ class _DeskMapPainter extends CustomPainter {
     required this.screenOf,
   });
 
-  final PlateSubject subject;
+  final MapLayerSet layers;
 
   /// Records already grouped by the state for this zoom: a one-record
   /// cell draws its mark, a fuller cell draws a badge.
-  final List<List<PlateRecord>> lit;
-  final List<List<PlateRecord>> dimmed;
+  final List<List<MapRecord>> lit;
+  final List<List<MapRecord>> dimmed;
   final Map<String, ui.Image> images;
   final int zInt;
   final double tileScale;
@@ -185,157 +189,182 @@ class _DeskMapPainter extends CustomPainter {
       }
     }
 
-    // Zones — same colour resolution as the plate.
-    for (var i = 0; i < subject.zones.length; i++) {
-      final z = subject.zones[i];
-      final path = pathOf(z.geojson);
-      if (path == null) continue;
-      final ink = ui.Color(MapPlate.zoneInk(z, i));
-      canvas.drawPath(path, ui.Paint()..color = ink.withValues(alpha: 0.22));
-      canvas.drawPath(
-        path,
-        ui.Paint()
-          ..color = ink
-          ..style = ui.PaintingStyle.stroke
-          ..strokeWidth = 1.5,
-      );
-    }
+    // The place's layers, in the set's draw order. Each case is only how
+    // that layer paints here; which layers exist is the model's business.
+    for (final layer in layers.layers) {
+      switch (layer) {
+        case ImageryBase():
+          // The tiles above came through the state's fetcher.
+          break;
 
-    // Boundary.
-    if (subject.boundaryGeojson != null) {
-      final path = pathOf(subject.boundaryGeojson!);
-      if (path != null) {
-        canvas.drawPath(
-          path,
-          ui.Paint()
-            ..color = const ui.Color(0xCCFFFFFF)
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = 5,
-        );
-        canvas.drawPath(
-          path,
-          ui.Paint()
-            ..color = const ui.Color(0xFF8B2E22)
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = 2.5,
-        );
-      }
-    }
-
-    // Tracks.
-    for (final t in subject.tracks) {
-      final path = pathOf(t.geojson);
-      if (path == null) continue;
-      canvas.drawPath(
-        path,
-        ui.Paint()
-          ..color = const ui.Color(0xB3FFFFFF)
-          ..style = ui.PaintingStyle.stroke
-          ..strokeWidth = 4
-          ..strokeCap = ui.StrokeCap.round,
-      );
-      canvas.drawPath(
-        path,
-        ui.Paint()
-          ..color = const ui.Color(0xFF1B1813)
-          ..style = ui.PaintingStyle.stroke
-          ..strokeWidth = 1.8
-          ..strokeCap = ui.StrokeCap.round,
-      );
-    }
-
-    // Features — the class silhouettes, white halo (the features layer).
-    for (final f in subject.features) {
-      try {
-        final g = jsonDecode(f.geojson) as Map<String, dynamic>;
-        if (g['type'] != 'Point') {
-          final path = pathOf(f.geojson);
-          if (path == null) continue;
-          final ink = ui.Color(switch (f.featureClass) {
-            'problem' => 0xFF8B2E22,
-            'infrastructure' => 0xFF1B1813,
-            _ => 0xFF2F5D8A,
-          });
-          canvas.drawPath(
-            path,
-            ui.Paint()
-              ..color = ink
-              ..style = ui.PaintingStyle.stroke
-              ..strokeWidth = 2,
-          );
-          continue;
-        }
-        final c = g['coordinates'] as List;
-        final (x, y) = screenOf(
-          (c[1] as num).toDouble(),
-          (c[0] as num).toDouble(),
-          size,
-        );
-        final halo = ui.Paint()..color = const ui.Color(0xFFFFFFFF);
-        switch (f.featureClass) {
-          case 'problem':
-            final tri = ui.Path()
-              ..moveTo(x, y - 9)
-              ..lineTo(x + 8, y + 6)
-              ..lineTo(x - 8, y + 6)
-              ..close();
+        // Zones — same colour resolution as the plate.
+        case ZoneFills(:final zones):
+          for (var i = 0; i < zones.length; i++) {
+            final path = pathOf(zones[i].geojson);
+            if (path == null) continue;
+            final ink = ui.Color(layer.inkAt(i));
             canvas.drawPath(
-              tri,
-              halo
+              path,
+              ui.Paint()..color = ink.withValues(alpha: 0.22),
+            );
+            canvas.drawPath(
+              path,
+              ui.Paint()
+                ..color = ink
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = 1.5,
+            );
+          }
+
+        case BoundaryLine(:final geojson):
+          final path = pathOf(geojson);
+          if (path != null) {
+            canvas.drawPath(
+              path,
+              ui.Paint()
+                ..color = const ui.Color(0xCCFFFFFF)
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = 5,
+            );
+            canvas.drawPath(
+              path,
+              ui.Paint()
+                ..color = const ui.Color(0xFF8B2E22)
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = 2.5,
+            );
+          }
+
+        case TrackLines(:final tracks):
+          for (final t in tracks) {
+            final path = pathOf(t.geojson);
+            if (path == null) continue;
+            canvas.drawPath(
+              path,
+              ui.Paint()
+                ..color = const ui.Color(0xB3FFFFFF)
                 ..style = ui.PaintingStyle.stroke
                 ..strokeWidth = 4
-                ..strokeJoin = ui.StrokeJoin.round,
+                ..strokeCap = ui.StrokeCap.round,
             );
             canvas.drawPath(
-              tri,
-              ui.Paint()..color = const ui.Color(0xFF8B2E22),
+              path,
+              ui.Paint()
+                ..color = const ui.Color(0xFF1B1813)
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = 1.8
+                ..strokeCap = ui.StrokeCap.round,
             );
-          case 'infrastructure':
-            final rect = ui.Rect.fromCenter(
-              center: ui.Offset(x, y),
-              width: 12,
-              height: 12,
-            );
-            canvas.drawRect(rect.inflate(2), halo);
-            canvas.drawRect(
-              rect,
-              ui.Paint()..color = const ui.Color(0xFF1B1813),
-            );
-          default:
-            canvas.drawCircle(ui.Offset(x, y), 8, halo);
-            canvas.drawCircle(
-              ui.Offset(x, y),
-              6,
-              ui.Paint()..color = const ui.Color(0xFF2F5D8A),
-            );
-            canvas.drawCircle(
-              ui.Offset(x, y),
-              2.5,
-              ui.Paint()..color = const ui.Color(0xFFFFFFFF),
-            );
-        }
-      } catch (e, st) {
-        Diag.report(e, st, where: 'DeskMapPainter.paint');
-      }
-    }
+          }
 
-    // Records — the shared shape language, paper stroke; a cell with more
-    // than one wears the phone's badge. With a species highlighted,
-    // everything else dims and the highlighted marks draw last with a
-    // gold ring: the map becomes that species' map.
-    for (final cell in dimmed) {
-      if (cell.length > 1) {
-        _drawCluster(canvas, size, cell, dim: true);
-      } else {
-        _drawRecord(canvas, size, cell.single, dim: true);
+        // Features — the class silhouettes, white halo (the features layer).
+        case FeatureMarks(:final features):
+          for (final f in features) {
+            try {
+              final g = jsonDecode(f.geojson) as Map<String, dynamic>;
+              if (g['type'] != 'Point') {
+                final path = pathOf(f.geojson);
+                if (path == null) continue;
+                canvas.drawPath(
+                  path,
+                  ui.Paint()
+                    ..color = ui.Color(f.ink)
+                    ..style = ui.PaintingStyle.stroke
+                    ..strokeWidth = 2,
+                );
+                continue;
+              }
+              final c = g['coordinates'] as List;
+              final (x, y) = screenOf(
+                (c[1] as num).toDouble(),
+                (c[0] as num).toDouble(),
+                size,
+              );
+              _drawFeature(canvas, x, y, f.featureClass);
+            } catch (e, st) {
+              Diag.report(e, st, where: 'DeskMapPainter.paint');
+            }
+          }
+
+        case PhotoPointStations():
+        case ProtocolSiteMarks():
+          // The desk map does not draw stations or monitoring sites.
+          break;
+
+        // Records — the shared shape language, paper stroke; a cell with
+        // more than one wears the phone's badge. With a species
+        // highlighted, everything else dims and the highlighted marks draw
+        // last with a gold ring: the map becomes that species' map.
+        case RecordMarks():
+          for (final cell in dimmed) {
+            if (cell.length > 1) {
+              _drawCluster(canvas, size, cell, dim: true);
+            } else {
+              _drawRecord(canvas, size, cell.single, dim: true);
+            }
+          }
+          for (final cell in lit) {
+            if (cell.length > 1) {
+              _drawCluster(canvas, size, cell);
+            } else {
+              _drawRecord(
+                canvas,
+                size,
+                cell.single,
+                ringed: highlightKey != null,
+              );
+            }
+          }
+
+        case RecordClusters():
+          // Cut by the state into lit / dimmed cells above.
+          break;
+        case PositionMark():
+          // The desk has no fix of its own.
+          break;
       }
     }
-    for (final cell in lit) {
-      if (cell.length > 1) {
-        _drawCluster(canvas, size, cell);
-      } else {
-        _drawRecord(canvas, size, cell.single, ringed: highlightKey != null);
-      }
+  }
+
+  /// A feature's point silhouette by class: oxblood triangle for trouble,
+  /// ink square for the built, river dot with a white eye for the natural.
+  void _drawFeature(ui.Canvas canvas, double x, double y, String cls) {
+    final halo = ui.Paint()..color = const ui.Color(0xFFFFFFFF);
+    switch (cls) {
+      case 'problem':
+        final tri = ui.Path()
+          ..moveTo(x, y - 9)
+          ..lineTo(x + 8, y + 6)
+          ..lineTo(x - 8, y + 6)
+          ..close();
+        canvas.drawPath(
+          tri,
+          halo
+            ..style = ui.PaintingStyle.stroke
+            ..strokeWidth = 4
+            ..strokeJoin = ui.StrokeJoin.round,
+        );
+        canvas.drawPath(tri, ui.Paint()..color = const ui.Color(0xFF8B2E22));
+      case 'infrastructure':
+        final rect = ui.Rect.fromCenter(
+          center: ui.Offset(x, y),
+          width: 12,
+          height: 12,
+        );
+        canvas.drawRect(rect.inflate(2), halo);
+        canvas.drawRect(rect, ui.Paint()..color = const ui.Color(0xFF1B1813));
+      default:
+        canvas.drawCircle(ui.Offset(x, y), 8, halo);
+        canvas.drawCircle(
+          ui.Offset(x, y),
+          6,
+          ui.Paint()..color = const ui.Color(0xFF2F5D8A),
+        );
+        canvas.drawCircle(
+          ui.Offset(x, y),
+          2.5,
+          ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+        );
     }
   }
 
@@ -346,10 +375,10 @@ class _DeskMapPainter extends CustomPainter {
   void _drawCluster(
     ui.Canvas canvas,
     Size size,
-    List<PlateRecord> cell, {
+    List<MapRecord> cell, {
     bool dim = false,
   }) {
-    final (lat, lng) = centreOf(cell, _coordsOf);
+    final (lat, lng) = centreOf(cell, recordCoords);
     final (x, y) = screenOf(lat, lng, size);
     if (x < -30 || y < -30 || x > size.width + 30 || y > size.height + 30) {
       return;
@@ -369,7 +398,7 @@ class _DeskMapPainter extends CustomPainter {
   void _drawRecord(
     ui.Canvas canvas,
     Size size,
-    PlateRecord r, {
+    MapRecord r, {
     bool dim = false,
     bool ringed = false,
   }) {
