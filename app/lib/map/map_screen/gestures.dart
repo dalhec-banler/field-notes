@@ -25,7 +25,7 @@ mixin _MapScreenGestures on _MapScreenLayers {
       // The Zillow move: land where the cluster splits; if it never does,
       // the sheet lists what's here.
       final zoom = controller.cameraPosition?.zoom ?? 15;
-      final z = expansionZoom(hit.members, zoom);
+      final z = expansionZoomBy(hit.members, recordCoords, zoom);
       if (z != null) {
         final (lat, lng) = hit.centre;
         await controller.animateCamera(
@@ -56,7 +56,7 @@ mixin _MapScreenGestures on _MapScreenLayers {
   }
 
   /// What is under a screen point: a single record or a cluster, or null.
-  Future<ClusterGroup?> _hitAt(Point<double> point) async {
+  Future<RecordCell?> _hitAt(Point<double> point) async {
     final controller = _controller;
     if (controller == null) return null;
     try {
@@ -73,10 +73,8 @@ mixin _MapScreenGestures on _MapScreenLayers {
         // member lists round-tripping through GeoJSON properties as CSV.
         final cluster = _clusterIndex[id];
         if (cluster != null) return cluster;
-        final f = _recordFeatures
-            .where((f) => (f['properties'] as Map)['id'] == id)
-            .firstOrNull;
-        if (f != null) return ClusterGroup([f]);
+        final r = _records.where((r) => r.id == id).firstOrNull;
+        if (r != null) return RecordCell([r]);
       }
     } catch (e, st) {
       Diag.report(e, st, where: 'MapScreen._hitAt');

@@ -1,7 +1,7 @@
 part of '../map_screen.dart';
 
 /// The live fix: watching it, deciding the opening camera, and the
-/// position feature with its accuracy ring.
+/// position layer's feature with its accuracy ring.
 mixin _MapScreenPosition on _MapScreenRecords {
   bool _watching = false;
 
@@ -93,49 +93,13 @@ mixin _MapScreenPosition on _MapScreenRecords {
     }
   }
 
-  Map<String, dynamic> _positionGeoJson(Position pos) {
-    final acc = pos.accuracy;
-    return {
-      'type': 'FeatureCollection',
-      'features': [
-        if (acc.isFinite && acc > 1)
-          {
-            'type': 'Feature',
-            'geometry': {
-              'type': 'Polygon',
-              'coordinates': [_accuracyRing(pos.latitude, pos.longitude, acc)],
-            },
-            'properties': {'acc': acc},
-          },
-        {
-          'type': 'Feature',
-          'geometry': {
-            'type': 'Point',
-            'coordinates': [pos.longitude, pos.latitude],
-          },
-          'properties': {'acc': acc},
-        },
-      ],
-    };
-  }
-
-  /// The accuracy circle as ground coordinates, so it scales with the map
-  /// instead of pretending to be a fixed number of pixels.
-  static List<List<double>> _accuracyRing(
-    double lat,
-    double lng,
-    double metres, {
-    int steps = 36,
-  }) {
-    final dLat = metres / 111320.0;
-    final dLng =
-        metres / (111320.0 * mathlib.cos(lat * mathlib.pi / 180).abs());
-    return [
-      for (var i = 0; i <= steps; i++)
-        [
-          lng + dLng * mathlib.sin(2 * mathlib.pi * i / steps),
-          lat + dLat * mathlib.cos(2 * mathlib.pi * i / steps),
-        ],
-    ];
-  }
+  /// The position layer for a fix: the model draws the ring in ground
+  /// coordinates, so it scales with the map.
+  Map<String, dynamic> _positionGeoJson(Position pos) => _positionCollection(
+    PositionMark(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      accuracyM: pos.accuracy,
+    ),
+  );
 }

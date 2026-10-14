@@ -20,31 +20,33 @@ mixin _MapScreenClusters on _MapScreenCore {
         call.timeout(const Duration(seconds: 8));
     try {
       final zoom = controller.cameraPosition?.zoom ?? 15;
-      // Clustering depends only on zoom and the feature list: a pan-only
+      // Clustering depends only on zoom and the record list: a pan-only
       // idle would re-push byte-identical sources over the channel.
-      if (zoom == _lastPaintZoom && identical(_recordFeatures, _lastPainted)) {
+      if (zoom == _lastPaintZoom && identical(_records, _lastPainted)) {
         return;
       }
-      final groups = clusterFeatures(_recordFeatures, zoom);
+      // The clusters layer, derived from the records layer at this zoom —
+      // the same cells the desk badges (record_clusters.dart).
+      final clusters = RecordClusters.at(_records, zoom);
       final singles = <Map<String, dynamic>>[];
       final out = <Map<String, dynamic>>[];
-      final index = <String, ClusterGroup>{};
-      for (final g in groups) {
-        if (!g.isCluster) {
-          singles.add(g.members.single);
+      final index = <String, RecordCell>{};
+      for (final cell in clusters.cells) {
+        if (!cell.isCluster) {
+          singles.add(_recordFeature(cell.members.single));
           continue;
         }
-        final n = g.members.length;
+        final n = cell.members.length;
         final icon = clusterIconKey(n);
         if (!_badgeImages.contains(icon)) {
           await bounded(controller.addImage(icon, await clusterBadge(n)));
           _badgeImages.add(icon);
         }
-        final (lat, lng) = g.centre;
+        final (lat, lng) = cell.centre;
         // Content-derived id: stable across repaints while membership holds
         // (same-process only, which is all a tap lookup needs).
-        final id = 'cluster:${g.ids.join(',').hashCode}';
-        index[id] = g;
+        final id = 'cluster:${cell.ids.join(',').hashCode}';
+        index[id] = cell;
         out.add({
           'type': 'Feature',
           'geometry': {
@@ -54,6 +56,9 @@ mixin _MapScreenClusters on _MapScreenCore {
           'properties': {'id': id, 'cluster': true, 'count': n, 'icon': icon},
         });
       }
+      // Two sources on purpose (DESIGN.md): singles on 'observations' so
+      // the circle / shape / removal layers can style them; badges on
+      // 'obs-clusters' as pre-drawn images.
       await bounded(
         controller.setGeoJsonSource('observations', {
           'type': 'FeatureCollection',
@@ -70,7 +75,7 @@ mixin _MapScreenClusters on _MapScreenCore {
         ..clear()
         ..addAll(index);
       _lastPaintZoom = zoom;
-      _lastPainted = _recordFeatures;
+      _lastPainted = _records;
     } catch (e, st) {
       Diag.report(e, st, where: 'MapScreen._paintRecords');
       // A repaint failure must never take the map down.

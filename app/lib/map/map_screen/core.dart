@@ -1,7 +1,8 @@
 part of '../map_screen.dart';
 
 /// The map screen's state: tile stores, the fix, the camera decision,
-/// the controller, the pin/cluster bookkeeping and the layer flags.
+/// the controller, the layer set and its pin/cluster bookkeeping, and the
+/// style's layer flags.
 const _emptyCollection = {
   'type': 'FeatureCollection',
   'features': <Map<String, dynamic>>[],
@@ -46,25 +47,30 @@ mixin _MapScreenCore on State<MapScreen> {
 
   MapLibreMapController? _controller;
 
-  /// Every located record as a GeoJSON feature — the clustering input.
-  List<Map<String, dynamic>> _recordFeatures = const [];
+  /// What this place draws (D-038 item 11), as last loaded. Zones, the
+  /// boundary and the tracks are put on the style once from the first
+  /// set; features, photo points and records follow every later one.
+  MapLayerSet? _layers;
+  StreamSubscription<void>? _layerSub;
+
+  /// Loads in flight: a stale answer arriving after a newer one is dropped.
+  int _layerSeq = 0;
+
+  /// The located records as last loaded — the clustering input.
+  List<MapRecord> _records = const [];
   final Set<String> _badgeImages = {};
 
-  /// Cluster feature id → its group, rebuilt by every paint. Taps resolve
+  /// Cluster feature id → its cell, rebuilt by every paint. Taps resolve
   /// against this instead of parsing member ids out of rendered features.
-  final Map<String, ClusterGroup> _clusterIndex = {};
+  final Map<String, RecordCell> _clusterIndex = {};
   double? _lastPaintZoom;
-  List<Map<String, dynamic>>? _lastPainted;
+  List<MapRecord>? _lastPainted;
   bool _painting = false;
   bool _paintAgain = false;
 
   bool _featureLayerReady = false;
-  StreamSubscription<void>? _featureSub;
   bool _photoPointLayerReady = false;
-  StreamSubscription<void>? _photoPointSub;
-
   bool _recordLayersReady = false;
-  StreamSubscription<void>? _recordSub;
 
   bool _framedRecords = false;
 }
