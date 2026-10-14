@@ -35,8 +35,8 @@ jobs:
           channel: stable
           flutter-version: '3.47.0'
           cache: true
-          cache-key: flutter-:os:-:channel:-:version:-:arch:
-          pub-cache-key: pub-:os:-${{ hashFiles('app/pubspec.lock') }}
+          cache-key: 'flutter-:os:-:channel:-:version:-:arch:'
+          pub-cache-key: "pub-:os:-${{ hashFiles('app/pubspec.lock') }}"
 
       - name: Cache Gradle
         uses: actions/cache@v4
