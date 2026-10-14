@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -304,8 +305,9 @@ class SyncService {
       );
       await log.setMeta('last_sync_at', nowUtcIso());
       return report;
-    } catch (e) {
-      return SyncReport(note: 'Sync failed: $e', failed: true);
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SyncService._syncOwnDevices');
+      return SyncReport(note: describeFailure(e), failed: true);
     } finally {
       if (target is DriveTarget) target.close();
     }
@@ -374,8 +376,14 @@ class SyncService {
       return finish(
         SyncReport(failed: true, problems: ['${s.name}: ${e.message}']),
       );
-    } catch (e) {
-      return finish(SyncReport(failed: true, problems: ['${s.name}: $e']));
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SyncService._syncShared');
+      return finish(
+        SyncReport(
+          failed: true,
+          problems: ['${s.name}: ${describeFailure(e)}'],
+        ),
+      );
     } finally {
       if (target is RelayTarget) target.close();
     }
@@ -478,9 +486,38 @@ class SyncService {
     );
   }
 
+  /// The bookkeeping a status line is built from (`SyncStatus`): the note,
+  /// what the run brought in, and — if it failed, in whole or for one
+  /// store — the sentence that says why, kept until a run goes clean.
   Future<SyncReport> _done(SyncReport r) async {
     await log.setMeta('last_sync_note', r.summary);
+    await log.setMeta('last_sync_received', '${r.applied}');
+    if (r.failed || r.problems.isNotEmpty) {
+      await log.setMeta(
+        'last_sync_failure',
+        r.failed ? r.summary : r.problems.join(' · '),
+      );
+      await log.setMeta('last_sync_failure_at', nowUtcIso());
+    } else {
+      await log.setMeta('last_sync_failure', '');
+    }
     return r;
+  }
+
+  /// A failure names its cause. "Sync failed: SocketException: …" is not
+  /// a sentence a person in a pasture can act on.
+  static String describeFailure(Object e) {
+    if (e is StateError) return e.message;
+    if (e is DriveException) return 'Drive said: ${e.message}';
+    if (e is SocketException || e is HttpException) {
+      return 'Could not reach Drive — no network, or Google did not answer.';
+    }
+    if (e is TimeoutException) return 'Drive took too long to answer.';
+    if (e is FileSystemException) {
+      return 'Could not write on this device: ${e.message}'
+          '${e.path == null ? '' : ' (${e.path})'}.';
+    }
+    return 'Sync failed: $e';
   }
 
   // ── media ────────────────────────────────────────────────────────
