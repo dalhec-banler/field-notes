@@ -194,7 +194,10 @@ Future<EditOutcome?> showEditRecordSheet(
   }
 
   final text = notes.text.trim();
-  notes.dispose();
+  // The sheet's exit slide can rebuild its TextField once more after the
+  // route has popped; disposing now raced that rebuild ("used after being
+  // disposed" in debug). Let the transition finish first.
+  Future<void>.delayed(const Duration(milliseconds: 400), notes.dispose);
   if (outcome != EditOutcome.saved) return outcome;
   await applyRecordEdit(
     db,

@@ -46,16 +46,19 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('the encrypt switch flips the mode and its warning',
-      (tester) async {
+  testWidgets('the encrypt switch flips the mode and its warning', (
+    tester,
+  ) async {
     await open(tester);
     final sw = find.widgetWithText(SwitchListTile, 'Encrypt with a passphrase');
     expect(tester.widget<SwitchListTile>(sw).value, isFalse);
     await tester.tap(sw);
     await tester.pump();
     expect(tester.widget<SwitchListTile>(sw).value, isTrue);
-    expect(find.textContaining('unreadable without your passphrase'),
-        findsOneWidget);
+    expect(
+      find.textContaining('unreadable without your passphrase'),
+      findsOneWidget,
+    );
     await tester.tap(sw);
     await tester.pump();
     expect(find.textContaining('Convenience mode'), findsOneWidget);
@@ -77,14 +80,37 @@ void main() {
     await unmount(tester);
   });
 
-  // One test touches BackupService's backup/verify path, deliberately.
-  // The service serialises work through a process-wide static future
-  // (`_lock`); a second test in the same isolate that chains onto it waits
-  // on a continuation queued in the previous test's fake-async zone and
-  // never hears back. Not an app bug (one zone there), but it rules out a
-  // separate "verify before any backup" case in this file.
-  testWidgets('BACK UP NOW writes a manifest; VERIFY BACKUP passes',
-      (tester) async {
+  // Three tests touch BackupService's backup/verify path in one isolate.
+  // That used to be impossible: the service serialised through a chained
+  // static Future, and a continuation created in one test's fake-async
+  // zone never resumed in the next. The gate is a busy flag plus a waiter
+  // queue now, so these run back to back — which is itself the regression
+  // test for that lock.
+  testWidgets('VERIFY before any backup says so, and does not hang', (
+    tester,
+  ) async {
+    await open(tester);
+    expect(manifest().existsSync(), isFalse);
+    await tester.tap(find.text('VERIFY BACKUP'));
+    // With no store yet, verify reports a problem (or "run a backup first");
+    // what matters here is that it answers at all.
+    await waitFor(
+      tester,
+      find.byWidgetPredicate(
+        (w) =>
+            w is Text &&
+            (w.data ?? '').isNotEmpty &&
+            ((w.data!).startsWith('Problem:') ||
+                w.data == 'Run a backup first.'),
+      ),
+    );
+    expect(manifest().existsSync(), isFalse);
+    await unmount(tester);
+  });
+
+  testWidgets('BACK UP NOW writes a manifest; VERIFY BACKUP passes', (
+    tester,
+  ) async {
     await open(tester);
     expect(manifest().existsSync(), isFalse);
     await tester.tap(find.text('BACK UP NOW'));
@@ -97,6 +123,23 @@ void main() {
     await tester.tap(find.text('VERIFY BACKUP'));
     await waitFor(tester, find.text('Backup verified ✓'));
     expect(find.text('Last verified: just now'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('a second BACK UP NOW in the same process also completes', (
+    tester,
+  ) async {
+    await open(tester);
+    expect(manifest().existsSync(), isFalse);
+    await tester.tap(find.text('BACK UP NOW'));
+    // The config file lives beside the store, not in it, so the previous
+    // test's timestamp can already read "just now" here; the manifest is
+    // the thing this press has to produce.
+    final until = DateTime.now().add(const Duration(seconds: 20));
+    while (!manifest().existsSync()) {
+      if (DateTime.now().isAfter(until)) fail('second backup never wrote');
+      await settle(tester, 200);
+    }
     await unmount(tester);
   });
 }

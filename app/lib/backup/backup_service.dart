@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -45,22 +47,41 @@ class BackupService {
   static const autoInterval = Duration(hours: 24);
   static const verifyInterval = Duration(days: 7);
 
-  /// Process-wide serialisation of backup/verify work.
-  static Future<void> _lock = Future.value();
+  /// Process-wide serialisation of backup/verify work: one at a time, with
+  /// later callers waiting their turn in order.
+  ///
+  /// This used to be a chained `Future` (`_lock = run.then(...)`). A future
+  /// created inside one test's fake-async zone never resumes in the next
+  /// test, so the second backup in a process hung forever. A busy flag plus
+  /// an explicit queue of completers has the same one-at-a-time property
+  /// and no zone attached to it.
   static bool _busy = false;
   static bool get busy => _busy;
+  static final _waiters = <Completer<void>>[];
 
-  static Future<T> _serialized<T>(Future<T> Function() body) {
-    final run = _lock.then((_) async {
-      _busy = true;
-      try {
-        return await body();
-      } finally {
-        _busy = false;
-      }
-    });
-    _lock = run.then((_) {}, onError: (_) {});
-    return run;
+  static Future<T> _serialized<T>(Future<T> Function() body) async {
+    if (_busy) {
+      final turn = Completer<void>();
+      _waiters.add(turn);
+      await turn.future;
+    }
+    _busy = true;
+    try {
+      return await body();
+    } finally {
+      _busy = false;
+      if (_waiters.isNotEmpty) _waiters.removeAt(0).complete();
+    }
+  }
+
+  /// Tests only: drop any queued turns left by an aborted test.
+  @visibleForTesting
+  static void resetSerialization() {
+    _busy = false;
+    for (final w in _waiters) {
+      if (!w.isCompleted) w.complete();
+    }
+    _waiters.clear();
   }
 
   Future<Directory> backupDir() async {

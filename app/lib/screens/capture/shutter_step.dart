@@ -98,13 +98,18 @@ mixin _CaptureShutterStep on _CaptureSave {
                   ),
                 ),
               ),
-              // Top readout.
+              // Top readout. Two short labels share a line; when the pair
+              // would not fit (phone width while the camera is still
+              // starting and GPS is still searching) they stack, so neither
+              // ever runs off the edge.
               Positioned(
                 top: 34,
                 left: 44,
                 right: 44,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  spacing: 16,
+                  runSpacing: 6,
                   children: [
                     MonoLabel(
                       camera == null ? '◆ Starting camera…' : '◆ Tap to shoot',
