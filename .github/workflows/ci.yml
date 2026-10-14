@@ -54,7 +54,9 @@ jobs:
 
       - run: flutter analyze
 
-      - run: flutter test
+      # Goldens are tagged 'golden' and rasterize per OS; they are the local
+      # visual contract on the Mac that generated them, not a CI gate.
+      - run: flutter test --exclude-tags golden
 
       # No signing secrets in CI: android/key.properties is gitignored and
       # build.gradle.kts falls back to the debug keystore when it is

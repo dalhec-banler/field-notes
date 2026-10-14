@@ -1,3 +1,8 @@
+// Pixel goldens rasterize differently per OS (font hinting), so these run
+// on the Mac that generated the baselines and are excluded on CI by tag.
+@Tags(['golden'])
+library;
+
 import 'package:field_notes/theme/theme.dart';
 import 'package:field_notes/theme/tokens.dart';
 import 'package:field_notes/widgets/press.dart';

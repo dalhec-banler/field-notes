@@ -1,0 +1,3 @@
+tags:
+  golden:
+    description: Pixel goldens; OS-specific rasterization. Run locally on macOS; CI excludes them.
