@@ -71,6 +71,7 @@ Future<void> main() async {
     opLog = await OpLog.install(
       db,
       identityFile: File(p.join(docs.path, 'device_id.txt')),
+      conflictFile: File(p.join(docs.path, 'sync_conflicts.json')),
     );
   } catch (e, st) {
     Diag.report(e, st, where: 'main.opLogInstall');
