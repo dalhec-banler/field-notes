@@ -4,6 +4,8 @@ import 'package:drift/drift.dart';
 
 import '../db/database.dart';
 import '../geo/zone_assignment.dart';
+import '../repo/observations_repo.dart';
+import '../repo/photo_points_repo.dart';
 import 'diag.dart';
 import 'env_context.dart';
 import 'media_store.dart';
@@ -190,9 +192,7 @@ Future<CaptureWritten> writeCapture(
         );
       }
 
-      await db
-          .into(db.observations)
-          .insert(
+      await ObservationsRepo(db).insert(
             ObservationsCompanion.insert(
               id: draft.observationId,
               propertyId: property.id,
@@ -260,30 +260,18 @@ Future<CaptureWritten> writeCapture(
       // from here on. The first ghost capture refines the bearing.
       if (draft.asPhotoPoint && lat != null && lng != null) {
         final heading = fix?.headingDeg;
-        await db
-            .into(db.photoPoints)
-            .insert(
-              PhotoPointsCompanion.insert(
-                id: newId(),
-                propertyId: property.id,
-                name: notes != null && notes.isNotEmpty
-                    ? notes.split('\n').first
-                    : 'Photo point ${now.substring(0, 10)}',
-                lat: lat,
-                lng: lng,
-                bearingDeg: heading != null && heading >= 0 ? heading : 0,
-                subject: Value(draft.photoPointSubject),
-                cadenceDays: const Value(90),
-                focalLengthMm: const Value(26),
-                viewExtentM: const Value(60),
-                referenceMediaId: Value(
-                  savedMediaIds.isEmpty ? null : savedMediaIds.first,
-                ),
-                createdBy: 'local',
-                createdAt: now,
-                updatedAt: now,
-              ),
-            );
+        await PhotoPointsRepo(db).create(
+          propertyId: property.id,
+          name: notes != null && notes.isNotEmpty
+              ? notes.split('\n').first
+              : 'Photo point ${now.substring(0, 10)}',
+          lat: lat,
+          lng: lng,
+          bearingDeg: heading != null && heading >= 0 ? heading : 0,
+          subject: draft.photoPointSubject,
+          referenceMediaId: savedMediaIds.isEmpty ? null : savedMediaIds.first,
+          now: now,
+        );
       }
       if (voice != null) {
         await MediaStore(db).linkTo(

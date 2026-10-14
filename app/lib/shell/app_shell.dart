@@ -4,8 +4,8 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
+import '../app_scope.dart';
 import '../backup/backup_service.dart';
-import '../main.dart' show opLog;
 import '../sync/sync_service.dart';
 import '../db/database.dart';
 import '../id/id_keys.dart';
@@ -15,10 +15,8 @@ import '../screens/record_detail_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/diag.dart';
 import '../services/observation_ops.dart';
-import '../services/record_filter.dart';
 import '../widgets/new_place_dialog.dart';
 import '../widgets/save_toast.dart';
-import '../services/map_jump.dart';
 import '../tabs/grow_tab.dart';
 import '../tabs/ledger_tab.dart';
 import '../tabs/map_tab.dart';
@@ -49,6 +47,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
+  late final AppScope _scope = AppScope.of(context);
+
   /// The active tab survives the shell being torn down and rebuilt — which
   /// happens on every skin swap (D-023: the root MaterialApp is re-keyed).
   /// Without this, changing the skin from Settings dumped you back on the
@@ -66,20 +66,20 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     // Registered BEFORE the tabs build, so this listener runs before the
     // map consumes the jump.
-    recordFilter.addListener(_onFilterJump);
-    mapJump.addListener(_onMapJump);
+    _scope.recordFilter.addListener(_onFilterJump);
+    _scope.mapJump.addListener(_onMapJump);
   }
 
   void _onFilterJump() {
-    if (recordFilter.jumpPending && _tab != 0 && mounted) {
+    if (_scope.recordFilter.jumpPending && _tab != 0 && mounted) {
       setState(() => _tab = 0);
     }
   }
 
   @override
   void dispose() {
-    recordFilter.removeListener(_onFilterJump);
-    mapJump.removeListener(_onMapJump);
+    _scope.recordFilter.removeListener(_onFilterJump);
+    _scope.mapJump.removeListener(_onMapJump);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -96,7 +96,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             Diag.report(e, st, where: 'AppShell.didChangeAppLifecycleState');
             return null;
           });
-      final log = opLog;
+      final log = _scope.opLog;
       if (log != null) {
         SyncService(
           widget.db,
@@ -150,7 +150,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       // already carried it, when it becomes a tombstone the peer will hear
       // (D-038 item 12).
       onUndo: () =>
-          undoObservation(widget.db, result.observationId, log: opLog),
+          undoObservation(widget.db, result.observationId, log: _scope.opLog),
     );
   }
 
@@ -191,14 +191,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// A jump names a place (D-029): switch to it if it isn't the one open,
   /// and come to the map. The map itself flies once its controller is up.
   Future<void> _onMapJump() async {
-    final j = mapJump.value;
+    final j = _scope.mapJump.value;
     if (j == null) return;
     if (j.propertyId != widget.property.id) {
       final p = await (widget.db.select(
         widget.db.properties,
       )..where((x) => x.id.equals(j.propertyId))).getSingleOrNull();
       if (p == null) {
-        mapJump.value = null;
+        _scope.mapJump.value = null;
         return;
       }
       widget.onSwitchProperty(p);

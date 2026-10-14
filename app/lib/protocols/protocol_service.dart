@@ -329,6 +329,14 @@ class ProtocolService {
             ..where((r) => r.deletedAt.isNull()))
           .getSingleOrNull();
 
+  Future<Protocol?> protocolById(String id) =>
+      (db.select(db.protocols)..where((p) => p.id.equals(id)))
+          .getSingleOrNull();
+
+  Future<ProtocolSite?> siteById(String id) =>
+      (db.select(db.protocolSites)..where((s) => s.id.equals(id)))
+          .getSingleOrNull();
+
   /// Answers, as a map, or empty when the JSON is unreadable.
   static Map<String, dynamic> valuesOf(ProtocolRun run) {
     try {
