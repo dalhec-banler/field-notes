@@ -83,6 +83,7 @@ class PlateSubject {
     List<PlateFeature> features = const [],
     List<PlateRecord> records = const [],
     List<PlateTrack> tracks = const [],
+    List<ProtocolSiteMark> sites = const [],
   }) : layers = MapLayerSet.of(
          propertyName: propertyName,
          boundaryGeojson: boundaryGeojson,
@@ -90,6 +91,7 @@ class PlateSubject {
          features: features,
          records: records,
          tracks: tracks,
+         sites: sites,
        );
 
   /// The subject the loader hands over: the layer set itself.
@@ -103,10 +105,14 @@ class PlateSubject {
   List<PlateFeature> get features => layers.features;
   List<PlateRecord> get records => layers.records;
   List<PlateTrack> get tracks => layers.tracks;
+  List<ProtocolSiteMark> get sites => layers.sites;
 }
 
 /// Which layers the plate carries. Records carry coordinates of private
 /// land (hard rule 3); the caller surfaces that at the point of export.
+/// Monitoring sites are off by default too: a stake's exact spot is the
+/// landowner's to hand over, and a plate made before the layer existed
+/// must print the same today.
 class PlateLayers {
   const PlateLayers({
     this.boundary = true,
@@ -115,11 +121,15 @@ class PlateLayers {
     this.features = true,
     this.records = false,
     this.tracks = false,
+    this.protocolSites = false,
     this.hydro = false,
     this.contours = false,
     this.soils = false,
   });
   final bool boundary, zones, zoneLabels, features, records, tracks;
+
+  /// Monitoring protocol sites (D-033), each with its name beside it.
+  final bool protocolSites;
 
   /// Government overlays (the Plateau map's optional layers): hydrology,
   /// elevation contours, soil map units.
@@ -134,6 +144,7 @@ class PlateLayers {
     bool? features,
     bool? records,
     bool? tracks,
+    bool? protocolSites,
     bool? hydro,
     bool? contours,
     bool? soils,
@@ -144,6 +155,7 @@ class PlateLayers {
     features: features ?? this.features,
     records: records ?? this.records,
     tracks: tracks ?? this.tracks,
+    protocolSites: protocolSites ?? this.protocolSites,
     hydro: hydro ?? this.hydro,
     contours: contours ?? this.contours,
     soils: soils ?? this.soils,

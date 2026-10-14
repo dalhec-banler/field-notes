@@ -120,6 +120,23 @@ class MapHtml {
             'geometry': jsonDecode(tr.geojson),
           },
     ]);
+    // Monitoring sites (D-033), off by default like records: the stake's
+    // exact spot ships only when the switch is on.
+    final sites = fc([
+      if (layers.protocolSites)
+        for (final s in subject.sites)
+          {
+            'type': 'Feature',
+            'properties': {
+              'name': s.name,
+              'retired': s.retiredOn != null,
+            },
+            'geometry': {
+              'type': 'Point',
+              'coordinates': [s.lng, s.lat],
+            },
+          },
+    ]);
 
     final legend = <(String, String)>[
       if (layers.boundary && subject.boundaryGeojson != null)
@@ -135,6 +152,8 @@ class MapHtml {
           ),
       if (layers.tracks && subject.tracks.isNotEmpty)
         (_hex(_argbToHex(PlateInk.ink)), 'Walked track'),
+      if (layers.protocolSites && subject.sites.isNotEmpty)
+        (cssHex(protocolSiteInk), 'Monitoring site'),
       if (layers.records && subject.records.isNotEmpty)
         if (speciesInk != null)
           for (final sp in species!) (cssHex(sp.ink), sp.label)
@@ -184,7 +203,8 @@ const DATA = {
   boundary: ${_scriptJson(boundary)},
   features: ${_scriptJson(features)},
   records: ${_scriptJson(records)},
-  tracks: ${_scriptJson(tracks)}
+  tracks: ${_scriptJson(tracks)},
+  sites: ${_scriptJson(sites)}
 };
 const map = new maplibregl.Map({
   container: 'map',
@@ -217,6 +237,10 @@ map.on('load', () => {
   map.addLayer({ id: 'records-cluster', type: 'circle', source: 'records', filter: ['has', 'point_count'], paint: { 'circle-radius': ['step', ['get', 'point_count'], 11, 10, 14, 50, 18], 'circle-color': '#1B1813', 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2 } });
   map.addLayer({ id: 'records-count', type: 'symbol', source: 'records', filter: ['has', 'point_count'], layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 11, 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'] }, paint: { 'text-color': '#F7F6F2' } });
   map.addLayer({ id: 'records-pt', type: 'circle', source: 'records', filter: ['!', ['has', 'point_count']], paint: { 'circle-radius': 5.5, 'circle-color': ['get', 'color'], 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 1.5 } });
+  // Monitoring sites: the station glyph's web stand-in — a paper ring in ink with the stake dotted at its centre.
+  map.addSource('sites', { type: 'geojson', data: DATA.sites });
+  map.addLayer({ id: 'sites-ring', type: 'circle', source: 'sites', paint: { 'circle-radius': 7.5, 'circle-color': '#F7F6F2', 'circle-stroke-color': '#1B1813', 'circle-stroke-width': 2, 'circle-opacity': ['case', ['get', 'retired'], 0.45, 1], 'circle-stroke-opacity': ['case', ['get', 'retired'], 0.45, 1] } });
+  map.addLayer({ id: 'sites-dot', type: 'circle', source: 'sites', paint: { 'circle-radius': 2, 'circle-color': '#1B1813', 'circle-opacity': ['case', ['get', 'retired'], 0.45, 1] } });
   map.addLayer({ id: 'zones-label', type: 'symbol', source: 'zones', layout: { 'text-field': ['get', 'name'], 'text-size': 12, 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'] }, paint: { 'text-color': '#1B1813', 'text-halo-color': '#F7F6F2', 'text-halo-width': 1.5 } });
 
   // Names come from the journal and are shown as TEXT, never parsed as
@@ -233,11 +257,12 @@ map.on('load', () => {
   map.on('click', 'zones-fill', e => { const p = e.features[0].properties; popup(e, [p.name, p.acres ? Number(p.acres).toFixed(1) + ' ac' : null]); });
   map.on('click', 'features-pt', e => { const p = e.features[0].properties; popup(e, [p.name, p.class]); });
   map.on('click', 'records-pt', e => { const p = e.features[0].properties; popup(e, [p.label, p.type]); });
+  map.on('click', 'sites-ring', e => { const p = e.features[0].properties; popup(e, [p.name, p.retired ? 'Monitoring site · retired' : 'Monitoring site']); });
   map.on('click', 'records-cluster', e => {
     const f = map.queryRenderedFeatures(e.point, { layers: ['records-cluster'] })[0];
     map.getSource('records').getClusterExpansionZoom(f.properties.cluster_id).then(z => map.easeTo({ center: f.geometry.coordinates, zoom: z }));
   });
-  for (const id of ['zones-fill', 'features-pt', 'records-pt', 'records-cluster']) {
+  for (const id of ['zones-fill', 'features-pt', 'records-pt', 'records-cluster', 'sites-ring']) {
     map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
     map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
   }
