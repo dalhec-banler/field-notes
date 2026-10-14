@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../db/database.dart';
 import '../geo/simplify.dart' show distanceM;
+import '../main.dart' show opLog;
 import '../theme/tokens.dart';
 import '../widgets/photo_gallery.dart';
 import '../widgets/press.dart';
@@ -300,7 +301,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       widget.db.mediaLinks,
     )..where((l) => l.mediaId.equals(media.id) & l.deletedAt.isNull())).get();
     if (remaining.isEmpty) {
-      await eraseMedia(widget.db, media.id);
+      await eraseMedia(widget.db, media.id, log: opLog);
     }
     _photoIndex = 0;
     await _load();

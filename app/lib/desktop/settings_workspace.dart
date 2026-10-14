@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../db/database.dart';
-import '../main.dart' show exportAndShare;
+import '../main.dart' show exportAndShare, opLog;
 import '../screens/backup_screen.dart';
 import '../screens/diagnostics_screen.dart';
 import '../screens/kml_import_screen.dart';
@@ -16,6 +18,7 @@ import '../screens/species_import_screen.dart';
 import '../screens/sync_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/press_unlock.dart';
+import '../sync/sync_status.dart';
 import '../map/imagery_sources.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
@@ -42,6 +45,11 @@ class SettingsWorkspace extends StatefulWidget {
 class _SettingsWorkspaceState extends State<SettingsWorkspace> {
   String _version = '…';
 
+  /// The sync card's one line: last success, what is waiting, the last
+  /// problem by name (D-038 item 12). Live, from the op log.
+  SyncStatus? _syncStatus;
+  StreamSubscription<SyncStatus>? _syncSub;
+
   @override
   void initState() {
     super.initState();
@@ -50,6 +58,31 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
         setState(() => _version = '${info.version}+${info.buildNumber}');
       }
     });
+    final log = opLog;
+    if (log != null) {
+      _syncSub = SyncStatus.watch(widget.db, log).listen((s) {
+        if (mounted) setState(() => _syncStatus = s);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _syncSub?.cancel();
+    super.dispose();
+  }
+
+  String get _syncCardLine {
+    final st = _syncStatus;
+    if (opLog == null) {
+      return 'Change capture did not start with the app — restart to sync.';
+    }
+    if (widget.prefs.driveEmail == null) {
+      return 'Edits made here reach the phone and the phone\'s reach here, '
+          'through the hidden Drive folder the backup uses. Sealed; '
+          'photos on Wi-Fi.';
+    }
+    return st?.line() ?? 'Reading…';
   }
 
   void _push(Widget screen) =>
@@ -72,9 +105,7 @@ class _SettingsWorkspaceState extends State<SettingsWorkspace> {
           _panel(ReceiveBackupPanel(padding: EdgeInsets.zero)),
           _row(
             'Sync with Drive',
-            'Edits made here reach the phone and the phone\'s reach here, '
-                'through the hidden Drive folder the backup uses. Sealed; '
-                'photos on Wi-Fi.',
+            _syncCardLine,
             prefs.driveEmail ?? 'Not connected',
             () => _push(SyncScreen(db: widget.db, prefs: prefs)),
           ),

@@ -118,6 +118,19 @@ is enabled and the op has been pushed, UNDO becomes a tombstone
 seconds after capture), erase stays erase and the op is dropped before it
 ever leaves.
 
+**Landed 2026-10-13 (D-038 item 12).** `undoObservation` asks
+`OpLog.hasBeenPushed(table, id)`: true when any op of the row is at or
+below any store's push mark, or when the row has no ops of this device's
+at all (it arrived by pull or restore, so its writer has it). Pushed →
+`softDeleteObservation`; not pushed → `eraseObservation`, which drops
+the ops and versions of every row it removed that no store has seen
+(`OpLog.forgetUnpushed`), so neither the insert nor the delete travels.
+Same for `eraseMedia`. Alongside it: a `SyncStatus` line derived from
+`sync_meta` + `sync_ops` on both devices, and a conflict log
+(`sync_conflicts.json` beside the database, newest 200) written whenever
+the merge rule overrules one writer in favour of another — a losing
+incoming op, or an incoming win over a local change nobody had been sent.
+
 ### Sync cycle (both directions, any trigger)
 
 1. **Push:** write local ops since last push as the next `NNNN.log` under

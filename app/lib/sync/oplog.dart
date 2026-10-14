@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,6 +8,7 @@ import '../backup/backup_crypto.dart';
 import '../backup/target.dart';
 import '../db/database.dart';
 import '../db/retired_tables.dart';
+import 'conflict_log.dart';
 
 /// M4a (docs/SYNC-DESIGN.md): the serverless oplog.
 ///
@@ -79,10 +81,21 @@ class SyncScope {
 }
 
 class OpLog {
-  OpLog._(this.db, this.deviceId);
+  OpLog._(this.db, this.deviceId, this.conflicts);
 
   final FieldNotesDb db;
   final String deviceId;
+
+  /// Where the merge rule's overrulings are noted (D-038 item 12).
+  final ConflictLog conflicts;
+
+  final _metaTicks = StreamController<void>.broadcast();
+
+  /// Fires whenever the sync bookkeeping (`sync_meta`) is written: a push
+  /// mark, a cursor, the last sync time or note. `sync_meta` is not a
+  /// drift table, so drift's live streams cannot hear it; this is how the
+  /// sync status learns a run finished.
+  Stream<void> get metaChanges => _metaTicks.stream;
 
   static const _root = 'sync';
 
@@ -129,10 +142,14 @@ class OpLog {
   /// skipped each other's work as their own. A database that arrives from
   /// somewhere else gets a new identity and a clean slate of cursors,
   /// because this installation has pushed nothing.
+  ///
+  /// [conflictFile] is `sync_conflicts.json` beside the database; left
+  /// null, conflicts are kept for the session only (tests).
   static Future<OpLog> install(
     FieldNotesDb db, {
     String? deviceId,
     File? identityFile,
+    File? conflictFile,
   }) async {
     await db.customStatement('''
       CREATE TABLE IF NOT EXISTS sync_ops (
@@ -274,7 +291,7 @@ class OpLog {
       'CREATE TEMP TABLE IF NOT EXISTS _sync_guard (active INTEGER)',
     );
 
-    final log = OpLog._(db, id);
+    final log = OpLog._(db, id, ConflictLog(conflictFile));
     await log._installTriggers();
     return log;
   }
@@ -506,10 +523,13 @@ class OpLog {
     return row?.data['value'] as String?;
   }
 
-  Future<void> _setMeta(String key, String value) => db.customStatement(
-    'INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)',
-    [key, value],
-  );
+  Future<void> _setMeta(String key, String value) async {
+    await db.customStatement(
+      'INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)',
+      [key, value],
+    );
+    if (!_metaTicks.isClosed) _metaTicks.add(null);
+  }
 
   /// Ops captured and not yet pushed.
   Future<int> get pendingCount async {
@@ -521,6 +541,93 @@ class OpLog {
         )
         .getSingle();
     return row.data['n'] as int;
+  }
+
+  /// The highest op seq any store has been given: the app folder's
+  /// `pushed_seq` and every shared property's. Zero when nothing has ever
+  /// been pushed anywhere.
+  Future<int> _highestPushedMark() async {
+    final rows = await db
+        .customSelect(
+          "SELECT value FROM sync_meta WHERE key = 'pushed_seq' "
+          "OR key LIKE 'store:%:pushed_seq'",
+        )
+        .get();
+    var top = 0;
+    for (final r in rows) {
+      final n = int.tryParse(r.data['value'] as String) ?? 0;
+      if (n > top) top = n;
+    }
+    return top;
+  }
+
+  /// Whether any peer may already know about this row: one of its ops is
+  /// at or below a push mark, or it has no ops of this device's at all
+  /// (it arrived by pull or by restore, so the writer has it). A row that
+  /// is only in the unpushed tail of the journal is still private to this
+  /// device — and the one case where a hard erase is still honest.
+  Future<bool> hasBeenPushed(String table, String rowId) async {
+    final row = await db
+        .customSelect(
+          'SELECT MIN(seq) AS lo, COUNT(*) AS n FROM sync_ops '
+          'WHERE table_name = ? AND row_id = ?',
+          variables: [Variable.withString(table), Variable.withString(rowId)],
+        )
+        .getSingle();
+    if ((row.data['n'] as int) == 0) return true;
+    return (row.data['lo'] as int) <= await _highestPushedMark();
+  }
+
+  /// Whether this device has changed the row since anything was last
+  /// pushed: its newest op is above every push mark.
+  Future<bool> _hasUnpushedChange(String table, String rowId) async {
+    final row = await db
+        .customSelect(
+          'SELECT MAX(seq) AS hi FROM sync_ops '
+          'WHERE table_name = ? AND row_id = ?',
+          variables: [Variable.withString(table), Variable.withString(rowId)],
+        )
+        .getSingle();
+    final hi = row.data['hi'] as int?;
+    if (hi == null) return false;
+    return hi > await _highestPushedMark();
+  }
+
+  /// After a hard erase of rows nobody has been told about: drop their ops
+  /// and versions, so the next push carries nothing of them — not the
+  /// insert, not the delete. A row any store has already seen is left
+  /// alone; its deletion must travel as the tombstone the trigger wrote.
+  Future<void> forgetUnpushed(Iterable<(String table, String rowId)> rows) async {
+    for (final (table, rowId) in rows) {
+      if (await hasBeenPushed(table, rowId)) continue;
+      await db.customStatement(
+        'DELETE FROM sync_ops WHERE table_name = ? AND row_id = ?',
+        [table, rowId],
+      );
+      await db.customStatement(
+        'DELETE FROM sync_versions WHERE table_name = ? AND row_id = ?',
+        [table, rowId],
+      );
+    }
+  }
+
+  /// Every other device this one has pulled from, in any store.
+  Future<Set<String>> peersSeen() async {
+    final rows = await db
+        .customSelect(
+          "SELECT key FROM sync_meta WHERE key LIKE 'cursor_%' "
+          "OR key LIKE 'store:%:cursor_%'",
+        )
+        .get();
+    final peers = <String>{};
+    for (final r in rows) {
+      final key = r.data['key'] as String;
+      final i = key.lastIndexOf('cursor_');
+      if (i < 0) continue;
+      final peer = key.substring(i + 'cursor_'.length);
+      if (peer.isNotEmpty && peer != deviceId) peers.add(peer);
+    }
+    return peers;
   }
 
   /// Batches carry coordinates and notes. Sealing them is the norm; the
@@ -779,7 +886,40 @@ class OpLog {
       } else {
         localWins = local.device.compareTo(fromDevice) > 0;
       }
-      if (localWins) return false;
+      // Two writers disagreed and the rule picked one (D-038 item 12). The
+      // same device's own op arriving again — a second store, a re-read
+      // batch — compares equal and is not a disagreement.
+      final crossWriter = local.device != fromDevice;
+      if (localWins) {
+        if (crossWriter) {
+          await _noteConflict(
+            table,
+            rowId,
+            cols,
+            op,
+            local: local,
+            fromDevice: fromDevice,
+            kept: true,
+          );
+        }
+        return false;
+      }
+      // The arriving version wins over an edit made HERE that no store has
+      // been given yet: the other side cannot have seen it, so this is a
+      // real cross-over, not a later edit landing after an earlier one.
+      if (crossWriter &&
+          local.device == deviceId &&
+          await _hasUnpushedChange(table, rowId)) {
+        await _noteConflict(
+          table,
+          rowId,
+          cols,
+          op,
+          local: local,
+          fromDevice: fromDevice,
+          kept: false,
+        );
+      }
     }
 
     if (incomingIsDelete) {
@@ -824,6 +964,51 @@ class OpLog {
     }
     await _recordVersion(table, rowId, incoming, fromDevice, deleted: false);
     return true;
+  }
+
+  /// Record one overruling. The columns that differed are found with one
+  /// read of the local row when both sides are writes; a deletion on
+  /// either side names no columns.
+  Future<void> _noteConflict(
+    String table,
+    String rowId,
+    Set<String> cols,
+    Map op, {
+    required ({String version, String device, bool deleted}) local,
+    required String fromDevice,
+    required bool kept,
+  }) async {
+    final incoming = (op['version'] as String?) ?? '';
+    final payload = (op['payload'] as Map?)?.cast<String, Object?>();
+    final fields = <String>[];
+    if (payload != null && op['op'] != 'del' && !local.deleted) {
+      final deviceLocal = _deviceLocal[table] ?? const <String>{};
+      final row = await db
+          .customSelect(
+            'SELECT * FROM "$table" WHERE id = ?',
+            variables: [Variable.withString(rowId)],
+          )
+          .getSingleOrNull();
+      if (row != null) {
+        for (final c in payload.keys) {
+          if (!cols.contains(c) || deviceLocal.contains(c)) continue;
+          if ('${row.data[c]}' != '${payload[c]}') fields.add(c);
+        }
+      }
+    }
+    await conflicts.append(
+      SyncConflict(
+        at: DateTime.now().toUtc(),
+        table: table,
+        rowId: rowId,
+        winner: kept ? local.device : fromDevice,
+        loser: kept ? fromDevice : local.device,
+        localVersion: local.version,
+        incomingVersion: incoming,
+        kept: kept,
+        fields: fields,
+      ),
+    );
   }
 }
 

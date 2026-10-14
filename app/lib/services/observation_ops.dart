@@ -4,7 +4,40 @@ import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
+import '../sync/oplog.dart';
 import 'diag.dart';
+
+/// What the save-toast UNDO did with the record.
+enum UndoOutcome {
+  /// Hard-erased: no device had been told about it, and none will be.
+  erased,
+
+  /// Soft-deleted: its insert had already been pushed, so the peer gets a
+  /// tombstone instead of a row that quietly stops matching.
+  tombstoned,
+}
+
+/// The save-toast UNDO (SYNC-DESIGN, "one real casualty"; D-038 item 12).
+///
+/// The rule: if the record's insert op is already at or below a push mark
+/// — some store has it, so some peer may have it — UNDO is a soft delete
+/// ([softDeleteObservation]), and the tombstone travels on the next sync.
+/// If no store has been given any op of the row, UNDO is the hard erase it
+/// always was ([eraseObservation]), and the row's pending ops go with it so
+/// the peer never learns the record existed. With no op log at all (capture
+/// failed to start), nothing could have been pushed, and erase stays erase.
+Future<UndoOutcome> undoObservation(
+  FieldNotesDb db,
+  String observationId, {
+  OpLog? log,
+}) async {
+  if (log != null && await log.hasBeenPushed('observations', observationId)) {
+    await softDeleteObservation(db, observationId);
+    return UndoOutcome.tombstoned;
+  }
+  await eraseObservation(db, observationId, log: log);
+  return UndoOutcome.erased;
+}
 
 /// Erase an observation as if it were never written: the row, its
 /// identification suggestions, its media links, the media rows and their
@@ -13,9 +46,17 @@ import 'diag.dart';
 /// tombstone would still drag the photo into the next backup and export.
 ///
 /// The row work runs in one transaction; files are removed only after it
-/// commits, so a failure can't leave a half-erased record.
-Future<void> eraseObservation(FieldNotesDb db, String observationId) async {
+/// commits, so a failure can't leave a half-erased record. With a [log],
+/// the ops of every row erased that no store has seen are dropped in the
+/// same transaction; a row some store HAS seen keeps its ops, and its
+/// deletion travels as a tombstone.
+Future<void> eraseObservation(
+  FieldNotesDb db,
+  String observationId, {
+  OpLog? log,
+}) async {
   final files = <String>[];
+  final erased = <(String, String)>[];
 
   await db.transaction(() async {
     final obs = await (db.select(
@@ -31,6 +72,15 @@ Future<void> eraseObservation(FieldNotesDb db, String observationId) async {
             ))
             .get();
     final mediaIds = links.map((l) => l.mediaId).toSet();
+    for (final l in links) {
+      erased.add(('media_links', l.id));
+    }
+    final suggestions = await (db.select(
+      db.identificationSuggestions,
+    )..where((s) => s.observationId.equals(observationId))).get();
+    for (final s in suggestions) {
+      erased.add(('identification_suggestions', s.id));
+    }
 
     // Order follows the foreign keys: suggestions and links first, then
     // media, then the observation (it references its env context), then the
@@ -57,11 +107,13 @@ Future<void> eraseObservation(FieldNotesDb db, String observationId) async {
       if (m == null) continue;
       files.addAll(mediaFilePaths(m));
       await (db.delete(db.media)..where((x) => x.id.equals(mediaId))).go();
+      erased.add(('media', mediaId));
     }
 
     await (db.delete(
       db.observations,
     )..where((o) => o.id.equals(observationId))).go();
+    erased.add(('observations', observationId));
 
     // Every capture creates its own env-context row, so nothing else
     // (planting events, plant checks, visits) can point at this one; the
@@ -77,8 +129,13 @@ Future<void> eraseObservation(FieldNotesDb db, String observationId) async {
         await (db.delete(
           db.envContexts,
         )..where((e) => e.id.equals(envId))).go();
+        erased.add(('env_contexts', envId));
       }
     }
+
+    // Still inside the transaction: the delete triggers have just written
+    // their tombstones, and for a row no store has seen those go too.
+    if (log != null) await log.forgetUnpushed(erased);
   });
 
   deleteFiles(files);
@@ -173,16 +230,29 @@ List<String> mediaFilePaths(MediaData m) {
 }
 
 /// Remove a media row and its files — for a photo that was written but whose
-/// record never landed.
-Future<void> eraseMedia(FieldNotesDb db, String mediaId) async {
+/// record never landed, or one taken off a record. Same rule as
+/// [eraseObservation]: with a [log], a row no store has seen leaves no op
+/// behind; one a store has seen travels as a tombstone.
+Future<void> eraseMedia(FieldNotesDb db, String mediaId, {OpLog? log}) async {
   final m = await (db.select(
     db.media,
   )..where((x) => x.id.equals(mediaId))).getSingleOrNull();
   if (m == null) return;
-  await (db.delete(
-    db.mediaLinks,
-  )..where((l) => l.mediaId.equals(mediaId))).go();
-  await (db.delete(db.media)..where((x) => x.id.equals(mediaId))).go();
+  await db.transaction(() async {
+    final links = await (db.select(
+      db.mediaLinks,
+    )..where((l) => l.mediaId.equals(mediaId))).get();
+    await (db.delete(
+      db.mediaLinks,
+    )..where((l) => l.mediaId.equals(mediaId))).go();
+    await (db.delete(db.media)..where((x) => x.id.equals(mediaId))).go();
+    if (log != null) {
+      await log.forgetUnpushed([
+        for (final l in links) ('media_links', l.id),
+        ('media', mediaId),
+      ]);
+    }
+  });
   deleteFiles(mediaFilePaths(m));
 }
 

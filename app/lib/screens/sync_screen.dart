@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../backup/drive_auth.dart';
@@ -5,7 +7,10 @@ import '../db/database.dart';
 import '../main.dart' show opLog;
 import '../services/app_prefs.dart';
 import '../services/desk.dart';
+import '../sync/conflict_log.dart';
+import '../sync/oplog.dart';
 import '../sync/sync_service.dart';
+import '../sync/sync_status.dart';
 import '../theme/tokens.dart';
 import '../widgets/passphrase_dialog.dart';
 import '../widgets/press.dart';
@@ -27,20 +32,47 @@ class SyncScreen extends StatefulWidget {
 
 class _SyncScreenState extends State<SyncScreen> {
   SyncService? _service;
-  String? _lastAt;
+  OpLog? _log;
   String? _lastNote;
-  int _pending = 0;
   int _mediaMissing = 0;
   bool _busy = false;
   String? _status;
   bool _hasProperty = true;
 
+  /// Live: recomputed on every captured write and every sync run.
+  SyncStatus? _syncStatus;
+  StreamSubscription<SyncStatus>? _statusSub;
+  List<SyncConflict> _conflicts = const [];
+  StreamSubscription<void>? _conflictSub;
+
   @override
   void initState() {
     super.initState();
     final log = opLog;
-    if (log != null) _service = SyncService(widget.db, widget.prefs, log);
+    _log = log;
+    if (log != null) {
+      _service = SyncService(widget.db, widget.prefs, log);
+      _statusSub = SyncStatus.watch(widget.db, log).listen((s) {
+        if (mounted) setState(() => _syncStatus = s);
+      });
+      _conflictSub = log.conflicts.changes.listen((_) => _loadConflicts());
+      _loadConflicts();
+    }
     _load();
+  }
+
+  @override
+  void dispose() {
+    _statusSub?.cancel();
+    _conflictSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadConflicts() async {
+    final log = _log;
+    if (log == null) return;
+    final list = await log.conflicts.read();
+    if (mounted) setState(() => _conflicts = list);
   }
 
   Future<void> _load() async {
@@ -52,15 +84,11 @@ class _SyncScreenState extends State<SyncScreen> {
       if (mounted) setState(() => _hasProperty = props.isNotEmpty);
       return;
     }
-    final at = await s.lastSyncAt;
     final note = await s.lastNote;
-    final pending = await s.pending;
     final missing = await s.mediaMissing;
     if (!mounted) return;
     setState(() {
-      _lastAt = at;
       _lastNote = note;
-      _pending = pending;
       _mediaMissing = missing;
       _hasProperty = props.isNotEmpty;
     });
@@ -102,21 +130,116 @@ class _SyncScreenState extends State<SyncScreen> {
   bool get _needsPassphraseSetup =>
       (_status ?? _lastNote ?? '').contains('to be encrypted');
 
-  String _ago(String? iso) {
-    if (iso == null) return 'never';
-    final then = DateTime.tryParse(iso);
-    if (then == null) return iso;
-    final d = DateTime.now().toUtc().difference(then);
-    if (d.inMinutes < 1) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes} min ago';
-    if (d.inHours < 24) return '${d.inHours} h ago';
-    return '${d.inDays} d ago';
+  String _ago(DateTime? t) => t == null ? 'never' : SyncStatus.ago(t);
+
+  /// A device id as a person reads it: this one by name, a peer by its
+  /// first eight characters.
+  String _who(String device) {
+    if (device.isEmpty) return 'an older copy';
+    if (device == _log?.deviceId) return isDesk ? 'this desk' : 'this phone';
+    return device.length > 8 ? device.substring(0, 8) : device;
+  }
+
+  Widget _conflictsSection() {
+    final log = _log;
+    if (log == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: MonoLabel(
+                'CONFLICTS',
+                size: 9,
+                spacing: 1.8,
+                color: Press.oxblood,
+              ),
+            ),
+            if (_conflicts.isNotEmpty)
+              TextButton(
+                onPressed: () => log.conflicts.clear(),
+                child: const Text('CLEAR'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _conflicts.isEmpty
+              ? 'None. When two devices change the same record before they '
+                    'have synced, the later change stands and the other is '
+                    'listed here.'
+              : 'Two devices changed the same record before they had synced. '
+                    'The later change stands; nothing is lost from the log.',
+          style: TextStyle(
+            fontFamily: Type.serif,
+            fontSize: 14,
+            height: 1.4,
+            color: Press.inkSoft,
+          ),
+        ),
+        if (_conflicts.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Press.paperRaised,
+              border: Border.all(color: Press.borderInk, width: 1.5),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < _conflicts.length; i++)
+                  _conflictRow(_conflicts[i], last: i == _conflicts.length - 1),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _conflictRow(SyncConflict c, {required bool last}) {
+    final what = c.kept
+        ? '${_who(c.winner)} kept its version; ${_who(c.loser)}\'s was set aside'
+        : '${_who(c.winner)}\'s version replaced an unsent change on '
+              '${_who(c.loser)}';
+    final fields = c.fields.isEmpty ? '' : ' · ${c.fields.join(', ')}';
+    final table = c.table.replaceAll('_', ' ');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        border: last
+            ? null
+            : Border(bottom: BorderSide(color: Press.divider, width: 1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MonoLabel(
+            '${SyncStatus.ago(c.at).toUpperCase()} · $table$fields',
+            size: 9,
+            spacing: 1.2,
+            opacity: 0.65,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            what,
+            style: TextStyle(
+              fontFamily: Type.serif,
+              fontSize: 14,
+              height: 1.35,
+              color: Press.ink,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final connected = widget.prefs.driveEmail != null;
     final unavailable = _service == null;
+    final st = _syncStatus;
     return Scaffold(
       appBar: AppBar(title: const Text('Sync with Drive')),
       body: ListView(
@@ -149,16 +272,47 @@ class _SyncScreenState extends State<SyncScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (st != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                    child: Text(
+                      st.line(),
+                      style: TextStyle(
+                        fontFamily: Type.serif,
+                        fontSize: 15,
+                        height: 1.4,
+                        color: st.lastAttemptFailed
+                            ? Press.oxblood
+                            : Press.ink,
+                      ),
+                    ),
+                  ),
                 FactRow('Account', widget.prefs.driveEmail ?? 'Not connected'),
-                FactRow('Last synced', _ago(_lastAt)),
+                FactRow('Last synced', _ago(st?.lastSuccessAt)),
+                if (st?.lastAttemptAt != null &&
+                    st!.lastAttemptAt != st.lastSuccessAt)
+                  FactRow('Last tried', _ago(st.lastAttemptAt)),
                 FactRow(
                   'Waiting to send',
-                  _pending == 0
+                  (st?.pending ?? 0) == 0
                       ? 'nothing'
-                      : '$_pending change${_pending == 1 ? '' : 's'}',
+                      : '${st!.pending} change${st.pending == 1 ? '' : 's'}',
                 ),
+                if ((st?.receivedLastRun ?? 0) > 0)
+                  FactRow('Last run brought', '${st!.receivedLastRun} changes'),
+                if (st != null && st.peers.isNotEmpty)
+                  FactRow(
+                    'Heard from',
+                    st.peers.map(_who).join(', '),
+                  ),
                 if (_mediaMissing > 0)
                   FactRow('Photos to fetch', '$_mediaMissing'),
+                if (st?.lastFailure != null)
+                  FactRow(
+                    'Last problem',
+                    '${st!.lastFailure} '
+                        '(${_ago(st.lastFailureAt)})',
+                  ),
                 if (_lastNote != null) FactRow('Last result', _lastNote!),
               ],
             ),
@@ -239,6 +393,8 @@ class _SyncScreenState extends State<SyncScreen> {
             value: widget.prefs.driveSync,
             onChanged: (v) => setState(() => widget.prefs.driveSync = v),
           ),
+          const SizedBox(height: 18),
+          _conflictsSection(),
           if (isDesk && !_hasProperty) ...[
             const SizedBox(height: 14),
             RailNote(
