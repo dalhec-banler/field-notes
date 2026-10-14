@@ -131,11 +131,4 @@ ui.Path? _linePath(PlateFrame frame, String geojson) {
   return (sy / ring.length, sx / ring.length);
 }
 
-int? _parseHex(String? hex) {
-  if (hex == null) return null;
-  var h = hex.replaceFirst('#', '');
-  if (h.length == 6) h = 'FF$h';
-  return int.tryParse(h, radix: 16);
-}
-
 String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);

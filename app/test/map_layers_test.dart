@@ -525,6 +525,9 @@ void main() {
 
     final set = await loader.load(property, withPhotos: true);
     expect(describeSet(set), snapshot);
+    expect(describeSubject(PlateSubject.of(set)), snapshot);
+    // The plate renderer walks the set itself — same layers, same order.
+    expect(PlateSubject.of(set).layers, same(set));
   });
 }
 

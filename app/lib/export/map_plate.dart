@@ -5,10 +5,14 @@ import 'dart:ui' as ui;
 
 import 'package:http/http.dart' as http;
 
+import '../map/layers/map_layers.dart';
 import '../map/record_ink.dart';
 import '../services/diag.dart';
 import '../services/field_network.dart';
 import 'web_mercator.dart';
+
+export '../map/layers/map_layers.dart'
+    show FeatureMark, MapLayerSet, MapRecord, TrackLine, ZoneShape;
 
 part 'map_plate/models.dart';
 part 'map_plate/fetch.dart';
@@ -22,8 +26,10 @@ part 'map_plate/geometry.dart';
 /// deliberately simple: tiles, polygons, points, lines, furniture.
 ///
 /// Nothing here reads the database; the caller assembles a [PlateSubject]
-/// so the renderer is host-testable with fabricated geometry and a fake
-/// tile fetcher.
+/// — a view over the one [MapLayerSet] (D-038 item 11) — so the renderer
+/// is host-testable with fabricated geometry and a fake tile fetcher. The
+/// drawing below is "for each layer in the set": this file owns only how
+/// a layer prints, not which layers a place has.
 
 class MapPlate {
   MapPlate({required this.fetchTile, this.maxZoom = 16, this.concurrency = 6});
@@ -153,226 +159,255 @@ class MapPlate {
       legend.add((0xFF2F5D8A, 'Hydrology · USGS NHD'));
     }
 
-    // Zones.
-    if (layers.zones) {
-      for (var i = 0; i < subject.zones.length; i++) {
-        final z = subject.zones[i];
-        final color =
-            _parseHex(z.colorHex) ??
-            PlateInk.zoneFills[i % PlateInk.zoneFills.length];
-        final path = _polygonPath(frame, z.geojson);
-        if (path == null) continue;
-        canvas.drawPath(
-          path,
-          ui.Paint()..color = ui.Color(color).withValues(alpha: 0.30),
-        );
-        canvas.drawPath(
-          path,
-          ui.Paint()
-            ..color = ui.Color(color)
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = 2,
-        );
-        legend.add((color, z.name));
-      }
-    }
-
-    // Boundary — white halo under oxblood so it holds on any imagery.
-    if (layers.boundary && subject.boundaryGeojson != null) {
-      final path = _polygonPath(frame, subject.boundaryGeojson!);
-      if (path != null) {
-        canvas.drawPath(
-          path,
-          ui.Paint()
-            ..color = const ui.Color(0xCCFFFFFF)
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = 6,
-        );
-        canvas.drawPath(
-          path,
-          ui.Paint()
-            ..color = ui.Color(PlateInk.oxblood)
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = 3,
-        );
-        legend.insert(0, (PlateInk.oxblood, 'Property boundary'));
-      }
-    }
-
-    // Tracks.
-    if (layers.tracks) {
-      var drew = false;
-      for (final t in subject.tracks) {
-        final path = _linePath(frame, t.geojson);
-        if (path == null) continue;
-        canvas.drawPath(
-          path,
-          ui.Paint()
-            ..color = const ui.Color(0xB3FFFFFF)
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = 5
-            ..strokeCap = ui.StrokeCap.round,
-        );
-        canvas.drawPath(
-          path,
-          ui.Paint()
-            ..color = ui.Color(PlateInk.ink)
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = 2
-            ..strokeCap = ui.StrokeCap.round,
-        );
-        drew = true;
-      }
-      if (drew) legend.add((PlateInk.ink, 'Walked track'));
-    }
-
-    // Features.
-    if (layers.features) {
-      final seen = <String>{};
-      for (final f in subject.features) {
-        final geo = _decode(f.geojson);
-        if (geo == null) continue;
-        final color = switch (f.featureClass) {
-          'problem' => PlateInk.oxblood,
-          'infrastructure' => PlateInk.ink,
-          _ => PlateInk.river,
-        };
-        switch (geo['type']) {
-          case 'Point':
-            final c = geo['coordinates'] as List;
-            final (x, y) = frame.toPlate(
-              (c[1] as num).toDouble(),
-              (c[0] as num).toDouble(),
-            );
-            _drawFeatureMarker(canvas, x, y, f.featureClass, color);
-          case 'LineString':
-            final path = _linePath(frame, f.geojson);
-            if (path != null) {
-              canvas.drawPath(
-                path,
-                ui.Paint()
-                  ..color = ui.Color(color)
-                  ..style = ui.PaintingStyle.stroke
-                  ..strokeWidth = 2.5,
-              );
-            }
-          case 'Polygon':
-            final path = _polygonPath(frame, f.geojson);
-            if (path != null) {
-              canvas.drawPath(
-                path,
-                ui.Paint()..color = ui.Color(color).withValues(alpha: 0.25),
-              );
-              canvas.drawPath(
-                path,
-                ui.Paint()
-                  ..color = ui.Color(color)
-                  ..style = ui.PaintingStyle.stroke
-                  ..strokeWidth = 2,
-              );
-            }
-        }
-        final label = switch (f.featureClass) {
-          'problem' => 'Problem feature',
-          'infrastructure' => 'Infrastructure',
-          _ => 'Natural feature',
-        };
-        if (seen.add(label)) legend.add((color, label));
-      }
-    }
-
-    // Records — coincident points collapse to one badge with a count, so a
-    // printed plate never hides records under each other.
+    // The place's layers, in the set's draw order. Each case is only how
+    // that layer PRINTS; which layers exist is the model's business.
     var overlapGroups = 0;
     final numbered = <PlateRecord>[];
-    if (removalPlan) {
-      // The contractor's map: what comes out, and nothing else.
-      numbered.addAll(
-        subject.records.where((r) => r.removal == 'flagged').toList()
-          ..sort((a, b) {
-            final bySpecies = (a.label ?? '~${a.type}').toLowerCase().compareTo(
-              (b.label ?? '~${b.type}').toLowerCase(),
+    for (final layer in subject.layers.layers) {
+      switch (layer) {
+        case ImageryBase():
+          // The base was fetched above through the caller's tile fetcher.
+          break;
+
+        case ZoneFills(:final zones) when layers.zones:
+          for (var i = 0; i < zones.length; i++) {
+            final z = zones[i];
+            final color = layer.inkAt(i);
+            final path = _polygonPath(frame, z.geojson);
+            if (path == null) continue;
+            canvas.drawPath(
+              path,
+              ui.Paint()..color = ui.Color(color).withValues(alpha: 0.30),
             );
-            return bySpecies != 0
-                ? bySpecies
-                : (a.observedAt ?? '').compareTo(b.observedAt ?? '');
-          }),
-      );
-      final index = {
-        for (var i = 0; i < numbered.length; i++) numbered[i]: i + 1,
-      };
-      for (final g in groupOverlapping(frame, numbered)) {
-        final (x, y) = g.$1;
-        final members = g.$2..sort((a, b) => index[a]!.compareTo(index[b]!));
-        final label = members.length == 1
-            ? '${index[members.first]}'
-            : '${index[members.first]}+${members.length - 1}';
-        if (members.length > 1) overlapGroups++;
-        _drawNumberBadge(canvas, x, y, label);
-      }
-      if (numbered.isNotEmpty) {
-        legend.add((
-          PlateInk.oxblood,
-          'Flagged for removal · ${numbered.length}',
-        ));
-      }
-      if (overlapGroups > 0) {
-        legend.add((PlateInk.oxblood, '+n: more flagged at the same spot'));
-      }
-    } else if (layers.records && subject.records.isNotEmpty) {
-      final speciesInk = (species == null || species.isEmpty)
-          ? null
-          : {for (final s in species) s.key: s.ink};
-      // Species mode draws ONLY the chosen species — unchosen records
-      // stay off the file entirely (fewer coordinates shipped).
-      final source = speciesInk == null
-          ? subject.records
-          : [
-              for (final r in subject.records)
-                if (speciesInk.containsKey(r.label ?? '__type:${r.type}')) r,
-            ];
-      final groups = groupOverlapping(frame, source);
-      final typesSeen = <String>{};
-      final removalSeen = <String>{};
-      for (final g in groups) {
-        final (x, y) = g.$1;
-        final members = g.$2;
-        if (members.length == 1) {
-          final r = members.first;
-          _drawRecordMark(
-            canvas,
-            x,
-            y,
-            r.type,
-            colorOverride: speciesInk?[r.label ?? '__type:${r.type}'],
-          );
-          if (r.removal != null) {
-            _drawRemovalRing(canvas, x, y, flagged: r.removal == 'flagged');
-            removalSeen.add(r.removal!);
+            canvas.drawPath(
+              path,
+              ui.Paint()
+                ..color = ui.Color(color)
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = 2,
+            );
+            legend.add((color, z.name));
           }
-          if (speciesInk == null) typesSeen.add(r.type);
-        } else {
-          overlapGroups++;
-          _drawCountBadge(canvas, x, y, members.length);
-        }
-      }
-      if (speciesInk != null) {
-        for (final s in species!) {
-          legend.add((s.ink, s.label));
-        }
-      } else {
-        for (final t in typesSeen) {
-          legend.add((markFor(t).argb, '${_cap(t)} record'));
-        }
-      }
-      if (removalSeen.contains('flagged')) {
-        legend.add((removalRed, 'Flagged for removal'));
-      }
-      if (removalSeen.contains('removed')) {
-        legend.add((PlateInk.ink, 'Removed'));
-      }
-      if (overlapGroups > 0) {
-        legend.add((PlateInk.ink, 'Several records at one spot'));
+
+        // Boundary — white halo under oxblood so it holds on any imagery.
+        case BoundaryLine(:final geojson) when layers.boundary:
+          final path = _polygonPath(frame, geojson);
+          if (path != null) {
+            canvas.drawPath(
+              path,
+              ui.Paint()
+                ..color = const ui.Color(0xCCFFFFFF)
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = 6,
+            );
+            canvas.drawPath(
+              path,
+              ui.Paint()
+                ..color = ui.Color(PlateInk.oxblood)
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = 3,
+            );
+            legend.insert(0, (PlateInk.oxblood, 'Property boundary'));
+          }
+
+        case TrackLines(:final tracks) when layers.tracks:
+          var drew = false;
+          for (final t in tracks) {
+            final path = _linePath(frame, t.geojson);
+            if (path == null) continue;
+            canvas.drawPath(
+              path,
+              ui.Paint()
+                ..color = const ui.Color(0xB3FFFFFF)
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = 5
+                ..strokeCap = ui.StrokeCap.round,
+            );
+            canvas.drawPath(
+              path,
+              ui.Paint()
+                ..color = ui.Color(PlateInk.ink)
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = 2
+                ..strokeCap = ui.StrokeCap.round,
+            );
+            drew = true;
+          }
+          if (drew) legend.add((PlateInk.ink, 'Walked track'));
+
+        case FeatureMarks(:final features) when layers.features:
+          final seen = <String>{};
+          for (final f in features) {
+            final geo = _decode(f.geojson);
+            if (geo == null) continue;
+            final color = f.ink;
+            switch (geo['type']) {
+              case 'Point':
+                final c = geo['coordinates'] as List;
+                final (x, y) = frame.toPlate(
+                  (c[1] as num).toDouble(),
+                  (c[0] as num).toDouble(),
+                );
+                _drawFeatureMarker(canvas, x, y, f.featureClass, color);
+              case 'LineString':
+                final path = _linePath(frame, f.geojson);
+                if (path != null) {
+                  canvas.drawPath(
+                    path,
+                    ui.Paint()
+                      ..color = ui.Color(color)
+                      ..style = ui.PaintingStyle.stroke
+                      ..strokeWidth = 2.5,
+                  );
+                }
+              case 'Polygon':
+                final path = _polygonPath(frame, f.geojson);
+                if (path != null) {
+                  canvas.drawPath(
+                    path,
+                    ui.Paint()
+                      ..color = ui.Color(color).withValues(alpha: 0.25),
+                  );
+                  canvas.drawPath(
+                    path,
+                    ui.Paint()
+                      ..color = ui.Color(color)
+                      ..style = ui.PaintingStyle.stroke
+                      ..strokeWidth = 2,
+                  );
+                }
+            }
+            final label = switch (f.featureClass) {
+              'problem' => 'Problem feature',
+              'infrastructure' => 'Infrastructure',
+              _ => 'Natural feature',
+            };
+            if (seen.add(label)) legend.add((color, label));
+          }
+
+        case PhotoPointStations():
+        case ProtocolSites():
+          // Stations and monitoring sites are not printed on a plate.
+          break;
+
+        // Records — coincident points collapse to one badge with a count,
+        // so a printed plate never hides records under each other.
+        case RecordMarks(:final records) when removalPlan:
+          // The contractor's map: what comes out, and nothing else.
+          numbered.addAll(
+            records.where((r) => r.removal == 'flagged').toList()
+              ..sort((a, b) {
+                final bySpecies = (a.label ?? '~${a.type}')
+                    .toLowerCase()
+                    .compareTo((b.label ?? '~${b.type}').toLowerCase());
+                return bySpecies != 0
+                    ? bySpecies
+                    : (a.observedAt ?? '').compareTo(b.observedAt ?? '');
+              }),
+          );
+          final index = {
+            for (var i = 0; i < numbered.length; i++) numbered[i]: i + 1,
+          };
+          for (final g in groupOverlapping(frame, numbered)) {
+            final (x, y) = g.$1;
+            final members = g.$2
+              ..sort((a, b) => index[a]!.compareTo(index[b]!));
+            final label = members.length == 1
+                ? '${index[members.first]}'
+                : '${index[members.first]}+${members.length - 1}';
+            if (members.length > 1) overlapGroups++;
+            _drawNumberBadge(canvas, x, y, label);
+          }
+          if (numbered.isNotEmpty) {
+            legend.add((
+              PlateInk.oxblood,
+              'Flagged for removal · ${numbered.length}',
+            ));
+          }
+          if (overlapGroups > 0) {
+            legend.add((
+              PlateInk.oxblood,
+              '+n: more flagged at the same spot',
+            ));
+          }
+
+        case RecordMarks(:final records)
+            when layers.records && records.isNotEmpty:
+          final speciesInk = (species == null || species.isEmpty)
+              ? null
+              : {for (final s in species) s.key: s.ink};
+          // Species mode draws ONLY the chosen species — unchosen records
+          // stay off the file entirely (fewer coordinates shipped).
+          final source = speciesInk == null
+              ? records
+              : [
+                  for (final r in records)
+                    if (speciesInk.containsKey(r.label ?? '__type:${r.type}'))
+                      r,
+                ];
+          final groups = groupOverlapping(frame, source);
+          final typesSeen = <String>{};
+          final removalSeen = <String>{};
+          for (final g in groups) {
+            final (x, y) = g.$1;
+            final members = g.$2;
+            if (members.length == 1) {
+              final r = members.first;
+              _drawRecordMark(
+                canvas,
+                x,
+                y,
+                r.type,
+                colorOverride: speciesInk?[r.label ?? '__type:${r.type}'],
+              );
+              if (r.removal != null) {
+                _drawRemovalRing(
+                  canvas,
+                  x,
+                  y,
+                  flagged: r.removal == 'flagged',
+                );
+                removalSeen.add(r.removal!);
+              }
+              if (speciesInk == null) typesSeen.add(r.type);
+            } else {
+              overlapGroups++;
+              _drawCountBadge(canvas, x, y, members.length);
+            }
+          }
+          if (speciesInk != null) {
+            for (final s in species!) {
+              legend.add((s.ink, s.label));
+            }
+          } else {
+            for (final t in typesSeen) {
+              legend.add((markFor(t).argb, '${_cap(t)} record'));
+            }
+          }
+          if (removalSeen.contains('flagged')) {
+            legend.add((removalRed, 'Flagged for removal'));
+          }
+          if (removalSeen.contains('removed')) {
+            legend.add((PlateInk.ink, 'Removed'));
+          }
+          if (overlapGroups > 0) {
+            legend.add((PlateInk.ink, 'Several records at one spot'));
+          }
+
+        case RecordClusters():
+          // The plate groups by pixel overlap itself (groupOverlapping);
+          // zoom-cell clusters are the live maps' idiom.
+          break;
+        case PositionMark():
+          // Where the phone was is never printed.
+          break;
+        case ZoneFills():
+        case BoundaryLine():
+        case TrackLines():
+        case FeatureMarks():
+        case RecordMarks():
+          // Switched off for this plate.
+          break;
       }
     }
 
@@ -418,9 +453,7 @@ class MapPlate {
 
   /// The colour a zone draws in, resolved exactly as [render] resolves it —
   /// so the document's zone table can carry the same swatch.
-  static int zoneInk(PlateZone z, int index) =>
-      _parseHex(z.colorHex) ??
-      PlateInk.zoneFills[index % PlateInk.zoneFills.length];
+  static int zoneInk(PlateZone z, int index) => zoneInkFor(z.colorHex, index);
 
   /// The box the plate frames: boundary if drawn, else every drawn layer's
   /// geometry, padded. Pure, so the framing is testable without rendering.

@@ -51,68 +51,14 @@ TileFetcher httpTileFetcher({http.Client? client, String? template}) {
   };
 }
 
-class PlateZone {
-  const PlateZone({
-    required this.name,
-    required this.geojson,
-    this.colorHex,
-    this.areaAcres,
-  });
-  final String name;
-  final String geojson; // Polygon / MultiPolygon
-  final String? colorHex;
-  final double? areaAcres;
-}
-
-class PlateFeature {
-  const PlateFeature({
-    required this.name,
-    required this.featureClass, // natural | infrastructure | problem
-    required this.geojson,
-    this.id,
-  });
-  final String name;
-  final String featureClass;
-  final String geojson; // Point / LineString / Polygon
-
-  /// Feature id — the desk map opens it from its mark; the renderer
-  /// never reads it.
-  final String? id;
-}
-
-class PlateRecord {
-  const PlateRecord({
-    required this.lat,
-    required this.lng,
-    required this.type,
-    this.label,
-    this.id,
-    this.observedAt,
-    this.removal,
-    this.nativity,
-    this.notes,
-    this.photoPath,
-  });
-  final double lat, lng;
-  final String type; // observation_type
-  final String? label; // species, when identified
-
-  /// D-027: 'flagged' or 'removed', when this record is removal work.
-  final String? removal;
-
-  /// The species' nativity and the record's notes and first photo — what
-  /// a removal plan lists beside each numbered pin. The plate renderer
-  /// itself never reads them.
-  final String? nativity;
-  final String? notes;
-  final String? photoPath;
-
-  /// Observation id and time — the desk map opens the record from its
-  /// mark and lists sightings per species. The plate renderer itself
-  /// never reads either.
-  final String? id;
-  final String? observedAt;
-}
+/// The plate's things ARE the layer model's things (D-038 item 11): a zone,
+/// a feature, a record and a track are defined once in
+/// `map/layers/map_layers.dart`; these names stay so the documents and
+/// the tests that speak "plate" keep reading.
+typedef PlateZone = ZoneShape;
+typedef PlateFeature = FeatureMark;
+typedef PlateRecord = MapRecord;
+typedef PlateTrack = TrackLine;
 
 /// One species chosen for a species-coloured plate (Austin, 2026-09-03:
 /// "a way for X amt of species to be depicted... different colors for
@@ -125,27 +71,38 @@ class PlateSpecies {
   final int ink;
 }
 
-class PlateTrack {
-  const PlateTrack({required this.geojson, this.label});
-  final String geojson; // LineString
-  final String? label;
-}
-
+/// What a plate is drawn from: a view over the one [MapLayerSet]. The
+/// renderer walks [layers]; the documents around it (legend, zone table,
+/// records list, HTML twin) read the lists below.
 class PlateSubject {
-  const PlateSubject({
-    required this.propertyName,
-    this.boundaryGeojson,
-    this.zones = const [],
-    this.features = const [],
-    this.records = const [],
-    this.tracks = const [],
-  });
-  final String propertyName;
-  final String? boundaryGeojson;
-  final List<PlateZone> zones;
-  final List<PlateFeature> features;
-  final List<PlateRecord> records;
-  final List<PlateTrack> tracks;
+  /// A subject assembled by hand — what the tests do.
+  PlateSubject({
+    required String propertyName,
+    String? boundaryGeojson,
+    List<PlateZone> zones = const [],
+    List<PlateFeature> features = const [],
+    List<PlateRecord> records = const [],
+    List<PlateTrack> tracks = const [],
+  }) : layers = MapLayerSet.of(
+         propertyName: propertyName,
+         boundaryGeojson: boundaryGeojson,
+         zones: zones,
+         features: features,
+         records: records,
+         tracks: tracks,
+       );
+
+  /// The subject the loader hands over: the layer set itself.
+  const PlateSubject.of(this.layers);
+
+  final MapLayerSet layers;
+
+  String get propertyName => layers.propertyName;
+  String? get boundaryGeojson => layers.boundaryGeojson;
+  List<PlateZone> get zones => layers.zones;
+  List<PlateFeature> get features => layers.features;
+  List<PlateRecord> get records => layers.records;
+  List<PlateTrack> get tracks => layers.tracks;
 }
 
 /// Which layers the plate carries. Records carry coordinates of private
@@ -232,18 +189,10 @@ abstract final class PlateInk {
   static const sage = 0xFF4E6B4A;
   static const ochre = 0xFFA8791F;
   static const river = 0xFF2F5D8A;
-  static const zoneFills = [
-    0xFF4E6B4A,
-    0xFF7A8C3B,
-    0xFFA8791F,
-    0xFF2F5D8A,
-    0xFF8B2E22,
-    0xFF5D5A8A,
-    0xFF3F7A73,
-    0xFFB5652B,
-    0xFF6B7F2E,
-    0xFF7E4E7A,
-  ];
+
+  /// The zone fallback palette lives with the layer model now; every
+  /// surface resolves zone ink through it.
+  static const zoneFills = zoneFillPalette;
 
   /// Distinct hues for species-coloured plates — picked apart from the
   /// boundary oxblood and legible on imagery under a white halo.
