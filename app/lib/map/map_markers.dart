@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'protocol_site_glyph.dart';
 import 'record_ink.dart';
 
 /// Marker images for the phone map, drawn once at 3× and added to the
@@ -190,6 +191,23 @@ Future<Uint8List> photoPointMarker({double scale = 3}) async {
   );
   c.drawCircle(centre, 4.6, ui.Paint()..color = const ui.Color(0xFFD9A521));
   c.drawCircle(centre, 2.4, paper);
+  return _png(rec, size, scale);
+}
+
+/// A monitoring protocol site (D-033): the shared station glyph, in the
+/// same 54-unit box as the photo-point bug so the two stations carry the
+/// same weight on the map. Device pixels at 1/3 icon scale, like every
+/// mark here. [retired] bakes the dimmed alpha into its own image — one
+/// bitmap per state rather than an opacity expression on the layer.
+Future<Uint8List> protocolSiteMarker({
+  bool retired = false,
+  double scale = 3,
+}) async {
+  const size = 54.0;
+  final rec = ui.PictureRecorder();
+  final c = ui.Canvas(rec)..scale(scale);
+  const centre = ui.Offset(size / 2, size / 2);
+  paintProtocolSite(c, centre, r: 12, retired: retired);
   return _png(rec, size, scale);
 }
 

@@ -70,6 +70,7 @@ mixin _MapScreenCore on State<MapScreen> {
 
   bool _featureLayerReady = false;
   bool _photoPointLayerReady = false;
+  bool _protocolSiteLayerReady = false;
   bool _recordLayersReady = false;
 
   bool _framedRecords = false;

@@ -19,7 +19,10 @@ mixin _MapScreenRecords on _MapScreenClusters {
     final property = widget.property;
     final controller = _controller;
     if (db == null || property == null || controller == null) return;
-    if (!_recordLayersReady && !_featureLayerReady && !_photoPointLayerReady) {
+    if (!_recordLayersReady &&
+        !_featureLayerReady &&
+        !_photoPointLayerReady &&
+        !_protocolSiteLayerReady) {
       return;
     }
     final seq = ++_layerSeq;
@@ -69,6 +72,15 @@ mixin _MapScreenRecords on _MapScreenClusters {
           } catch (e, st) {
             Diag.report(e, st, where: 'MapScreen._refreshPhotoPoints');
           }
+        case ProtocolSiteMarks(:final sites) when _protocolSiteLayerReady:
+          try {
+            await controller.setGeoJsonSource(
+              'protocol-sites',
+              _protocolSiteCollection(sites),
+            );
+          } catch (e, st) {
+            Diag.report(e, st, where: 'MapScreen._refreshProtocolSites');
+          }
         case RecordMarks(:final records) when _recordLayersReady:
           _records = records;
           await _paintRecords();
@@ -80,11 +92,9 @@ mixin _MapScreenRecords on _MapScreenClusters {
         case RecordClusters():
         case PositionMark():
           break;
-        case ProtocolSiteMarks():
-          // Not drawn on the phone.
-          break;
         case FeatureMarks():
         case PhotoPointStations():
+        case ProtocolSiteMarks():
         case RecordMarks():
           // The style has no layer for it yet; the style load pushes it.
           break;
@@ -235,6 +245,29 @@ Map<String, dynamic> _photoPointCollection(List<PhotoStation> stations) {
   }
   return {'type': 'FeatureCollection', 'features': out};
 }
+
+/// Every monitoring site's stake (D-033). The icon is chosen here, per
+/// site, so a retired one wears the dimmed bitmap.
+Map<String, dynamic> _protocolSiteCollection(List<ProtocolSiteMark> sites) => {
+  'type': 'FeatureCollection',
+  'features': [
+    for (final s in sites)
+      {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [s.lng, s.lat],
+        },
+        'properties': {
+          'psid': s.id,
+          'name': s.name,
+          'icon': s.retiredOn == null
+              ? 'protocol-site'
+              : 'protocol-site-retired',
+        },
+      },
+  ],
+};
 
 /// The fix and its accuracy ring for the 'me' source.
 Map<String, dynamic> _positionCollection(PositionMark me) => {

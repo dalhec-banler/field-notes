@@ -23,6 +23,7 @@ mixin _MapTabLayers on _MapTabShapes {
         MapLayerKind.tracks,
         MapLayerKind.features,
         MapLayerKind.photoPoints,
+        MapLayerKind.protocolSites,
       ]) {
         for (final id in mapLayerIds[kind]!) {
           await c.setLayerVisibility(id, v.isOn(kind));
@@ -82,6 +83,11 @@ mixin _MapTabLayers on _MapTabShapes {
                     setState(() {});
                     _applyLayers();
                   }),
+                  _pill('monitoring sites', _showProtocolSites, () {
+                    setSheet(() => _showProtocolSites = !_showProtocolSites);
+                    setState(() {});
+                    _applyLayers();
+                  }),
                   _pill('go to…', false, () {
                     Navigator.of(ctx).pop();
                     _gotoCoords();
@@ -99,6 +105,7 @@ mixin _MapTabLayers on _MapTabShapes {
                         _showTracks = true;
                         _showFeatures = true;
                         _showPhotoPoints = true;
+                        _showProtocolSites = true;
                         _showSatellite = true;
                         widget.prefs.mapSatellite = true;
                       });
