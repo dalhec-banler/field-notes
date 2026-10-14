@@ -188,35 +188,40 @@ void main() {
   });
 
   for (final version in [2, 3, 4, 5]) {
-    test('CONTROL: historical v$version upgrades to v6 and reopens', () async {
-      final file = await historical(version);
-      final migrated = fromFile(file);
-      await migrated.customSelect('SELECT * FROM photo_points').get();
-      if (version < 5) {
+    test(
+      'CONTROL: historical v$version upgrades to the current schema and reopens',
+      () async {
+        final file = await historical(version);
+        final migrated = fromFile(file);
+        await migrated.customSelect('SELECT * FROM photo_points').get();
+        if (version < 5) {
+          expect(
+            (await migrated.select(migrated.observations).get()).single.id,
+            'feature',
+          );
+          expect(
+            (await migrated.select(migrated.conditionLogs).get()).single.id,
+            'log',
+          );
+        }
         expect(
-          (await migrated.select(migrated.observations).get()).single.id,
-          'feature',
+          await migrated.customSelect('PRAGMA foreign_key_check').get(),
+          isEmpty,
         );
+        await migrated.close();
+        opened.remove(migrated);
+        final reopened = fromFile(file);
         expect(
-          (await migrated.select(migrated.conditionLogs).get()).single.id,
-          'log',
+          (await reopened.customSelect('PRAGMA user_version').getSingle())
+              .data
+              .values
+              .single,
+          // Written against v6 in September; the point is "lands on whatever
+          // the current schema is", so read it from the database class.
+          reopened.schemaVersion,
         );
-      }
-      expect(
-        await migrated.customSelect('PRAGMA foreign_key_check').get(),
-        isEmpty,
-      );
-      await migrated.close();
-      opened.remove(migrated);
-      final reopened = fromFile(file);
-      expect(
-        (await reopened.customSelect('PRAGMA user_version').getSingle())
-            .data
-            .values
-            .single,
-        6,
-      );
-    });
+      },
+    );
   }
 
   test('M1: retry succeeds after an interrupted v5 migration', () async {
