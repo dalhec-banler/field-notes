@@ -172,7 +172,10 @@ mixin _DeskMapPanels on _DeskMapMarks {
                   if (r.id != null)
                     InkWell(
                       onTap: () {
-                        setState(() => _selectedId = r.id);
+                        setState(() {
+                          _selectedId = r.id;
+                          _closeSite();
+                        });
                         _flyTo(r.lat, r.lng, zoom: activeImagery.maxZoom - 0.5);
                       },
                       child: Padding(
@@ -391,6 +394,236 @@ mixin _DeskMapPanels on _DeskMapMarks {
                       child: const Text('DELETE FEATURE'),
                     ),
                   ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Inside setState.
+  @override
+  void _closeSite() {
+    _selectedSiteId = null;
+    _siteLoad = null;
+    _siteLoadKey = null;
+  }
+
+  /// A clicked monitoring site (D-033): the method, the stake, when it was
+  /// last visited and when it is next due, and every visit — each one a
+  /// record, so a click opens it the way any mark does. Memoized on the
+  /// site and the layer set like the feature panel; the watch on
+  /// protocol_runs is what re-reads it after a visit is saved.
+  Widget _sitePanel(String siteId) {
+    final key = (siteId, _layers);
+    if (_siteLoadKey != key) {
+      _siteLoadKey = key;
+      final svc = ProtocolService(widget.db);
+      _siteLoad = () async {
+        final site = await svc.siteById(siteId);
+        final protocol = site == null
+            ? null
+            : await svc.protocolById(site.protocolId);
+        final runs = await svc.runsFor(siteId);
+        return <Object?>[site, protocol, runs];
+      }();
+    }
+    return FutureBuilder(
+      future: _siteLoad,
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        if (data == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final site = data[0] as ProtocolSite?;
+        final protocol = data[1] as Protocol?;
+        final runs = data[2]! as List<ProtocolRun>;
+        if (site == null || site.deletedAt != null) {
+          return const Center(child: Text('This site is gone.'));
+        }
+        final retired = site.retiredOn != null;
+        final last = runs.firstOrNull;
+        String day(String iso) => iso.length >= 10 ? iso.substring(0, 10) : iso;
+        final stake = [
+          if (site.bearingDeg != null) '${site.bearingDeg!.round()}°',
+          if (site.lengthM != null) '${site.lengthM!.round()} m',
+          if (site.radiusM != null) 'r ${site.radiusM} m',
+          if (site.marker != null) site.marker!.replaceAll('_', ' '),
+        ].join(' · ');
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Press.borderInk, width: 1.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(_closeSite),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.chevron_left,
+                              size: 18,
+                              color: Press.inkSoft,
+                            ),
+                            const SizedBox(width: 4),
+                            MonoLabel('SPECIES LIST', size: 9, spacing: 1.6),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _flyTo(
+                      site.lat,
+                      site.lng,
+                      zoom: activeImagery.maxZoom - 0.5,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: MonoLabel('⌖ LOCATE', size: 9, spacing: 1.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(14),
+                children: [
+                  Kicker(
+                    '${protocol?.name ?? 'Monitoring'} · '
+                    '${protocol?.siteKind ?? 'site'}',
+                  ),
+                  if (protocol?.methodName != null) ...[
+                    const SizedBox(height: 4),
+                    MonoLabel(protocol!.methodName!, size: 9, opacity: 0.6),
+                  ],
+                  const SizedBox(height: 6),
+                  Text(
+                    site.name,
+                    style: TextStyle(
+                      fontFamily: Type.slab,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
+                      color: Press.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  StatusPill(
+                    retired ? 'NOT ASKING' : 'MONITORED',
+                    color: retired ? Press.inkSoft : Press.sage,
+                    filled: true,
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Press.paper,
+                      border: Border.all(color: Press.borderInk, width: 1.5),
+                    ),
+                    child: Column(
+                      children: [
+                        FactRow('stake', stake.isEmpty ? '—' : stake),
+                        FactRow(
+                          'last visit',
+                          last == null
+                              ? 'never'
+                              : day(last.startedAt) +
+                                    (last.status == 'partial'
+                                        ? ' · partial'
+                                        : ''),
+                        ),
+                        FactRow('visits', '${runs.length}'),
+                        FactRow(
+                          'next due',
+                          retired
+                              ? 'not asking · since ${site.retiredOn}'
+                              : (site.nextDueOn ?? '—'),
+                          last: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if ((site.notes ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      site.notes!,
+                      style: TextStyle(
+                        fontFamily: Type.serif,
+                        fontSize: 15,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  MonoLabel('Visits', size: 9, spacing: 1.8),
+                  const SizedBox(height: 6),
+                  if (runs.isEmpty)
+                    Text(
+                      'No visits yet. The phone runs the method at the '
+                      'stake; this desk reads them.',
+                      style: TextStyle(
+                        fontFamily: Type.serif,
+                        fontSize: 14.5,
+                        color: Press.inkSoft,
+                      ),
+                    )
+                  else
+                    for (final run in runs)
+                      InkWell(
+                        onTap: () => setState(() {
+                          _selectedId = run.observationId;
+                          _closeSite();
+                        }),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          child: Row(
+                            children: [
+                              Diamond(
+                                size: 8,
+                                color: Color(markFor('survey').argb),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  day(run.startedAt) +
+                                      (run.status == 'partial'
+                                          ? ' · partial'
+                                          : '') +
+                                      (run.observerName == null
+                                          ? ''
+                                          : ' · ${run.observerName}'),
+                                  style: TextStyle(
+                                    fontFamily: Type.serif,
+                                    fontSize: 13.5,
+                                    color: Press.ink,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: Press.inkSoft,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                 ],
               ),
             ),

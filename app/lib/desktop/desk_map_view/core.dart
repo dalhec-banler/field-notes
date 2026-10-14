@@ -9,6 +9,7 @@ mixin _DeskMapCore on State<DeskMapWorkspace> {
   // above and the marks can reach them.
   TileFetcher _buildFetcher();
   void _closeFeature();
+  void _closeSite();
 
   /// The one answer to what this place draws (D-038 item 11).
   late final MapLayerLoader _loader = MapLayerLoader(widget.db);
@@ -16,6 +17,9 @@ mixin _DeskMapCore on State<DeskMapWorkspace> {
   MapLayerSet? _layers;
   String? _selectedId;
   String? _selectedFeatureId;
+
+  /// A clicked monitoring site (D-033): its panel replaces the species list.
+  String? _selectedSiteId;
 
   /// The species group lit on the map and opened in the panel.
   String? _highlightKey;
@@ -73,4 +77,9 @@ mixin _DeskMapCore on State<DeskMapWorkspace> {
   /// controls the phone has — log lives there; DELETE lives here too.
   Future<List<Object?>>? _featureLoad;
   (String, MapLayerSet?)? _featureLoadKey;
+
+  /// A clicked site: the site, its protocol, and its visits — memoized
+  /// the same way, re-read when the layer set is replaced.
+  Future<List<Object?>>? _siteLoad;
+  (String, MapLayerSet?)? _siteLoadKey;
 }
