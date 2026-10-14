@@ -400,7 +400,12 @@ void main() {
     expect(shot.axis.length, 2);
     expect(stations.firstWhere((s) => s.id == 'pp-0').hasView, isFalse);
 
-    expect(set.sites.map((s) => s.name), ['Plot 1']);
+    final site = set.sites.single;
+    expect(site.id, 'site-1');
+    expect(site.protocolId, 'proto-1');
+    expect(site.name, 'Plot 1');
+    expect((site.lat, site.lng), (31.059, -98.051));
+    expect(site.retiredOn, isNull);
   });
 
   test('records: located and live only, with the mark they wear', () async {
@@ -492,11 +497,15 @@ void main() {
     expect(on, isNot(contains(MapLayerKind.records)));
     expect(on, contains(MapLayerKind.boundary));
     expect(set.zones, hasLength(2)); // still there, just not drawn
-    expect(set.visibility.isOn(MapLayerKind.clusters), isFalse); // follows records
     expect(
-      set.withVisibility(const LayerVisibility()).visibility.isOn(
-        MapLayerKind.zones,
-      ),
+      set.visibility.isOn(MapLayerKind.clusters),
+      isFalse,
+    ); // follows records
+    expect(
+      set
+          .withVisibility(const LayerVisibility())
+          .visibility
+          .isOn(MapLayerKind.zones),
       isTrue,
     );
   });

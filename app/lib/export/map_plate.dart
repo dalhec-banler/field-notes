@@ -272,8 +272,7 @@ class MapPlate {
                 if (path != null) {
                   canvas.drawPath(
                     path,
-                    ui.Paint()
-                      ..color = ui.Color(color).withValues(alpha: 0.25),
+                    ui.Paint()..color = ui.Color(color).withValues(alpha: 0.25),
                   );
                   canvas.drawPath(
                     path,
@@ -317,15 +316,14 @@ class MapPlate {
         case RecordMarks(:final records) when removalPlan:
           // The contractor's map: what comes out, and nothing else.
           numbered.addAll(
-            records.where((r) => r.removal == 'flagged').toList()
-              ..sort((a, b) {
-                final bySpecies = (a.label ?? '~${a.type}')
-                    .toLowerCase()
-                    .compareTo((b.label ?? '~${b.type}').toLowerCase());
-                return bySpecies != 0
-                    ? bySpecies
-                    : (a.observedAt ?? '').compareTo(b.observedAt ?? '');
-              }),
+            records.where((r) => r.removal == 'flagged').toList()..sort((a, b) {
+              final bySpecies = (a.label ?? '~${a.type}')
+                  .toLowerCase()
+                  .compareTo((b.label ?? '~${b.type}').toLowerCase());
+              return bySpecies != 0
+                  ? bySpecies
+                  : (a.observedAt ?? '').compareTo(b.observedAt ?? '');
+            }),
           );
           final index = {
             for (var i = 0; i < numbered.length; i++) numbered[i]: i + 1,
@@ -347,10 +345,7 @@ class MapPlate {
             ));
           }
           if (overlapGroups > 0) {
-            legend.add((
-              PlateInk.oxblood,
-              '+n: more flagged at the same spot',
-            ));
+            legend.add((PlateInk.oxblood, '+n: more flagged at the same spot'));
           }
 
         case RecordMarks(:final records)
@@ -383,12 +378,7 @@ class MapPlate {
                 colorOverride: speciesInk?[r.label ?? '__type:${r.type}'],
               );
               if (r.removal != null) {
-                _drawRemovalRing(
-                  canvas,
-                  x,
-                  y,
-                  flagged: r.removal == 'flagged',
-                );
+                _drawRemovalRing(canvas, x, y, flagged: r.removal == 'flagged');
                 removalSeen.add(r.removal!);
               }
               if (speciesInk == null) typesSeen.add(r.type);

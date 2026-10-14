@@ -65,6 +65,13 @@ wedge: the field of view derived from focal length, out to the station's
 stated extent. A station that has never been shot draws as a bug alone —
 it does not yet claim to look anywhere.
 
+Monitoring protocol sites (D-033) are **survey stations**: a paper square
+in ink, a crosshair whose arms cross the square's sides, a dot at the
+stake. One painter (`map/protocol_site_glyph.dart`) draws it on all three
+surfaces at the photo-point bug's size; a retired site draws at 45%. The
+name is never painted on the live maps — tap or click the stake for it —
+and the plate sets it small beside the mark, as it labels zones.
+
 Sections everywhere records are listed follow the same taxonomy
 (`RecordRealm`): **Species** (anything with a name), **Observations**,
 **Infrastructure**, **Problems**. A fence post is not a species.
@@ -79,10 +86,11 @@ and your own position with its accuracy ring. `MapLayerLoader` builds the
 `MapLayerSet` from the repos (the ledger's filter narrows the records when
 the phone asks); `PlateSubject` is a view over it. The phone, the desk and
 the plate each keep only a drawing switch — "for each layer in the set" —
-and say in an empty case what they do not draw: no surface draws protocol
-sites yet, and neither the desk nor the plate draws stations. The phone's
-layers sheet is a `LayerVisibility`; `mapLayerIds` names the style ids it
-switches.
+and say in an empty case what they do not draw: neither the desk nor the
+plate draws photo-point stations. Protocol sites draw everywhere; on the
+plate they are off by default (`PlateLayers.protocolSites`), like records.
+The phone's layers sheet is a `LayerVisibility`; `mapLayerIds` names the
+style ids it switches.
 
 ### One thing to know about map icons
 

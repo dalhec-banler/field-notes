@@ -297,7 +297,10 @@ class _DeskMapPainter extends CustomPainter {
         case ProtocolSiteMarks(:final sites):
           for (final s in sites) {
             final (x, y) = screenOf(s.lat, s.lng, size);
-            if (x < -20 || y < -20 || x > size.width + 20 || y > size.height + 20) {
+            if (x < -20 ||
+                y < -20 ||
+                x > size.width + 20 ||
+                y > size.height + 20) {
               continue;
             }
             if (s.id == selectedSiteId) {

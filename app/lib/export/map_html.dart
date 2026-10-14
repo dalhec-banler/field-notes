@@ -127,10 +127,7 @@ class MapHtml {
         for (final s in subject.sites)
           {
             'type': 'Feature',
-            'properties': {
-              'name': s.name,
-              'retired': s.retiredOn != null,
-            },
+            'properties': {'name': s.name, 'retired': s.retiredOn != null},
             'geometry': {
               'type': 'Point',
               'coordinates': [s.lng, s.lat],

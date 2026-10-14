@@ -21,12 +21,21 @@ void paintProtocolSite(
   final ink = ui.Color(protocolSiteInk).withValues(alpha: alpha);
   final paper = ui.Color(protocolSitePaper).withValues(alpha: alpha);
   final stroke = (r * 0.18).clamp(1.2, 4.0);
-  final square = ui.Rect.fromCenter(center: centre, width: 2 * r, height: 2 * r);
+  final square = ui.Rect.fromCenter(
+    center: centre,
+    width: 2 * r,
+    height: 2 * r,
+  );
 
   // The four arms: from just inside the square out past its edge, leaving
   // the middle clear for the stake.
   final arms = ui.Path();
-  for (final (dx, dy) in const [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)]) {
+  for (final (dx, dy) in const [
+    (1.0, 0.0),
+    (-1.0, 0.0),
+    (0.0, 1.0),
+    (0.0, -1.0),
+  ]) {
     arms
       ..moveTo(centre.dx + dx * r * 0.55, centre.dy + dy * r * 0.55)
       ..lineTo(centre.dx + dx * r * 1.5, centre.dy + dy * r * 1.5);

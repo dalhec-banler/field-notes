@@ -302,7 +302,8 @@ class _ExportWorkspaceState extends State<ExportWorkspace>
                     controller: _preparedFor,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(),
-                      hintText: 'NRCS · your state wildlife agency · a neighbour',
+                      hintText:
+                          'NRCS · your state wildlife agency · a neighbour',
                     ),
                     style: TextStyle(fontFamily: Type.serif, fontSize: 15),
                   ),

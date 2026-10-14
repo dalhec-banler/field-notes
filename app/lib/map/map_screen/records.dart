@@ -5,10 +5,8 @@ part of '../map_screen.dart';
 mixin _MapScreenRecords on _MapScreenClusters {
   /// The layer set for this place, narrowed by the ledger's filter — the
   /// one filter the ledger writes and the map reads (D-024).
-  Future<MapLayerSet> _loadLayers(Property property) => _scope.mapLayers.load(
-    property,
-    filter: _scope.recordFilter.query,
-  );
+  Future<MapLayerSet> _loadLayers(Property property) =>
+      _scope.mapLayers.load(property, filter: _scope.recordFilter.query);
 
   /// Reload the layer set and push what changed. Fires on any change to
   /// the tables the layers read, on a filter change, and on coming back
