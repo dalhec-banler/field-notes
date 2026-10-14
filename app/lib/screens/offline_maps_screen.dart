@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../map/area_downloader.dart';
 import '../map/basemap_manager.dart';
-import '../services/app_prefs.dart';
+import '../services/field_network.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
@@ -252,8 +252,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                   final url = _urlController.text.trim();
                   if (url.isEmpty) return;
                   // D-016: a whole-county archive is hundreds of MB.
-                  final prefs = await AppPrefs.load();
-                  final verdict = await NetworkPolicy().bulkVerdict(prefs);
+                  final verdict = await FieldNetwork.instance.bulkVerdict();
                   if (!context.mounted) return;
                   if (verdict == BulkVerdict.offline) {
                     ScaffoldMessenger.of(context).showSnackBar(

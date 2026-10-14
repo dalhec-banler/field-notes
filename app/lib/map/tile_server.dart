@@ -1,11 +1,11 @@
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_static/shelf_static.dart';
 
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'imagery_sources.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
@@ -27,9 +27,10 @@ class TileServer {
   final Directory root;
   final PmTilesReader? _fallback;
 
-  /// One client for the satellite proxy — live tiles pass through
-  /// UNCACHED (Esri's terms), while captured NAIP is served from disk.
-  static final _proxy = http.Client();
+  /// The satellite proxy goes out through the app's one client — live tiles
+  /// pass through UNCACHED (Esri's terms), while captured NAIP is served
+  /// from disk.
+  static FieldNetwork get _proxy => FieldNetwork.instance;
 
   int get port => _server.port;
 
@@ -84,7 +85,11 @@ class TileServer {
               .replaceAll('{x}', '$x')
               .replaceAll('{y}', '$y');
           final res = await _proxy
-              .get(Uri.parse(url), headers: {'User-Agent': 'FieldNotes/1.1'})
+              .get(
+                Uri.parse(url),
+                EgressPurpose.satellite,
+                headers: {'User-Agent': 'FieldNotes/1.1'},
+              )
               .timeout(const Duration(seconds: 15));
           if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
             return Response.ok(

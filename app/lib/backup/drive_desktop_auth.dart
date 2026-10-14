@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'drive_target.dart';
 
 /// Where the desk keeps its Drive grant. The keychain in the app; memory
@@ -125,7 +126,7 @@ class DriveDesktopAuth {
     DriveTokenStore? store,
     Future<bool> Function(Uri)? launch,
     this.timeout = const Duration(minutes: 5),
-  }) : _client = client ?? http.Client(),
+  }) : _net = FieldNetwork.forClient(client),
        _store = store ?? SecureDriveTokenStore(),
        _launch = launch ?? _openBrowser;
 
@@ -142,7 +143,7 @@ class DriveDesktopAuth {
   static const _kRefresh = 'drive_desktop_refresh_token';
   static const _kEmail = 'drive_desktop_email';
 
-  final http.Client _client;
+  final FieldNetwork _net;
   final DriveTokenStore _store;
   final Future<bool> Function(Uri) _launch;
   final Duration timeout;
@@ -187,8 +188,12 @@ class DriveDesktopAuth {
     final refresh = await _store.read(_kRefresh);
     if (refresh != null) {
       try {
-        await _client
-            .post(Uri.parse(_revokeUrl), body: {'token': refresh})
+        await _net
+            .post(
+              Uri.parse(_revokeUrl),
+              EgressPurpose.driveAuth,
+              body: {'token': refresh},
+            )
             .timeout(const Duration(seconds: 15));
       } catch (e, st) {
         Diag.report(e, st, where: 'DriveDesktopAuth.disconnect');
@@ -273,9 +278,10 @@ class DriveDesktopAuth {
   }
 
   Future<bool> _exchange(Map<String, String> params) async {
-    final res = await _client
+    final res = await _net
         .post(
           Uri.parse(_tokenUrl),
+          EgressPurpose.driveAuth,
           body: {
             'client_id': clientId,
             'client_secret': clientSecret,

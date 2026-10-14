@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'target.dart';
 
 /// Back up to a computer on your own network (spec §11.5, "local folder"
@@ -23,12 +24,12 @@ class LanTarget implements BackupTarget {
     required this.port,
     required this.token,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  }) : _net = FieldNetwork.forClient(client);
 
   final String host;
   final int port;
   final String token;
-  final http.Client _client;
+  final FieldNetwork _net;
 
   static const defaultPort = 51703;
 
@@ -60,8 +61,12 @@ class LanTarget implements BackupTarget {
   /// Is the receiver up and does it accept our code?
   Future<bool> ping() async {
     try {
-      final res = await _client
-          .get(Uri.http('$host:$port', '/hello'), headers: _headers)
+      final res = await _net
+          .get(
+            Uri.http('$host:$port', '/hello'),
+            EgressPurpose.lan,
+            headers: _headers,
+          )
           .timeout(const Duration(seconds: 5));
       return res.statusCode == 200;
     } catch (e, st) {
@@ -73,8 +78,8 @@ class LanTarget implements BackupTarget {
   @override
   Future<bool> exists(String path) async {
     try {
-      final res = await _client
-          .head(_uri(path), headers: _headers)
+      final res = await _net
+          .head(_uri(path), EgressPurpose.lan, headers: _headers)
           .timeout(const Duration(seconds: 15));
       return res.statusCode == 200;
     } catch (e, st) {
@@ -85,8 +90,8 @@ class LanTarget implements BackupTarget {
 
   @override
   Future<Uint8List> read(String path) async {
-    final res = await _client
-        .get(_uri(path), headers: _headers)
+    final res = await _net
+        .get(_uri(path), EgressPurpose.lan, headers: _headers)
         .timeout(const Duration(minutes: 2));
     if (res.statusCode != 200) {
       throw LanTargetException('Could not read $path (${res.statusCode})');
@@ -96,9 +101,10 @@ class LanTarget implements BackupTarget {
 
   @override
   Future<void> write(String path, Uint8List bytes) async {
-    final res = await _client
+    final res = await _net
         .put(
           _uri(path),
+          EgressPurpose.lan,
           headers: {..._headers, 'content-type': 'application/octet-stream'},
           body: bytes,
         )
@@ -112,9 +118,10 @@ class LanTarget implements BackupTarget {
 
   @override
   Future<List<String>> list(String prefix) async {
-    final res = await _client
+    final res = await _net
         .get(
           Uri.http('$host:$port', '/list', {'prefix': prefix}),
+          EgressPurpose.lan,
           headers: _headers,
         )
         .timeout(const Duration(seconds: 30));
@@ -127,8 +134,8 @@ class LanTarget implements BackupTarget {
   @override
   Future<void> delete(String path) async {
     try {
-      await _client
-          .delete(_uri(path), headers: _headers)
+      await _net
+          .delete(_uri(path), EgressPurpose.lan, headers: _headers)
           .timeout(const Duration(seconds: 30));
     } catch (e, st) {
       Diag.report(e, st, where: 'LanTarget.delete');
@@ -136,7 +143,7 @@ class LanTarget implements BackupTarget {
     }
   }
 
-  void close() => _client.close();
+  void close() => _net.close();
 }
 
 class LanTargetException implements Exception {

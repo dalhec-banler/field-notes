@@ -8,6 +8,7 @@ import '../db/database.dart';
 import '../db/seed.dart' show parseCsv;
 import '../db/seed_synonyms.dart';
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'state_places.dart';
 
 /// The species library for wherever the place is (D-015, D-034).
@@ -27,10 +28,10 @@ import 'state_places.dart';
 /// and a second import never clobbers the first.
 class RegionLibrary {
   RegionLibrary(this.db, {http.Client? client, this.loadAsset})
-    : _client = client ?? http.Client();
+    : _net = FieldNetwork.forClient(client);
 
   final FieldNotesDb db;
-  final http.Client _client;
+  final FieldNetwork _net;
 
   /// Test seam: asset text by path, or null when the asset does not exist.
   final Future<String?> Function(String path)? loadAsset;
@@ -216,8 +217,9 @@ class RegionLibrary {
         'per_page': '$perPage',
         'page': '$page',
       });
-      final res = await _client.get(
+      final res = await _net.get(
         uri,
+        EgressPurpose.inat,
         headers: {'User-Agent': 'FieldNotes/1.1 (field journal)'},
       );
       if (res.statusCode != 200) {

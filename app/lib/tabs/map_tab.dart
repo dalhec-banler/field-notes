@@ -11,6 +11,7 @@ import '../map/map_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/map_jump.dart';
 import '../services/record_filter.dart';
+import '../services/field_network.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
@@ -522,7 +523,7 @@ class _MapTabState extends State<MapTab> {
     );
     if (go != true) return;
     // D-016: bulk download waits for Wi-Fi unless the user allows cellular.
-    final verdict = await NetworkPolicy().bulkVerdict(widget.prefs);
+    final verdict = await FieldNetwork.instance.bulkVerdict();
     if (!mounted) return;
     if (verdict == BulkVerdict.offline) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -559,6 +560,8 @@ class _MapTabState extends State<MapTab> {
         ),
       );
       if (allow != true || !mounted) return;
+      // "This once" has to reach the socket, where the policy is enforced.
+      FieldNetwork.instance.allowCellularFor(const Duration(hours: 1));
     }
     setState(() => _captureMode = false);
     await _downloader.download(

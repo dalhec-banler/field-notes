@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'id_keys.dart';
 import 'id_models.dart';
 
@@ -18,9 +19,16 @@ import 'id_models.dart';
 /// The user's own key, the user's own account, provider of their choosing.
 /// Nothing is sent unless they ask for an identification.
 class LlmClient {
-  LlmClient({http.Client? client}) : _client = client ?? http.Client();
+  LlmClient({http.Client? client}) : _net = FieldNetwork.forClient(client);
 
-  final http.Client _client;
+  final FieldNetwork _net;
+
+  /// The provider's own address is on the allowlist; anything else is a
+  /// server the user named in Settings (an OpenAI-compatible endpoint on
+  /// their own machine, say) and is logged as theirs.
+  static EgressPurpose purposeFor(Uri uri) => FieldNetwork.hostAllowed(uri.host)
+      ? EgressPurpose.llm
+      : EgressPurpose.llmCustom;
 
   /// The shape we ask for back. Same schema whichever provider answers.
   static const _schema = {
@@ -128,9 +136,10 @@ class LlmClient {
     String baseUrl,
   ) async {
     final uri = Uri.parse('${_trim(baseUrl)}/v1/messages');
-    final res = await _client
+    final res = await _net
         .post(
           uri,
+          purposeFor(uri),
           headers: {
             'content-type': 'application/json',
             'x-api-key': key,
@@ -200,9 +209,10 @@ class LlmClient {
     String baseUrl,
   ) async {
     final uri = Uri.parse('${_trim(baseUrl)}/v1/chat/completions');
-    final res = await _client
+    final res = await _net
         .post(
           uri,
+          purposeFor(uri),
           headers: {
             'content-type': 'application/json',
             'authorization': 'Bearer $key',
@@ -323,7 +333,7 @@ class LlmClient {
   String _trim(String url) =>
       url.endsWith('/') ? url.substring(0, url.length - 1) : url;
 
-  void close() => _client.close();
+  void close() => _net.close();
 }
 
 class LlmException implements Exception {

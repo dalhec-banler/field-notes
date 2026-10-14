@@ -1,15 +1,23 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../services/field_network.dart';
+import 'pmtiles_reader.dart' show HttpRangeSource;
+
 /// Downloads and manages the offline basemap archive.
 ///
-/// Any direct `.pmtiles` URL works (self-hosted, S3, a friend's server).
+/// Any direct `.pmtiles` URL works (self-hosted, S3, a friend's server) —
+/// the user typed it, so it goes out as [EgressPurpose.basemapLink].
 /// Downloads resume via HTTP Range if interrupted — rural LTE drops matter.
 class BasemapManager extends ChangeNotifier {
-  BasemapManager();
+  BasemapManager({FieldNetwork? network}) : _given = network;
+
+  final FieldNetwork? _given;
+  FieldNetwork get _net => _given ?? FieldNetwork.instance;
 
   static const fileName = 'basemap.pmtiles';
 
@@ -44,31 +52,29 @@ class BasemapManager extends ChangeNotifier {
     progress = 0;
     notifyListeners();
 
-    final client = HttpClient();
     try {
       final target = await _target();
       final part = File('${target.path}.part');
       final existing = part.existsSync() ? part.lengthSync() : 0;
 
-      final req = await client.getUrl(Uri.parse(url));
+      final req = http.Request('GET', Uri.parse(url));
       if (existing > 0) {
-        req.headers.set(HttpHeaders.rangeHeader, 'bytes=$existing-');
+        req.headers[HttpHeaders.rangeHeader] = 'bytes=$existing-';
       }
-      final res = await req.close();
+      final res = await _net.send(req, HttpRangeSource.purposeFor(url));
       if (res.statusCode != 200 && res.statusCode != 206) {
         throw HttpException('HTTP ${res.statusCode}');
       }
       final resuming = res.statusCode == 206;
-      final total =
-          (resuming ? existing : 0) +
-          (res.contentLength > 0 ? res.contentLength : 0);
+      final length = res.contentLength ?? 0;
+      final total = (resuming ? existing : 0) + (length > 0 ? length : 0);
       var received = resuming ? existing : 0;
 
       final sink = part.openSync(
         mode: resuming ? FileMode.writeOnlyAppend : FileMode.writeOnly,
       );
       try {
-        await for (final chunk in res) {
+        await for (final chunk in res.stream) {
           sink.writeFromSync(chunk);
           received += chunk.length;
           if (total > 0) {
@@ -84,7 +90,6 @@ class BasemapManager extends ChangeNotifier {
     } catch (e) {
       error = '$e';
     } finally {
-      client.close();
       progress = null;
       notifyListeners();
     }

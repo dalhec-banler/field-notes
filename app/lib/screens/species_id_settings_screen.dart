@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../id/id_keys.dart';
-import '../id/plantnet_client.dart' show PlantNetClient, HttpClientHolder;
+import '../id/plantnet_client.dart' show PlantNetClient;
 import '../services/diag.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
@@ -28,7 +28,7 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
   }
 
   final _keys = IdKeys();
-  final _http = HttpClientHolder();
+  final _plantNet = PlantNetClient();
   final _plantNetController = TextEditingController();
   final _llmKeyController = TextEditingController();
   final _modelController = TextEditingController();
@@ -48,7 +48,7 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _http.close();
+    _plantNet.close();
     _plantNetController.dispose();
     _llmKeyController.dispose();
     _modelController.dispose();
@@ -156,26 +156,16 @@ class _SpeciesIdSettingsScreenState extends State<SpeciesIdSettingsScreen>
   }
 
   /// Ask Pl@ntNet whether the key is real, without spending an
-  /// identification: a deliberately empty request answers 400 for a good key
-  /// and 401/403 for a bad one.
+  /// identification (see [PlantNetClient.probeKey]).
   Future<bool> _validate(String key) async {
     try {
-      final res = await _probe(key);
+      final res = await _plantNet.probeKey(key);
       return res != 401 && res != 403;
     } catch (e, st) {
       Diag.report(e, st, where: 'SpeciesIdSettingsScreen._validate');
       // Offline: accept it rather than block on a network we don't have.
       return true;
     }
-  }
-
-  Future<int> _probe(String key) async {
-    final uri = Uri.https(PlantNetClient.host, '/v2/identify/k-world-flora', {
-      'api-key': key,
-      'nb-results': '1',
-    });
-    final res = await _http.post(uri).timeout(Duration(seconds: 15));
-    return res.statusCode;
   }
 
   Future<void> _saveLlm() async {

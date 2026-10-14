@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../db/database.dart';
 import '../services/app_prefs.dart';
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import '../services/network_policy.dart';
 import 'backup_crypto.dart';
 import 'backup_engine.dart';
@@ -327,7 +328,7 @@ class BackupService {
   }
 
   Future<String> _autoDrive(AppPrefs prefs) async {
-    final verdict = await NetworkPolicy().bulkVerdict(prefs);
+    final verdict = await FieldNetwork.instance.bulkVerdict();
     if (verdict != BulkVerdict.ok) return 'Drive: waiting for Wi-Fi';
     DriveTarget? target;
     try {

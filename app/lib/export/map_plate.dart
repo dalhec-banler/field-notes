@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../map/record_ink.dart';
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'web_mercator.dart';
 
 /// A map plate (D-024): the property's geometry composited over public
@@ -45,7 +46,7 @@ const _contoursExport =
 const _soilsWms = 'https://SDMDataAccess.sc.egov.usda.gov/Spatial/SDM.wms';
 
 TileFetcher httpTileFetcher({http.Client? client, String? template}) {
-  final c = client ?? http.Client();
+  final net = FieldNetwork.forClient(client);
   final t = template ?? usgsImageryTemplate;
   return (z, x, y) async {
     final url = t
@@ -53,8 +54,12 @@ TileFetcher httpTileFetcher({http.Client? client, String? template}) {
         .replaceAll('{x}', '$x')
         .replaceAll('{y}', '$y');
     try {
-      final res = await c
-          .get(Uri.parse(url), headers: {'User-Agent': 'FieldNotes/1.1'})
+      final res = await net
+          .get(
+            Uri.parse(url),
+            EgressPurpose.plate,
+            headers: {'User-Agent': 'FieldNotes/1.1'},
+          )
           .timeout(const Duration(seconds: 20));
       if (res.statusCode != 200 || res.bodyBytes.isEmpty) return null;
       return res.bodyBytes;
@@ -799,12 +804,16 @@ class MapPlate {
   /// this exact request during development), so try three times and let
   /// a miss mean a missing layer, never a failed plate.
   Future<ui.Image?> _fetchOverlayImage(String url) async {
-    final client = http.Client();
+    final net = FieldNetwork.instance;
     try {
       for (var attempt = 0; attempt < 3; attempt++) {
         try {
-          final res = await client
-              .get(Uri.parse(url), headers: {'User-Agent': 'FieldNotes/1.1'})
+          final res = await net
+              .get(
+                Uri.parse(url),
+                EgressPurpose.plate,
+                headers: {'User-Agent': 'FieldNotes/1.1'},
+              )
               .timeout(const Duration(seconds: 25));
           final b = res.bodyBytes;
           final isImage =
@@ -822,7 +831,7 @@ class MapPlate {
       }
       return null;
     } finally {
-      client.close();
+      // The shared client stays open for the next plate.
     }
   }
 

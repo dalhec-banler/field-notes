@@ -19,6 +19,7 @@ import '../services/app_prefs.dart';
 import '../services/desk.dart';
 import '../services/diag.dart';
 import '../services/media_store.dart';
+import '../services/field_network.dart';
 import '../services/network_policy.dart';
 import 'oplog.dart';
 import 'shared_properties.dart';
@@ -223,7 +224,7 @@ class SyncService {
   Future<bool> _bulkOk() async {
     if (_mediaAllowed != null) return _mediaAllowed();
     if (isDesk) return true;
-    return await NetworkPolicy().bulkVerdict(prefs) == BulkVerdict.ok;
+    return await FieldNetwork.instance.bulkVerdict() == BulkVerdict.ok;
   }
 
   /// The automatic runner: on launch, on resume, on the desk's timer. It

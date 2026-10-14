@@ -17,6 +17,8 @@ import 'export/exporter.dart';
 import 'services/app_prefs.dart';
 import 'services/desk.dart';
 import 'services/diag.dart';
+import 'services/field_network.dart';
+import 'services/network_policy.dart';
 import 'services/env_context.dart';
 import 'services/location_hub.dart';
 import 'services/track_recorder.dart';
@@ -97,6 +99,10 @@ Future<void> main() async {
     return 0;
   });
   final prefs = await AppPrefs.load();
+  // D-016 lives in the one HTTP client from here on: bulk purposes are held
+  // to the Wi-Fi/cellular switch at the socket, not at whichever screen
+  // remembered to ask.
+  FieldNetwork.install(bulkVerdict: () => NetworkPolicy().bulkVerdict(prefs));
   // Retry pass for env contexts created offline (spec §4.11). Moved below
   // AppPrefs.load() deliberately: it must not run before we know whether the
   // user has switched it on, and it is off unless they have (D-022).
