@@ -69,6 +69,21 @@ Sections everywhere records are listed follow the same taxonomy
 (`RecordRealm`): **Species** (anything with a name), **Observations**,
 **Infrastructure**, **Problems**. A fence post is not a species.
 
+### One layer model (D-038 item 11)
+
+Which layers a place has is decided once, in `map/layers/map_layers.dart`:
+imagery, zones (hidden ones never arrive), boundary, tracks, features,
+photo-point stations with their wedge and axis, protocol sites, records
+wearing their `record_ink` mark, clusters cut from the records at a zoom,
+and your own position with its accuracy ring. `MapLayerLoader` builds the
+`MapLayerSet` from the repos (the ledger's filter narrows the records when
+the phone asks); `PlateSubject` is a view over it. The phone, the desk and
+the plate each keep only a drawing switch — "for each layer in the set" —
+and say in an empty case what they do not draw: no surface draws protocol
+sites yet, and neither the desk nor the plate draws stations. The phone's
+layers sheet is a `LayerVisibility`; `mapLayerIds` names the style ids it
+switches.
+
 ### One thing to know about map icons
 
 `addImage` registers bitmaps at density 1. Every icon is therefore drawn

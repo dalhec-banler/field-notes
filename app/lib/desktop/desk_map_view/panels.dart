@@ -5,7 +5,7 @@ mixin _DeskMapPanels on _DeskMapMarks {
   /// The species panel: what lives on this map, most-seen first. Click a
   /// species — its card opens in place, everything else slides down, and
   /// its marks light up while the rest of the map dims.
-  Widget _speciesPanel(PlateSubject s) {
+  Widget _speciesPanel(MapLayerSet s) {
     final groups = _groups;
     if (groups.isEmpty) {
       return Center(
@@ -224,12 +224,12 @@ mixin _DeskMapPanels on _DeskMapMarks {
   }
 
   Widget _featurePanel(String featureId) {
-    // Memoized on the feature and the subject it was read against: this
+    // Memoized on the feature and the layer set it was read against: this
     // build runs on every pan frame, and an inline Future.wait would
     // refire three queries per frame (audit 2026-09-04). The watch
-    // replaces the subject when any of its tables change, which is when
-    // the panel re-reads.
-    final key = (featureId, _subject);
+    // replaces the set when any of its tables change, which is when the
+    // panel re-reads.
+    final key = (featureId, _layers);
     if (_featureLoadKey != key) {
       _featureLoadKey = key;
       _featureLoad = Future.wait([
@@ -437,7 +437,7 @@ mixin _DeskMapPanels on _DeskMapMarks {
               ),
               InkWell(
                 onTap: () {
-                  final r = _subject?.records
+                  final r = _layers?.records
                       .where((x) => x.id == _selectedId)
                       .firstOrNull;
                   if (r != null) {

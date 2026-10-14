@@ -6,6 +6,7 @@ import '../app_scope.dart';
 import '../db/database.dart';
 import '../geo/site_presence.dart';
 import '../map/area_downloader.dart';
+import '../map/layers/map_layers.dart';
 import '../map/map_screen.dart';
 import '../repo/repos.dart';
 import '../services/app_prefs.dart';

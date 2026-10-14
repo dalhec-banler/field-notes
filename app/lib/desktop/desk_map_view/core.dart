@@ -2,15 +2,18 @@ part of '../desk_map_view.dart';
 
 const _retryAfter = Duration(seconds: 15);
 
-/// The desk map's state: subject and selection, camera, tile cache and
-/// images, layout, cluster cache, and the feature-panel load.
+/// The desk map's state: the layer set and selection, camera, tile cache
+/// and images, layout, cluster cache, and the feature-panel load.
 mixin _DeskMapCore on State<DeskMapWorkspace> {
   // Defined in later parts of the chain; declared here so the fields
   // above and the marks can reach them.
   TileFetcher _buildFetcher();
   void _closeFeature();
 
-  PlateSubject? _subject;
+  /// The one answer to what this place draws (D-038 item 11).
+  late final MapLayerLoader _loader = MapLayerLoader(widget.db);
+
+  MapLayerSet? _layers;
   String? _selectedId;
   String? _selectedFeatureId;
 
@@ -60,14 +63,14 @@ mixin _DeskMapCore on State<DeskMapWorkspace> {
   /// badge counts only that species; the selected record always stands
   /// alone so its halo shows. Regrouped when zoom, subject, highlight or
   /// selection change — a pan reuses the last grouping.
-  (List<List<PlateRecord>>, List<List<PlateRecord>>) _clusters = (
+  (List<List<MapRecord>>, List<List<MapRecord>>) _clusters = (
     const [],
     const [],
   );
-  (double, PlateSubject, String?, String?)? _clusterKey;
+  (double, MapLayerSet, String?, String?)? _clusterKey;
 
   /// A clicked feature: what it is, its condition history, and the
   /// controls the phone has — log lives there; DELETE lives here too.
   Future<List<Object?>>? _featureLoad;
-  (String, PlateSubject?)? _featureLoadKey;
+  (String, MapLayerSet?)? _featureLoadKey;
 }

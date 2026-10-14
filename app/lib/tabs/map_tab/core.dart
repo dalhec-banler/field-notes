@@ -82,4 +82,15 @@ mixin _MapTabCore on State<MapTab> {
   late bool _showSatellite = widget.prefs.mapSatellite;
   bool get _layersTouched =>
       !_showZones || !_showTracks || !_showFeatures || !_showSatellite;
+
+  /// The sheet's toggles as the layer model states them (D-038 item 11):
+  /// imagery is the satellite raster; records and the boundary are never
+  /// switched off on the phone.
+  LayerVisibility get _visibility => LayerVisibility(
+    imagery: _showSatellite,
+    zones: _showZones,
+    tracks: _showTracks,
+    features: _showFeatures,
+    photoPoints: _showPhotoPoints,
+  );
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'db/database.dart';
+import 'map/layers/layer_loader.dart';
 import 'repo/repos.dart';
 import 'services/app_prefs.dart';
 import 'services/location_hub.dart';
@@ -42,7 +43,8 @@ class AppScope extends InheritedWidget {
        zones = ZonesRepo(db),
        properties = PropertiesRepo(db),
        taxa = TaxaRepo(db),
-       photoPoints = PhotoPointsRepo(db);
+       photoPoints = PhotoPointsRepo(db),
+       mapLayers = MapLayerLoader(db);
 
   final FieldNotesDb db;
 
@@ -69,6 +71,11 @@ class AppScope extends InheritedWidget {
   final PropertiesRepo properties;
   final TaxaRepo taxa;
   final PhotoPointsRepo photoPoints;
+
+  /// The one answer to "what does this place draw?" (D-038 item 11): the
+  /// phone map reads it; the desk map and the plate build their own over
+  /// the database they were handed.
+  final MapLayerLoader mapLayers;
 
   /// The active skin. It stays a process-wide value decided before the
   /// first frame and swapped only through the root rebuild (D-023); the

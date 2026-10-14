@@ -2,29 +2,39 @@ part of '../map_tab.dart';
 
 /// Layer toggles, the layers sheet and go-to-coordinates.
 mixin _MapTabLayers on _MapTabShapes {
+  /// Apply the sheet's [LayerVisibility] to the style, by the ids the map
+  /// screen gave each kind ([mapLayerIds]). Zones are tried one id at a
+  /// time (the source is absent on a place with none), tracks/features/
+  /// photo points as a group, imagery on its own — the same tolerance as
+  /// before the model existed.
   Future<void> _applyLayers() async {
     final c = _controller;
     if (c == null) return;
-    for (final id in ['zones-fill', 'zones-line']) {
+    final v = _visibility;
+    for (final id in mapLayerIds[MapLayerKind.zones]!) {
       try {
-        await c.setLayerVisibility(id, _showZones);
+        await c.setLayerVisibility(id, v.zones);
       } catch (e, st) {
         Diag.report(e, st, where: 'MapTab._applyLayers');
       }
     }
     try {
-      await c.setLayerVisibility('tracks-line', _showTracks);
-      for (final id in ['features-fill', 'features-line', 'features-pt']) {
-        await c.setLayerVisibility(id, _showFeatures);
-      }
-      for (final id in ['pp-wedge', 'pp-axis', 'pp-pt']) {
-        await c.setLayerVisibility(id, _showPhotoPoints);
+      for (final kind in const [
+        MapLayerKind.tracks,
+        MapLayerKind.features,
+        MapLayerKind.photoPoints,
+      ]) {
+        for (final id in mapLayerIds[kind]!) {
+          await c.setLayerVisibility(id, v.isOn(kind));
+        }
       }
     } catch (e, st) {
       Diag.report(e, st, where: 'MapTab._applyLayers');
     }
     try {
-      await c.setLayerVisibility('satellite', _showSatellite);
+      for (final id in mapLayerIds[MapLayerKind.imagery]!) {
+        await c.setLayerVisibility(id, v.imagery);
+      }
     } catch (e, st) {
       Diag.report(e, st, where: 'MapTab._applyLayers');
     }

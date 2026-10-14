@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as mathlib;
 import 'dart:math' show Point, max;
 
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -14,12 +12,12 @@ import 'package:path_provider/path_provider.dart';
 import '../app_scope.dart';
 import '../db/database.dart';
 import '../geo/site_presence.dart';
-import '../geo/view_wedge.dart';
 import 'area_downloader.dart';
 import 'basemap_style.dart';
 import 'cluster_badge.dart';
 import 'imagery_capture.dart';
 import 'imagery_sources.dart';
+import 'layers/map_layers.dart';
 import 'map_markers.dart';
 import 'record_clusters.dart';
 import 'record_ink.dart';
@@ -37,10 +35,31 @@ part 'map_screen/gestures.dart';
 
 const _basemapFile = 'basemap.pmtiles';
 
+/// The style's layer ids for each kind of layer in the model — what the
+/// layers sheet switches. 'satellite' is the imagery raster from
+/// `basemap_style`; the rest are added by this screen.
+const mapLayerIds = <MapLayerKind, List<String>>{
+  MapLayerKind.imagery: ['satellite'],
+  MapLayerKind.zones: ['zones-fill', 'zones-line'],
+  MapLayerKind.boundary: ['boundary-line'],
+  MapLayerKind.tracks: ['tracks-line'],
+  MapLayerKind.features: ['features-fill', 'features-line', 'features-pt'],
+  MapLayerKind.photoPoints: ['pp-wedge', 'pp-axis', 'pp-pt'],
+  MapLayerKind.protocolSites: [],
+  MapLayerKind.records: [
+    'observations-circles',
+    'observations-shapes',
+    'observations-removal',
+  ],
+  MapLayerKind.clusters: ['obs-clusters-lyr'],
+  MapLayerKind.position: ['me-accuracy', 'me-accuracy-edge', 'me-reticle'],
+};
+
 /// Map home screen (spec §7.1): offline basemap + property boundary, zone
 /// overlays, and observation pins. Basemap archives live in
 /// `<documents>/basemap/` and are served over loopback; nothing here touches
-/// the network.
+/// the network. What it draws is the one [MapLayerSet] (D-038 item 11);
+/// this screen owns only how a layer becomes a MapLibre source.
 class MapScreen extends StatefulWidget {
   const MapScreen({
     super.key,
@@ -106,7 +125,7 @@ class MapScreen extends StatefulWidget {
 }
 
 /// Split along its layers (D-038 item 7): state in `map_screen/core.dart`,
-/// then clusters, the data the layers draw from, the live position, the
+/// then clusters, the layer set and its GeoJSON, the live position, the
 /// style's sources and layers, and gestures. The basemap start-up and the
 /// lifecycle stay here. One object, seven files.
 class _MapScreenState extends State<MapScreen>
@@ -122,7 +141,7 @@ class _MapScreenState extends State<MapScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _scope.recordFilter.addListener(_refreshRecords);
+    _scope.recordFilter.addListener(_refreshLayers);
     // Learn where this place is from its own records before deciding where
     // to open, for a property that has never had a boundary imported.
     _loadRecordCentre().whenComplete(() {
@@ -139,7 +158,7 @@ class _MapScreenState extends State<MapScreen>
       _syncPositionWatch();
       // Back on the map after the ledger or a capture: whatever was
       // saved meanwhile is drawn now, not on the next camera idle.
-      if (widget.visible) _refreshRecords();
+      if (widget.visible) _refreshLayers();
     }
   }
 
@@ -150,7 +169,7 @@ class _MapScreenState extends State<MapScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _inForeground = state == AppLifecycleState.resumed;
     _syncPositionWatch();
-    if (_inForeground) _refreshRecords();
+    if (_inForeground) _refreshLayers();
   }
 
   void _syncPositionWatch() {
@@ -305,10 +324,8 @@ class _MapScreenState extends State<MapScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _scope.recordFilter.removeListener(_refreshRecords);
-    _recordSub?.cancel();
-    _featureSub?.cancel();
-    _photoPointSub?.cancel();
+    _scope.recordFilter.removeListener(_refreshLayers);
+    _layerSub?.cancel();
     _fixSub?.cancel();
     _server?.close();
     _mbtiles?.close();
@@ -353,7 +370,4 @@ class _MapScreenState extends State<MapScreen>
       ),
     );
   }
-
-  /// Every located record on this property, with the species and growth form
-
 }
