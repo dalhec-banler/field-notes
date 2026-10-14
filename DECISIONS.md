@@ -822,7 +822,7 @@ any count moves; a fresh encrypted phone backup, verified, and a Drive
 generation; and the standing rule that the package id and the signing key
 never change, since that is the only way an upgrade can lose the store.
 
-**The rule.** No new `CHECK (col IN (...))` constraints. Thirty-nine of them
+**The rule.** No new `CHECK (col IN (...))` constraints. Thirty-seven of them
 exist, and twice now (v4, v10) adding one value to a list meant rebuilding the
 observations table in a migration, because SQLite cannot loosen a CHECK. From
 here a new set of kinds is either a small lookup table or a text column
