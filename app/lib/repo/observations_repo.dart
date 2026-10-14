@@ -48,6 +48,8 @@ class RecordPin {
     this.removalStatus,
     this.growthForm,
     this.species,
+    this.nativity,
+    this.notes,
   });
 
   final String id;
@@ -62,6 +64,11 @@ class RecordPin {
 
   /// Common name, else scientific; null when the record names no taxon.
   final String? species;
+
+  /// The species' nativity and the record's notes — what the removal
+  /// plan prints beside a numbered pin. No map draws them.
+  final String? nativity;
+  final String? notes;
 }
 
 /// The spread of a place's located records: mean, count and bounding box.
@@ -188,8 +195,8 @@ class ObservationsRepo {
           'o.observation_type AS type, o.gps_accuracy_m AS acc, '
           'o.taxon_id AS taxon, o.zone_id AS zone, '
           'o.observed_at AS at, '
-          'o.removal_status AS removal, '
-          't.growth_form AS growth, '
+          'o.removal_status AS removal, o.notes AS notes, '
+          't.growth_form AS growth, t.nativity AS nativity, '
           'COALESCE(t.common_name, t.scientific_name) AS species '
           'FROM observations o LEFT JOIN taxa t ON t.id = o.taxon_id '
           'WHERE o.property_id = ? AND o.deleted_at IS NULL '
@@ -211,6 +218,8 @@ class ObservationsRepo {
           removalStatus: r.data['removal'] as String?,
           growthForm: r.data['growth'] as String?,
           species: r.data['species'] as String?,
+          nativity: r.data['nativity'] as String?,
+          notes: r.data['notes'] as String?,
         ),
     ];
   }
