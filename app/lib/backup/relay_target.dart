@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'target.dart';
 
 /// The Field Notes relay (D-031, docs/RELAY-DESIGN.md): the commercial
@@ -17,7 +18,17 @@ class RelayTarget implements BackupTarget {
     required this.propertyId,
     required this.token,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  }) : _net = FieldNetwork.forClient(client);
+
+  /// Where properties go unless prefs say otherwise. Set once deployed.
+  static const defaultBaseUrl = 'https://relay.fieldnotes.app';
+
+  /// The default relay is on the allowlist; any other address is one the
+  /// user typed into Settings, and is logged as such.
+  static EgressPurpose purposeFor(String baseUrl) =>
+      Uri.tryParse(baseUrl)?.host == Uri.parse(defaultBaseUrl).host
+      ? EgressPurpose.relay
+      : EgressPurpose.relayCustom;
 
   /// `https://relay.example` — no trailing slash.
   final String baseUrl;
@@ -25,12 +36,14 @@ class RelayTarget implements BackupTarget {
 
   /// This member's bearer token for this property.
   final String token;
-  final http.Client _client;
+  final FieldNetwork _net;
 
   @override
   String get description => 'Field Notes relay';
 
   Map<String, String> get _auth => {'authorization': 'Bearer $token'};
+
+  EgressPurpose get _purpose => purposeFor(baseUrl);
 
   Uri _object(String path) => Uri.parse(
     '$baseUrl/v1/properties/$propertyId/store/'
@@ -39,7 +52,7 @@ class RelayTarget implements BackupTarget {
 
   @override
   Future<bool> exists(String path) async {
-    final res = await _client.head(_object(path), headers: _auth);
+    final res = await _net.head(_object(path), _purpose, headers: _auth);
     if (res.statusCode == 200) return true;
     if (res.statusCode == 404) return false;
     throw RelayException.of(res.statusCode, res.body);
@@ -47,7 +60,7 @@ class RelayTarget implements BackupTarget {
 
   @override
   Future<Uint8List> read(String path) async {
-    final res = await _client.get(_object(path), headers: _auth);
+    final res = await _net.get(_object(path), _purpose, headers: _auth);
     if (res.statusCode != 200) {
       throw RelayException.of(res.statusCode, res.body);
     }
@@ -56,8 +69,9 @@ class RelayTarget implements BackupTarget {
 
   @override
   Future<void> write(String path, Uint8List bytes) async {
-    final res = await _client.put(
+    final res = await _net.put(
       _object(path),
+      _purpose,
       headers: {..._auth, 'content-type': 'application/octet-stream'},
       body: bytes,
     );
@@ -68,9 +82,10 @@ class RelayTarget implements BackupTarget {
 
   @override
   Future<List<String>> list(String prefix) async {
-    final res = await _client.get(
+    final res = await _net.get(
       Uri.parse('$baseUrl/v1/properties/$propertyId/store')
           .replace(queryParameters: {'prefix': prefix}),
+      _purpose,
       headers: _auth,
     );
     if (res.statusCode != 200) {
@@ -82,7 +97,7 @@ class RelayTarget implements BackupTarget {
 
   @override
   Future<void> delete(String path) async {
-    final res = await _client.delete(_object(path), headers: _auth);
+    final res = await _net.delete(_object(path), _purpose, headers: _auth);
     if (res.statusCode != 200 &&
         res.statusCode != 204 &&
         res.statusCode != 404) {
@@ -90,7 +105,7 @@ class RelayTarget implements BackupTarget {
     }
   }
 
-  void close() => _client.close();
+  void close() => _net.close();
 }
 
 /// What a device holds after creating or joining a property on the relay.
@@ -172,10 +187,12 @@ class RelayPropertyInfo {
 /// registry, seats. Everything here is metadata; the store is [RelayTarget].
 class RelayClient {
   RelayClient({required this.baseUrl, http.Client? client})
-    : _client = client ?? http.Client();
+    : _net = FieldNetwork.forClient(client);
 
   final String baseUrl;
-  final http.Client _client;
+  final FieldNetwork _net;
+
+  EgressPurpose get _purpose => RelayTarget.purposeFor(baseUrl);
 
   Map<String, String> _headers(String? token) => {
     'content-type': 'application/json',
@@ -201,8 +218,9 @@ class RelayClient {
     String? deviceLabel,
     String? organizationKey,
   }) async {
-    final res = await _client.post(
+    final res = await _net.post(
       Uri.parse('$baseUrl/v1/properties'),
+      _purpose,
       headers: _headers(null),
       body: jsonEncode({
         'id': propertyId,
@@ -225,8 +243,9 @@ class RelayClient {
     String? email,
     Duration ttl = const Duration(days: 7),
   }) async {
-    final res = await _client.post(
+    final res = await _net.post(
       Uri.parse('$baseUrl/v1/properties/$propertyId/join-codes'),
+      _purpose,
       headers: _headers(token),
       body: jsonEncode({
         'role': role,
@@ -245,8 +264,9 @@ class RelayClient {
     String? email,
     String? deviceLabel,
   }) async {
-    final res = await _client.post(
+    final res = await _net.post(
       Uri.parse('$baseUrl/v1/join'),
+      _purpose,
       headers: _headers(null),
       body: jsonEncode({
         'code': code,
@@ -265,8 +285,9 @@ class RelayClient {
     required String token,
     required String organizationKey,
   }) async {
-    final res = await _client.post(
+    final res = await _net.post(
       Uri.parse('$baseUrl/v1/properties/$propertyId/organization'),
+      _purpose,
       headers: _headers(token),
       body: jsonEncode({'org_key': organizationKey}),
     );
@@ -277,8 +298,9 @@ class RelayClient {
     required String propertyId,
     required String token,
   }) async {
-    final res = await _client.get(
+    final res = await _net.get(
       Uri.parse('$baseUrl/v1/properties/$propertyId'),
+      _purpose,
       headers: _headers(token),
     );
     return RelayPropertyInfo.fromJson(await _json(res));
@@ -288,8 +310,9 @@ class RelayClient {
     required String propertyId,
     required String token,
   }) async {
-    final res = await _client.get(
+    final res = await _net.get(
       Uri.parse('$baseUrl/v1/properties/$propertyId/members'),
+      _purpose,
       headers: _headers(token),
     );
     final j = await _json(res);
@@ -304,8 +327,9 @@ class RelayClient {
     required String token,
     required String memberId,
   }) async {
-    final res = await _client.delete(
+    final res = await _net.delete(
       Uri.parse('$baseUrl/v1/properties/$propertyId/members/$memberId'),
+      _purpose,
       headers: _headers(token),
     );
     await _json(res);
@@ -319,18 +343,16 @@ class RelayClient {
     required String deviceId,
     String? label,
   }) async {
-    final res = await _client.post(
+    final res = await _net.post(
       Uri.parse('$baseUrl/v1/properties/$propertyId/devices'),
+      _purpose,
       headers: _headers(token),
-      body: jsonEncode({
-        'device_id': deviceId,
-        'label': ?label,
-      }),
+      body: jsonEncode({'device_id': deviceId, 'label': ?label}),
     );
     await _json(res);
   }
 
-  void close() => _client.close();
+  void close() => _net.close();
 }
 
 /// A relay answer that is a sentence for a person, not a stack trace.

@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 
+import '../services/field_network.dart';
+
 /// Minimal PMTiles v3 *reader* over range requests (spec §3.4 knowledge:
 /// PMTiles is a single-file archive addressed by byte ranges). Enough to
 /// pull individual tiles out of a remote planet archive for area download —
@@ -30,10 +32,20 @@ class FileRangeSource implements RangeSource {
 }
 
 class HttpRangeSource implements RangeSource {
-  HttpRangeSource(this.url, {http.Client? client})
-    : _client = client ?? http.Client();
+  HttpRangeSource(this.url, {http.Client? client, EgressPurpose? purpose})
+    : _net = FieldNetwork.forClient(client),
+      purpose = purpose ?? purposeFor(url);
   final String url;
-  final http.Client _client;
+  final FieldNetwork _net;
+
+  /// Why these bytes are being read: the Protomaps build, or an archive at
+  /// a link the user supplied.
+  final EgressPurpose purpose;
+
+  static EgressPurpose purposeFor(String url) =>
+      FieldNetwork.hostAllowed(Uri.tryParse(url)?.host ?? '')
+      ? EgressPurpose.basemap
+      : EgressPurpose.basemapLink;
 
   /// Per-read deadline. Rural LTE stalls; a hung socket must not hang a
   /// capture forever.
@@ -43,7 +55,7 @@ class HttpRangeSource implements RangeSource {
   Future<Uint8List> read(int offset, int length) async {
     final req = http.Request('GET', Uri.parse(url))
       ..headers['Range'] = 'bytes=$offset-${offset + length - 1}';
-    final res = await _client.send(req).timeout(timeout);
+    final res = await _net.send(req, purpose).timeout(timeout);
     if (res.statusCode == 206) {
       final bytes = await _collect(res.stream, length);
       if (bytes.length != length) {
@@ -106,7 +118,7 @@ class HttpRangeSource implements RangeSource {
   }
 
   @override
-  void close() => _client.close();
+  void close() => _net.close();
 }
 
 class PmTilesHeader {

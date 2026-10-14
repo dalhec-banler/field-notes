@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../services/field_network.dart';
 import 'id_models.dart';
 
 /// Pl@ntNet identification (spec §5, layer 1). The user supplies their own
@@ -12,9 +13,9 @@ import 'id_models.dart';
 /// The `project` is set to a regional flora rather than `all` — Pl@ntNet's
 /// own documentation is explicit that this improves accuracy.
 class PlantNetClient {
-  PlantNetClient({http.Client? client}) : _client = client ?? http.Client();
+  PlantNetClient({http.Client? client}) : _net = FieldNetwork.forClient(client);
 
-  final http.Client _client;
+  final FieldNetwork _net;
 
   static const host = 'my-api.plantnet.org';
 
@@ -54,8 +55,8 @@ class PlantNetClient {
       }
     }
 
-    final streamed = await _client
-        .send(request)
+    final streamed = await _net
+        .send(request, EgressPurpose.plantnet)
         .timeout(const Duration(seconds: 45));
     final body = await streamed.stream.bytesToString();
     if (streamed.statusCode == 401 || streamed.statusCode == 403) {
@@ -100,7 +101,21 @@ class PlantNetClient {
     return out;
   }
 
-  void close() => _client.close();
+  /// Ask Pl@ntNet whether [apiKey] is real without spending an
+  /// identification: a deliberately empty request answers 400 for a good
+  /// key and 401/403 for a bad one. Returns the status code.
+  Future<int> probeKey(String apiKey) async {
+    final uri = Uri.https(host, '/v2/identify/k-world-flora', {
+      'api-key': apiKey,
+      'nb-results': '1',
+    });
+    final res = await _net
+        .post(uri, EgressPurpose.plantnet)
+        .timeout(const Duration(seconds: 15));
+    return res.statusCode;
+  }
+
+  void close() => _net.close();
 }
 
 class PlantNetException implements Exception {
@@ -108,12 +123,4 @@ class PlantNetException implements Exception {
   final String message;
   @override
   String toString() => message;
-}
-
-/// A tiny owned http client, so a screen can probe a key without holding a
-/// whole PlantNetClient.
-class HttpClientHolder {
-  final _client = http.Client();
-  Future<http.Response> post(Uri uri) => _client.post(uri);
-  void close() => _client.close();
 }

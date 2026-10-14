@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../db/database.dart';
 import 'diag.dart';
+import 'field_network.dart';
 
 /// Environmental context enrichment (spec §4.11).
 ///
@@ -36,10 +37,10 @@ class EnvContextService {
     this.db, {
     http.Client? client,
     this.courtesyDelay = const Duration(seconds: 1),
-  }) : _client = client ?? http.Client();
+  }) : _net = FieldNetwork.forClient(client);
 
   final FieldNotesDb db;
-  final http.Client _client;
+  final FieldNetwork _net;
   final Duration courtesyDelay;
 
   /// Decimal places kept when a coordinate is sent to a third party.
@@ -149,7 +150,7 @@ class EnvContextService {
       'daily': 'temperature_2m_min,temperature_2m_max,precipitation_sum',
       'timezone': 'auto',
     });
-    final res = await _client.get(uri);
+    final res = await _net.get(uri, EgressPurpose.weather);
     if (res.statusCode != 200) {
       throw http.ClientException('Open-Meteo ${res.statusCode}');
     }
@@ -211,8 +212,9 @@ WHERE mu.mukey IN (
   SELECT * FROM SDA_Get_Mukey_from_intersection_with_WktWgs84('point($lng $lat)')
 )
 ORDER BY c.comppct_r DESC""";
-    final res = await _client.post(
+    final res = await _net.post(
       Uri.parse(_sdaUrl),
+      EgressPurpose.soil,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'query': query, 'format': 'JSON'}),
     );

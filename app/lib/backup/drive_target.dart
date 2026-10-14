@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'target.dart';
 
 /// Back up to the user's own Google Drive (D-020).
@@ -32,11 +33,11 @@ import 'target.dart';
 /// know this.
 class DriveTarget implements BackupTarget {
   DriveTarget({required this.accessToken, http.Client? client})
-    : _client = client ?? http.Client();
+    : _net = FieldNetwork.forClient(client);
 
   /// A short-lived OAuth access token for scope `drive.appdata`.
   final String accessToken;
-  final http.Client _client;
+  final FieldNetwork _net;
 
   static const scope = 'https://www.googleapis.com/auth/drive.appdata';
   static const _api = 'www.googleapis.com';
@@ -67,8 +68,8 @@ class DriveTarget implements BackupTarget {
         'pageSize': '1000',
         'pageToken': ?pageToken,
       });
-      final res = await _client
-          .get(uri, headers: _auth)
+      final res = await _net
+          .get(uri, EgressPurpose.drive, headers: _auth)
           .timeout(const Duration(seconds: 30));
       if (res.statusCode != 200) {
         throw DriveException(_explain(res.statusCode, res.body));
@@ -92,9 +93,10 @@ class DriveTarget implements BackupTarget {
   Future<Uint8List> read(String path) async {
     final id = (await _ensureIndex())[_encode(path)];
     if (id == null) throw DriveException('Not in Drive: $path');
-    final res = await _client
+    final res = await _net
         .get(
           Uri.https(_api, '/drive/v3/files/$id', {'alt': 'media'}),
+          EgressPurpose.drive,
           headers: _auth,
         )
         .timeout(const Duration(minutes: 2));
@@ -152,8 +154,8 @@ class DriveTarget implements BackupTarget {
       })
       ..bodyBytes = body;
 
-    final streamed = await _client
-        .send(request)
+    final streamed = await _net
+        .send(request, EgressPurpose.drive)
         .timeout(const Duration(minutes: 5));
     final text = await streamed.stream.bytesToString();
     if (streamed.statusCode != 200) {
@@ -180,8 +182,12 @@ class DriveTarget implements BackupTarget {
     final index = await _ensureIndex();
     final id = index[name];
     if (id == null) return;
-    final res = await _client
-        .delete(Uri.https(_api, '/drive/v3/files/$id'), headers: _auth)
+    final res = await _net
+        .delete(
+          Uri.https(_api, '/drive/v3/files/$id'),
+          EgressPurpose.drive,
+          headers: _auth,
+        )
         .timeout(const Duration(seconds: 30));
     if (res.statusCode == 200 ||
         res.statusCode == 204 ||
@@ -192,7 +198,7 @@ class DriveTarget implements BackupTarget {
     throw DriveException(_explain(res.statusCode, res.body));
   }
 
-  void close() => _client.close();
+  void close() => _net.close();
 
   /// Google's errors are JSON blobs aimed at developers. Say the useful part
   /// in words a person can act on.

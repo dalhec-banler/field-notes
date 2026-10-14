@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'mbtiles_store.dart';
 
 /// Offline hi-res imagery capture (Austin, 2026-09-04).
@@ -68,8 +69,7 @@ class ImageryCapture {
     bool Function()? isCancelled,
     http.Client? client,
   }) async {
-    final c = client ?? http.Client();
-    final ownClient = client == null;
+    final net = FieldNetwork.forClient(client);
     final (_, maxZ) = estimate(minLon, minLat, maxLon, maxLat);
     final tiles = TileMath.cover(
       minLon,
@@ -95,8 +95,12 @@ class ImageryCapture {
               '$_endpoint?bbox=${_bbox(z, x, y)}&bboxSR=3857&imageSR=3857'
               '&size=256,256&format=jpg&f=image',
             );
-            final res = await c
-                .get(uri, headers: {'User-Agent': 'FieldNotes/1.1'})
+            final res = await net
+                .get(
+                  uri,
+                  EgressPurpose.imageryCapture,
+                  headers: {'User-Agent': 'FieldNotes/1.1'},
+                )
                 .timeout(const Duration(seconds: 20));
             final b = res.bodyBytes;
             // A JPEG or nothing: the service answers errors as HTML/JSON.
@@ -142,7 +146,6 @@ class ImageryCapture {
           if (s.existsSync()) s.deleteSync();
         }
       }
-      if (ownClient) c.close();
     }
     return written;
   }

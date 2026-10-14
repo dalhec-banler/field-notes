@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:file_selector/file_selector.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:turf/turf.dart' as turf;
 
@@ -11,6 +10,7 @@ import '../widgets/press.dart';
 import '../import/kml_import.dart';
 import '../services/property_locator.dart';
 import '../services/diag.dart';
+import '../services/field_network.dart';
 
 /// KML/KMZ import review step (spec §6): nothing commits until the user has
 /// assigned each placemark a destination.
@@ -88,7 +88,9 @@ class _KmlImportScreenState extends State<KmlImportScreen> {
     }
     setState(() { _error = null; _fetching = true; });
     try {
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+      final res = await FieldNetwork.instance
+          .get(Uri.parse(url), EgressPurpose.kmlLink)
+          .timeout(const Duration(seconds: 30));
       if (res.statusCode != 200) {
         throw Exception('the server answered ${res.statusCode} — is the map shared by link?');
       }

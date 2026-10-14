@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:http/http.dart' as http;
 
 import '../db/database.dart';
+import '../services/field_network.dart';
 
 /// How often a candidate has been recorded near here, from iNaturalist.
 ///
@@ -30,10 +31,10 @@ import '../db/database.dart';
 /// radii the rounding costs nothing.
 class RangeCheck {
   RangeCheck(this.db, {http.Client? client})
-    : _client = client ?? http.Client();
+    : _net = FieldNetwork.forClient(client);
 
   final FieldNotesDb db;
-  final http.Client _client;
+  final FieldNetwork _net;
 
   static const _host = 'api.inaturalist.org';
   static const _ua = 'FieldNotes/1.1 (field journal)';
@@ -68,7 +69,11 @@ class RangeCheck {
         'quality_grade': 'research',
         'per_page': '200',
       });
-      final res = await _client.get(uri, headers: {'User-Agent': _ua});
+      final res = await _net.get(
+        uri,
+        EgressPurpose.inat,
+        headers: {'User-Agent': _ua},
+      );
       if (res.statusCode != 200) return const {};
 
       final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -138,7 +143,11 @@ class RangeCheck {
         'rank': 'species',
         'per_page': '1',
       });
-      final res = await _client.get(uri, headers: {'User-Agent': _ua});
+      final res = await _net.get(
+        uri,
+        EgressPurpose.inat,
+        headers: {'User-Agent': _ua},
+      );
       if (res.statusCode != 200) return null;
       final results =
           ((jsonDecode(res.body) as Map<String, dynamic>)['results'] as List?) ??

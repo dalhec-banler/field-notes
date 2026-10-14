@@ -33,7 +33,7 @@ class SharingService {
   final BackupKeyCache Function(String propertyId) _keyCache;
 
   /// Where properties go unless prefs say otherwise. Set once deployed.
-  static const defaultRelayUrl = 'https://relay.fieldnotes.app';
+  static const defaultRelayUrl = RelayTarget.defaultBaseUrl;
   String get relayUrl => prefs.get<String>('relay_url') ?? defaultRelayUrl;
 
   static const _manifest = '${BackupEngine.root}/manifest.json';

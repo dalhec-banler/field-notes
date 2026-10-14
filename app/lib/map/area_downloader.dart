@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../services/diag.dart';
+import '../services/field_network.dart';
 import 'imagery_capture.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
@@ -34,15 +35,16 @@ class AreaDownloader extends ChangeNotifier {
 
   /// Latest planet build on build.protomaps.com (daily, named YYYYMMDD).
   static Future<String?> findLatestBuildUrl({http.Client? client}) async {
-    final c = client ?? http.Client();
+    final net = FieldNetwork.forClient(client);
     try {
       var day = DateTime.now().toUtc();
       for (var i = 0; i < 7; i++) {
         final name =
             '${day.year}${day.month.toString().padLeft(2, '0')}${day.day.toString().padLeft(2, '0')}';
         final url = 'https://build.protomaps.com/$name.pmtiles';
-        final res = await c.get(
+        final res = await net.get(
           Uri.parse(url),
+          EgressPurpose.basemap,
           headers: {'Range': 'bytes=0-13'},
         );
         if ((res.statusCode == 206 || res.statusCode == 200) &&
@@ -54,7 +56,7 @@ class AreaDownloader extends ChangeNotifier {
       }
       return null;
     } finally {
-      if (client == null) c.close();
+      // The app's shared client stays open; a test's is the test's to close.
     }
   }
 
