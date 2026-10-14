@@ -12,6 +12,7 @@ import '../services/app_prefs.dart';
 import '../services/press_unlock.dart';
 import '../main.dart' show opLog;
 import '../sync/sync_service.dart';
+import '../sync/sync_status.dart';
 import '../widgets/passphrase_dialog.dart';
 import '../services/review.dart';
 import '../widgets/nativity_chip.dart';
@@ -377,5 +378,4 @@ class _DesktopShellState extends State<DesktopShell>
       ],
     );
   }
-
 }

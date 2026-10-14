@@ -213,21 +213,45 @@ mixin _DesktopShellStatus on _DesktopShellCore {
         children: [
           MonoLabel(sentences[_view], size: 9.5, opacity: 0.8),
           Spacer(),
-          // Derived, not decorative (design audit P3): the write queue is
-          // the oplog's own count, and sync is honestly off until D-026's
-          // carrier work lands.
-          FutureBuilder<int>(
-            future: _pendingWrites(),
-            builder: (context, snap) {
-              final n = snap.data;
-              return MonoLabel(
-                n == null
-                    ? 'Sync off · edits stay on this computer'
-                    : n == 0
-                    ? 'Nothing waiting · sync off'
-                    : '$n write${n == 1 ? '' : 's'} captured · sync off',
-                size: 9.5,
-                opacity: 0.8,
+          // Derived, not decorative (design audit P3): the line is
+          // SyncStatus (D-038 item 12) — last sync, what is waiting, and the
+          // last problem by name — or the oplog count when sync never started.
+          Builder(
+            builder: (context) {
+              final log = opLog;
+              if (log == null) {
+                return FutureBuilder<int>(
+                  future: _pendingWrites(),
+                  builder: (context, snap) {
+                    final n = snap.data;
+                    return MonoLabel(
+                      n == null
+                          ? 'Change log not running · edits stay on this computer'
+                          : '$n write${n == 1 ? '' : 's'} captured · change log not running',
+                      size: 9.5,
+                      opacity: 0.8,
+                    );
+                  },
+                );
+              }
+              return StreamBuilder<SyncStatus>(
+                stream: SyncStatus.watch(widget.db, log),
+                builder: (context, snap) {
+                  final st = snap.data;
+                  if (st == null) {
+                    return MonoLabel(
+                      'Reading sync state…',
+                      size: 9.5,
+                      opacity: 0.8,
+                    );
+                  }
+                  return MonoLabel(
+                    st.line(),
+                    size: 9.5,
+                    opacity: 0.8,
+                    color: st.lastAttemptFailed ? Press.oxblood : null,
+                  );
+                },
               );
             },
           ),
