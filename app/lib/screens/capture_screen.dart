@@ -11,7 +11,7 @@ import '../db/database.dart';
 import '../id/id_models.dart';
 import '../id/identification_service.dart';
 import '../geo/zone_assignment.dart';
-import '../main.dart' show locationHub;
+import '../app_scope.dart';
 import '../repo/repos.dart';
 import '../services/capture_writer.dart';
 import '../services/env_context.dart';
@@ -58,9 +58,10 @@ class CaptureScreen extends StatefulWidget {
 }
 
 class _CaptureScreenState extends State<CaptureScreen> {
-  ObservationsRepo get _records => ObservationsRepo(widget.db);
-  ZonesRepo get _zones => ZonesRepo(widget.db);
-  TaxaRepo get _taxa => TaxaRepo(widget.db);
+  late final AppScope _scope = AppScope.of(context);
+  ObservationsRepo get _records => _scope.observations;
+  ZonesRepo get _zones => _scope.zones;
+  TaxaRepo get _taxa => _scope.taxa;
 
   CameraController? _camera;
   String? _cameraError;
@@ -137,14 +138,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
   Future<void> _initLocation() async {
     try {
-      if (!await locationHub.ensurePermission()) {
+      if (!await _scope.locationHub.ensurePermission()) {
         return; // record saves without coordinates rather than blocking
       }
       if (!mounted) return;
       // A fix from before the app idled is not a fix. The OS's last-known
       // position is shown as a hint until the live stream delivers, but
       // only a LIVE fix is ever written — see _fixIsLive in _save.
-      final fresh = locationHub.fresh();
+      final fresh = _scope.locationHub.fresh();
       if (fresh != null) {
         if (mounted) {
           setState(() {
@@ -160,7 +161,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
           setState(() => _fix = last);
         }
       }
-      _fixSub = locationHub.positions.listen((pos) {
+      _fixSub = _scope.locationHub.positions.listen((pos) {
         if (mounted) {
           setState(() {
             _fix = pos;

@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../app_scope.dart';
 import '../db/database.dart';
 import '../repo/repos.dart';
 import '../screens/record_detail_screen.dart';
 import '../services/app_prefs.dart';
-import '../services/record_filter.dart';
 import '../theme/tokens.dart';
 import '../widgets/edit_record_sheet.dart' show kObservationTypes;
 import '../widgets/press.dart';
@@ -37,27 +37,28 @@ class LedgerTab extends StatefulWidget {
 }
 
 class _LedgerTabState extends State<LedgerTab> {
-  ObservationsRepo get _records => ObservationsRepo(widget.db);
-  ZonesRepo get _zoneRepo => ZonesRepo(widget.db);
-  TaxaRepo get _taxa => TaxaRepo(widget.db);
+  late final AppScope _scope = AppScope.of(context);
+  ObservationsRepo get _records => _scope.observations;
+  ZonesRepo get _zoneRepo => _scope.zones;
+  TaxaRepo get _taxa => _scope.taxa;
 
   // The ledger IS the filter (Austin, 2026-09-04): these proxy the one
   // shared RecordFilter, so the map shows what the ledger shows.
-  String? get _zoneFilter => recordFilter.zoneId;
-  set _zoneFilter(String? v) => recordFilter.update((f) {
+  String? get _zoneFilter => _scope.recordFilter.zoneId;
+  set _zoneFilter(String? v) => _scope.recordFilter.update((f) {
     f.zoneId = v;
     f.zoneLabel = v == null
         ? null
         : _zones.where((z) => z.id == v).firstOrNull?.name;
   });
-  String? get _typeFilter => recordFilter.type;
-  set _typeFilter(String? v) => recordFilter.update((f) => f.type = v);
-  String? get _speciesFilter => recordFilter.taxonId;
-  set _speciesFilter(String? v) => recordFilter.update((f) => f.taxonId = v);
-  String? get _speciesLabel => recordFilter.taxonLabel;
-  set _speciesLabel(String? v) => recordFilter.update((f) => f.taxonLabel = v);
-  DateTimeRange? get _dateFilter => recordFilter.dates;
-  set _dateFilter(DateTimeRange? v) => recordFilter.update((f) => f.dates = v);
+  String? get _typeFilter => _scope.recordFilter.type;
+  set _typeFilter(String? v) => _scope.recordFilter.update((f) => f.type = v);
+  String? get _speciesFilter => _scope.recordFilter.taxonId;
+  set _speciesFilter(String? v) => _scope.recordFilter.update((f) => f.taxonId = v);
+  String? get _speciesLabel => _scope.recordFilter.taxonLabel;
+  set _speciesLabel(String? v) => _scope.recordFilter.update((f) => f.taxonLabel = v);
+  DateTimeRange? get _dateFilter => _scope.recordFilter.dates;
+  set _dateFilter(DateTimeRange? v) => _scope.recordFilter.update((f) => f.dates = v);
   List<Zone> _zones = const [];
 
   bool get _anyFilter =>
@@ -65,14 +66,14 @@ class _LedgerTabState extends State<LedgerTab> {
       _typeFilter != null ||
       _speciesFilter != null ||
       _dateFilter != null ||
-      recordFilter.flagged;
+      _scope.recordFilter.flagged;
 
   double get _em => widget.prefs.density == 'dense' ? 13.5 : 16.0;
 
   @override
   void initState() {
     super.initState();
-    recordFilter.addListener(_onFilter);
+    _scope.recordFilter.addListener(_onFilter);
     _loadZones();
   }
 
@@ -82,7 +83,7 @@ class _LedgerTabState extends State<LedgerTab> {
 
   @override
   void dispose() {
-    recordFilter.removeListener(_onFilter);
+    _scope.recordFilter.removeListener(_onFilter);
     super.dispose();
   }
 
@@ -117,7 +118,7 @@ class _LedgerTabState extends State<LedgerTab> {
     return SafeArea(
       bottom: false,
       child: StreamBuilder<List<Observation>>(
-        stream: _records.watchLedger(widget.property.id, recordFilter.query),
+        stream: _records.watchLedger(widget.property.id, _scope.recordFilter.query),
         builder: (context, snapshot) {
           final obs = snapshot.data ?? const [];
           return Column(
@@ -170,10 +171,10 @@ class _LedgerTabState extends State<LedgerTab> {
                     // The contractor's view (D-027): only what's flagged.
                     _chip(
                       'Removal',
-                      active: recordFilter.flagged,
+                      active: _scope.recordFilter.flagged,
                       onTap: () => setState(
                         () =>
-                            recordFilter.update((f) => f.flagged = !f.flagged),
+                            _scope.recordFilter.update((f) => f.flagged = !f.flagged),
                       ),
                     ),
                     if (_anyFilter) ...[
@@ -187,7 +188,7 @@ class _LedgerTabState extends State<LedgerTab> {
                           _speciesFilter = null;
                           _speciesLabel = null;
                           _dateFilter = null;
-                          recordFilter.update((f) => f.flagged = false);
+                          _scope.recordFilter.update((f) => f.flagged = false);
                         }),
                       ),
                     ],
@@ -368,12 +369,12 @@ class _LedgerRow extends StatelessWidget {
   final double em;
 
   /// (species, photo thumbnail, has a voice note)
-  Future<(TaxaData?, String?, bool)> _details() async {
+  Future<(TaxaData?, String?, bool)> _details(AppScope scope) async {
     TaxaData? species;
-    if (obs.taxonId != null) species = await TaxaRepo(db).byId(obs.taxonId!);
+    if (obs.taxonId != null) species = await scope.taxa.byId(obs.taxonId!);
     String? thumb;
     var hasVoice = false;
-    for (final m in await MediaRepo(db).linkedTo(entityId: obs.id)) {
+    for (final m in await scope.media.linkedTo(entityId: obs.id)) {
       if (m.mediaType == 'audio') {
         hasVoice = true;
       } else {
@@ -397,7 +398,7 @@ class _LedgerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final typeColor = recordTypeColor(obs.observationType);
     return FutureBuilder<(TaxaData?, String?, bool)>(
-      future: _details(),
+      future: _details(AppScope.of(context)),
       builder: (context, snapshot) {
         final (species, thumb, hasVoice) = snapshot.data ?? (null, null, false);
         return InkWell(

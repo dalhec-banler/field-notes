@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart' show Position;
 import 'package:maplibre_gl/maplibre_gl.dart';
 
+import '../app_scope.dart';
 import '../db/database.dart';
 import '../geo/site_presence.dart';
-import '../main.dart' show locationHub, trackRecorder;
 import '../map/area_downloader.dart';
 import '../map/map_screen.dart';
 import '../repo/repos.dart';
 import '../services/app_prefs.dart';
-import '../services/map_jump.dart';
-import '../services/record_filter.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
@@ -58,9 +56,10 @@ class MapTab extends StatefulWidget {
 }
 
 class _MapTabState extends State<MapTab> {
-  ObservationsRepo get _records => ObservationsRepo(widget.db);
-  ZonesRepo get _zones => ZonesRepo(widget.db);
-  PhotoPointsRepo get _photoPoints => PhotoPointsRepo(widget.db);
+  late final AppScope _scope = AppScope.of(context);
+  ObservationsRepo get _records => _scope.observations;
+  ZonesRepo get _zones => _scope.zones;
+  PhotoPointsRepo get _photoPoints => _scope.photoPoints;
 
   int _zoneCount = 0;
   MapLibreMapController? _controller;
@@ -87,10 +86,10 @@ class _MapTabState extends State<MapTab> {
   /// on the notifier firing when the map is already up, or on the new
   /// controller after the shell switched place to get here.
   void _onMapJump() {
-    final j = mapJump.value;
+    final j = _scope.mapJump.value;
     final c = _controller;
     if (j == null || c == null || j.propertyId != widget.property.id) return;
-    mapJump.value = null;
+    _scope.mapJump.value = null;
     c.animateCamera(CameraUpdate.newLatLngZoom(LatLng(j.lat, j.lng), 17.5));
   }
 
@@ -101,8 +100,8 @@ class _MapTabState extends State<MapTab> {
   @override
   void dispose() {
     widget.focus?.removeListener(_onFocusRequest);
-    mapJump.removeListener(_onMapJump);
-    recordFilter.removeListener(_onFilterChanged);
+    _scope.mapJump.removeListener(_onMapJump);
+    _scope.recordFilter.removeListener(_onFilterChanged);
     _downloader.dispose();
     super.dispose();
   }
@@ -578,9 +577,9 @@ class _MapTabState extends State<MapTab> {
   @override
   void initState() {
     super.initState();
-    recordFilter.addListener(_onFilterChanged);
+    _scope.recordFilter.addListener(_onFilterChanged);
     widget.focus?.addListener(_onFocusRequest);
-    mapJump.addListener(_onMapJump);
+    _scope.mapJump.addListener(_onMapJump);
     _loadCounts();
     // One-time hint: long-press-to-place has zero discoverability
     // otherwise (design audit P2).
@@ -602,14 +601,14 @@ class _MapTabState extends State<MapTab> {
 
   void _onFilterChanged() {
     if (!mounted) return;
-    if (recordFilter.consumeJump()) _fitFiltered();
+    if (_scope.recordFilter.consumeJump()) _fitFiltered();
     setState(() {});
   }
 
   /// Frame every record the filter keeps — the species jump's landing.
   Future<void> _fitFiltered() async {
     final rows = await _records.located(widget.property.id);
-    final f = recordFilter;
+    final f = _scope.recordFilter;
     final pts = [
       for (final o in rows)
         if ((f.type == null || o.observationType == f.type) &&
@@ -722,7 +721,7 @@ class _MapTabState extends State<MapTab> {
         // Capture-area frame: the visible region is what gets captured.
         // The one filter, made visible and killable: the map shows only
         // what the ledger shows (Austin, 2026-09-04).
-        if (recordFilter.active)
+        if (_scope.recordFilter.active)
           Positioned(
             left: Metrics.gutter,
             right: Metrics.gutter,
@@ -739,7 +738,7 @@ class _MapTabState extends State<MapTab> {
                   children: [
                     Flexible(
                       child: MonoLabel(
-                        'ONLY ${recordFilter.describe()}',
+                        'ONLY ${_scope.recordFilter.describe()}',
                         size: 9,
                         spacing: 1.2,
                         color: Press.paperRaised,
@@ -748,7 +747,7 @@ class _MapTabState extends State<MapTab> {
                     ),
                     const SizedBox(width: 12),
                     InkWell(
-                      onTap: recordFilter.clear,
+                      onTap: _scope.recordFilter.clear,
                       child: MonoLabel(
                         'CLEAR',
                         size: 9,
@@ -968,15 +967,15 @@ class _MapTabState extends State<MapTab> {
                         // GPS: status readout AND the locate-me control.
                         // Tap → fly to the current fix.
                         ListenableBuilder(
-                          listenable: locationHub,
+                          listenable: _scope.locationHub,
                           builder: (context, _) {
                             // While a track runs the stream is distance-
                             // filtered, so standing still is silence, not
                             // a lost fix — trust the last one then.
                             final fix =
-                                locationHub.fresh() ??
-                                (locationHub.foreground
-                                    ? locationHub.last
+                                _scope.locationHub.fresh() ??
+                                (_scope.locationHub.foreground
+                                    ? _scope.locationHub.last
                                     : null);
                             final presence = fix == null
                                 ? SitePresence.unknown
@@ -1067,6 +1066,7 @@ class _TrackToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trackRecorder = AppScope.of(context).trackRecorder;
     return ListenableBuilder(
       listenable: trackRecorder,
       builder: (context, _) {

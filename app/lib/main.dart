@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'app_scope.dart';
 import 'backup/backup_service.dart';
 import 'backup/restore.dart';
 import 'db/database.dart';
@@ -19,6 +20,8 @@ import 'services/desk.dart';
 import 'services/diag.dart';
 import 'services/env_context.dart';
 import 'services/location_hub.dart';
+import 'services/map_jump.dart';
+import 'services/record_filter.dart';
 import 'services/track_recorder.dart';
 import 'map/imagery_sources.dart';
 import 'shell/app_shell.dart';
@@ -31,16 +34,20 @@ import 'screens/onboarding_screen.dart';
 import 'widgets/new_place_dialog.dart';
 import 'widgets/press.dart';
 
+// The three globals below are LEGACY delegates to the installed AppScope
+// (D-038 item 6). They keep every unconverted screen working; new code
+// reads `AppScope.of(context)` instead.
+
 /// This installation's change log, installed at launch; null only if
 /// capture failed to start (sync then says so).
-OpLog? opLog;
+OpLog? get opLog => AppScope.maybeCurrent?.opLog;
 
 /// Single owner of the platform GPS stream; every screen listens here.
-late final LocationHub locationHub;
+LocationHub get locationHub => AppScope.current.locationHub;
 
 /// App-wide track recorder: recording must survive navigation and screen
 /// sleep (spec §4.13).
-late final TrackRecorder trackRecorder;
+TrackRecorder get trackRecorder => AppScope.current.trackRecorder;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,9 +73,10 @@ Future<void> main() async {
   final db = FieldNotesDb();
   // M4a: capture every write from the first launch that has this build —
   // sync needs the history to exist before anyone flips it on.
+  OpLog? log;
   try {
     final docs = await getApplicationDocumentsDirectory();
-    opLog = await OpLog.install(
+    log = await OpLog.install(
       db,
       identityFile: File(p.join(docs.path, 'device_id.txt')),
       conflictFile: File(p.join(docs.path, 'sync_conflicts.json')),
@@ -88,11 +96,11 @@ Future<void> main() async {
   // startup gates).
   RegionLibrary(db).seedForKnownStates();
   seedFeatureTypesIfEmpty(db);
-  locationHub = LocationHub();
-  trackRecorder = TrackRecorder(db, locationHub);
+  final hub = LocationHub();
+  final recorder = TrackRecorder(db, hub);
   // A track left open by a killed process is closed out from its raw points.
   // Startup never fails over it.
-  trackRecorder.recoverOpenTracks().catchError((Object e, StackTrace st) {
+  recorder.recoverOpenTracks().catchError((Object e, StackTrace st) {
     Diag.report(e, st, where: 'main.recoverOpenTracks');
     return 0;
   });
@@ -110,7 +118,6 @@ Future<void> main() async {
         return null;
       });
   // D-028: the sync carrier, same posture — when due, never a prompt.
-  final log = opLog;
   if (log != null) {
     SyncService(db, prefs, log).maybeRunAutomatic().catchError((
       Object e,
@@ -127,7 +134,20 @@ Future<void> main() async {
   // Imagery source is the same kind of process-wide, decided-before-first-
   // frame state as the skin (D-023 pattern).
   activeImagery = imageryById(prefs.imagerySource);
-  runApp(FieldNotesApp(db: db, prefs: prefs));
+  // One scope for the process (D-038 item 6): installed first, so the
+  // legacy globals resolve to the same objects the tree reads.
+  final scope = AppScope(
+    db: db,
+    opLog: log,
+    locationHub: hub,
+    trackRecorder: recorder,
+    recordFilter: recordFilter,
+    mapJump: mapJump,
+    prefs: prefs,
+    child: FieldNotesApp(db: db, prefs: prefs),
+  );
+  AppScope.install(scope);
+  runApp(scope);
 }
 
 class FieldNotesApp extends StatelessWidget {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app_scope.dart';
 import '../repo/observations_repo.dart' show LedgerQuery;
 
 /// ONE filter for the record surfaces (Austin, 2026-09-04: "seems like
@@ -112,5 +113,12 @@ class RecordFilter extends ChangeNotifier {
   bool get jumpPending => _jump;
 }
 
-/// The one filter this app runs on.
-final recordFilter = RecordFilter();
+/// The filter the process started with — what the scope carries when
+/// `main()` builds it, and what resolves before any scope is installed.
+final _processFilter = RecordFilter();
+
+/// The one filter this app runs on. LEGACY: a delegate to
+/// `AppScope.current.recordFilter`; new code reads
+/// `AppScope.of(context).recordFilter` (D-038 item 6).
+RecordFilter get recordFilter =>
+    AppScope.maybeCurrent?.recordFilter ?? _processFilter;

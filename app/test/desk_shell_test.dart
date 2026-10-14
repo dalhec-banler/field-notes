@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
+import 'package:field_notes/app_scope.dart';
 import 'package:field_notes/db/database.dart';
 import 'package:field_notes/db/seed.dart';
 import 'package:field_notes/desktop/desk_map_view.dart';
@@ -10,7 +11,11 @@ import 'package:field_notes/desktop/export_workspace.dart';
 import 'package:field_notes/desktop/settings_workspace.dart';
 import 'package:field_notes/screens/record_detail_screen.dart';
 import 'package:field_notes/services/app_prefs.dart';
+import 'package:field_notes/services/location_hub.dart';
+import 'package:field_notes/services/map_jump.dart';
+import 'package:field_notes/services/record_filter.dart';
 import 'package:field_notes/services/review.dart';
+import 'package:field_notes/services/track_recorder.dart';
 import 'package:field_notes/theme/skin.dart';
 import 'package:field_notes/theme/theme.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -234,15 +239,29 @@ void main() {
   Future<void> boot(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(1360, 860));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    // The scope the shell and everything it pushes read from (D-038 item
+    // 6): the fixture db and prefs, no op log, a hub that is never started,
+    // and the process filter/jump so unconverted desk code agrees with the
+    // record screen it opens.
+    final hub = LocationHub();
     await tester.pumpWidget(
-      MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: appTheme(),
-        home: DesktopShell(
-          db: db,
-          property: property,
-          prefs: prefs,
-          onSwitchProperty: (_) {},
+      AppScope(
+        db: db,
+        opLog: null,
+        locationHub: hub,
+        trackRecorder: TrackRecorder(db, hub),
+        recordFilter: recordFilter,
+        mapJump: mapJump,
+        prefs: prefs,
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: appTheme(),
+          home: DesktopShell(
+            db: db,
+            property: property,
+            prefs: prefs,
+            onSwitchProperty: (_) {},
+          ),
         ),
       ),
     );

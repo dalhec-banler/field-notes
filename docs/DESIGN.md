@@ -77,6 +77,26 @@ DEVICE pixels. This has bitten three separate marks (cluster badges,
 feature markers, record shapes) — each looked correct in code and
 microscopic on the phone.
 
+## Where a screen gets its things (D-038 items 5–6)
+
+New code reads `AppScope.of(context)` (`lib/app_scope.dart`). The scope
+carries the database and its repos (`lib/repo/`: observations, media,
+zones, properties, taxa, photo points), the op log, the GPS hub, the
+track recorder, the record filter, the pending map jump and the prefs.
+`main()` builds one around the app and installs it; a test builds one
+around the widget under test on an in-memory database (see
+`test/desk_shell_test.dart`).
+
+A screen asks a repo for rows and never imports drift; a repo owns its
+queries and its `db.changes({tables})` streams. The module-level globals
+— `opLog`, `locationHub`, `trackRecorder`, `recordFilter`, `mapJump` —
+still resolve, as delegates to the installed scope, so unconverted
+screens keep working; they are legacy, and nothing new should read them.
+`skin` stays the one process-wide exception (D-023): the scope reads it
+rather than owning it. Capture, record detail, the ledger, the map and
+the phone shell read from the scope; the rest follow the same pattern as
+they are touched.
+
 ## Screens
 
 **Phone** — Map · Ledger · Grow · Species · Settings, with the capture

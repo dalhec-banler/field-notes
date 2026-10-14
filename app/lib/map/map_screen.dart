@@ -11,10 +11,10 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../app_scope.dart';
 import '../db/database.dart';
 import '../geo/site_presence.dart';
 import '../geo/view_wedge.dart';
-import '../main.dart' show locationHub;
 import 'area_downloader.dart';
 import 'basemap_style.dart';
 import 'cluster_badge.dart';
@@ -23,8 +23,6 @@ import 'imagery_sources.dart';
 import 'map_markers.dart';
 import 'record_clusters.dart';
 import 'record_ink.dart';
-import '../repo/repos.dart';
-import '../services/record_filter.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
 import 'tile_server.dart';
@@ -101,6 +99,7 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
+  late final AppScope _scope = AppScope.of(context);
   TileServer? _server;
   MbTilesStore? _mbtiles;
   MbTilesStore? _imageryStore;
@@ -119,7 +118,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    recordFilter.addListener(_refreshRecords);
+    _scope.recordFilter.addListener(_refreshRecords);
     // Learn where this place is from its own records before deciding where
     // to open, for a property that has never had a boundary imported.
     _loadRecordCentre().whenComplete(() {
@@ -305,11 +304,11 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (_watching || _fixSub != null) return;
     _watching = true;
     try {
-      if (!await locationHub.ensurePermission()) return;
+      if (!await _scope.locationHub.ensurePermission()) return;
       if (!mounted || !(widget.visible && _inForeground)) return;
-      final last = locationHub.last;
+      final last = _scope.locationHub.last;
       if (last != null) _onFix(last);
-      _fixSub = locationHub.positions.listen(_onFix);
+      _fixSub = _scope.locationHub.positions.listen(_onFix);
     } catch (e, st) {
       Diag.report(e, st, where: 'MapScreen._watchPosition');
     } finally {
@@ -331,7 +330,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   /// the place; dragging the map 90 miles into town helps nobody. Knowing
   /// neither → open on the fix, and let the first fix recentre.
   CameraPosition _decideCamera() {
-    final fresh = locationHub.fresh() ?? _fix;
+    final fresh = _scope.locationHub.fresh() ?? _fix;
     final property = widget.property;
     final presence = property == null
         ? SitePresence.unknown
@@ -459,7 +458,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    recordFilter.removeListener(_refreshRecords);
+    _scope.recordFilter.removeListener(_refreshRecords);
     _recordSub?.cancel();
     _featureSub?.cancel();
     _photoPointSub?.cancel();
@@ -779,7 +778,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     FieldNotesDb db,
     Property property,
   ) async {
-    final zones = await ZonesRepo(db).toDraw(property.id);
+    final zones = await _scope.zones.toDraw(property.id);
     if (zones.isNotEmpty) {
       await controller.addGeoJsonSource('zones', {
         'type': 'FeatureCollection',
@@ -954,9 +953,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _photoPointLayerReady = true;
     await _refreshPhotoPoints();
     _photoPointSub?.cancel();
-    _photoPointSub = PhotoPointsRepo(
-      db,
-    ).changes.listen((_) => _refreshPhotoPoints());
+    _photoPointSub = _scope.photoPoints.changes.listen(
+      (_) => _refreshPhotoPoints(),
+    );
 
     _featureLayerReady = true;
     await _refreshFeatures();
@@ -1105,7 +1104,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null || property == null || controller == null) return;
     if (!_photoPointLayerReady) return;
     try {
-      final points = await PhotoPointsRepo(db).on(property.id);
+      final points = await _scope.photoPoints.on(property.id);
       final out = <Map<String, dynamic>>[];
       for (final p in points) {
         out.add({
@@ -1242,9 +1241,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final db = widget.db;
     if (db == null) return;
     _recordSub?.cancel();
-    _recordSub = ObservationsRepo(
-      db,
-    ).pinChanges.listen((_) => _refreshRecords());
+    _recordSub = _scope.observations.pinChanges.listen(
+      (_) => _refreshRecords(),
+    );
   }
 
   /// Every located record on this property, with the species and growth form
@@ -1289,7 +1288,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null || property == null) return;
     if (propertyCentre(property) != null) return;
     try {
-      final extent = await ObservationsRepo(db).locatedExtent(property.id);
+      final extent = await _scope.observations.locatedExtent(property.id);
       final n = extent.count;
       final lat = extent.meanLat;
       final lng = extent.meanLng;
@@ -1320,9 +1319,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null || property == null || controller == null) return;
     if (!_recordLayersReady) return;
     try {
-      final rows = await ObservationsRepo(db).pins(property.id);
+      final rows = await _scope.observations.pins(property.id);
       // The ledger is the filter: the map draws exactly what it lists.
-      final flt = recordFilter;
+      final flt = _scope.recordFilter;
       final bounds = flt.utcDayBounds;
       final features = <Map<String, dynamic>>[];
       for (final r in rows) {

@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../app_scope.dart';
 import '../db/database.dart';
-import '../main.dart' show opLog;
 import '../repo/repos.dart';
 import '../theme/tokens.dart';
 import '../widgets/photo_gallery.dart';
@@ -22,7 +22,6 @@ import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
 import '../geo/zone_assignment.dart' show noZoneLabel;
 import '../services/desk.dart';
-import '../services/record_filter.dart';
 import '../services/media_store.dart';
 import '../services/review.dart';
 import 'identify_sheet.dart';
@@ -57,12 +56,13 @@ class RecordDetailScreen extends StatefulWidget {
 }
 
 class _RecordDetailScreenState extends State<RecordDetailScreen> {
-  ObservationsRepo get _records => ObservationsRepo(widget.db);
-  MediaRepo get _media => MediaRepo(widget.db);
-  ZonesRepo get _zones => ZonesRepo(widget.db);
-  TaxaRepo get _taxa => TaxaRepo(widget.db);
-  PropertiesRepo get _properties => PropertiesRepo(widget.db);
-  PhotoPointsRepo get _photoPoints => PhotoPointsRepo(widget.db);
+  late final AppScope _scope = AppScope.of(context);
+  ObservationsRepo get _records => _scope.observations;
+  MediaRepo get _media => _scope.media;
+  ZonesRepo get _zones => _scope.zones;
+  TaxaRepo get _taxa => _scope.taxa;
+  PropertiesRepo get _properties => _scope.properties;
+  PhotoPointsRepo get _photoPoints => _scope.photoPoints;
 
   Observation? _obs;
   bool _gone = false;
@@ -228,7 +228,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     if (!sure) return;
     await _media.unlink(media.id, entityId: obs.id);
     if (await _media.liveLinkCount(media.id) == 0) {
-      await _media.erase(media.id, log: opLog);
+      await _media.erase(media.id, log: _scope.opLog);
     }
     _photoIndex = 0;
     await _load();
@@ -636,14 +636,14 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     onTap: obs.taxonId == null || obs.gpsAccuracyM == -1
                         ? null
                         : () {
-                            recordFilter.update((f) {
+                            _scope.recordFilter.update((f) {
                               f.taxonId = obs.taxonId;
                               f.taxonLabel =
                                   _taxon?.commonName ??
                                   _taxon?.scientificName ??
                                   'species';
                             });
-                            recordFilter.jumpToMap();
+                            _scope.recordFilter.jumpToMap();
                             if (!widget.embedded) {
                               Navigator.of(context).popUntil((r) => r.isFirst);
                             }
