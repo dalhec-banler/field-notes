@@ -146,8 +146,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           ? null
           : () => _identifyJustSaved(result.observationId, identifyReady),
       // Undo erases the record outright — row, photo, links, context — so
-      // nothing of it reaches the next backup or export.
-      onUndo: () => eraseObservation(widget.db, result.observationId),
+      // nothing of it reaches the next backup or export; unless a sync has
+      // already carried it, when it becomes a tombstone the peer will hear
+      // (D-038 item 12).
+      onUndo: () =>
+          undoObservation(widget.db, result.observationId, log: opLog),
     );
   }
 
