@@ -8,12 +8,14 @@ import '../geo/site_presence.dart';
 import '../map/area_downloader.dart';
 import '../map/layers/map_layers.dart';
 import '../map/map_screen.dart';
+import '../protocols/protocol_service.dart';
 import '../repo/repos.dart';
 import '../services/app_prefs.dart';
 import '../services/field_network.dart';
 import '../services/network_policy.dart';
 import '../theme/tokens.dart';
 import '../widgets/press.dart';
+import '../screens/monitoring/site_detail_screen.dart';
 import '../screens/photo_points/photo_point_history_screen.dart';
 import '../screens/polygon_editor_screen.dart';
 import '../widgets/feature_sheet.dart';
@@ -158,6 +160,24 @@ class _MapTabState extends State<MapTab>
                   MaterialPageRoute(
                     builder: (_) =>
                         PhotoPointHistoryScreen(db: widget.db, point: p),
+                  ),
+                );
+              },
+              // A stake opens its site (D-033): the method, the visits,
+              // and the button that runs it again from here.
+              onProtocolSiteTap: (psid) async {
+                final svc = ProtocolService(widget.db);
+                final site = await svc.siteById(psid);
+                if (site == null) return;
+                final protocol = await svc.protocolById(site.protocolId);
+                if (protocol == null || !context.mounted) return;
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SiteDetailScreen(
+                      db: widget.db,
+                      protocol: protocol,
+                      site: site,
+                    ),
                   ),
                 );
               },

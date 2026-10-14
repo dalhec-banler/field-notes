@@ -66,6 +66,7 @@ mixin _MapScreenLayers on _MapScreenPosition {
     _recordLayersReady = false;
     _featureLayerReady = false;
     _photoPointLayerReady = false;
+    _protocolSiteLayerReady = false;
     _lastPainted = null;
     _lastPaintZoom = null;
     _badgeImages.clear();
@@ -159,16 +160,17 @@ mixin _MapScreenLayers on _MapScreenPosition {
         case PhotoPointStations():
           await _addPhotoPointLayers(controller);
 
+        case ProtocolSiteMarks():
+          await _addProtocolSiteLayers(controller);
+
         case ImageryBase():
         case ZoneFills():
         case TrackLines():
-        case ProtocolSiteMarks():
         case RecordMarks():
         case RecordClusters():
         case PositionMark():
           // Imagery is the style's own raster; records get their layers in
-          // _addRecordLayers so they sit above everything else; protocol
-          // sites are not drawn on the phone.
+          // _addRecordLayers so they sit above everything else.
           break;
       }
     }
@@ -281,6 +283,35 @@ mixin _MapScreenLayers on _MapScreenPosition {
       enableInteraction: true,
     );
     _photoPointLayerReady = true;
+  }
+
+  /// Monitoring protocol sites (D-033): the station glyph at each stake,
+  /// dimmed once the site is retired. The source starts empty and the
+  /// layer watch fills it.
+  Future<void> _addProtocolSiteLayers(MapLibreMapController controller) async {
+    await controller.addImage('protocol-site', await protocolSiteMarker());
+    await controller.addImage(
+      'protocol-site-retired',
+      await protocolSiteMarker(retired: true),
+    );
+    await controller.addGeoJsonSource('protocol-sites', _emptyCollection);
+    await controller.addSymbolLayer(
+      'protocol-sites',
+      'protocol-sites-pt',
+      const SymbolLayerProperties(
+        iconImage: ['get', 'icon'],
+        iconSize: 1 / 3,
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+      ),
+      filter: [
+        '==',
+        ['geometry-type'],
+        'Point',
+      ],
+      enableInteraction: true,
+    );
+    _protocolSiteLayerReady = true;
   }
 
   /// Record pins. The sources are created empty and then kept in step with

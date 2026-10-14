@@ -93,6 +93,7 @@ mixin _DeskMapMarks on _DeskMapTiles {
     setState(() {
       _selectedId = id;
       _closeFeature();
+      _closeSite();
     });
   }
 
@@ -202,6 +203,7 @@ mixin _DeskMapMarks on _DeskMapTiles {
     if (s == null) return;
     String? bestRecord;
     String? bestFeature;
+    String? bestSite;
     List<MapRecord>? bestCluster;
     var bestD = 16.0; // px
     final (lit, dimmed) = _clustersFor(s);
@@ -247,17 +249,37 @@ mixin _DeskMapMarks on _DeskMapTiles {
         Diag.report(e, st, where: 'DeskMapWorkspace._onTapUp');
       }
     }
+    // Monitoring sites (D-033): the stake opens its panel.
+    for (final site in s.sites) {
+      final (x, y) = _screenOf(site.lat, site.lng, size);
+      final dist = (Offset(x, y) - d.localPosition).distance;
+      if (dist < bestD) {
+        bestD = dist;
+        bestSite = site.id;
+        bestFeature = null;
+        bestRecord = null;
+        bestCluster = null;
+      }
+    }
     if (bestCluster != null) {
       _expandCluster(bestCluster);
     } else if (bestRecord != null) {
       setState(() {
         _selectedId = bestRecord;
         _closeFeature();
+        _closeSite();
       });
     } else if (bestFeature != null) {
       setState(() {
         _selectedFeatureId = bestFeature;
         _selectedId = null;
+        _closeSite();
+      });
+    } else if (bestSite != null) {
+      setState(() {
+        _selectedSiteId = bestSite;
+        _selectedId = null;
+        _closeFeature();
       });
     }
   }

@@ -72,6 +72,7 @@ mixin _MapTabCore on State<MapTab> {
   bool _showTracks = true;
   bool _showFeatures = true;
   bool _showPhotoPoints = true;
+  bool _showProtocolSites = true;
 
   /// Satellite imagery draws over the offline vector map. The standard view
   /// (on by default, remembered): imagery is what the ground actually looks
@@ -81,7 +82,12 @@ mixin _MapTabCore on State<MapTab> {
   /// the vector map underneath carries on.
   late bool _showSatellite = widget.prefs.mapSatellite;
   bool get _layersTouched =>
-      !_showZones || !_showTracks || !_showFeatures || !_showSatellite;
+      !_showZones ||
+      !_showTracks ||
+      !_showFeatures ||
+      !_showPhotoPoints ||
+      !_showProtocolSites ||
+      !_showSatellite;
 
   /// The sheet's toggles as the layer model states them (D-038 item 11):
   /// imagery is the satellite raster; records and the boundary are never
@@ -92,5 +98,6 @@ mixin _MapTabCore on State<MapTab> {
     tracks: _showTracks,
     features: _showFeatures,
     photoPoints: _showPhotoPoints,
+    protocolSites: _showProtocolSites,
   );
 }

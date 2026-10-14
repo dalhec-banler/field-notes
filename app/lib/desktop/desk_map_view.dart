@@ -15,9 +15,11 @@ import '../map/cluster_badge.dart';
 import '../map/imagery_sources.dart';
 import '../map/layers/layer_loader.dart';
 import '../map/layers/map_layers.dart';
+import '../map/protocol_site_glyph.dart';
 import '../map/record_clusters.dart';
 import '../map/record_ink.dart';
 import '../map/tile_cache.dart';
+import '../protocols/protocol_service.dart';
 import '../screens/record_detail_screen.dart';
 import '../services/diag.dart';
 import '../services/map_jump.dart';
@@ -88,10 +90,14 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
     mapJump.addListener(_onMapJump);
     // The watch emits once on listen, so it is also the first load — and
     // that load frames, since nothing has moved the camera yet. The
-    // feature panel's condition log is here too: a fresh layer set is
-    // what re-reads an open panel.
+    // feature panel's condition log and the site panel's visits are here
+    // too: a fresh layer set is what re-reads an open panel.
     _watch = widget.db
-        .changes({..._loader.tables, widget.db.featureConditionLogs})
+        .changes({
+          ..._loader.tables,
+          widget.db.featureConditionLogs,
+          widget.db.protocolRuns,
+        })
         .listen((_) => _load());
   }
 
@@ -161,6 +167,8 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
           ),
           child: _selectedFeatureId != null
               ? _featurePanel(_selectedFeatureId!)
+              : _selectedSiteId != null
+              ? _sitePanel(_selectedSiteId!)
               : _selectedId == null
               ? _speciesPanel(s)
               : _recordPanel(),
@@ -229,6 +237,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
                       tileScale: _tileScale,
                       centre: _worldPx(_lat!, _lng!),
                       selectedId: _selectedId,
+                      selectedSiteId: _selectedSiteId,
                       highlightKey: _highlightKey,
                       screenOf: _screenOf,
                     ),
@@ -260,7 +269,7 @@ class _DeskMapWorkspaceState extends State<DeskMapWorkspace>
                       ),
                       child: MonoLabel(
                         'DRAG TO PAN · SCROLL TO ZOOM · CLICK A MARK '
-                        'TO OPEN THE RECORD',
+                        'TO OPEN IT',
                         size: 8,
                         spacing: 1.2,
                         color: Press.paperRaised,

@@ -199,6 +199,12 @@ class _ExportWorkspaceState extends State<ExportWorkspace>
                   count: _subject?.tracks.length,
                 ),
                 _layerRow(
+                  'Monitoring sites',
+                  _layers.protocolSites,
+                  (v) => _layers = _layers.copyWith(protocolSites: v),
+                  count: _subject?.sites.length,
+                ),
+                _layerRow(
                   'Hydrology · USGS',
                   _layers.hydro,
                   (v) => _layers = _layers.copyWith(hydro: v),
@@ -296,7 +302,8 @@ class _ExportWorkspaceState extends State<ExportWorkspace>
                     controller: _preparedFor,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(),
-                      hintText: 'NRCS · your state wildlife agency · a neighbour',
+                      hintText:
+                          'NRCS · your state wildlife agency · a neighbour',
                     ),
                     style: TextStyle(fontFamily: Type.serif, fontSize: 15),
                   ),

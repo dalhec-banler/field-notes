@@ -14,6 +14,11 @@ mixin _MapScreenGestures on _MapScreenLayers {
           widget.onPhotoPointTap?.call(ppid);
           return;
         }
+        final psid = await _protocolSiteAt(point);
+        if (psid != null) {
+          widget.onProtocolSiteTap?.call(psid);
+          return;
+        }
         final fid = await _featureAt(point);
         if (fid != null) widget.onFeatureTap?.call(fid);
         return;
@@ -91,6 +96,23 @@ mixin _MapScreenGestures on _MapScreenLayers {
       return;
     }
     widget.onLongPress?.call(latLng);
+  }
+
+  Future<String?> _protocolSiteAt(Point<double> point) async {
+    final controller = _controller;
+    if (controller == null) return null;
+    try {
+      final hits = await controller.queryRenderedFeatures(point, [
+        'protocol-sites-pt',
+      ], null);
+      for (final h in hits) {
+        final id = ((h as Map)['properties'] as Map?)?['psid'] as String?;
+        if (id != null) return id;
+      }
+    } catch (e, st) {
+      Diag.report(e, st, where: 'MapScreen._protocolSiteAt');
+    }
+    return null;
   }
 
   Future<String?> _photoPointAt(Point<double> point) async {

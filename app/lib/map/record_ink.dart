@@ -29,7 +29,10 @@ const recordMarks = <String, RecordMark>{
   'infrastructure': RecordMark(0xFF1B1813, RecordShape.square), // ink
   'maintenance': RecordMark(0xFFA8791F, RecordShape.square), // work: attention
   'problem': RecordMark(0xFF8B2E22, RecordShape.triangle), // oxblood
-  'survey': RecordMark(0xFF2F5D8A, RecordShape.square), // monitoring run (D-033)
+  'survey': RecordMark(
+    0xFF2F5D8A,
+    RecordShape.square,
+  ), // monitoring run (D-033)
   // Legacy rows only — 'weather' left kObservationTypes in v4.
   'weather': RecordMark(0xFF2F5D8A, RecordShape.circle),
 };
@@ -54,6 +57,18 @@ const growthFormInk = <String, int>{
 /// 2026-09-07: "a red ring around the green dot"). The dot inside keeps
 /// saying what the plant is.
 const removalRed = 0xFFE0261C;
+
+/// Monitoring protocol sites (D-033): a survey-station glyph — a square
+/// with a crosshair whose arms cross its sides, and a dot at the stake —
+/// ink on paper. No record, feature or photo point wears it, so a stake
+/// reads as a stake on every surface. `protocol_site_glyph.dart` paints
+/// it; the phone's raster, the desk's canvas and the plate all ask it.
+const protocolSiteInk = 0xFF1B1813;
+const protocolSitePaper = 0xFFF7F6F2;
+
+/// A retired site ("stop asking here") draws at this alpha: the stake is
+/// still in the ground and its history still stands, but nothing is due.
+const protocolSiteRetiredAlpha = 0.45;
 
 String cssHex(int argb) =>
     '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';

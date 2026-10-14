@@ -103,6 +103,7 @@ class _DeskMapPainter extends CustomPainter {
     required this.tileScale,
     required this.centre,
     required this.selectedId,
+    required this.selectedSiteId,
     required this.highlightKey,
     required this.screenOf,
   });
@@ -118,6 +119,7 @@ class _DeskMapPainter extends CustomPainter {
   final double tileScale;
   final (double, double) centre;
   final String? selectedId;
+  final String? selectedSiteId;
   final String? highlightKey;
   final (double, double) Function(double lat, double lng, Size size) screenOf;
 
@@ -287,9 +289,34 @@ class _DeskMapPainter extends CustomPainter {
           }
 
         case PhotoPointStations():
-        case ProtocolSiteMarks():
-          // The desk map does not draw stations or monitoring sites.
+          // The desk map does not draw stations.
           break;
+
+        // Monitoring sites (D-033) — the shared station glyph, at the
+        // size the features draw; the clicked one sits in a soft ring.
+        case ProtocolSiteMarks(:final sites):
+          for (final s in sites) {
+            final (x, y) = screenOf(s.lat, s.lng, size);
+            if (x < -20 ||
+                y < -20 ||
+                x > size.width + 20 ||
+                y > size.height + 20) {
+              continue;
+            }
+            if (s.id == selectedSiteId) {
+              canvas.drawCircle(
+                ui.Offset(x, y),
+                16,
+                ui.Paint()..color = const ui.Color(0x338B2E22),
+              );
+            }
+            paintProtocolSite(
+              canvas,
+              ui.Offset(x, y),
+              r: 7,
+              retired: s.retiredOn != null,
+            );
+          }
 
         // Records — the shared shape language, paper stroke; a cell with
         // more than one wears the phone's badge. With a species

@@ -87,9 +87,15 @@ text, NEXT dims until the frame's required chips are picked, FINISH on a
 short run offers "keep it as a partial." The record detail shows a run
 summary card for survey records.
 
-Not yet built: site marks on the map layer and "Walk me there" navigation
-(the photo-point readout is the pattern), custom-protocol builder UI (the
-service supports it), evidence-packet monitoring page, desk views.
+On the map (2026-10-14): a site is a survey-station glyph on the phone,
+the desk and the plate (DESIGN.md, mark language). Tap the stake on the
+phone → site detail; click it on the desk → a side panel with the method,
+the stake, last visit, next due and every visit; the plate prints it with
+its name under an export switch that defaults off.
+
+Not yet built: "Walk me there" navigation (the photo-point readout is the
+pattern), the line/plot geometry drawn on the map, custom-protocol builder
+UI (the service supports it), evidence-packet monitoring page.
 
 Sources: TPWD guidelines and Appendix A Census; NRCS CPS 528/314/391; NM
 NRCS VOR protocol; Herrick et al. Monitoring Manual Vol. I/II; Landscape

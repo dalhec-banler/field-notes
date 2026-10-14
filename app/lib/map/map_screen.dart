@@ -45,7 +45,7 @@ const mapLayerIds = <MapLayerKind, List<String>>{
   MapLayerKind.tracks: ['tracks-line'],
   MapLayerKind.features: ['features-fill', 'features-line', 'features-pt'],
   MapLayerKind.photoPoints: ['pp-wedge', 'pp-axis', 'pp-pt'],
-  MapLayerKind.protocolSites: [],
+  MapLayerKind.protocolSites: ['protocol-sites-pt'],
   MapLayerKind.records: [
     'observations-circles',
     'observations-shapes',
@@ -74,6 +74,7 @@ class MapScreen extends StatefulWidget {
     this.onClusterTap,
     this.onFeatureTap,
     this.onPhotoPointTap,
+    this.onProtocolSiteTap,
     this.onLayersReady,
     this.onPresence,
     this.onRecordCount,
@@ -109,6 +110,9 @@ class MapScreen extends StatefulWidget {
 
   /// Tap on a photo point station → its id.
   final ValueChanged<String>? onPhotoPointTap;
+
+  /// Tap on a monitoring protocol site's stake → its id (D-033).
+  final ValueChanged<String>? onProtocolSiteTap;
 
   /// Fired once the style and every overlay layer exist — the moment chrome
   /// can safely apply filters/visibility.
