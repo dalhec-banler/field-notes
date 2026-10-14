@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../repo/repos.dart';
 import '../screens/record_detail_screen.dart';
 import '../services/app_prefs.dart';
 import '../services/record_filter.dart';
@@ -37,6 +37,10 @@ class LedgerTab extends StatefulWidget {
 }
 
 class _LedgerTabState extends State<LedgerTab> {
+  ObservationsRepo get _records => ObservationsRepo(widget.db);
+  ZonesRepo get _zoneRepo => ZonesRepo(widget.db);
+  TaxaRepo get _taxa => TaxaRepo(widget.db);
+
   // The ledger IS the filter (Austin, 2026-09-04): these proxy the one
   // shared RecordFilter, so the map shows what the ledger shows.
   String? get _zoneFilter => recordFilter.zoneId;
@@ -101,8 +105,7 @@ class _LedgerTabState extends State<LedgerTab> {
 
   Future<void> _loadZones() async {
     final propertyId = widget.property.id;
-    final zones =
-        await widget.db.zonesOf(propertyId, byName: true);
+    final zones = await _zoneRepo.of(propertyId, byName: true);
     // A slower load for the previous place must not overwrite the new one.
     if (mounted && widget.property.id == propertyId) {
       setState(() => _zones = zones);
@@ -111,46 +114,10 @@ class _LedgerTabState extends State<LedgerTab> {
 
   @override
   Widget build(BuildContext context) {
-    final query = (widget.db.select(widget.db.observations)
-      ..where((o) => o.propertyId.equals(widget.property.id))
-      ..where((o) => o.deletedAt.isNull())
-      ..orderBy([(o) => OrderingTerm.desc(o.observedAt)]));
-    if (_zoneFilter != null) query.where((o) => o.zoneId.equals(_zoneFilter!));
-    if (recordFilter.flagged) {
-      query.where((o) => o.removalStatus.equals('flagged'));
-    }
-    if (_typeFilter != null) {
-      query.where((o) => o.observationType.equals(_typeFilter!));
-    }
-    if (_speciesFilter != null) {
-      query.where((o) => o.taxonId.equals(_speciesFilter!));
-    }
-    final range = _dateFilter;
-    if (range != null) {
-      // observed_at is ISO-8601 UTC; day bounds in local time → UTC.
-      final from = DateTime(
-        range.start.year,
-        range.start.month,
-        range.start.day,
-      ).toUtc().toIso8601String();
-      // day + 1 (not +24h): Dart normalizes the overflow and keeps local
-      // midnight across a DST change.
-      final to = DateTime(
-        range.end.year,
-        range.end.month,
-        range.end.day + 1,
-      ).toUtc().toIso8601String();
-      query.where(
-        (o) =>
-            o.observedAt.isBiggerOrEqual(Constant(from)) &
-            o.observedAt.isSmallerThan(Constant(to)),
-      );
-    }
-
     return SafeArea(
       bottom: false,
       child: StreamBuilder<List<Observation>>(
-        stream: query.watch(),
+        stream: _records.watchLedger(widget.property.id, recordFilter.query),
         builder: (context, snapshot) {
           final obs = snapshot.data ?? const [];
           return Column(
@@ -318,27 +285,13 @@ class _LedgerTabState extends State<LedgerTab> {
   /// Species that actually have records on this place — not the whole
   /// library.
   Future<void> _pickSpecies() async {
-    final rows = await widget.db
-        .customSelect(
-          'SELECT t.id AS id, t.common_name AS common, t.scientific_name AS sci, '
-          'COUNT(o.id) AS n FROM taxa t '
-          'JOIN observations o ON o.taxon_id = t.id '
-          'WHERE o.property_id = ? AND o.deleted_at IS NULL '
-          'GROUP BY t.id ORDER BY n DESC, common',
-          variables: [Variable.withString(widget.property.id)],
-          readsFrom: {widget.db.taxa, widget.db.observations},
-        )
-        .get();
+    final rows = await _taxa.withRecordsOn(widget.property.id);
     if (!mounted) return;
     final picked = await _pickSheet<String?>(
       title: 'Species',
       items: [
         (null, 'All species'),
-        for (final r in rows)
-          (
-            r.data['id'] as String,
-            '${(r.data['common'] as String?) ?? (r.data['sci'] as String)} · ${r.data['n']}',
-          ),
+        for (final r in rows) (r.taxonId, '${r.label} · ${r.count}'),
       ],
     );
     if (picked == null) return;
@@ -417,26 +370,10 @@ class _LedgerRow extends StatelessWidget {
   /// (species, photo thumbnail, has a voice note)
   Future<(TaxaData?, String?, bool)> _details() async {
     TaxaData? species;
-    if (obs.taxonId != null) {
-      species = await (db.select(
-        db.taxa,
-      )..where((x) => x.id.equals(obs.taxonId!))).getSingleOrNull();
-    }
+    if (obs.taxonId != null) species = await TaxaRepo(db).byId(obs.taxonId!);
     String? thumb;
     var hasVoice = false;
-    final links =
-        await (db.select(db.mediaLinks)..where(
-              (l) =>
-                  l.entityType.equals('observation') &
-                  l.entityId.equals(obs.id) &
-                  l.deletedAt.isNull(),
-            ))
-            .get();
-    for (final link in links) {
-      final m = await (db.select(
-        db.media,
-      )..where((x) => x.id.equals(link.mediaId))).getSingleOrNull();
-      if (m == null) continue;
+    for (final m in await MediaRepo(db).linkedTo(entityId: obs.id)) {
       if (m.mediaType == 'audio') {
         hasVoice = true;
       } else {

@@ -23,6 +23,7 @@ import 'imagery_sources.dart';
 import 'map_markers.dart';
 import 'record_clusters.dart';
 import 'record_ink.dart';
+import '../repo/repos.dart';
 import '../services/record_filter.dart';
 import 'mbtiles_store.dart';
 import 'pmtiles_reader.dart';
@@ -778,7 +779,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     FieldNotesDb db,
     Property property,
   ) async {
-    final zones = await db.zonesToDraw(property.id);
+    final zones = await ZonesRepo(db).toDraw(property.id);
     if (zones.isNotEmpty) {
       await controller.addGeoJsonSource('zones', {
         'type': 'FeatureCollection',
@@ -953,9 +954,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     _photoPointLayerReady = true;
     await _refreshPhotoPoints();
     _photoPointSub?.cancel();
-    _photoPointSub = db
-        .changes({db.photoPoints})
-        .listen((_) => _refreshPhotoPoints());
+    _photoPointSub = PhotoPointsRepo(
+      db,
+    ).changes.listen((_) => _refreshPhotoPoints());
 
     _featureLayerReady = true;
     await _refreshFeatures();
@@ -1104,11 +1105,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null || property == null || controller == null) return;
     if (!_photoPointLayerReady) return;
     try {
-      final points =
-          await (db.select(db.photoPoints)
-                ..where((p) => p.propertyId.equals(property.id))
-                ..where((p) => p.deletedAt.isNull()))
-              .get();
+      final points = await PhotoPointsRepo(db).on(property.id);
       final out = <Map<String, dynamic>>[];
       for (final p in points) {
         out.add({
@@ -1245,9 +1242,9 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     final db = widget.db;
     if (db == null) return;
     _recordSub?.cancel();
-    _recordSub = db
-        .changes({db.observations, db.taxa})
-        .listen((_) => _refreshRecords());
+    _recordSub = ObservationsRepo(
+      db,
+    ).pinChanges.listen((_) => _refreshRecords());
   }
 
   /// Every located record on this property, with the species and growth form
@@ -1292,26 +1289,16 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null || property == null) return;
     if (propertyCentre(property) != null) return;
     try {
-      final row = await db
-          .customSelect(
-            'SELECT AVG(lat) AS lat, AVG(lng) AS lng, COUNT(*) AS n, '
-            'MIN(lat) AS min_lat, MAX(lat) AS max_lat, '
-            'MIN(lng) AS min_lng, MAX(lng) AS max_lng '
-            'FROM observations WHERE property_id = ? AND deleted_at IS NULL '
-            'AND (gps_accuracy_m IS NULL OR gps_accuracy_m != -1)',
-            variables: [Variable.withString(property.id)],
-            readsFrom: {db.observations},
-          )
-          .getSingleOrNull();
-      final n = (row?.data['n'] as int?) ?? 0;
-      final lat = row?.data['lat'] as double?;
-      final lng = row?.data['lng'] as double?;
+      final extent = await ObservationsRepo(db).locatedExtent(property.id);
+      final n = extent.count;
+      final lat = extent.meanLat;
+      final lng = extent.meanLng;
       if (n > 0 && lat != null && lng != null) {
         _recordCentre = [lng, lat];
-        final minLat = row?.data['min_lat'] as double?;
-        final maxLat = row?.data['max_lat'] as double?;
-        final minLng = row?.data['min_lng'] as double?;
-        final maxLng = row?.data['max_lng'] as double?;
+        final minLat = extent.minLat;
+        final maxLat = extent.maxLat;
+        final minLng = extent.minLng;
+        final maxLng = extent.maxLng;
         if (n > 1 &&
             minLat != null &&
             maxLat != null &&
@@ -1333,60 +1320,33 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     if (db == null || property == null || controller == null) return;
     if (!_recordLayersReady) return;
     try {
-      final rows = await db
-          .customSelect(
-            'SELECT o.id AS id, o.lat AS lat, o.lng AS lng, '
-            'o.observation_type AS type, o.gps_accuracy_m AS acc, '
-            'o.taxon_id AS taxon, o.zone_id AS zone, '
-            'o.observed_at AS at, '
-            'o.removal_status AS removal, '
-            't.growth_form AS growth, '
-            'COALESCE(t.common_name, t.scientific_name) AS species '
-            'FROM observations o LEFT JOIN taxa t ON t.id = o.taxon_id '
-            'WHERE o.property_id = ? AND o.deleted_at IS NULL '
-            'AND (o.gps_accuracy_m IS NULL OR o.gps_accuracy_m != -1)',
-            variables: [Variable.withString(property.id)],
-            readsFrom: {db.observations, db.taxa},
-          )
-          .get();
+      final rows = await ObservationsRepo(db).pins(property.id);
       // The ledger is the filter: the map draws exactly what it lists.
       final flt = recordFilter;
-      String? dFrom;
-      String? dTo;
-      final dr = flt.dates;
-      if (dr != null) {
-        dFrom = DateTime(
-          dr.start.year,
-          dr.start.month,
-          dr.start.day,
-        ).toUtc().toIso8601String();
-        dTo = DateTime(
-          dr.end.year,
-          dr.end.month,
-          dr.end.day + 1,
-        ).toUtc().toIso8601String();
-      }
+      final bounds = flt.utcDayBounds;
       final features = <Map<String, dynamic>>[];
       for (final r in rows) {
-        final growth = r.data['growth'] as String?;
-        final type = r.data['type'] as String? ?? 'general';
-        final species = r.data['species'] as String?;
+        final growth = r.growthForm;
+        final type = r.type;
+        final species = r.species;
         if (flt.type != null && type != flt.type) continue;
-        if (flt.flagged && r.data['removal'] != 'flagged') continue;
-        if (flt.taxonId != null && r.data['taxon'] != flt.taxonId) continue;
-        if (flt.zoneId != null && r.data['zone'] != flt.zoneId) continue;
-        if (dFrom != null) {
-          final at = r.data['at'] as String? ?? '';
-          if (at.compareTo(dFrom) < 0 || at.compareTo(dTo!) >= 0) continue;
+        if (flt.flagged && r.removalStatus != 'flagged') continue;
+        if (flt.taxonId != null && r.taxonId != flt.taxonId) continue;
+        if (flt.zoneId != null && r.zoneId != flt.zoneId) continue;
+        if (bounds != null) {
+          final at = r.observedAt;
+          if (at.compareTo(bounds.$1) < 0 || at.compareTo(bounds.$2) >= 0) {
+            continue;
+          }
         }
         features.add({
           'type': 'Feature',
           'geometry': {
             'type': 'Point',
-            'coordinates': [r.data['lng'], r.data['lat']],
+            'coordinates': [r.lng, r.lat],
           },
           'properties': {
-            'id': r.data['id'],
+            'id': r.id,
             'type': type,
             // What the pin is coloured by: growth form when the record
             // names a plant, otherwise the record type.
@@ -1394,7 +1354,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             'growth': growth ?? '',
             'named': species != null,
             'species': species ?? '',
-            'removal': (r.data['removal'] as String?) ?? '',
+            'removal': r.removalStatus ?? '',
           },
         });
       }

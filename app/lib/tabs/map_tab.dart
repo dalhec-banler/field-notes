@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart' show Position;
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -8,6 +7,7 @@ import '../geo/site_presence.dart';
 import '../main.dart' show locationHub, trackRecorder;
 import '../map/area_downloader.dart';
 import '../map/map_screen.dart';
+import '../repo/repos.dart';
 import '../services/app_prefs.dart';
 import '../services/map_jump.dart';
 import '../services/record_filter.dart';
@@ -58,6 +58,10 @@ class MapTab extends StatefulWidget {
 }
 
 class _MapTabState extends State<MapTab> {
+  ObservationsRepo get _records => ObservationsRepo(widget.db);
+  ZonesRepo get _zones => ZonesRepo(widget.db);
+  PhotoPointsRepo get _photoPoints => PhotoPointsRepo(widget.db);
+
   int _zoneCount = 0;
   MapLibreMapController? _controller;
 
@@ -145,8 +149,7 @@ class _MapTabState extends State<MapTab> {
   /// Draw and adjust the boundary and zones on the imagery — the polygon
   /// editor (D-024 batch 1). Every save re-derives zone assignment.
   Future<void> _editShapes() async {
-    final zones =
-        await widget.db.zonesOf(widget.property.id, byName: true);
+    final zones = await _zones.of(widget.property.id, byName: true);
     if (!mounted) return;
     final choice = await showModalBottomSheet<Object>(
       context: context,
@@ -201,20 +204,8 @@ class _MapTabState extends State<MapTab> {
     if (c != null) {
       target = LatLng(c[1], c[0]);
     } else {
-      final row =
-          await (widget.db.selectOnly(widget.db.observations)
-                ..addColumns([
-                  widget.db.observations.lat.avg(),
-                  widget.db.observations.lng.avg(),
-                ])
-                ..where(
-                  widget.db.observations.propertyId.equals(widget.property.id) &
-                      widget.db.observations.deletedAt.isNull(),
-                ))
-              .getSingleOrNull();
-      final lat = row?.read(widget.db.observations.lat.avg());
-      final lng = row?.read(widget.db.observations.lng.avg());
-      if (lat != null && lng != null) target = LatLng(lat, lng);
+      final mean = await _records.meanPosition(widget.property.id);
+      if (mean != null) target = LatLng(mean.$1, mean.$2);
     }
     if (!mounted) return;
     final saved = await Navigator.of(context).push<bool>(
@@ -617,15 +608,7 @@ class _MapTabState extends State<MapTab> {
 
   /// Frame every record the filter keeps — the species jump's landing.
   Future<void> _fitFiltered() async {
-    final rows =
-        await (widget.db.select(widget.db.observations)
-              ..where((o) => o.propertyId.equals(widget.property.id))
-              ..where((o) => o.deletedAt.isNull())
-              ..where(
-                (o) =>
-                    o.gpsAccuracyM.equals(-1).not() | o.gpsAccuracyM.isNull(),
-              ))
-            .get();
+    final rows = await _records.located(widget.property.id);
     final f = recordFilter;
     final pts = [
       for (final o in rows)
@@ -671,8 +654,7 @@ class _MapTabState extends State<MapTab> {
   }
 
   Future<void> _loadCounts() async {
-    final zones =
-        await widget.db.zonesOf(widget.property.id);
+    final zones = await _zones.of(widget.property.id);
     if (mounted) setState(() => _zoneCount = zones.length);
   }
 
@@ -713,9 +695,7 @@ class _MapTabState extends State<MapTab> {
               visible: widget.active,
               onRecordTap: widget.onRecordTap,
               onPhotoPointTap: (ppid) async {
-                final p = await (widget.db.select(
-                  widget.db.photoPoints,
-                )..where((x) => x.id.equals(ppid))).getSingleOrNull();
+                final p = await _photoPoints.byId(ppid);
                 if (p == null || !context.mounted) return;
                 await Navigator.of(context).push(
                   MaterialPageRoute(

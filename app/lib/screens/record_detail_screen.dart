@@ -1,14 +1,13 @@
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../db/database.dart';
-import '../geo/simplify.dart' show distanceM;
 import '../main.dart' show opLog;
+import '../repo/repos.dart';
 import '../theme/tokens.dart';
 import '../widgets/photo_gallery.dart';
 import '../widgets/press.dart';
@@ -21,12 +20,10 @@ import '../widgets/removal_chip.dart';
 
 import 'package:maplibre_gl/maplibre_gl.dart' show LatLng;
 
-import '../geo/zone_assignment.dart';
+import '../geo/zone_assignment.dart' show noZoneLabel;
 import '../services/desk.dart';
 import '../services/record_filter.dart';
 import '../services/media_store.dart';
-import '../services/observation_ops.dart'
-    show eraseMedia, softDeleteObservation;
 import '../services/review.dart';
 import 'identify_sheet.dart';
 import 'move_pin_screen.dart';
@@ -60,6 +57,13 @@ class RecordDetailScreen extends StatefulWidget {
 }
 
 class _RecordDetailScreenState extends State<RecordDetailScreen> {
+  ObservationsRepo get _records => ObservationsRepo(widget.db);
+  MediaRepo get _media => MediaRepo(widget.db);
+  ZonesRepo get _zones => ZonesRepo(widget.db);
+  TaxaRepo get _taxa => TaxaRepo(widget.db);
+  PropertiesRepo get _properties => PropertiesRepo(widget.db);
+  PhotoPointsRepo get _photoPoints => PhotoPointsRepo(widget.db);
+
   Observation? _obs;
   bool _gone = false;
   TaxaData? _taxon;
@@ -96,55 +100,24 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   Future<void> _load() async {
     final db = widget.db;
-    final obs = await (db.select(
-      db.observations,
-    )..where((o) => o.id.equals(widget.obsId))).getSingleOrNull();
+    final obs = await _records.byId(widget.obsId);
     if (obs == null) {
       if (mounted) setState(() => _gone = true);
       return;
     }
-    final property = await (db.select(
-      db.properties,
-    )..where((p) => p.id.equals(obs.propertyId))).getSingleOrNull();
+    final property = await _properties.byId(obs.propertyId);
     TaxaData? taxon;
-    if (obs.taxonId != null) {
-      taxon = await (db.select(
-        db.taxa,
-      )..where((t) => t.id.equals(obs.taxonId!))).getSingleOrNull();
-    }
+    if (obs.taxonId != null) taxon = await _taxa.byId(obs.taxonId!);
     Zone? zone;
-    if (obs.zoneId != null) {
-      zone = await (db.select(
-        db.zones,
-      )..where((z) => z.id.equals(obs.zoneId!))).getSingleOrNull();
-    }
+    if (obs.zoneId != null) zone = await _zones.byId(obs.zoneId!);
     EnvContext? env;
     if (obs.envContextId != null) {
-      env = await (db.select(
-        db.envContexts,
-      )..where((e) => e.id.equals(obs.envContextId!))).getSingleOrNull();
+      env = await _records.envContext(obs.envContextId!);
     }
-    final links =
-        await (db.select(db.mediaLinks)
-              ..where(
-                (l) =>
-                    l.entityType.equals('observation') &
-                    l.entityId.equals(obs.id) &
-                    l.deletedAt.isNull(),
-              )
-              ..orderBy([(l) => OrderingTerm.asc(l.sortOrder)]))
-            .get();
     final photos = <MediaData>[];
     final audio = <MediaData>[];
-    for (final link in links) {
-      final m = await (db.select(
-        db.media,
-      )..where((x) => x.id.equals(link.mediaId))).getSingleOrNull();
-      if (m == null ||
-          m.localPath == null ||
-          !File(m.localPath!).existsSync()) {
-        continue;
-      }
+    for (final m in await _media.linkedTo(entityId: obs.id)) {
+      if (m.localPath == null || !File(m.localPath!).existsSync()) continue;
       if (m.mediaType == 'audio') {
         audio.add(m);
       } else {
@@ -153,46 +126,13 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
     // Related (spec §7.4): other records within 50 m — the same plant
     // photographed again, the same spring checked again.
-    final nearby = <(Observation, double)>[];
-    if (obs.gpsAccuracyM != -1) {
-      final candidates =
-          await (db.select(db.observations)
-                ..where((o) => o.propertyId.equals(obs.propertyId))
-                ..where((o) => o.deletedAt.isNull())
-                ..where((o) => o.id.equals(obs.id).not())
-                ..where(
-                  (o) =>
-                      o.gpsAccuracyM.equals(-1).not() | o.gpsAccuracyM.isNull(),
-                )
-                ..where(
-                  (o) =>
-                      o.lat.isBetweenValues(obs.lat - 0.001, obs.lat + 0.001),
-                )
-                ..where(
-                  (o) =>
-                      o.lng.isBetweenValues(obs.lng - 0.001, obs.lng + 0.001),
-                ))
-              .get();
-      for (final c in candidates) {
-        final d = distanceM([obs.lng, obs.lat], [c.lng, c.lat]);
-        if (d <= 50) nearby.add((c, d));
-      }
-      nearby.sort((a, b) => a.$2.compareTo(b.$2));
-    }
+    final nearby = await _records.nearby(obs);
     final review = await ReviewService(widget.db)
         .forEntity('observation', widget.obsId);
     final photoPoint = photos.isEmpty
         ? null
-        : await (db.select(db.photoPoints)
-                ..where(
-                  (p) =>
-                      p.referenceMediaId.isIn([for (final m in photos) m.id]),
-                )
-                ..where((p) => p.deletedAt.isNull())
-                ..limit(1))
-              .getSingleOrNull();
-    final zoneRows =
-        await db.zonesOf(obs.propertyId);
+        : await _photoPoints.anchoredBy([for (final m in photos) m.id]);
+    final zoneRows = await _zones.of(obs.propertyId);
     ProtocolRun? run;
     Protocol? runProtocol;
     ProtocolSite? runSite;
@@ -201,12 +141,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       final svc = ProtocolService(db);
       run = await svc.runForObservation(obs.id);
       if (run != null) {
-        runProtocol = await (db.select(
-          db.protocols,
-        )..where((p) => p.id.equals(run!.protocolId))).getSingleOrNull();
-        runSite = await (db.select(
-          db.protocolSites,
-        )..where((s) => s.id.equals(run!.siteId))).getSingleOrNull();
+        runProtocol = await svc.protocolById(run.protocolId);
+        runSite = await svc.siteById(run.siteId);
         if (runProtocol != null && runSite != null) {
           runIndicators = await svc.indicatorsFor(runProtocol, runSite, run);
         }
@@ -290,18 +226,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       confirmLabel: 'REMOVE',
     );
     if (!sure) return;
-    await (widget.db.delete(widget.db.mediaLinks)..where(
-          (l) =>
-              l.mediaId.equals(media.id) &
-              l.entityType.equals('observation') &
-              l.entityId.equals(obs.id),
-        ))
-        .go();
-    final remaining = await (widget.db.select(
-      widget.db.mediaLinks,
-    )..where((l) => l.mediaId.equals(media.id) & l.deletedAt.isNull())).get();
-    if (remaining.isEmpty) {
-      await eraseMedia(widget.db, media.id, log: opLog);
+    await _media.unlink(media.id, entityId: obs.id);
+    if (await _media.liveLinkCount(media.id) == 0) {
+      await _media.erase(media.id, log: opLog);
     }
     _photoIndex = 0;
     await _load();
@@ -402,54 +329,35 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       deleteTitle: 'DELETE THIS CONDITION ENTRY?',
     );
     if (r == null) return;
-    final now = nowUtcIso();
-    final q = widget.db.update(widget.db.conditionLogs)
-      ..where((x) => x.id.equals(l.id));
     if (r.deleted) {
-      await q.write(
-        ConditionLogsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
-      );
+      await _records.softDeleteConditionLog(l.id);
       return;
     }
-    await q.write(
-      ConditionLogsCompanion(
-        observedAt: Value(withDay(l.observedAt, r.day('on') ?? l.observedAt)),
-        condition: Value(r.text('condition') ?? l.condition),
-        actionTaken: Value(r.text('action')),
-        notes: Value(r.text('notes')),
-        updatedAt: Value(now),
-      ),
+    await _records.updateConditionLog(
+      l.id,
+      observedAt: withDay(l.observedAt, r.day('on') ?? l.observedAt),
+      condition: r.text('condition') ?? l.condition,
+      actionTaken: r.text('action'),
+      notes: r.text('notes'),
     );
   }
 
   Future<void> _makePhotoPoint() async {
     final obs = _obs!;
-    final now = nowUtcIso();
     final name =
         _taxon?.commonName ??
         _taxon?.scientificName ??
         'Photo point ${obs.observedAt.substring(0, 10)}';
     final heading = obs.headingDeg;
-    await widget.db
-        .into(widget.db.photoPoints)
-        .insert(
-          PhotoPointsCompanion.insert(
-            id: newId(),
-            propertyId: obs.propertyId,
-            name: name,
-            lat: obs.lat,
-            lng: obs.lng,
-            bearingDeg: heading != null && heading >= 0 ? heading : 0,
-            subject: Value(_taxon?.commonName ?? _taxon?.scientificName),
-            cadenceDays: const Value(90),
-            focalLengthMm: const Value(26),
-            viewExtentM: const Value(60),
-            referenceMediaId: Value(_photos.first.id),
-            createdBy: 'local',
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
+    await _photoPoints.create(
+      propertyId: obs.propertyId,
+      name: name,
+      lat: obs.lat,
+      lng: obs.lng,
+      bearingDeg: heading != null && heading >= 0 ? heading : 0,
+      subject: _taxon?.commonName ?? _taxon?.scientificName,
+      referenceMediaId: _photos.first.id,
+    );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -460,16 +368,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   }
 
   Future<void> _setRemoval(String? status) async {
-    final now = nowUtcIso();
-    await (widget.db.update(
-      widget.db.observations,
-    )..where((o) => o.id.equals(widget.obsId))).write(
-      ObservationsCompanion(
-        removalStatus: Value(status),
-        removedOn: Value(status == 'removed' ? now.substring(0, 10) : null),
-        updatedAt: Value(now),
-      ),
-    );
+    await _records.setRemoval(widget.obsId, status);
     _load();
   }
 
@@ -503,24 +402,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       ),
     );
     if (moved == null) return;
-    await (widget.db.update(
-      widget.db.observations,
-    )..where((o) => o.id.equals(obs.id))).write(
-      ObservationsCompanion(
-        lat: Value(moved.latitude),
-        lng: Value(moved.longitude),
-        gpsAccuracyM: const Value(null),
-        zoneId: const Value(null),
-        updatedAt: Value(nowUtcIso()),
-      ),
-    );
-    await assignZone(
-      widget.db,
-      observationId: obs.id,
-      propertyId: obs.propertyId,
-      lat: moved.latitude,
-      lng: moved.longitude,
-    );
+    await _records.moveTo(obs, lat: moved.latitude, lng: moved.longitude);
     _load();
   }
 
@@ -533,7 +415,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     );
     if (!confirmed) return;
     // Soft delete (spec §4.1) — sync engines need tombstones.
-    await softDeleteObservation(widget.db, widget.obsId);
+    await _records.softDelete(widget.obsId);
     if (!mounted) return;
     final nav = Navigator.of(context);
     if (!widget.embedded && nav.canPop()) nav.pop();
@@ -821,12 +703,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           Padding(
             padding: EdgeInsets.fromLTRB(Metrics.gutter, 0, Metrics.gutter, 14),
             child: StreamBuilder<List<ConditionLog>>(
-              stream:
-                  (widget.db.select(widget.db.conditionLogs)
-                        ..where((l) => l.observationId.equals(obs.id))
-                        ..where((l) => l.deletedAt.isNull())
-                        ..orderBy([(l) => OrderingTerm.desc(l.observedAt)]))
-                      .watch(),
+              stream: _records.watchConditionLogs(obs.id),
               builder: (context, snapshot) {
                 final logs = snapshot.data ?? const <ConditionLog>[];
                 return Column(

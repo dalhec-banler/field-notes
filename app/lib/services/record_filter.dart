@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../repo/observations_repo.dart' show LedgerQuery;
+
 /// ONE filter for the record surfaces (Austin, 2026-09-04: "seems like
 /// the ledger should be the filter").
 ///
@@ -41,6 +43,40 @@ class RecordFilter extends ChangeNotifier {
 
   static String _d(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// The date range as half-open UTC ISO bounds on `observed_at`, or null
+  /// when no dates are set. `observed_at` is ISO-8601 UTC; the chips pick
+  /// local days, so local midnight → UTC. The end is day + 1 (not +24 h):
+  /// Dart normalizes the overflow and keeps local midnight across a DST
+  /// change.
+  (String from, String to)? get utcDayBounds {
+    final range = dates;
+    if (range == null) return null;
+    final from = DateTime(
+      range.start.year,
+      range.start.month,
+      range.start.day,
+    ).toUtc().toIso8601String();
+    final to = DateTime(
+      range.end.year,
+      range.end.month,
+      range.end.day + 1,
+    ).toUtc().toIso8601String();
+    return (from, to);
+  }
+
+  /// What the ledger asks the repo for: this filter, as plain data.
+  LedgerQuery get query {
+    final bounds = utcDayBounds;
+    return LedgerQuery(
+      zoneId: zoneId,
+      type: type,
+      taxonId: taxonId,
+      flagged: flagged,
+      fromUtc: bounds?.$1,
+      toUtc: bounds?.$2,
+    );
+  }
 
   /// Mutate-and-notify in one move.
   void update(void Function(RecordFilter f) fn) {

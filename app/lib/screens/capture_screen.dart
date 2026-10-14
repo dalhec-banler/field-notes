@@ -12,6 +12,7 @@ import '../id/id_models.dart';
 import '../id/identification_service.dart';
 import '../geo/zone_assignment.dart';
 import '../main.dart' show locationHub;
+import '../repo/repos.dart';
 import '../services/capture_writer.dart';
 import '../services/env_context.dart';
 import '../services/voice_note.dart';
@@ -57,6 +58,10 @@ class CaptureScreen extends StatefulWidget {
 }
 
 class _CaptureScreenState extends State<CaptureScreen> {
+  ObservationsRepo get _records => ObservationsRepo(widget.db);
+  ZonesRepo get _zones => ZonesRepo(widget.db);
+  TaxaRepo get _taxa => TaxaRepo(widget.db);
+
   CameraController? _camera;
   String? _cameraError;
   bool _cameraPermanentlyDenied = false;
@@ -190,11 +195,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         lng: fix.longitude,
       );
       Zone? zone;
-      if (zoneId != null) {
-        zone = await (widget.db.select(
-          widget.db.zones,
-        )..where((z) => z.id.equals(zoneId))).getSingleOrNull();
-      }
+      if (zoneId != null) zone = await _zones.byId(zoneId);
       if (mounted) {
         setState(() {
           _zoneName = zone?.name;
@@ -320,7 +321,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   Future<void> _countZones() async {
-    final n = await widget.db.zonesOf(widget.property.id);
+    final n = await _zones.of(widget.property.id);
     if (mounted) setState(() => _zoneCount = n.length);
   }
 
@@ -381,9 +382,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         onCandidates: (c) => _pendingSuggestions = c,
         onChoose: (c) async {
           final taxonId = await service.ensureTaxon(c, widget.property.id);
-          final taxon = await (widget.db.select(
-            widget.db.taxa,
-          )..where((t) => t.id.equals(taxonId))).getSingleOrNull();
+          final taxon = await _taxa.byId(taxonId);
           if (!mounted) return;
           setState(() {
             _taxon = taxon;
@@ -457,9 +456,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         if (_pendingSuggestions.isNotEmpty) {
           final svc = IdentificationService(db);
           try {
-            final row = await (db.select(
-              db.observations,
-            )..where((o) => o.id.equals(obsId))).getSingle();
+            final row = await _records.single(obsId);
             final rid = await svc.recordSuggestions(_pendingSuggestions, row);
             final chosen = _chosenCandidate;
             if (chosen != null) {
