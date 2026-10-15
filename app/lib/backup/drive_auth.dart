@@ -2,6 +2,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../services/desk.dart';
 import '../services/diag.dart';
+import '../services/secret_store.dart';
 import 'drive_desktop_auth.dart';
 import 'drive_target.dart';
 
@@ -88,10 +89,14 @@ class DriveAuth {
   /// Android, and when the cached grant has lapsed it SHOWS THE ACCOUNT
   /// PICKER — which, called from the launch-time sync, put a Google sheet on
   /// screen before the map had drawn (seen 2026-10-13 and again 2026-10-14).
-  /// So the silent path asks at most once per process, and once it has come
-  /// back empty it stays empty until the user taps Connect ([interactive]
-  /// true) or the app restarts. The status line then says "not connected"
-  /// instead of a dialog saying it.
+  ///
+  /// So a silent attempt that comes back empty is *remembered on disk*: the
+  /// picker can appear once, at the moment the grant lapses, and never again
+  /// on any later launch. Connect clears the memory; Disconnect sets it. The
+  /// status line says "not connected" instead of a dialog saying it.
+  ///
+  /// Only a negative answer is remembered. A grant that works answers
+  /// silently every time, which is how automatic backup and sync run.
   Future<String?> accessToken({required bool interactive}) async {
     if (_isDesk) {
       final token = await DriveDesktopAuth.instance.accessToken(
@@ -100,20 +105,17 @@ class DriveAuth {
       _lastEmail = await DriveDesktopAuth.instance.email;
       return token;
     }
-    if (!interactive && _silentGrantMissing) return null;
+    if (!interactive && await _silentParked) return null;
     await _init();
     final signIn = GoogleSignIn.instance;
 
-    GoogleSignInAccount? account;
-    if (interactive || !_silentAttempted) {
-      _silentAttempted = true;
-      account = await signIn.attemptLightweightAuthentication();
-    }
+    GoogleSignInAccount? account = await signIn
+        .attemptLightweightAuthentication();
     if (account == null) {
       // Only past this line does a Google dialog become possible, and only
       // because the user asked for one.
       if (!interactive) {
-        _silentGrantMissing = true;
+        await _park(true);
         Diag.log(
           'Drive grant missing; silent path parked until Connect',
           where: 'DriveAuth.accessToken',
@@ -128,13 +130,13 @@ class DriveAuth {
       account = await signIn.authenticate(scopeHint: const [DriveTarget.scope]);
     }
     _lastEmail = account.email;
-    _silentGrantMissing = false;
+    await _park(false);
 
     final client = account.authorizationClient;
     var authz = await client.authorizationForScopes(const [DriveTarget.scope]);
     if (authz == null) {
       if (!interactive) {
-        _silentGrantMissing = true;
+        await _park(true);
         return null;
       }
       authz = await client.authorizeScopes(const [DriveTarget.scope]);
@@ -142,15 +144,32 @@ class DriveAuth {
     return authz.accessToken;
   }
 
-  /// Per-process memory of the silent path: whether it has asked Google once
-  /// this launch, and whether that came back without a grant. Connect
-  /// (interactive) clears the second; a restart clears both.
-  bool _silentAttempted = false;
-  bool _silentGrantMissing = false;
+  /// Whether the silent path has given up, remembered across launches so a
+  /// lapsed grant costs one picker, not one per launch.
+  static const _parkedKey = 'drive_silent_parked';
+  final SecretStore _secrets = SecretStore();
+  bool? _parked;
 
-  /// For tests and the Connect button's screen: true when the automatic
-  /// path has given up for this launch.
-  bool get silentGrantMissing => _silentGrantMissing;
+  Future<bool> get _silentParked async =>
+      _parked ??= (await _secrets.read(_parkedKey)) == '1';
+
+  Future<void> _park(bool parked) async {
+    if (_parked == parked) return;
+    _parked = parked;
+    try {
+      if (parked) {
+        await _secrets.write(_parkedKey, '1');
+      } else {
+        await _secrets.delete(_parkedKey);
+      }
+    } catch (e, st) {
+      // Worth a note, not a failed backup: the flag is an optimisation.
+      Diag.report(e, st, where: 'DriveAuth._park');
+    }
+  }
+
+  /// True when the automatic path has given up and is waiting for Connect.
+  Future<bool> get silentGrantMissing => _silentParked;
 
   /// Disconnect: forgets the account here *and* revokes the grant at Google,
   /// so "Disconnect" means what the word means. Backups already in Drive stay
@@ -165,7 +184,7 @@ class DriveAuth {
       await _init();
       await GoogleSignIn.instance.disconnect();
       _lastEmail = null;
-      _silentGrantMissing = true;
+      await _park(true);
     } catch (e, st) {
       Diag.report(e, st, where: 'DriveAuth.disconnect');
       // Already gone, or offline — either way the local grant is dropped.

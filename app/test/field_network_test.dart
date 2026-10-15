@@ -400,4 +400,57 @@ void main() {
       );
     }
   });
+
+  group('closing a target never closes the app\'s client', () {
+    /// A client that records whether anyone closed it.
+    _ClosingClient closing() => _ClosingClient();
+
+    test('the shared network ignores close; an injected client is closed', () {
+      final c = closing();
+      FieldNetwork(inner: c, shared: true).close();
+      expect(c.closed, isFalse, reason: 'the app shares this client');
+
+      final own = closing();
+      FieldNetwork(inner: own).close();
+      expect(own.closed, isTrue, reason: 'a client of its own is its to close');
+    });
+
+    test('a target built on the app client leaves it usable', () async {
+      final c = closing();
+      final saved = FieldNetwork.instance;
+      FieldNetwork.instance = FieldNetwork(inner: c, shared: true);
+      try {
+        // What DriveTarget/LanTarget/RelayTarget do: forClient(null) in the
+        // constructor, _net.close() in a finally. Before the shared flag this
+        // closed the process's only client and every later request threw
+        // "Client is already closed" — a Drive backup after the launch sync.
+        FieldNetwork.forClient(null).close();
+        expect(c.closed, isFalse);
+
+        await FieldNetwork.instance.get(
+          Uri.parse('https://www.googleapis.com/drive/v3/files'),
+          EgressPurpose.drive,
+        );
+        expect(c.calls, 1, reason: 'the app can still reach Drive');
+      } finally {
+        FieldNetwork.instance = saved;
+      }
+    });
+  });
+}
+
+/// Records calls and closes; `MockClient` has no close to observe.
+class _ClosingClient extends http.BaseClient {
+  bool closed = false;
+  int calls = 0;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (closed) throw http.ClientException('Client is already closed.');
+    calls++;
+    return http.StreamedResponse(const Stream<List<int>>.empty(), 200);
+  }
+
+  @override
+  void close() => closed = true;
 }

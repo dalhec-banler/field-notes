@@ -41,15 +41,20 @@ class FieldNetwork {
     http.Client? inner,
     Future<BulkVerdict> Function()? bulkVerdict,
     DateTime Function()? clock,
+    this.shared = false,
   }) : _inner = inner ?? http.Client(),
        _policy = bulkVerdict,
        _clock = clock ?? _wallClock;
+
+  /// True for the app's own network. A shared network ignores [close]: it
+  /// has to outlive every target built on it.
+  final bool shared;
 
   static DateTime _wallClock() => DateTime.now();
 
   /// The app's client. Screens and services that are not handed one use
   /// this; [install] gives it the network policy once prefs are loaded.
-  static FieldNetwork instance = FieldNetwork();
+  static FieldNetwork instance = FieldNetwork(shared: true);
 
   /// The constructor seam every service keeps for its tests: a mocked
   /// `http.Client` is wrapped, so the allowlist still applies to it; null
@@ -64,6 +69,7 @@ class FieldNetwork {
       inner: instance._inner,
       bulkVerdict: bulkVerdict,
       clock: instance._clock,
+      shared: true,
     );
   }
 
@@ -164,7 +170,18 @@ class FieldNetwork {
     return _inner.send(request);
   }
 
-  void close() => _inner.close();
+  /// Done with a network of one's own. The app's [instance] ignores this.
+  ///
+  /// Every target takes `http.Client? client` for its tests and passes it to
+  /// [forClient], which answers with [instance] when the client is null — so
+  /// `DriveTarget.close()` in a `finally` was closing the client the whole
+  /// app shares, and every request after the session's first Drive call
+  /// threw "Client is already closed" (a Drive backup, 2026-10-15). A target
+  /// closes the client it was given, never the one it borrowed.
+  void close() {
+    if (shared) return;
+    _inner.close();
+  }
 
   // ── the gate ───────────────────────────────────────────────────────
 
