@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../services/diag.dart';
+
 import '../../db/database.dart';
 import '../../protocols/indicators.dart';
 import '../../protocols/protocol_service.dart';
@@ -83,6 +85,30 @@ class _SiteDetailScreenState extends State<SiteDetailScreen> {
     await _load();
   }
 
+  /// Only offered while the stake has no history; past that the honest
+  /// action is to stop asking, which keeps the visits.
+  Future<void> _delete() async {
+    final ok = await confirmDialog(
+      context,
+      title: 'PULL THIS STAKE?',
+      body:
+          'The site has no visits yet, so nothing is lost. Put another one '
+          'in wherever it should have gone.',
+      confirmLabel: 'PULL IT',
+    );
+    if (!ok) return;
+    try {
+      await _svc.deleteSite(_site.id);
+    } catch (e, st) {
+      Diag.report(e, st, where: 'SiteDetailScreen._delete');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
+  }
+
   String _change() {
     if (_runs.length < 2) return '';
     final latest = _runs[0].$2;
@@ -107,6 +133,12 @@ class _SiteDetailScreenState extends State<SiteDetailScreen> {
       appBar: AppBar(
         title: Text(s.name),
         actions: [
+          if (_runs.isEmpty)
+            IconButton(
+              tooltip: 'Pull this stake',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _delete,
+            ),
           IconButton(
             tooltip: s.retiredOn == null ? 'Stop asking here' : 'Bring back',
             icon: Icon(

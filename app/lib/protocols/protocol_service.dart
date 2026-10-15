@@ -209,6 +209,29 @@ class ProtocolService {
         ),
       );
 
+  /// Pull a stake that was never visited.
+  ///
+  /// A site with history is retired, never deleted: the point of monitoring
+  /// is that the record outlives the question. A site with no visits is
+  /// usually one put in the wrong place a minute ago, and leaving it on the
+  /// map as "retired" is worse than letting it go.
+  Future<void> deleteSite(String siteId) async {
+    final runs = await (db.select(
+      db.protocolRuns,
+    )..where((r) => r.siteId.equals(siteId))).get();
+    if (runs.isNotEmpty) {
+      throw StateError('That site has visits — stop asking here instead.');
+    }
+    await (db.update(
+      db.protocolSites,
+    )..where((s) => s.id.equals(siteId))).write(
+      ProtocolSitesCompanion(
+        deletedAt: Value(nowUtcIso()),
+        updatedAt: Value(nowUtcIso()),
+      ),
+    );
+  }
+
   // ---- Runs ----------------------------------------------------------
 
   /// Saves one visit: the observation row first (the record), then the
@@ -329,13 +352,13 @@ class ProtocolService {
             ..where((r) => r.deletedAt.isNull()))
           .getSingleOrNull();
 
-  Future<Protocol?> protocolById(String id) =>
-      (db.select(db.protocols)..where((p) => p.id.equals(id)))
-          .getSingleOrNull();
+  Future<Protocol?> protocolById(String id) => (db.select(
+    db.protocols,
+  )..where((p) => p.id.equals(id))).getSingleOrNull();
 
-  Future<ProtocolSite?> siteById(String id) =>
-      (db.select(db.protocolSites)..where((s) => s.id.equals(id)))
-          .getSingleOrNull();
+  Future<ProtocolSite?> siteById(String id) => (db.select(
+    db.protocolSites,
+  )..where((s) => s.id.equals(id))).getSingleOrNull();
 
   /// Answers, as a map, or empty when the JSON is unreadable.
   static Map<String, dynamic> valuesOf(ProtocolRun run) {
